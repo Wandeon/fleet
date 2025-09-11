@@ -1,5 +1,7 @@
 version: "3.9"
 services:
   audio-placeholder:
-    image: hello-world
+    image: alpine:3
+    command: ["sh","-c","sleep infinity"]
     restart: unless-stopped
+
