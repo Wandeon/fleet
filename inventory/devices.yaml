@@ -1,3 +1,5 @@
 devices:
   pi-audio-01:
-    role: audio
+    role: audio-player
+  pi-audio-02:
+    role: audio-player

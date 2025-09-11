@@ -1,0 +1,4 @@
+[
+  { "targets": ["pi-audio-01:8081"], "labels": {"role": "audio-player", "instance": "pi-audio-01"} },
+  { "targets": ["pi-audio-02:8081"], "labels": {"role": "audio-player", "instance": "pi-audio-02"} }
+]

@@ -4,7 +4,13 @@
 2) Boot, login, update packages:
    ```bash
    sudo apt update && sudo apt upgrade -y
-   sudo apt install -y git curl docker.io docker-compose-plugin tailscale sops jq
+   sudo apt install -y git curl docker.io docker-compose-plugin tailscale sops jq alsa-utils
+   ```
+2.1) Set the hostname to match `inventory/devices.yaml` and reboot:
+   ```bash
+   # Choose one hostname listed in inventory, e.g. pi-audio-01 or pi-audio-02
+   sudo hostnamectl set-hostname pi-audio-01
+   sudo reboot
    ```
 3) Join Tailscale:
    ```bash

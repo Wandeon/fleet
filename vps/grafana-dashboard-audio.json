@@ -1,0 +1,28 @@
+{
+  "title": "Audio Player",
+  "panels": [
+    {
+      "type": "stat",
+      "title": "Software Volume",
+      "targets": [{"expr": "audio_volume"}],
+      "gridPos": {"h": 4, "w": 8, "x": 0, "y": 0}
+    },
+    {
+      "type": "stat",
+      "title": "Fallback Exists",
+      "targets": [{"expr": "audio_fallback_exists"}],
+      "gridPos": {"h": 4, "w": 8, "x": 8, "y": 0}
+    },
+    {
+      "type": "graph",
+      "title": "Source State",
+      "targets": [
+        {"expr": "audio_source_state{source=\"stream\"}", "legendFormat": "stream"},
+        {"expr": "audio_source_state{source=\"file\"}", "legendFormat": "file"},
+        {"expr": "audio_source_state{source=\"stop\"}", "legendFormat": "stop"}
+      ],
+      "gridPos": {"h": 8, "w": 16, "x": 0, "y": 4}
+    }
+  ],
+  "time": {"from": "now-6h", "to": "now"}
+}

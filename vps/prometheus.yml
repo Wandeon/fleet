@@ -18,3 +18,8 @@ scrape_configs:
   - job_name: 'prometheus'
     static_configs:
       - targets: ['prometheus:9090']
+  - job_name: 'audio-player'
+    metrics_path: /metrics
+    file_sd_configs:
+      - files:
+          - /etc/prometheus/targets/audio.json

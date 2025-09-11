@@ -1,6 +1,31 @@
+version: "3.9"
 services:
-  audio-placeholder:
-    image: alpine:3
-    command: ["sh","-c","sleep infinity"]
+  audio-streamer:
+    image: lscr.io/linuxserver/ffmpeg:latest
+    container_name: audio-streamer
     restart: unless-stopped
+    # Access ALSA device for capturing audio
+    devices:
+      - "/dev/snd:/dev/snd"
+    group_add:
+      - "audio"
+    environment:
+      # ALSA capture device and encoding params
+      - AUDIO_ALSA_DEVICE=${AUDIO_ALSA_DEVICE:-hw:1,0}
+      - AUDIO_RATE=${AUDIO_RATE:-48000}
+      - AUDIO_CHANNELS=${AUDIO_CHANNELS:-2}
+      - AUDIO_BITRATE=${AUDIO_BITRATE:-128k}
+      # Icecast connection settings (provided via env / SOPS)
+      - ICECAST_HOST=${ICECAST_HOST}
+      - ICECAST_PORT=${ICECAST_PORT:-8000}
+      - ICECAST_USER=${ICECAST_USER:-source}
+      - ICECAST_PASSWORD=${ICECAST_PASSWORD}
+      - ICECAST_MOUNT=${ICECAST_MOUNT:-${HOSTNAME}.opus}
+      - ICECAST_NAME=${ICECAST_NAME:-${HOSTNAME}}
+    command: >-
+      ffmpeg -hide_banner -loglevel info
+      -f alsa -ac ${AUDIO_CHANNELS} -ar ${AUDIO_RATE} -i ${AUDIO_ALSA_DEVICE}
+      -c:a libopus -b:a ${AUDIO_BITRATE} -application audio -frame_duration 20 -compression_level 10 -vbr on
+      -content_type audio/ogg -f ogg
+      "icecast://${ICECAST_USER}:${ICECAST_PASSWORD}@${ICECAST_HOST}:${ICECAST_PORT}/${ICECAST_MOUNT}?ice_name=${ICECAST_NAME}"
 

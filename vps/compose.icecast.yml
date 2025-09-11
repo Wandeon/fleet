@@ -1,0 +1,23 @@
+version: "3.9"
+services:
+  icecast:
+    image: dockage/icecast:2.4.4
+    container_name: icecast
+    restart: unless-stopped
+    ports:
+      - "8000:8000"
+    environment:
+      ICECAST_SOURCE_PASSWORD: ${ICECAST_SOURCE_PASSWORD}
+      ICECAST_ADMIN_PASSWORD: ${ICECAST_ADMIN_PASSWORD}
+      ICECAST_RELAY_PASSWORD: ${ICECAST_RELAY_PASSWORD:-relaypass}
+      ICECAST_LOCATION: ${ICECAST_LOCATION:-VPS}
+      ICECAST_HOSTNAME: ${ICECAST_HOSTNAME:-icecast}
+      ICECAST_MAX_CLIENTS: ${ICECAST_MAX_CLIENTS:-100}
+    volumes:
+      - icecast-data:/var/lib/icecast
+      - icecast-log:/var/log/icecast2
+
+volumes:
+  icecast-data: {}
+  icecast-log: {}
+
