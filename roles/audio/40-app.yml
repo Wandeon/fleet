@@ -1,0 +1,5 @@
+version: "3.9"
+services:
+  audio-placeholder:
+    image: hello-world
+    restart: unless-stopped
