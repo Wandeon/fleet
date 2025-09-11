@@ -1,4 +1,5 @@
 #cloud-config
+---
 package_update: true
 packages:
   - git
@@ -6,8 +7,19 @@ packages:
   - docker.io
   - docker-compose-plugin
   - tailscale
-  - sops
 runcmd:
+  - |
+      ARCH=$(uname -m)
+      SOPS_VERSION="v3.8.1"
+      case "$ARCH" in
+        armv7l) SOPS_ARCH="armv7" ;;
+        aarch64) SOPS_ARCH="arm64" ;;
+        x86_64) SOPS_ARCH="amd64" ;;
+        *) SOPS_ARCH="$ARCH" ;;
+      esac
+      SOPS_URL="https://github.com/getsops/sops/releases/download/${SOPS_VERSION}/sops-${SOPS_VERSION}.linux.${SOPS_ARCH}"
+      curl -L "$SOPS_URL" -o /usr/local/bin/sops
+      chmod +x /usr/local/bin/sops
   - tailscale up --authkey <YOUR-PREAUTH-KEY>
   - mkdir -p /opt && cd /opt
   - git clone https://github.com/<your-org>/fleet.git
