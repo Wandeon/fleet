@@ -1,3 +1,4 @@
+---
 version: "3.9"
 services:
   prometheus:
@@ -12,9 +13,9 @@ services:
     restart: unless-stopped
     ports:
       - "3000:3000"
-    environment:
-      - GF_SECURITY_ADMIN_USER=admin
-      - GF_SECURITY_ADMIN_PASSWORD=admin
+    # Credentials are provided via monitoring.env
+    env_file:
+      - ./monitoring.env
     volumes:
       - grafana-data:/var/lib/grafana
   blackbox:
