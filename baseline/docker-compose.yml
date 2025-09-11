@@ -1,0 +1,24 @@
+version: "3.9"
+services:
+  netdata:
+    image: netdata/netdata:stable
+    hostname: ${HOSTNAME:-pi}
+    restart: unless-stopped
+    network_mode: host
+    cap_add:
+      - SYS_PTRACE
+      - SYS_ADMIN
+    security_opt:
+      - apparmor:unconfined
+    volumes:
+      - netdata-data:/var/lib/netdata
+      - netdata-cache:/var/cache/netdata
+      - /etc/passwd:/host/etc/passwd:ro
+      - /etc/group:/host/etc/group:ro
+      - /proc:/host/proc:ro
+      - /sys:/host/sys:ro
+      - /etc/os-release:/host/etc/os-release:ro
+
+volumes:
+  netdata-data: {}
+  netdata-cache: {}

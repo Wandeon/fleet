@@ -1,0 +1,30 @@
+name: CI
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  validate-and-build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Validate Compose files
+        run: |
+          docker compose -f baseline/docker-compose.yml config >/dev/null
+          for d in roles/*; do
+            if [ -f "$d/40-app.yml" ]; then
+              docker compose -f baseline/docker-compose.yml -f "$d/40-app.yml" config >/dev/null
+            fi
+          done
+
+      - name: Lint YAML
+        uses: ibiqlik/action-yamllint@v3
+        with:
+          config_file: .yamllint.yml
+
+      - name: Build sample image (placeholder)
+        run: echo "Build images here or via separate workflows"

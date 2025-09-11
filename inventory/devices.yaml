@@ -1,0 +1,3 @@
+devices:
+  pi-camera-01:
+    role: camera

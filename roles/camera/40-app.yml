@@ -1,0 +1,9 @@
+version: "3.9"
+services:
+  example-app:
+    image: ghcr.io/your-org/example-app:latest
+    restart: unless-stopped
+    environment:
+      - EXAMPLE_FROM_ENV=${CAMERA_EXAMPLE_VAR:-default}
+    ports:
+      - "9000:9000"

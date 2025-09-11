@@ -1,0 +1,17 @@
+#cloud-config
+package_update: true
+packages:
+  - git
+  - curl
+  - docker.io
+  - docker-compose-plugin
+  - tailscale
+  - sops
+runcmd:
+  - tailscale up --authkey <YOUR-PREAUTH-KEY>
+  - mkdir -p /opt && cd /opt
+  - git clone https://github.com/<your-org>/fleet.git
+  - cp /opt/fleet/agent/role-agent.service /etc/systemd/system/
+  - cp /opt/fleet/agent/role-agent.timer /etc/systemd/system/
+  - systemctl daemon-reload
+  - systemctl enable --now role-agent.timer

@@ -1,0 +1,15 @@
+[Unit]
+Description=Fleet GitOps converger
+After=network-online.target tailscaled.service docker.service
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+ExecStart=/opt/fleet/agent/role-agent.sh
+User=root
+WorkingDirectory=/opt/fleet
+StandardOutput=journal
+StandardError=journal
+
+[Install]
+WantedBy=multi-user.target
