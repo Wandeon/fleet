@@ -5,6 +5,14 @@ ROLE=""
 REPO_DIR="/opt/fleet"
 AGE_KEY_FILE="/etc/fleet/age.key"
 
+# Ensure required commands exist
+for cmd in git docker sops jq; do
+  if ! command -v "$cmd" >/dev/null 2>&1; then
+    echo "ERROR: required command '$cmd' not found"
+    exit 1
+  fi
+done
+
 # Determine role from inventory/devices.yaml by hostname
 HOSTNAME_ACTUAL=$(hostname)
 ROLE=$(awk -v h="$HOSTNAME_ACTUAL" '
@@ -36,19 +44,27 @@ if [[ -f "$ENC_ENV" ]]; then
   export SOPS_AGE_KEY_FILE="$AGE_KEY_FILE"
   TMP_ENV="/run/${ROLE}.env"
   sops --decrypt "$ENC_ENV" > "$TMP_ENV"
-  export $(grep -v '^#' "$TMP_ENV" | xargs)
+  set -a
+  # shellcheck source=/dev/null
+  source "$TMP_ENV"
+  set +a
   rm -f "$TMP_ENV"
 fi
 
 # Compose files (baseline + role, with lexical mix-ins if present)
 BASE="$REPO_DIR/baseline/docker-compose.yml"
 ROLE_DIR="$REPO_DIR/roles/$ROLE"
-ROLE_OVERRIDES=$(find "$ROLE_DIR" -maxdepth 1 -type f -name '*.yml' | sort)
+readarray -t ROLE_OVERRIDES < <(find "$ROLE_DIR" -maxdepth 1 -type f -name '*.yml' | sort)
 
 COMMIT=$(git -C "$REPO_DIR" rev-parse --short HEAD)
 PROJECT="${ROLE}_${COMMIT}"
 
-docker compose -p "$PROJECT" -f "$BASE" $(for f in $ROLE_OVERRIDES; do printf -- ' -f %s' "$f"; done) up -d --remove-orphans
+COMPOSE_FILES=("-f" "$BASE")
+for f in "${ROLE_OVERRIDES[@]}"; do
+  COMPOSE_FILES+=("-f" "$f")
+done
+
+docker compose -p "$PROJECT" "${COMPOSE_FILES[@]}" up -d --remove-orphans
 
 # Cleanup old projects for same role
 docker compose ls --format json | jq -r '.[] | .Name' | grep "^${ROLE}_" | grep -v "$PROJECT" | while read -r OLD; do
