@@ -1,7 +1,0 @@
-services:
-  audio-placeholder:
-    image: alpine:3
-    command: ["sh","-c","sleep infinity"]
-    restart: unless-stopped
-
-
