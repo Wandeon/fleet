@@ -150,7 +150,8 @@ services:
       - -lc
       - |
         set -e
-        apk add --no-cache alsa-utils
+        apk add --no-cache alsa-utils ca-certificates
+        update-ca-certificates || true
         python3 -m ensurepip --upgrade || true
         python3 -m pip install --no-cache-dir --upgrade pip
         python3 -m pip install --no-cache-dir flask
