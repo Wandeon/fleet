@@ -63,6 +63,9 @@ docker compose -f vps/compose.prom-grafana-blackbox.yml up -d prometheus
 
 > If `AUDIO_CONTROL_TOKEN` is set, Prometheus must access without auth. Keep :8081 accessible only on your private network (e.g., Tailscale) and restrict who can reach it.
 
+Health:
+- Each player exposes `GET /healthz`; the control container also has an internal healthcheck.
+
 ## Optional: API Reverse Proxy
 
 If you prefer to access a Pi’s control API via the VPS hostname, set up an Nginx proxy (single target example):

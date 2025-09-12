@@ -36,5 +36,10 @@
    ```bash
    sudo chmod +x /opt/fleet/agent/role-agent.sh || true
    ```
+
+   Verify the unit uses bash to execute the agent (avoids execute‑bit issues):
+   ```bash
+   systemctl cat role-agent.service | grep -F "ExecStart=/usr/bin/env bash" -n || true
+   ```
 6) Assign a role in `inventory/devices.yaml` and commit to `main`.
 7) Confirm convergence in ~2 minutes (Netdata, Uptime Kuma, Docker containers running).

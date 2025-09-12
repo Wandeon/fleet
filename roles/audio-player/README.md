@@ -15,6 +15,12 @@ Notes:
 - Ensure the HiFiBerry overlay is enabled (see `docs/runbooks/audio.md`).
 - If you don’t hear audio, run `aplay -l` to confirm the device index, and try `speaker-test -D hw:0,0` to validate output.
 
+Container/runtime notes:
+
+- No fixed `container_name` is set; the agent launches a commit‑keyed compose project. Use `docker compose ls` and `docker ps | grep audio-` to discover names.
+- The control container installs Flask at startup using the interpreter’s pip (`ensurepip` + `python3 -m pip`). The device must have outbound network access on first run. Consider baking a tiny image if startup time matters.
+- A healthcheck probes `/healthz` inside the container. You can query it via `curl http://<pi>:8081/healthz`.
+
 Controller API (audio-control on port 8081):
 
 - `GET /status`: current config + whether fallback exists

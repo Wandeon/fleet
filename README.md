@@ -105,6 +105,12 @@ To add more devices, insert hostnames under `devices:` and set their roles.
   - `... set-url http://<vps>:8000/<mount>` / `... upload fallback.mp3` / `... play file` / `... volume 0.8`
 - Monitoring: create `vps/targets-audio.json` and restart Prometheus service from the compose stack.
 
+Tips:
+- Containers are project-keyed by commit (no fixed `container_name`). Use filters to inspect:
+  - `docker compose ls` and `docker ps | grep audio-`
+- Control API health endpoint: `curl -fsS http://<pi>:8081/healthz` (container has an internal healthcheck too).
+- Env defaults suppress ICECAST warnings until you configure `STREAM_URL` (or `ICECAST_*`).
+
 ## Project Status & Next Steps
 
 - Implemented:
