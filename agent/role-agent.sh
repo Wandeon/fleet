@@ -1,6 +1,9 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
+# Make repo safe for git operations when ownership differs
+git config --system --add safe.directory /opt/fleet 2>/dev/null || true
+
 ROLE=""
 REPO_DIR="/opt/fleet"
 AGE_KEY_FILE="/etc/fleet/age.key"

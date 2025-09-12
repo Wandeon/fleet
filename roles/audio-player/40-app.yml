@@ -11,9 +11,9 @@ services:
       - AUDIO_VOLUME=${AUDIO_VOLUME:-1.0}
       - STREAM_URL=${STREAM_URL:-${ICECAST_SCHEME:-http}://${ICECAST_HOST}:${ICECAST_PORT:-8000}/${ICECAST_MOUNT}}
       - ICECAST_SCHEME=${ICECAST_SCHEME:-http}
-      - ICECAST_HOST=${ICECAST_HOST}
+      - ICECAST_HOST=${ICECAST_HOST:-}
       - ICECAST_PORT=${ICECAST_PORT:-8000}
-      - ICECAST_MOUNT=${ICECAST_MOUNT}
+      - ICECAST_MOUNT=${ICECAST_MOUNT:-}
       - FALLBACK_FILE=${FALLBACK_FILE:-/data/fallback.mp3}
     volumes:
       - audio_data:/data
@@ -143,6 +143,12 @@ services:
       - MIXER_CONTROL=${AUDIO_MIXER_CONTROL:-Master}
     volumes:
       - audio_data:/data
+    healthcheck:
+      test: ["CMD-SHELL", "python3 - <<'PY'\nimport urllib.request,sys; urllib.request.urlopen('http://127.0.0.1:8081/healthz', timeout=2); sys.exit(0)\nPY"]
+      interval: 10s
+      timeout: 3s
+      retries: 5
+      start_period: 10s
     command:
       - sh
       - -lc
