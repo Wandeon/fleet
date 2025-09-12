@@ -85,7 +85,7 @@ if [[ -f "/opt/fleet/.env" ]]; then
   DOCKER_ARGS+=("--env-file" "/opt/fleet/.env")
 fi
 
-docker compose "${DOCKER_ARGS[@]}" -p "$PROJECT" "${COMPOSE_FILES[@]}" up -d --remove-orphans
+docker compose "${DOCKER_ARGS[@]}" -p "$PROJECT" "${COMPOSE_FILES[@]}" up -d --build --remove-orphans
 
 # Cleanup old projects for same role
 mapfile -t OLD_PROJECTS < <(docker compose ls --format json | jq -r '.[] | .Name' | grep "^${ROLE}_" | grep -v "$PROJECT" || true)
@@ -94,4 +94,8 @@ for OLD in "${OLD_PROJECTS[@]}"; do
 done
 
 echo "Converged role=$ROLE project=$PROJECT"
+
+# Reclaim space: remove dangling images (old commit builds)
+docker image prune -f >/dev/null 2>&1 || true
+
 exit 0

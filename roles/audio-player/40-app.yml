@@ -19,6 +19,12 @@ services:
       - FALLBACK_FILE=${FALLBACK_FILE:-/data/fallback.mp3}
     volumes:
       - audio_data:/data
+    healthcheck:
+      test: ["CMD-SHELL", "pgrep -f 'ffmpeg.*alsa' >/dev/null 2>&1"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+      start_period: 15s
     command:
       - sh
       - -lc

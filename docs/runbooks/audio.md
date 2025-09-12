@@ -61,6 +61,8 @@ Use this when the Pi is a listener that plays audio out to an ALSA device (e.g.,
 
 4) After convergence, the `audio-player` container starts and plays from the configured Icecast mount to your ALSA device.
 
+Note: On first converge after repo updates, Compose builds the small `audio-player` and `audio-control` images on-device; this takes a bit longer only the first time.
+
 ### Fallback File and Control API
 
 - The player automatically falls back to a local file if the stream is unavailable (auto mode). Upload a fallback file via the API as `/data/fallback.mp3`.

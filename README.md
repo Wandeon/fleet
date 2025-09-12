@@ -111,6 +111,8 @@ Tips:
   - `docker compose ls` and `docker ps | grep audio-`
 - Control API health endpoint: `curl -fsS http://<pi>:8081/healthz` (container has an internal healthcheck too).
 - Env defaults suppress ICECAST warnings until you configure `STREAM_URL` (or `ICECAST_*`).
+- Acceptance check from VPS:
+  - `SSH_USER=admin AUDIOCTL_TOKEN=<tok> ICECAST_URL=http://<vps>:8000/<mount> ./scripts/acceptance.sh pi-audio-01 pi-audio-02`
 
 ## Project Status & Next Steps
 

@@ -36,6 +36,12 @@ docker compose -f vps/compose.icecast.yml --env-file vps/icecast.env up -d
 - Visit `http://<vps-host>:8000` to see the Icecast status page.
 - When a Pi connects, a mount (e.g., `/pi-audio-01.opus`) appears.
 
+4) Verify effective config inside container (passwords match env):
+
+```bash
+docker exec icecast sh -lc "grep -o '<source-password>.*</source-password>' /etc/icecast.xml || true"
+```
+
 ### Network Access
 
 - If using a public VPS, open TCP port `8000` in your firewall (or change the published port in `vps/compose.icecast.yml`).

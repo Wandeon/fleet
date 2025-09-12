@@ -1,0 +1,10 @@
+# Env files and secrets
+*.env
+vps/icecast.env
+
+# OS metadata
+.DS_Store
+
+# Backups
+*.bak
+*.backup
