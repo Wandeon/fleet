@@ -31,5 +31,10 @@
    sudo systemctl daemon-reload
    sudo systemctl enable --now role-agent.timer
    ```
+
+   If you created the files manually or copied them from a Windows host, ensure the agent script is executable (or rely on the updated service that invokes bash explicitly):
+   ```bash
+   sudo chmod +x /opt/fleet/agent/role-agent.sh || true
+   ```
 6) Assign a role in `inventory/devices.yaml` and commit to `main`.
 7) Confirm convergence in ~2 minutes (Netdata, Uptime Kuma, Docker containers running).

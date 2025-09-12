@@ -150,9 +150,11 @@ services:
       - -lc
       - |
         set -e
-        apk add --no-cache alsa-utils py3-pip
+        apk add --no-cache alsa-utils
+        python3 -m ensurepip --upgrade || true
         python3 -m pip install --no-cache-dir --upgrade pip
         python3 -m pip install --no-cache-dir flask
+        python3 -c "import flask; print('Flask', flask.__version__)" || exit 1
         mkdir -p /app
         cat > /app/app.py <<"PY" 
         from flask import Flask, request, jsonify, Response

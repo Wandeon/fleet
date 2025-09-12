@@ -5,7 +5,7 @@ Wants=network-online.target
 
 [Service]
 Type=oneshot
-ExecStart=/opt/fleet/agent/role-agent.sh
+ExecStart=/usr/bin/env bash /opt/fleet/agent/role-agent.sh
 User=root
 WorkingDirectory=/opt/fleet
 StandardOutput=journal
