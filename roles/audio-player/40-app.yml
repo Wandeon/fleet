@@ -1,4 +1,3 @@
-version: "3.9"
 services:
   audio-player:
     image: python:3.11-alpine
@@ -19,9 +18,14 @@ services:
       - FALLBACK_FILE=${FALLBACK_FILE:-/data/fallback.mp3}
     volumes:
       - audio_data:/data
-    command: >-
-      sh -lc '
-        set -e; apk add --no-cache ffmpeg alsa-utils inotify-tools jq; mkdir -p /app; cat > /app/player.py <<"PY" 
+    command:
+      - sh
+      - -lc
+      - |
+        set -e
+        apk add --no-cache ffmpeg alsa-utils inotify-tools jq
+        mkdir -p /app
+        cat > /app/player.py <<"PY"
         import json, os, subprocess, sys, time, signal
         DATA = "/data"
         CFG_PATH = os.path.join(DATA, "config.json")
@@ -125,7 +129,6 @@ services:
             main()
         PY
         python /app/player.py
-      '
 
   audio-control:
     image: python:3.11-alpine
@@ -142,9 +145,14 @@ services:
       - MIXER_CONTROL=${AUDIO_MIXER_CONTROL:-Master}
     volumes:
       - audio_data:/data
-    command: >-
-      sh -lc '
-        set -e; apk add --no-cache py3-flask alsa-utils; mkdir -p /app; cat > /app/app.py <<"PY" 
+    command:
+      - sh
+      - -lc
+      - |
+        set -e
+        apk add --no-cache py3-flask alsa-utils
+        mkdir -p /app
+        cat > /app/app.py <<"PY" 
         from flask import Flask, request, jsonify, Response
         import os, json, subprocess, re
         BIND = os.environ.get("CONTROL_BIND","0.0.0.0")
@@ -264,7 +272,6 @@ services:
           app.run(host=BIND, port=PORT)
         PY
         python /app/app.py
-      '
 
 volumes:
   audio_data: {}
