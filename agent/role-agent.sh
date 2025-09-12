@@ -71,7 +71,21 @@ for f in "${ROLE_OVERRIDES[@]}"; do
   COMPOSE_FILES+=("-f" "$f")
 done
 
-docker compose -p "$PROJECT" "${COMPOSE_FILES[@]}" up -d --remove-orphans
+# Proactively stop and remove any old projects for this role (avoid port conflicts)
+mapfile -t OLD_PROJECTS_PRE < <(docker compose ls --format json | jq -r '.[] | .Name' | grep "^${ROLE}_" || true)
+for OLD in "${OLD_PROJECTS_PRE[@]}"; do
+  if [[ "$OLD" != "$PROJECT" ]]; then
+    docker compose -p "$OLD" down --volumes || true
+  fi
+done
+
+# Optional env-file support from repo root
+DOCKER_ARGS=()
+if [[ -f "/opt/fleet/.env" ]]; then
+  DOCKER_ARGS+=("--env-file" "/opt/fleet/.env")
+fi
+
+docker compose "${DOCKER_ARGS[@]}" -p "$PROJECT" "${COMPOSE_FILES[@]}" up -d --remove-orphans
 
 # Cleanup old projects for same role
 mapfile -t OLD_PROJECTS < <(docker compose ls --format json | jq -r '.[] | .Name' | grep "^${ROLE}_" | grep -v "$PROJECT" || true)
@@ -80,3 +94,4 @@ for OLD in "${OLD_PROJECTS[@]}"; do
 done
 
 echo "Converged role=$ROLE project=$PROJECT"
+exit 0

@@ -11,6 +11,7 @@ If you only read one file to understand and operate the system, read this README
   - `roles/audio-player/40-app.yml:1` - Audio playback with fallback and control API
 - `inventory/devices.yaml:1` - maps device hostnames to roles
 - `host-config/common:1` - host OS configs (e.g., Docker daemon)
+- `host-config/raspi-hifiberry.md:1` - HiFiBerry overlay + ALSA defaults
 - `agent/role-agent.sh:1` - convergence agent that applies baseline + role
 - `vps/*.yml` - VPS Compose stacks (Icecast, Prometheus, Grafana, Blackbox, etc.)
   - `vps/compose.icecast.yml:1`, `vps/icecast.env.example:1`
@@ -49,7 +50,7 @@ To add more devices, insert hostnames under `devices:` and set their roles.
   - `audio-player` service: supervises `ffmpeg`, plays stream to ALSA, auto-fallback to local file `/data/fallback.mp3`, then back to stream when healthy.
   - `audio-control` service: HTTP API on `:8081` for control and status, token-auth capable, exposes Prometheus metrics, optional hardware mixer control.
   - Configure via env (use SOPS): `roles/audio-player/.env.example:1`
-    - Output: `AUDIO_OUTPUT_DEVICE` (e.g., `hw:0,0` for HiFiBerry DAC+ Zero)
+    - Output: `AUDIO_OUTPUT_DEVICE` (default `plughw:0,0` for HiFiBerry DAC+ Zero)
     - Stream: `STREAM_URL` (or `ICECAST_*` parts)
     - Control: `AUDIO_CONTROL_TOKEN` (Bearer token)
     - Optional hardware mixer: `AUDIO_MIXER_CARD`, `AUDIO_MIXER_CONTROL`

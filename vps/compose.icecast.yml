@@ -6,6 +6,8 @@ services:
     restart: unless-stopped
     ports:
       - "8000:8000"
+    env_file:
+      - vps/icecast.env
     environment:
       ICECAST_SOURCE_PASSWORD: ${ICECAST_SOURCE_PASSWORD}
       ICECAST_ADMIN_PASSWORD: ${ICECAST_ADMIN_PASSWORD}
@@ -20,4 +22,3 @@ services:
 volumes:
   icecast-data: {}
   icecast-log: {}
-

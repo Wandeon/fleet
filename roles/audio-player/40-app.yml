@@ -1,13 +1,15 @@
 services:
   audio-player:
-    image: python:3.11-alpine
+    build:
+      context: roles/audio-player/docker
+      dockerfile: audio-player.Dockerfile
     restart: unless-stopped
     devices:
       - "/dev/snd:/dev/snd"
     group_add:
       - "audio"
     environment:
-      - AUDIO_OUTPUT_DEVICE=${AUDIO_OUTPUT_DEVICE:-hw:0,0}
+      - AUDIO_OUTPUT_DEVICE=${AUDIO_OUTPUT_DEVICE:-plughw:0,0}
       - AUDIO_VOLUME=${AUDIO_VOLUME:-1.0}
       - STREAM_URL=${STREAM_URL:-${ICECAST_SCHEME:-http}://${ICECAST_HOST}:${ICECAST_PORT:-8000}/${ICECAST_MOUNT}}
       - ICECAST_SCHEME=${ICECAST_SCHEME:-http}
@@ -22,7 +24,6 @@ services:
       - -lc
       - |
         set -e
-        apk add --no-cache ffmpeg alsa-utils inotify-tools jq
         mkdir -p /app
         cat > /app/player.py <<"PY"
         import json, os, subprocess, sys, time, signal
@@ -130,7 +131,9 @@ services:
         exec python3 /app/player.py
 
   audio-control:
-    image: python:3.11-alpine
+    build:
+      context: roles/audio-player/docker
+      dockerfile: audio-control.Dockerfile
     restart: unless-stopped
     ports:
       - "8081:8081"
@@ -154,12 +157,7 @@ services:
       - -lc
       - |
         set -e
-        apk add --no-cache alsa-utils ca-certificates
-        update-ca-certificates || true
-        python3 -m ensurepip --upgrade || true
-        python3 -m pip install --no-cache-dir --upgrade pip
-        python3 -m pip install --no-cache-dir flask
-        python3 -c "import flask; print('Flask', flask.__version__)" || exit 1
+        # Flask and dependencies are preinstalled in the image
         mkdir -p /app
         cat > /app/app.py <<"PY" 
         from flask import Flask, request, jsonify, Response
