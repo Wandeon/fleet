@@ -1,7 +1,6 @@
 services:
   audio-player:
     image: python:3.11-alpine
-    container_name: audio-player
     restart: unless-stopped
     devices:
       - "/dev/snd:/dev/snd"
@@ -132,7 +131,6 @@ services:
 
   audio-control:
     image: python:3.11-alpine
-    container_name: audio-control
     restart: unless-stopped
     ports:
       - "8081:8081"
