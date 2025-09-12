@@ -128,7 +128,7 @@ services:
             signal.signal(signal.SIGTERM, lambda s,f: sys.exit(0))
             main()
         PY
-        python /app/player.py
+        python3 /app/player.py
 
   audio-control:
     image: python:3.11-alpine
@@ -150,7 +150,7 @@ services:
       - -lc
       - |
         set -e
-        apk add --no-cache py3-flask alsa-utils
+        apk add --no-cache alsa-utils && python3 -m pip install --no-cache-dir flask
         mkdir -p /app
         cat > /app/app.py <<"PY" 
         from flask import Flask, request, jsonify, Response
@@ -271,7 +271,7 @@ services:
           if not os.path.exists(CFG): save(load())
           app.run(host=BIND, port=PORT)
         PY
-        python /app/app.py
+        python3 /app/app.py
 
 volumes:
   audio_data: {}

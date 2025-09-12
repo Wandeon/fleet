@@ -67,7 +67,8 @@ done
 docker compose -p "$PROJECT" "${COMPOSE_FILES[@]}" up -d --remove-orphans
 
 # Cleanup old projects for same role
-docker compose ls --format json | jq -r '.[] | .Name' | grep "^${ROLE}_" | grep -v "$PROJECT" | while read -r OLD; do
+old_projects=$(docker compose ls --format json | jq -r '.[] | .Name' | grep "^${ROLE}_" | grep -v "$PROJECT" || true)
+for OLD in $old_projects; do
   docker compose -p "$OLD" down --volumes || true
 done
 
