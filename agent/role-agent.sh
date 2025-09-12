@@ -6,7 +6,7 @@ REPO_DIR="/opt/fleet"
 AGE_KEY_FILE="/etc/fleet/age.key"
 
 # Ensure required commands exist
-for cmd in git docker sops jq; do
+for cmd in git docker jq; do
   if ! command -v "$cmd" >/dev/null 2>&1; then
     echo "ERROR: required command '$cmd' not found"
     exit 1
@@ -37,6 +37,10 @@ fi
 # Decrypt role env if present
 ENC_ENV="$REPO_DIR/roles/$ROLE/.env.sops.enc"
 if [[ -f "$ENC_ENV" ]]; then
+  if ! command -v sops >/dev/null 2>&1; then
+    echo "ERROR: required command 'sops' not found for env decryption"
+    exit 1
+  fi
   if [[ ! -f "$AGE_KEY_FILE" ]]; then
     echo "ERROR: AGE key not found at $AGE_KEY_FILE"
     exit 1
@@ -67,7 +71,8 @@ done
 docker compose -p "$PROJECT" "${COMPOSE_FILES[@]}" up -d --remove-orphans
 
 # Cleanup old projects for same role
-docker compose ls --format json | jq -r '.[] | .Name' | grep "^${ROLE}_" | grep -v "$PROJECT" | while read -r OLD; do
+mapfile -t OLD_PROJECTS < <(docker compose ls --format json | jq -r '.[] | .Name' | grep "^${ROLE}_" | grep -v "$PROJECT" || true)
+for OLD in "${OLD_PROJECTS[@]}"; do
   docker compose -p "$OLD" down --volumes || true
 done
 
