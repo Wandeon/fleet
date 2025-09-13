@@ -1,0 +1,12 @@
+[Unit]
+Description=HDMI-CEC TV setup (power on / set input)
+After=multi-user.target
+
+[Service]
+Type=oneshot
+ExecStart=/usr/bin/cec-ctl -s -d1 --to 0 --image-view-on
+RemainAfterExit=yes
+
+[Install]
+WantedBy=multi-user.target
+

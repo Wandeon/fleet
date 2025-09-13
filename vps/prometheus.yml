@@ -23,3 +23,8 @@ scrape_configs:
     file_sd_configs:
       - files:
           - /etc/prometheus/targets/audio.json
+  - job_name: 'media-control'
+    metrics_path: /metrics
+    file_sd_configs:
+      - files:
+          - /etc/prometheus/targets/hdmi-media.json

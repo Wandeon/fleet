@@ -1,0 +1,3 @@
+[
+  { "labels": {"job": "media-control", "role": "pi-tv"}, "targets": ["<pi-ts-ip>:8082"] }
+]
