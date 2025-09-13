@@ -28,3 +28,5 @@ scrape_configs:
     file_sd_configs:
       - files:
           - /etc/prometheus/targets/hdmi-media.json
+rule_files:
+  - /etc/prometheus/alerts.yml

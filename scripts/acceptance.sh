@@ -66,3 +66,12 @@ fi
 
 echo "Done."
 
+# --- Video role hooks (stubs) ---
+# If you later add a video-capture role/API, wire checks here, e.g.:
+# for host in "$@"; do
+#   if curl -fsS "http://${host}:8091/healthz" >/dev/null 2>&1; then
+#     ok "video API healthy (:8091/healthz)"
+#   else
+#     warn "video API not responding on ${host}"
+#   fi
+# done

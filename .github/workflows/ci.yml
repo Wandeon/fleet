@@ -1,0 +1,51 @@
+name: CI
+
+on: [push, pull_request]
+
+jobs:
+  build-test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with: { node-version: '20' }
+
+      - name: API deps
+        working-directory: api
+        run: npm ci || npm i
+
+      - name: API start (smoke)
+        working-directory: api
+        run: node src/server.js & sleep 2 && curl -fsS http://localhost:3005/api/health
+
+      - name: UI deps
+        working-directory: ui
+        run: npm ci || npm i
+
+      - name: UI build
+        working-directory: ui
+        run: npm run build
+
+  quality-budgets:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: '20' }
+      - name: Install Lighthouse CI
+        run: npm i -g @lhci/cli@0.13.x
+      - name: Build UI
+        working-directory: ui
+        run: npm ci || npm i && npm run build && npx serve -s build -l 3006 & sleep 3
+      - name: Run Lighthouse
+        run: |
+          lhci autorun --collect.url=http://localhost:3006 \
+            --assert.assertions="categories:performance:warn,off" \
+            --assert.assertions="performance>=0.8" \
+            --assert.assertions="categories:accessibility>=0.95" \
+            --assert.assertions="uses-long-cache-ttl<=1" \
+            --assert.assertions="total-byte-weight<=200000" \
+            --assert.assertions="unused-css-rules<=50000"
+

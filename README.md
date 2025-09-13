@@ -128,3 +128,17 @@ Tips:
 ---
 
 Change history and design notes live under `docs/changelog.md:1` and `docs/adr/:1`.
+## Unified UI & Hardening
+
+- Reverse proxy (NGINX) with CSP nonce, HSTS preload, WS upgrades: see `vps/nginx.conf`.
+- API: Express with validation, rate limits, incident IDs; `/api/health`, `/api/devices`, `/api/logs`, `/api/operations/*`.
+- UI: SvelteKit single-panel operations, Troubleshooting Log, Global Status.
+- Monitoring: Prometheus alert rules in `vps/prometheus/alerts.yml` (loaded via `vps/prometheus.yml`).
+- Verification: run `scripts/stabilization-verification.ps1`.
+
+### Ops Commands
+```bash
+cd /opt/app
+docker compose up -d --build
+./scripts/acceptance.sh pi-audio-01 pi-audio-02
+```

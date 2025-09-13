@@ -1,0 +1,34 @@
+import express from 'express';
+import helmet from 'helmet';
+import cors from 'cors';
+import { logger } from './utils/logger.js';
+import { cspNonce } from './middleware/cspNonce.js';
+import { limitHealth, limitLogs } from './middleware/rateLimiters.js';
+import health from './routes/health.js';
+import devices from './routes/devices.js';
+import logs from './routes/logs.js';
+import operations from './routes/operations.js';
+import { errorId } from './middleware/errorId.js';
+
+const app = express();
+app.disable('x-powered-by');
+
+app.use(logger);
+app.use(cors());
+app.use(express.json({ limit: '200mb' }));
+app.use(cspNonce);
+
+// Helmet without CSP (proxy provides strict CSP)
+app.use(helmet({ contentSecurityPolicy:false }));
+
+app.get('/api/health', limitHealth, health);
+app.use('/api/devices', devices);
+app.use('/api/logs', limitLogs, logs);
+app.use('/api/operations', operations);
+
+app.use((req,res)=> res.status(404).json({ error:'not_found' }));
+app.use(errorId);
+
+const port = process.env.PORT || 3005;
+app.listen(port, ()=> console.log(`API listening on :${port}`));
+
