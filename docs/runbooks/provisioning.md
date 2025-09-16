@@ -43,3 +43,8 @@
    ```
 6) Assign a role in `inventory/devices.yaml` and commit to `main`.
 7) Confirm convergence in ~2 minutes (Netdata, Uptime Kuma, Docker containers running).
+
+## Role-specific prep
+
+- **camera**: enable the CSI camera interface with `sudo raspi-config nonint do_camera 0` and set GPU memory to 256 MB before first convergence.
+- **hdmi-media**: identify the Zigbee coordinator serial port (`ls /dev/ttyACM*`) and update `roles/hdmi-media/.env.sops.enc` (MQTT credentials, PAN IDs, network key).
