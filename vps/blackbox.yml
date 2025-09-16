@@ -4,3 +4,10 @@ modules:
     timeout: 5s
     http:
       preferred_ip_protocol: "ip4"
+  http_any_2xx_3xx_4xx_ok:
+    prober: http
+    timeout: 5s
+    http:
+      preferred_ip_protocol: "ip4"
+      valid_status_codes: [200, 301, 302, 401, 404]
+      method: GET

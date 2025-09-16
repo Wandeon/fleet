@@ -10,9 +10,9 @@ SSH_USER=${SSH_USER:-admin}
 TOKEN=${AUDIOCTL_TOKEN:-}
 ICECAST_URL=${ICECAST_URL:-}
 
-hdr=( )
+auth_hdr=( )
 if [[ -n "$TOKEN" ]]; then
-  hdr=( -H "Authorization: Bearer ${TOKEN}" )
+  auth_hdr=( -H "Authorization: Bearer ${TOKEN}" )
 fi
 
 ok()  { printf "\033[32mOK\033[0m %s\n"   "$*"; }
@@ -27,7 +27,7 @@ fi
 for host in "$@"; do
   echo "== ${host} =="
   # Control API health
-  if curl -fsS "${hdr[@]}" "http://${host}:8081/healthz" >/dev/null 2>&1; then
+  if curl -fsS "http://${host}:8081/healthz" >/dev/null 2>&1; then
     ok "control API healthy (:8081/healthz)"
   else
     err "control API not responding"
@@ -38,8 +38,8 @@ for host in "$@"; do
   fi
 
   # Status JSON (best-effort)
-  if curl -fsS "${hdr[@]}" "http://${host}:8081/status" >/dev/null 2>&1; then
-    curl -fsS "${hdr[@]}" "http://${host}:8081/status" || true
+  if curl -fsS "${auth_hdr[@]}" "http://${host}:8081/status" >/dev/null 2>&1; then
+    curl -fsS "${auth_hdr[@]}" "http://${host}:8081/status" || true
     echo
   else
     warn "cannot fetch /status"
