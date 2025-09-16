@@ -1,10 +1,10 @@
 creation_rules:
-  # Encrypt role env files with these AGE recipients (video + camera)
-  - path_regex: ^roles/.*/\.env(\.sops)?$
-    age: [
-      "age1g4m2qmksughaqut99phyrn7y62kyxnydqfx3kcdyq5rq6c40yfhsd5lcr2",  # video
-      "age1klezevqpsvcnnk5esnlfs40e04erer52mrskwrh8m2hlchrzvcyq33rxz2"   # camera
-    ]
+  # Per-role recipients for least privilege
+  - path_regex: ^roles/hdmi-media/\.env(\.sops)?$
+    age: ["age1g4m2qmksughaqut99phyrn7y62kyxnydqfx3kcdyq5rq6c40yfhsd5lcr2"]
     encrypted_regex: '^(.*)$'
-    # Keep formatting and comments where possible
+    keep_plaintext: false
+  - path_regex: ^roles/camera/\.env(\.sops)?$
+    age: ["age1klezevqpsvcnnk5esnlfs40e04erer52mrskwrh8m2hlchrzvcyq33rxz2"]
+    encrypted_regex: '^(.*)$'
     keep_plaintext: false
