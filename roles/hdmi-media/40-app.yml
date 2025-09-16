@@ -1,18 +1,21 @@
 services:
   media-control:
+    image: media-control:local
     build:
-      context: ../roles/hdmi-media/control
+      context: ./roles/hdmi-media/control
       dockerfile: Dockerfile
     restart: unless-stopped
     network_mode: host
+    ports:
+      - "8082:8082"
     environment:
-      - MEDIA_CONTROL_TOKEN=${MEDIA_CONTROL_TOKEN}
-      - HDMI_CONNECTOR=${HDMI_CONNECTOR:-HDMI-A-1}
-      - HDMI_AUDIO_DEVICE=${HDMI_AUDIO_DEVICE:-plughw:vc4hdmi,0}
+      MEDIA_CONTROL_TOKEN: ${MEDIA_CONTROL_TOKEN}
+      HDMI_CONNECTOR: ${HDMI_CONNECTOR:-HDMI-A-1}
+      HDMI_AUDIO_DEVICE: ${HDMI_AUDIO_DEVICE:-plughw:vc4hdmi,0}
     volumes:
       - /run:/run
     healthcheck:
-      test: ["CMD-SHELL", "python3 - <<'PY'\nimport urllib.request,sys; urllib.request.urlopen('http://127.0.0.1:8082/healthz', timeout=2); sys.exit(0)\nPY"]
+      test: ["CMD", "curl", "-fsS", "http://localhost:8082/healthz"]
       interval: 10s
       timeout: 3s
       retries: 5
