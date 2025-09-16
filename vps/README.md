@@ -53,7 +53,7 @@ Prometheus scrapes each device class using file-based service discovery. Targets
 
 ```bash
 node scripts/validate-device-registry.mjs
-docker compose -f vps/compose.prom-grafana-blackbox.yml up -d prometheus
+docker compose -f vps/compose.prom-grafana-blackbox.yml up -d alertmanager prometheus grafana blackbox
 ```
 
 Targets:
@@ -75,6 +75,28 @@ Health checks:
 - HDMI media controller: `GET /healthz` on :8082
 - Camera control service: `GET /healthz` on :8083 (also probes HLS and RTSP)
 - Blackbox exporter (`vps/blackbox.yml`) now ships with a `http_any_2xx_3xx_4xx_ok` module to tolerate the rare endpoints that still answer with 401/404; wherever possible, keep `/healthz` public so probes receive a clean 200.
+
+
+### Alerting & Slack notifications
+
+1. Create a Slack Incoming Webhook that posts into your operations channel.
+2. Put the webhook URL into `vps/secrets/slack-webhook.url` (one line, no quotes).
+3. Review `vps/alertmanager.yml` to confirm the Slack channel name and grouping match your expectations. Each device gets its own notification because alerts are grouped by `alertname` + `instance`.
+4. Start (or restart) the monitoring stack so Alertmanager picks up the secret:
+
+   ```bash
+   docker compose -f vps/compose.prom-grafana-blackbox.yml up -d alertmanager
+   docker compose -f vps/compose.prom-grafana-blackbox.yml up -d prometheus grafana blackbox
+   ```
+
+5. Test end-to-end by firing a synthetic alert:
+
+   ```bash
+   docker run --rm --network host prom/alertmanager amtool \
+     alert add TestNotification alertname="DeviceOffline" instance="demo" job="audio-player"
+   ```
+
+   A Slack message should appear immediately; Alertmanager will also send a “resolved” message when the alert expires.
 
 ## Optional: API Reverse Proxy
 
