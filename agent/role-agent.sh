@@ -37,6 +37,14 @@ else
   exit 1
 fi
 
+# Ensure Claude Code CLI and MCP servers are present
+SETUP_CLAUDE="$REPO_DIR/agent/setup-claude-tools.sh"
+if [[ -x "$SETUP_CLAUDE" ]]; then
+  if ! "$SETUP_CLAUDE"; then
+    echo "WARNING: setup-claude-tools failed; continuing" >&2
+  fi
+fi
+
 # Decrypt role env if present
 ENC_ENV="$REPO_DIR/roles/$ROLE/.env.sops.enc"
 if [[ -f "$ENC_ENV" ]]; then

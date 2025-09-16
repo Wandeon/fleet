@@ -1,7 +1,11 @@
 {
   "name": "fleet-api",
   "version": "0.1.0",
+  "description": "Express API for fleet device orchestration",
   "type": "module",
+  "engines": {
+    "node": ">=18.18.0"
+  },
   "scripts": {
     "start": "node src/server.js"
   },
