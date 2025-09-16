@@ -61,6 +61,8 @@ Targets:
 - Audio players: `vps/targets-audio.json`
 - HDMI/Zigbee hub: `vps/targets-hdmi-media.json`
 - Camera control: `vps/targets-camera.json`
+- When the API performs service-to-service checks, point it at `http://prometheus:9090/-/healthy` and `http://blackbox:9115` (container ports). Host-port remaps such as `9091` exist purely for browser access.
+- Prefer Tailscale DNS names over raw IPs in the target files so re-authenticated nodes keep the same identity; if IPs are unavoidable, reserve them via Tailscale ACLs.
 
 Dashboards:
 
@@ -72,6 +74,7 @@ Health checks:
 - Audio players: `GET /healthz` on :8081
 - HDMI media controller: `GET /healthz` on :8082
 - Camera control service: `GET /healthz` on :8083 (also probes HLS and RTSP)
+- Blackbox exporter (`vps/blackbox.yml`) now ships with a `http_any_2xx_3xx_4xx_ok` module to tolerate the rare endpoints that still answer with 401/404; wherever possible, keep `/healthz` public so probes receive a clean 200.
 
 ## Optional: API Reverse Proxy
 
