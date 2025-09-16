@@ -1,5 +1,5 @@
 import { Router } from 'express';
-import { readDevices, buildAuthHeaders } from '../utils/deviceRegistry.js';
+import { readDevices } from '../utils/deviceRegistry.js';
 import { fetchWithTimeout } from '../utils/http.js';
 
 const r = Router();
@@ -21,7 +21,6 @@ async function checkDevice(device) {
 
   const headers = {
     Accept: 'application/json, text/plain;q=0.8',
-    ...buildAuthHeaders(device),
   };
 
   let status = 'UNKNOWN';

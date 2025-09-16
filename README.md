@@ -84,6 +84,7 @@ To add more devices, insert hostnames under `devices:` and set their roles.
 ## Monitoring (VPS)
 
 - Stack: `vps/compose.prom-grafana-blackbox.yml:1` (Prometheus, Grafana, Blackbox)
+- Service-to-service checks should use the container endpoints (`http://prometheus:9090/-/healthy` and `http://blackbox:9115`); host-mapped ports such as `9091` are only for interactive access from the host/browser.
 - Prometheus scrape config: `vps/prometheus.yml:1` loads file SD targets from `/etc/prometheus/targets/*.json`.
 - Add targets:
   - Audio: `vps/targets-audio.json:1`
@@ -91,11 +92,12 @@ To add more devices, insert hostnames under `devices:` and set their roles.
   - Camera: `vps/targets-camera.json:1`
   These files are generated from the device interface registry—update `inventory/device-interfaces.yaml:1` and run the validation script.
 - Dashboard: import `vps/grafana-dashboard-audio.json:1` in Grafana.
+- `vps/blackbox.yml` includes a module (`http_any_2xx_3xx_4xx_ok`) that treats 401/404 as success for the rare endpoints that still demand auth; aim Prometheus probes at `/healthz` so they return clean 200s whenever possible.
 
 ## Security
 
 - Prefer private networking via Tailscale (PIs join; VPS can also join). Avoid exposing control/API publicly.
-- Use `AUDIO_CONTROL_TOKEN` for the control API; include Bearer header in all requests.
+- Use `AUDIO_CONTROL_TOKEN` for the control API; include the Bearer header on protected routes (`/status`, `/play`, `/volume`, etc.). `/healthz` is intentionally unauthenticated so probes and Prometheus can reach it without credentials.
 - If you expose Icecast to the public internet, ensure strong source/admin passwords and consider rate limiting.
 
 ## Operations Cheatsheet
@@ -118,6 +120,7 @@ Tips:
 - Env defaults suppress ICECAST warnings until you configure `STREAM_URL` (or `ICECAST_*`).
 - Acceptance check from VPS:
   - `SSH_USER=admin AUDIOCTL_TOKEN=<tok> ICECAST_URL=http://<vps>:8000/<mount> ./scripts/acceptance.sh pi-audio-01 pi-audio-02`
+- Prefer Tailscale DNS names (e.g., `pi-audio-01.tailnet.ts.net`) instead of raw IPs when adding Prometheus/Blackbox targets; if an IP must be used, reserve it via Tailscale ACLs so it survives device re-authentication.
 
 ## Project Status & Next Steps
 

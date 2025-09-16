@@ -8,9 +8,12 @@ services:
       - "9090:9090"
     volumes:
       - ./prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - ./prometheus/alerts.yml:/etc/prometheus/alerts.yml:ro
       - ./targets-audio.json:/etc/prometheus/targets/audio.json:ro
       - ./targets-hdmi-media.json:/etc/prometheus/targets/hdmi-media.json:ro
       - ./targets-camera.json:/etc/prometheus/targets/camera.json:ro
+    depends_on:
+      - alertmanager
   grafana:
     image: grafana/grafana:latest
     restart: unless-stopped
@@ -28,5 +31,16 @@ services:
       - "9115:9115"
     volumes:
       - ./blackbox.yml:/etc/blackbox_exporter/config.yml:ro
+  alertmanager:
+    image: prom/alertmanager:latest
+    restart: unless-stopped
+    ports:
+      - "9093:9093"
+    command:
+      - "--config.file=/etc/alertmanager/alertmanager.yml"
+      - "--storage.path=/alertmanager"
+    volumes:
+      - ./alertmanager.yml:/etc/alertmanager/alertmanager.yml:ro
+      - ./secrets/slack-webhook.url:/etc/alertmanager/slack_webhook.url:ro
 volumes:
   grafana-data: {}

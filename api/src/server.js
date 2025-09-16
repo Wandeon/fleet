@@ -21,7 +21,7 @@ app.use(cspNonce);
 // Helmet without CSP (proxy provides strict CSP)
 app.use(helmet({ contentSecurityPolicy:false }));
 
-app.get('/api/health', limitHealth, health);
+app.use('/api/health', limitHealth, health);
 app.use('/api/devices', devices);
 app.use('/api/logs', limitLogs, logs);
 app.use('/api/operations', operations);
