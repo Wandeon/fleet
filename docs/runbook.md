@@ -63,3 +63,4 @@ git commit -m "chore: add encrypted env for camera role"
 git push
 ```
 The agent expects `roles/<role>/.env.sops.enc`. It will decrypt to memory using `/etc/fleet/age.key` at runtime.
+Use `sops --decrypt --input-type dotenv roles/<role>/.env.sops.enc` to inspect a secret locally once your age identity is installed.
