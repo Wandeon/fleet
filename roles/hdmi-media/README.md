@@ -1,11 +1,12 @@
 # HDMI Media Role
 
-Plays video/audio to the TV over HDMI on Raspberry Pi 5 and exposes a token-protected control API on port 8082. Controls TV power/input via HDMI-CEC.
+Plays video/audio to the TV over HDMI on Raspberry Pi 5 and exposes a token-protected control API on port 8082. Controls TV power/input via HDMI-CEC and now hosts the Zigbee hub stack for the fleet.
 
 ## Components
 
 - Host-native mpv player (`mpv-hdmi@.service`) with JSON IPC socket at `/run/mpv.sock`.
 - Control API (`media-control`), FastAPI over HTTP on `:8082` with bearer token, Prometheus `/metrics`, and `/healthz`.
+- Zigbee hub services (`zigbee-mqtt`, `zigbee2mqtt`) expose MQTT on port 1883 and the Zigbee2MQTT web UI on port 8084.
 
 ## Install (host prerequisites)
 
@@ -28,12 +29,20 @@ sudo systemctl enable --now cec-setup.service
 - `HDMI_CONNECTOR` (default `HDMI-A-1`)
 - `HDMI_AUDIO_DEVICE` (default `plughw:vc4hdmi,0`)
 
+`roles/hdmi-media/50-zigbee.yml` adds the Zigbee hub components. Additional environment variables:
+
+- `ZIGBEE_SERIAL_PORT` (default `/dev/ttyACM0`)
+- `ZIGBEE_MQTT_USER` / `ZIGBEE_MQTT_PASSWORD`
+- `ZIGBEE_NETWORK_KEY`, `ZIGBEE_PAN_ID`, `ZIGBEE_EXT_PAN_ID`
+- `ZIGBEE_CHANNEL` (default `11`)
+- `ZIGBEE_PERMIT_JOIN` (default `false`)
+
 ## API
 
-- `GET /healthz` → `ok`
+- `GET /healthz` -> `ok`
 - `GET /metrics` (Prometheus)
-- `GET /status` → current mpv state
-- `POST /play {"url":"…","start":0}`
+- `GET /status` -> current mpv state
+- `POST /play {"url":"...","start":0}`
 - `POST /pause`, `POST /resume`, `POST /stop`
 - `POST /seek {"seconds":10}`
 - `POST /volume {"volume":80}`
@@ -42,3 +51,9 @@ sudo systemctl enable --now cec-setup.service
 
 Auth: set `MEDIA_CONTROL_TOKEN` and include header `Authorization: Bearer <token>` (except `/healthz`).
 
+## Zigbee Hub Notes
+
+- MQTT broker listens on `mqtt://<host>:1883` (loopback only unless firewall opened).
+- Zigbee2MQTT UI available at `http://<host>:8084` (enable SSH tunnel or tailscale ACLs as needed).
+- Initial device pairing requires `ZIGBEE_PERMIT_JOIN=true`; remember to set back to `false` afterwards.
+- Persisted data lives in Docker volumes `zigbee_mosquitto_data` and `zigbee2mqtt_data`.

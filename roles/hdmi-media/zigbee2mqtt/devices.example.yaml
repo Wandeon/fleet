@@ -1,0 +1,3 @@
+# Example Zigbee2MQTT device mapping. Copy to /app/data/devices.yaml on the host volume.
+# 0x00124b0012345678:
+#   friendly_name: livingroom_sensor

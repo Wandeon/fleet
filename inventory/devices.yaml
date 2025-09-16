@@ -4,7 +4,7 @@ devices:
   pi-audio-02:
     role: audio-player
   pi-video-01:
-    role: hdmi-media
+    role: hdmi-media  # Zigbee hub
   pi-camera-01:
     role: camera
   # Example HDMI media device
