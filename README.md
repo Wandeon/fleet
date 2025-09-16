@@ -46,6 +46,7 @@ To add more devices, insert hostnames under `devices:` and set their roles.
 
 - Baseline (all devices): `baseline/docker-compose.yml:1`
   - Includes Netdata for local monitoring.
+  - Installs and maintains Claude Code CLI plus Slack/Playwright MCP servers (see `docs/runbooks/claude-code.md`).
 
 - Audio player (output-only listener): `roles/audio-player/40-app.yml:1`
   - `audio-player` service: supervises `ffmpeg`, plays stream to ALSA, auto-fallback to local file `/data/fallback.mp3`, then back to stream when healthy.
