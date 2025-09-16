@@ -4,6 +4,7 @@ Streams the Raspberry Pi camera to an RTSP endpoint using libcamera and exposes 
 
 ## Components
 
+- `camera-control`: FastAPI service exposing `/healthz`, `/metrics`, `/status`, and `/probe` for central monitoring.
 - `camera-streamer`: custom image that runs `libcamera-vid` and publishes H.264 video through FFmpeg to an RTSP server.
 - `camera-rtsp`: MediaMTX providing RTSP (`rtsp://<host>:8554/camera`) and HLS (`http://<host>:8888/camera/index.m3u8`).
 
@@ -37,9 +38,13 @@ sops roles/camera/.env.sops.enc  # edit or create
 
 Both streams are open by default; adjust MediaMTX config (`roles/camera/mediamtx.yml`) for auth if needed.
 
-## Healthchecks
+## Control API & Health
 
-- MediaMTX: simple binary `--version` probe.
+- `GET /healthz`: cached probe that verifies the HLS playlist and RTSP socket.
+- `GET /metrics`: Prometheus metrics (`camera_stream_online`, `camera_last_probe_timestamp_seconds`, etc.).
+- `GET /status`: returns last probe result (requires optional bearer token if set).
+- `POST /probe`: forces a fresh probe and returns details (requires token if set).
+- MediaMTX: container healthcheck uses `mediamtx --version`.
 - Streamer: `pgrep libcamera-vid` ensures encoder is alive.
 
 ## Troubleshooting

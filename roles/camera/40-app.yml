@@ -1,4 +1,25 @@
 services:
+  camera-control:
+    build:
+      context: ./control
+    restart: unless-stopped
+    network_mode: host
+    depends_on:
+      camera-rtsp:
+        condition: service_started
+      camera-streamer:
+        condition: service_started
+    environment:
+      CAMERA_CONTROL_TOKEN: ${CAMERA_CONTROL_TOKEN:-}
+      CAMERA_HLS_URL: ${CAMERA_HLS_URL:-http://127.0.0.1:8888/camera/index.m3u8}
+      CAMERA_RTSP_URL: ${CAMERA_RTSP_URL:-rtsp://127.0.0.1:8554/camera}
+    healthcheck:
+      test: ["CMD", "curl", "-fsS", "http://127.0.0.1:8083/healthz"]
+      interval: 15s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
+
   camera-rtsp:
     image: ghcr.io/bluenviron/mediamtx:1.7.4
     restart: unless-stopped

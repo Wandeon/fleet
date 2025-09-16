@@ -1,0 +1,3 @@
+[
+  { "targets": ["pi-camera-01:8083"], "labels": {"role": "camera", "instance": "pi-camera-01"} }
+]

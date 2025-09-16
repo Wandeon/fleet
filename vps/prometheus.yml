@@ -28,5 +28,10 @@ scrape_configs:
     file_sd_configs:
       - files:
           - /etc/prometheus/targets/hdmi-media.json
+  - job_name: 'camera-control'
+    metrics_path: /metrics
+    file_sd_configs:
+      - files:
+          - /etc/prometheus/targets/camera.json
 rule_files:
   - /etc/prometheus/alerts.yml
