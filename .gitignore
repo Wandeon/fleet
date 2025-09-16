@@ -1,6 +1,8 @@
 # Env files and secrets
 *.env
 vps/icecast.env
+vps/secrets/*
+!vps/secrets/.gitkeep
 
 # OS metadata
 .DS_Store

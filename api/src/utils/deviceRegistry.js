@@ -28,7 +28,21 @@ function parseYaml(file) {
 function readDeviceRoles() {
   const doc = parseYaml(DEVICES_FILE);
   const out = {};
-  if (doc && doc.devices && typeof doc.devices === 'object') {
+  if (!doc || !doc.devices) return out;
+
+  if (Array.isArray(doc.devices)) {
+    for (const entry of doc.devices) {
+      if (!entry || typeof entry !== 'object') continue;
+      const id = entry.id;
+      const role = entry.role || null;
+      if (id && role) {
+        out[id] = { role };
+      }
+    }
+    return out;
+  }
+
+  if (typeof doc.devices === 'object') {
     for (const [id, value] of Object.entries(doc.devices)) {
       if (typeof value === 'string') {
         out[id] = { role: value };
@@ -37,6 +51,7 @@ function readDeviceRoles() {
       }
     }
   }
+
   return out;
 }
 

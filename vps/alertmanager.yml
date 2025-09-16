@@ -1,0 +1,32 @@
+global:
+  resolve_timeout: 5m
+
+route:
+  receiver: slack-fleet
+  group_by: ['alertname', 'instance']
+  group_wait: 30s
+  group_interval: 10m
+  repeat_interval: 3h
+
+receivers:
+  - name: slack-fleet
+    slack_configs:
+      - api_url_file: /etc/alertmanager/slack_webhook.url
+        channel: "#ops-alerts"
+        icon_emoji: ":rotating_light:"
+        username: Fleet Alertmanager
+        send_resolved: true
+        link_names: true
+        title: '{{ if .CommonAnnotations.summary }}{{ .CommonAnnotations.summary }}{{ else }}{{ .CommonLabels.alertname }}{{ end }}'
+        text: |-
+          {{- if eq .Status "firing" -}}
+          *Status:* 🔴 Firing
+          {{- else -}}
+          *Status:* ✅ Resolved
+          {{- end }}
+          {{ range .Alerts }}*Device:* {{ .Labels.instance }} (`{{ .Labels.job }}`)
+          {{- if .Labels.severity }} — severity: {{ .Labels.severity }}{{ end }}
+          {{- if .Annotations.description }}
+          {{ .Annotations.description }}
+          {{- end }}
+          {{ end }}
