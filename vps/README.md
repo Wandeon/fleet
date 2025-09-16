@@ -76,6 +76,7 @@ Health checks:
 - Camera control service: `GET /healthz` on :8083 (also probes HLS and RTSP)
 - Blackbox exporter (`vps/blackbox.yml`) now ships with a `http_any_2xx_3xx_4xx_ok` module to tolerate the rare endpoints that still answer with 401/404; wherever possible, keep `/healthz` public so probes receive a clean 200.
 
+
 ### Alerting & Slack notifications
 
 1. Create a Slack Incoming Webhook that posts into your operations channel.
