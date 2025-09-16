@@ -1,9 +1,12 @@
 version: "3.9"
 services:
-  example-app:
-    image: ghcr.io/your-org/example-app:latest
+  camera-placeholder:
+    image: alpine:3.20
+    command: ["/bin/sh","-lc","sleep infinity"]
     restart: unless-stopped
+    profiles: ["camera"]
     environment:
-      - EXAMPLE_FROM_ENV=${CAMERA_EXAMPLE_VAR:-default}
-    ports:
-      - "9000:9000"
+      - CAMERA_EXAMPLE_VAR=${CAMERA_EXAMPLE_VAR:-default}
+    # Tolerant to missing camera; add device when present
+    # devices:
+    #   - "/dev/video0:/dev/video0"
