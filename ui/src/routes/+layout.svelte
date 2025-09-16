@@ -1,7 +1,3 @@
-<script lang="ts">
-  export let data;
-</script>
-
 <svelte:head>
   <script nonce="%sveltekit.nonce%">/* theme init */</script>
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/tailwindcss@3.4.13/dist/tailwind.min.css" />

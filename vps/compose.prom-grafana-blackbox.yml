@@ -9,7 +9,8 @@ services:
     volumes:
       - ./prometheus.yml:/etc/prometheus/prometheus.yml:ro
       - ./targets-audio.json:/etc/prometheus/targets/audio.json:ro
-      - ../monitoring/targets-hdmi-media.json:/etc/prometheus/targets/hdmi-media.json:ro
+      - ./targets-hdmi-media.json:/etc/prometheus/targets/hdmi-media.json:ro
+      - ./targets-camera.json:/etc/prometheus/targets/camera.json:ro
   grafana:
     image: grafana/grafana:latest
     restart: unless-stopped

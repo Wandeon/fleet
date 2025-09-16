@@ -1,0 +1,300 @@
+devices:
+  - id: pi-audio-01
+    name: "Audio Player 01"
+    role: audio-player
+    kind: audio
+    management:
+      summary: "Primary program audio feed (HiFiBerry)"
+      host: pi-audio-01
+    api:
+      base_url: http://pi-audio-01:8081
+      health_path: /healthz
+      status_path: /status
+      metrics_path: /metrics
+      auth:
+        type: bearer
+        token_env: AUDIO_PI_AUDIO_01_TOKEN
+    endpoints:
+      - label: Control API
+        url: http://pi-audio-01:8081
+      - label: Health check
+        url: http://pi-audio-01:8081/healthz
+      - label: Prometheus metrics
+        url: http://pi-audio-01:8081/metrics
+    monitoring:
+      prometheus_targets:
+        - job: audio-player
+          target: pi-audio-01:8081
+    operations:
+      - id: health_check
+        label: Run Health Check
+        method: GET
+        path: /healthz
+        ui:
+          type: button
+          group: diagnostics
+          result: text
+      - id: status
+        label: Pull Status
+        method: GET
+        path: /status
+        ui:
+          type: button
+          group: diagnostics
+          result: json
+      - id: play_stream
+        label: Play Stream
+        method: POST
+        path: /play
+        body:
+          source: stream
+        ui:
+          type: button
+          group: control
+      - id: play_file
+        label: Play Fallback File
+        method: POST
+        path: /play
+        body:
+          source: file
+        ui:
+          type: button
+          group: control
+      - id: stop
+        label: Stop Playback
+        method: POST
+        path: /play
+        body:
+          source: stop
+        ui:
+          type: button
+          group: control
+      - id: volume
+        label: Set Volume
+        method: POST
+        path: /volume
+        ui:
+          type: slider
+          group: control
+          min: 0
+          max: 2
+          step: 0.05
+          default: 1
+          body_key: volume
+  - id: pi-audio-02
+    name: "Audio Player 02"
+    role: audio-player
+    kind: audio
+    management:
+      summary: "Secondary program audio feed (redundant playback)"
+      host: pi-audio-02
+    api:
+      base_url: http://pi-audio-02:8081
+      health_path: /healthz
+      status_path: /status
+      metrics_path: /metrics
+      auth:
+        type: bearer
+        token_env: AUDIO_PI_AUDIO_02_TOKEN
+    endpoints:
+      - label: Control API
+        url: http://pi-audio-02:8081
+      - label: Health check
+        url: http://pi-audio-02:8081/healthz
+      - label: Prometheus metrics
+        url: http://pi-audio-02:8081/metrics
+    monitoring:
+      prometheus_targets:
+        - job: audio-player
+          target: pi-audio-02:8081
+    operations:
+      - id: health_check
+        label: Run Health Check
+        method: GET
+        path: /healthz
+        ui:
+          type: button
+          group: diagnostics
+          result: text
+      - id: status
+        label: Pull Status
+        method: GET
+        path: /status
+        ui:
+          type: button
+          group: diagnostics
+          result: json
+      - id: play_stream
+        label: Play Stream
+        method: POST
+        path: /play
+        body:
+          source: stream
+        ui:
+          type: button
+          group: control
+      - id: play_file
+        label: Play Fallback File
+        method: POST
+        path: /play
+        body:
+          source: file
+        ui:
+          type: button
+          group: control
+      - id: stop
+        label: Stop Playback
+        method: POST
+        path: /play
+        body:
+          source: stop
+        ui:
+          type: button
+          group: control
+      - id: volume
+        label: Set Volume
+        method: POST
+        path: /volume
+        ui:
+          type: slider
+          group: control
+          min: 0
+          max: 2
+          step: 0.05
+          default: 1
+          body_key: volume
+  - id: pi-video-01
+    name: "Media Hub & Zigbee"
+    role: hdmi-media
+    kind: video
+    management:
+      summary: "HDMI signage controller and Zigbee coordinator"
+      host: pi-video-01
+    api:
+      base_url: http://pi-video-01:8082
+      health_path: /healthz
+      status_path: /status
+      metrics_path: /metrics
+      auth:
+        type: bearer
+        token_env: HDMI_PI_VIDEO_01_TOKEN
+    endpoints:
+      - label: Media control API
+        url: http://pi-video-01:8082
+      - label: Health check
+        url: http://pi-video-01:8082/healthz
+      - label: Prometheus metrics
+        url: http://pi-video-01:8082/metrics
+      - label: Zigbee2MQTT UI
+        url: http://pi-video-01:8084
+    monitoring:
+      prometheus_targets:
+        - job: media-control
+          target: pi-video-01:8082
+    operations:
+      - id: health_check
+        label: Run Health Check
+        method: GET
+        path: /healthz
+        ui:
+          type: button
+          group: diagnostics
+          result: text
+      - id: status
+        label: Pull Status
+        method: GET
+        path: /status
+        ui:
+          type: button
+          group: diagnostics
+          result: json
+      - id: pause
+        label: Pause
+        method: POST
+        path: /pause
+        ui:
+          type: button
+          group: control
+      - id: resume
+        label: Resume
+        method: POST
+        path: /resume
+        ui:
+          type: button
+          group: control
+      - id: stop
+        label: Stop Playback
+        method: POST
+        path: /stop
+        ui:
+          type: button
+          group: control
+      - id: tv_power_on
+        label: TV Power On
+        method: POST
+        path: /tv/power_on
+        ui:
+          type: button
+          group: control
+      - id: tv_power_off
+        label: TV Power Off
+        method: POST
+        path: /tv/power_off
+        ui:
+          type: button
+          group: control
+  - id: pi-camera-01
+    name: "Camera"
+    role: camera
+    kind: camera
+    management:
+      summary: "Primary video camera feeding MediaMTX"
+      host: pi-camera-01
+    api:
+      base_url: http://pi-camera-01:8083
+      health_path: /healthz
+      status_path: /status
+      metrics_path: /metrics
+      auth:
+        type: bearer
+        token_env: CAMERA_PI_CAMERA_01_TOKEN
+    endpoints:
+      - label: Camera control API
+        url: http://pi-camera-01:8083
+      - label: Health check
+        url: http://pi-camera-01:8083/healthz
+      - label: Prometheus metrics
+        url: http://pi-camera-01:8083/metrics
+      - label: RTSP stream
+        url: rtsp://pi-camera-01:8554/camera
+      - label: HLS stream
+        url: http://pi-camera-01:8888/camera/index.m3u8
+    monitoring:
+      prometheus_targets:
+        - job: camera-control
+          target: pi-camera-01:8083
+    operations:
+      - id: health_check
+        label: Run Health Check
+        method: GET
+        path: /healthz
+        ui:
+          type: button
+          group: diagnostics
+          result: text
+      - id: status
+        label: Pull Status
+        method: GET
+        path: /status
+        ui:
+          type: button
+          group: diagnostics
+          result: json
+      - id: probe_stream
+        label: Probe Stream
+        method: POST
+        path: /probe
+        ui:
+          type: button
+          group: diagnostics
+          result: json

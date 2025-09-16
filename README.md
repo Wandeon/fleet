@@ -10,6 +10,7 @@ If you only read one file to understand and operate the system, read this README
 - `roles/<role>/*.yml` - role-specific Docker Compose overlays
   - `roles/audio-player/40-app.yml:1` - Audio playback with fallback and control API
 - `inventory/devices.yaml:1` - maps device hostnames to roles
+- `inventory/device-interfaces.yaml:1` - single source of truth for control endpoints, monitoring targets, and UI metadata
 - `host-config/common:1` - host OS configs (e.g., Docker daemon)
 - `host-config/raspi-hifiberry.md:1` - HiFiBerry overlay + ALSA defaults
 - `agent/role-agent.sh:1` - convergence agent that applies baseline + role
@@ -83,8 +84,12 @@ To add more devices, insert hostnames under `devices:` and set their roles.
 ## Monitoring (VPS)
 
 - Stack: `vps/compose.prom-grafana-blackbox.yml:1` (Prometheus, Grafana, Blackbox)
-- Prometheus scrape config: `vps/prometheus.yml:1` loads file SD targets from `/etc/prometheus/targets/audio.json`.
-- Add targets: create or edit `vps/targets-audio.json:1` (or start from `vps/targets-audio.json.example:1`) with Pi `:8081` endpoints (reachable over Tailscale).
+- Prometheus scrape config: `vps/prometheus.yml:1` loads file SD targets from `/etc/prometheus/targets/*.json`.
+- Add targets:
+  - Audio: `vps/targets-audio.json:1`
+  - HDMI/Zigbee: `vps/targets-hdmi-media.json:1`
+  - Camera: `vps/targets-camera.json:1`
+  These files are generated from the device interface registry—update `inventory/device-interfaces.yaml:1` and run the validation script.
 - Dashboard: import `vps/grafana-dashboard-audio.json:1` in Grafana.
 
 ## Security
@@ -132,9 +137,19 @@ Change history and design notes live under `docs/changelog.md:1` and `docs/adr/:
 
 - Reverse proxy (NGINX) with CSP nonce, HSTS preload, WS upgrades: see `vps/nginx.conf`.
 - API: Express with validation, rate limits, incident IDs; `/api/health`, `/api/devices`, `/api/logs`, `/api/operations/*`.
-- UI: SvelteKit single-panel operations, Troubleshooting Log, Global Status.
+- UI: SvelteKit operations dashboard renders all devices declared in `inventory/device-interfaces.yaml`, showing current health, endpoints, and role-specific actions (audio playback, HDMI control, camera probes).
 - Monitoring: Prometheus alert rules in `vps/prometheus/alerts.yml` (loaded via `vps/prometheus.yml`).
 - Verification: run `scripts/stabilization-verification.ps1`.
+
+## Device Interface Registry
+
+- `inventory/device-interfaces.yaml` drives everything the VPS needs to know about each Raspberry Pi:
+  - Control API base URLs (`base_url`, `health_path`, `status_path`, `metrics_path`)
+  - Prometheus targets for the monitoring stack
+  - UI metadata (display names, grouped operations, slider ranges)
+- `scripts/validate-device-registry.mjs` cross-checks the registry with `inventory/devices.yaml` and the Prometheus target files.
+- Update this file first when adding a new device; the UI, API, and monitoring stack will consume the new entry automatically.
+- See `docs/specs/device-interfaces.md:1` for the schema, examples, and onboarding steps.
 
 ### Ops Commands
 ```bash

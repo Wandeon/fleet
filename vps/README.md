@@ -47,30 +47,31 @@ docker exec icecast sh -lc "grep -o '<source-password>.*</source-password>' /etc
 - If using a public VPS, open TCP port `8000` in your firewall (or change the published port in `vps/compose.icecast.yml`).
 - If using Tailscale only, set `ICECAST_HOST` to the VPS Tailscale IP/hostname and you do not need to expose port 8000 publicly.
 
-## Monitoring Audio Players
+## Monitoring Devices
 
-Prometheus can scrape the audio-control `/metrics` endpoints.
-
-1) Create `vps/targets-audio.json` from the example and list your Pi(s):
-
-```json
-[
-  { "targets": ["<pi-ts-ip>:8081"], "labels": {"role": "audio-player", "instance": "pi-audio-01"} }
-]
-```
-
-2) Ensure the compose mounts the file (already configured) and restart Prometheus:
+Prometheus scrapes each device class using file-based service discovery. Targets are maintained automatically from `inventory/device-interfaces.yaml`; run the validation script after editing the registry:
 
 ```bash
+node scripts/validate-device-registry.mjs
 docker compose -f vps/compose.prom-grafana-blackbox.yml up -d prometheus
 ```
 
-3) Import the sample Grafana dashboard `vps/grafana-dashboard-audio.json` via Grafana UI (Dashboards → Import).
+Targets:
 
-> If `AUDIO_CONTROL_TOKEN` is set, Prometheus must access without auth. Keep :8081 accessible only on your private network (e.g., Tailscale) and restrict who can reach it.
+- Audio players: `vps/targets-audio.json`
+- HDMI/Zigbee hub: `vps/targets-hdmi-media.json`
+- Camera control: `vps/targets-camera.json`
 
-Health:
-- Each player exposes `GET /healthz`; the control container also has an internal healthcheck.
+Dashboards:
+
+- Audio playback: `vps/grafana-dashboard-audio.json`
+- Create additional dashboards for HDMI or camera roles using the exported metrics (`media_playing`, `camera_stream_online`, etc.).
+
+Health checks:
+
+- Audio players: `GET /healthz` on :8081
+- HDMI media controller: `GET /healthz` on :8082
+- Camera control service: `GET /healthz` on :8083 (also probes HLS and RTSP)
 
 ## Optional: API Reverse Proxy
 
