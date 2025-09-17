@@ -55,6 +55,20 @@ ensure_systemd_units() {
   done
 }
 
+compose_list_projects() {
+  local output names
+  if output=$(docker compose ls --format json 2>/dev/null); then
+    if names=$(jq -r '.[] | .Name' <<<"$output" 2>/dev/null); then
+      if [[ -n "$names" ]]; then
+        printf '%s\n' "$names"
+      fi
+      return 0
+    fi
+  fi
+  docker compose ls 2>/dev/null | awk 'NR>1 {print $1}' || true
+  return 0
+}
+
 ensure_systemd_units
 
 # Determine role from inventory/devices.yaml by hostname
@@ -110,7 +124,7 @@ fi
 # Compose files (baseline + role, with lexical mix-ins if present)
 BASE="$REPO_DIR/baseline/docker-compose.yml"
 ROLE_DIR="$REPO_DIR/roles/$ROLE"
-readarray -t ROLE_OVERRIDES < <(find "$ROLE_DIR" -maxdepth 1 -type f -name '*.yml' | sort)
+readarray -t ROLE_OVERRIDES < <(find "$ROLE_DIR" -maxdepth 1 -type f -name '[0-9][0-9]-*.yml' | sort)
 
 COMMIT=$(git -C "$REPO_DIR" rev-parse --short HEAD)
 PROJECT="${ROLE}_${COMMIT}"
@@ -121,7 +135,7 @@ for f in "${ROLE_OVERRIDES[@]}"; do
 done
 
 # Proactively stop and remove any old projects for this role (avoid port conflicts)
-mapfile -t OLD_PROJECTS_PRE < <(docker compose ls --format json | jq -r '.[] | .Name' | grep "^${ROLE}_" || true)
+mapfile -t OLD_PROJECTS_PRE < <(compose_list_projects | grep "^${ROLE}_" || true)
 for OLD in "${OLD_PROJECTS_PRE[@]}"; do
   if [[ "$OLD" != "$PROJECT" ]]; then
     docker compose -p "$OLD" down --volumes || true
@@ -141,7 +155,7 @@ flock 201
 docker compose "${DOCKER_ARGS[@]}" -p "$PROJECT" "${COMPOSE_FILES[@]}" up -d --build --remove-orphans
 
 # Cleanup old projects for same role
-mapfile -t OLD_PROJECTS < <(docker compose ls --format json | jq -r '.[] | .Name' | grep "^${ROLE}_" | grep -v "$PROJECT" || true)
+mapfile -t OLD_PROJECTS < <(compose_list_projects | grep "^${ROLE}_" | grep -v "$PROJECT" || true)
 for OLD in "${OLD_PROJECTS[@]}"; do
   docker compose -p "$OLD" down --volumes || true
 done
