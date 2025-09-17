@@ -61,3 +61,102 @@ Auth: set `MEDIA_CONTROL_TOKEN` and include header `Authorization: Bearer <token
 - Zigbee2MQTT UI available at `http://<host>:8084` (enable SSH tunnel or tailscale ACLs as needed).
 - Initial device pairing requires `ZIGBEE_PERMIT_JOIN=true`; remember to set back to `false` afterwards.
 - Persisted data lives in Docker volumes `zigbee_mosquitto_data` and `zigbee2mqtt_data`.
+## UI Integration Reference
+
+### Device Information
+- Device type: hdmi-media (Raspberry Pi 5)
+- Base URL: http://pi-video-01:8082
+- Authentication: Bearer token required (`changeme-token`)
+- Zigbee hub UI: http://pi-video-01:8084
+- MQTT broker: mqtt://pi-video-01:1883
+
+### Media Player Controls
+
+**Status / monitoring**
+- `GET /healthz` -> "ok"
+- `GET /status` (returns JSON status payload)
+- `GET /metrics` (Prometheus)
+
+Example `GET /status` response:
+```json
+{
+  "pause": false,
+  "time_pos": 12.0,
+  "duration": 3600.0,
+  "volume": 80,
+  "path": "http://example.com/video.mp4"
+}
+```
+
+**Playback**
+- `POST /play` with body `{ "url": "http://example.com/video.mp4", "start": 0 }`
+- `POST /pause`
+- `POST /resume`
+- `POST /stop`
+
+**Navigation**
+- `POST /seek` with body `{ "seconds": 10 }` (negative values seek backward)
+
+**Audio**
+- `POST /volume` with body `{ "volume": 80 }` (0-100)
+
+### TV / Display Controls (HDMI-CEC)
+- `POST /tv/power_on`
+- `POST /tv/power_off`
+- `POST /tv/input`
+
+### Zigbee Hub Controls
+- MQTT endpoint: mqtt://pi-video-01:1883 (username `zigbee`, password `zigbee-password`)
+- Topics follow Zigbee2MQTT convention: `zigbee2mqtt/...`
+- Web interface: http://pi-video-01:8084
+- Pairing requires `ZIGBEE_PERMIT_JOIN=true`
+
+### Device Configuration Defaults
+- HDMI connector: `HDMI-A-1`
+- Audio device: `plughw:vc4hdmi,0`
+- Zigbee serial port: `/dev/ttyACM0`
+- Zigbee channel: `11`
+- Zigbee PAN ID: `0x1A62`
+
+### Authentication Header
+All media control endpoints (except `/healthz`) require:
+```
+Authorization: Bearer changeme-token
+```
+
+### Integration Examples
+
+**Remote playback control**
+```javascript
+// Play video
+fetch('http://pi-video-01:8082/play', {
+  method: 'POST',
+  headers: {
+    'Authorization': 'Bearer changeme-token',
+    'Content-Type': 'application/json'
+  },
+  body: JSON.stringify({
+    url: 'https://example.com/video.mp4',
+    start: 30
+  })
+});
+
+// Get current status
+fetch('http://pi-video-01:8082/status', {
+  headers: { 'Authorization': 'Bearer changeme-token' }
+});
+```
+
+**Zigbee device control via MQTT**
+```javascript
+const mqtt = require('mqtt');
+const client = mqtt.connect('mqtt://pi-video-01:1883', {
+  username: 'zigbee',
+  password: 'zigbee-password'
+});
+
+client.publish('zigbee2mqtt/device_name/set', JSON.stringify({ state: 'ON' }));
+```
+
+This device provides full media playback control, HDMI-CEC power and input management, and doubles as the Zigbee hub for smart home integration.
+
