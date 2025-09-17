@@ -1,20 +1,61 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-# Make repo safe for git operations when ownership differs
-git config --system --add safe.directory /opt/fleet 2>/dev/null || true
-
-ROLE=""
 REPO_DIR="/opt/fleet"
+STATE_DIR="/run/fleet"
+LOCK_FILE="$STATE_DIR/role-agent.lock"
 AGE_KEY_FILE="/etc/fleet/age.key"
+ROLE=""
+
+mkdir -p "$STATE_DIR"
+exec 200>"$LOCK_FILE"
+if ! flock -n 200; then
+  echo "role-agent: another execution is already in progress" >&2
+  exit 0
+fi
+
+# Make repo safe for git operations when ownership differs
+git config --system --add safe.directory "$REPO_DIR" 2>/dev/null || true
 
 # Ensure required commands exist
-for cmd in git docker jq; do
+for cmd in git docker jq systemctl find install; do
   if ! command -v "$cmd" >/dev/null 2>&1; then
-    echo "ERROR: required command '$cmd' not found"
+    echo "ERROR: required command '$cmd' not found" >&2
     exit 1
   fi
 done
+
+ensure_systemd_units() {
+  local -a units=(
+    role-agent.service
+    role-agent.timer
+    role-agent-watchdog.service
+    role-agent-watchdog.timer
+    role-agent-healthcheck.service
+    role-agent-healthcheck.timer
+  )
+  local reload=0
+  for unit in "${units[@]}"; do
+    local src="$REPO_DIR/agent/$unit"
+    local dest="/etc/systemd/system/$unit"
+    if [[ ! -f "$src" ]]; then
+      echo "WARNING: expected unit $unit missing in repo" >&2
+      continue
+    fi
+    if [[ ! -f "$dest" ]] || ! cmp -s "$src" "$dest"; then
+      install -D -m 0644 "$src" "$dest"
+      reload=1
+    fi
+  done
+  if (( reload )); then
+    systemctl daemon-reload
+  fi
+  for timer in role-agent.timer role-agent-watchdog.timer role-agent-healthcheck.timer; do
+    systemctl enable --now "$timer" >/dev/null 2>&1 || true
+  done
+}
+
+ensure_systemd_units
 
 # Determine role from inventory/devices.yaml by hostname
 HOSTNAME_ACTUAL=$(hostname)
@@ -24,7 +65,7 @@ ROLE=$(awk -v h="$HOSTNAME_ACTUAL" '
 ' "$REPO_DIR/inventory/devices.yaml" | tr -d '[:space:]')
 
 if [[ -z "${ROLE}" ]]; then
-  echo "ERROR: Role not found for hostname ${HOSTNAME_ACTUAL} in inventory/devices.yaml"
+  echo "ERROR: Role not found for hostname ${HOSTNAME_ACTUAL} in inventory/devices.yaml" >&2
   exit 1
 fi
 
@@ -33,7 +74,7 @@ if [[ -d "$REPO_DIR/.git" ]]; then
   git -C "$REPO_DIR" fetch --depth 1 origin main
   git -C "$REPO_DIR" reset --hard origin/main
 else
-  echo "ERROR: Repo not found at $REPO_DIR"
+  echo "ERROR: Repo not found at $REPO_DIR" >&2
   exit 1
 fi
 
@@ -49,15 +90,15 @@ fi
 ENC_ENV="$REPO_DIR/roles/$ROLE/.env.sops.enc"
 if [[ -f "$ENC_ENV" ]]; then
   if ! command -v sops >/dev/null 2>&1; then
-    echo "ERROR: required command 'sops' not found for env decryption"
+    echo "ERROR: required command 'sops' not found for env decryption" >&2
     exit 1
   fi
   if [[ ! -f "$AGE_KEY_FILE" ]]; then
-    echo "ERROR: AGE key not found at $AGE_KEY_FILE"
+    echo "ERROR: AGE key not found at $AGE_KEY_FILE" >&2
     exit 1
   fi
   export SOPS_AGE_KEY_FILE="$AGE_KEY_FILE"
-  TMP_ENV="/run/${ROLE}.env"
+  TMP_ENV="$STATE_DIR/${ROLE}.env"
   sops --decrypt "$ENC_ENV" > "$TMP_ENV"
   set -a
   # shellcheck source=/dev/null
@@ -89,9 +130,13 @@ done
 
 # Optional env-file support from repo root
 DOCKER_ARGS=()
-if [[ -f "/opt/fleet/.env" ]]; then
-  DOCKER_ARGS+=("--env-file" "/opt/fleet/.env")
+if [[ -f "$REPO_DIR/.env" ]]; then
+  DOCKER_ARGS+=("--env-file" "$REPO_DIR/.env")
 fi
+
+LOCK_FILE_COMPOSE="$STATE_DIR/compose.lock"
+exec 201>"$LOCK_FILE_COMPOSE"
+flock 201
 
 docker compose "${DOCKER_ARGS[@]}" -p "$PROJECT" "${COMPOSE_FILES[@]}" up -d --build --remove-orphans
 

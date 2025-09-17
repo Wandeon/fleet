@@ -1,0 +1,13 @@
+[Unit]
+Description=Fleet agent convergence watchdog
+After=role-agent.service
+OnFailure=reboot.target
+StartLimitIntervalSec=600
+StartLimitBurst=3
+
+[Service]
+Type=oneshot
+ExecStart=/usr/bin/env bash /opt/fleet/agent/role-agent-watchdog.sh
+
+[Install]
+WantedBy=multi-user.target

@@ -1,0 +1,11 @@
+[Unit]
+Description=Fleet compose health watchdog
+After=role-agent.service docker.service
+Requires=docker.service
+
+[Service]
+Type=oneshot
+ExecStart=/usr/bin/env bash /opt/fleet/agent/role-agent-healthcheck.sh
+
+[Install]
+WantedBy=multi-user.target
