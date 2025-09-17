@@ -89,7 +89,7 @@ rm -f "$STATE_FILE"
 
 BASE="$REPO_DIR/baseline/docker-compose.yml"
 ROLE_DIR="$REPO_DIR/roles/$ROLE"
-readarray -t ROLE_OVERRIDES < <(find "$ROLE_DIR" -maxdepth 1 -type f -name '*.yml' | sort)
+readarray -t ROLE_OVERRIDES < <(find "$ROLE_DIR" -maxdepth 1 -type f -name '[0-9][0-9]-*.yml' | sort)
 
 COMPOSE_FILES=("-f" "$BASE")
 for f in "${ROLE_OVERRIDES[@]}"; do

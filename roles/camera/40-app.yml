@@ -21,7 +21,7 @@ services:
       start_period: 10s
 
   camera-rtsp:
-    image: ghcr.io/bluenviron/mediamtx:1.7.4
+    image: bluenviron/mediamtx:1.7.4
     restart: unless-stopped
     network_mode: host
     volumes:
