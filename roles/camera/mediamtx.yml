@@ -1,6 +1,6 @@
 logLevel: info
 rtspAddress: :8554
-rtmpEnable: false
+rtmp: false
 hls: true
 hlsAddress: :8888
 hlsAlwaysRemux: true
@@ -10,3 +10,4 @@ paths:
     publishPass: ""
     readUser: ""
     readPass: ""
+
