@@ -1,7 +1,7 @@
 logLevel: info
 rtspAddress: :8554
 rtmpEnable: false
-hlsEnable: true
+hls: true
 hlsAddress: :8888
 hlsAlwaysRemux: true
 paths:

@@ -1,7 +1,7 @@
 services:
   camera-control:
     build:
-      context: ./control
+      context: /opt/fleet/roles/camera/control
     restart: unless-stopped
     network_mode: host
     depends_on:
@@ -21,11 +21,11 @@ services:
       start_period: 10s
 
   camera-rtsp:
-    image: bluenviron/mediamtx:1.7.4
+    image: bluenviron/mediamtx:latest
     restart: unless-stopped
     network_mode: host
     volumes:
-      - ./mediamtx.yml:/mediamtx.yml:ro
+      - /opt/fleet/roles/camera/mediamtx.yml:/mediamtx.yml:ro
     environment:
       MTX_PROTOCOLS: tcp
     healthcheck:
@@ -37,7 +37,7 @@ services:
 
   camera-streamer:
     build:
-      context: ./streamer
+      context: /opt/fleet/roles/camera/streamer
     restart: unless-stopped
     depends_on:
       camera-rtsp:
@@ -62,3 +62,4 @@ services:
       timeout: 5s
       retries: 3
       start_period: 15s
+
