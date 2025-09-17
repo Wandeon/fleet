@@ -17,7 +17,14 @@ services:
       - /proc:/host/proc:ro
       - /sys:/host/sys:ro
       - /etc/os-release:/host/etc/os-release:ro
+    healthcheck:
+      test: ["CMD", "curl", "-fsS", "http://127.0.0.1:19999/health"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 20s
 
 volumes:
   netdata-data: {}
   netdata-cache: {}
+
