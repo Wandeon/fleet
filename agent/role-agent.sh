@@ -102,23 +102,40 @@ fi
 
 # Decrypt role env if present
 ENC_ENV="$REPO_DIR/roles/$ROLE/.env.sops.enc"
+PLAIN_ENV="$REPO_DIR/roles/$ROLE/.env"
+ENV_SOURCED=0
+
 if [[ -f "$ENC_ENV" ]]; then
   if ! command -v sops >/dev/null 2>&1; then
-    echo "ERROR: required command 'sops' not found for env decryption" >&2
-    exit 1
+    echo "WARNING: sops not found; skipping decryption for $ROLE" >&2
+  elif [[ ! -f "$AGE_KEY_FILE" ]]; then
+    echo "WARNING: AGE key not found at $AGE_KEY_FILE; skipping $ENC_ENV" >&2
+  else
+    export SOPS_AGE_KEY_FILE="$AGE_KEY_FILE"
+    TMP_ENV="$STATE_DIR/${ROLE}.env"
+    if sops --decrypt "$ENC_ENV" > "$TMP_ENV"; then
+      set -a
+      # shellcheck source=/dev/null
+      source "$TMP_ENV"
+      set +a
+      ENV_SOURCED=1
+    else
+      echo "WARNING: failed to decrypt $ENC_ENV; falling back to plain env" >&2
+    fi
+    rm -f "$TMP_ENV"
   fi
-  if [[ ! -f "$AGE_KEY_FILE" ]]; then
-    echo "ERROR: AGE key not found at $AGE_KEY_FILE" >&2
-    exit 1
-  fi
-  export SOPS_AGE_KEY_FILE="$AGE_KEY_FILE"
-  TMP_ENV="$STATE_DIR/${ROLE}.env"
-  sops --decrypt "$ENC_ENV" > "$TMP_ENV"
+fi
+
+if (( ! ENV_SOURCED )) && [[ -f "$PLAIN_ENV" ]]; then
   set -a
   # shellcheck source=/dev/null
-  source "$TMP_ENV"
+  source "$PLAIN_ENV"
   set +a
-  rm -f "$TMP_ENV"
+  ENV_SOURCED=1
+fi
+
+if (( ! ENV_SOURCED )); then
+  echo "INFO: proceeding without role-specific env overrides for $ROLE" >&2
 fi
 
 # Compose files (baseline + role, with lexical mix-ins if present)

@@ -31,6 +31,10 @@ sudo systemctl enable --now cec-setup.service
 
 `roles/hdmi-media/50-zigbee.yml` adds the Zigbee hub components. Additional environment variables:
 
+### Environment configuration
+
+Secrets were previously stored in an encrypted `.env.sops.enc`, but the file is now disabled as `.env.sops.enc.disabled`. Create a plain `.env` alongside the role with the required values (copy from `.env.example` as a starting point) and the agent will load it automatically. Missing `sops` binaries or decryption failures no longer abort the deployment; the agent logs a warning and continues with any plain-text env file.
+
 - `ZIGBEE_SERIAL_PORT` (default `/dev/ttyACM0`)
 - `ZIGBEE_MQTT_USER` / `ZIGBEE_MQTT_PASSWORD`
 - `ZIGBEE_NETWORK_KEY`, `ZIGBEE_PAN_ID`, `ZIGBEE_EXT_PAN_ID`

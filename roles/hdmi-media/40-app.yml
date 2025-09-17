@@ -2,7 +2,7 @@ services:
   media-control:
     image: media-control:local
     build:
-      context: ./roles/hdmi-media/control
+      context: ./control
       dockerfile: Dockerfile
     restart: unless-stopped
     network_mode: host
