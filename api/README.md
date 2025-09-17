@@ -1,18 +1,45 @@
-# Fleet API (Express)
+﻿# Fleet API (Express)
 
 Minimal API scaffold to support the unified UI.
 
-Endpoints:
-- `GET /api/health` – aggregated device health from `inventory/device-interfaces.yaml`
-- `GET /api/devices` – list registry entries (UI + monitoring metadata)
-- `GET /api/devices/:id` – single device definition
-- `GET /api/devices/:id/status` – proxy to the device’s `/status` endpoint
-- `POST /api/operations/:device/:operation` – execute an operation declared in the registry
+## Endpoints
+
+### Core
+- `GET /api/health` - aggregated device health from `inventory/device-interfaces.yaml`
+- `GET /api/devices` - list registry entries (UI + monitoring metadata)
+- `GET /api/devices/:id` - single device definition
+- `GET /api/devices/:id/status` - proxy to the device `/status` endpoint
+- `POST /api/operations/:device/:operation` - execute an operation declared in the registry
 - `GET /api/logs`
+
+### Authentication
+- `POST /api/auth/login`
+- `POST /api/auth/logout`
+- `GET /api/auth/session`
+
+### Video control
+- `POST /api/video/devices/:id/tv/power`
+- `POST /api/video/devices/:id/tv/volume`
+- `POST /api/video/devices/:id/tv/input`
+- `GET /api/video/devices/:id/health`
+
+### Zigbee control
+- `POST /api/zigbee/hubs/:id/permit-join`
+- `GET /api/zigbee/hubs/:id/endpoints`
+- `DELETE /api/zigbee/endpoints/:endpointId`
+- `GET /api/zigbee/endpoints/:endpointId/status`
+
+### Camera control
+- `GET /api/camera/devices/:id/health`
+- `GET /api/camera/devices/:id/stream`
+- `POST /api/camera/devices/:id/snapshot`
+- `POST /api/camera/devices/:id/recording`
+- `GET /api/camera/events`
 
 Security:
 - NGINX in front provides CSP nonce and HSTS. API includes nonce passthrough middleware.
 - Basic rate limits on /api/health and /api/logs.
+- Optional session cookies with bearer fallback for UI login.
 
 Run locally:
 ```bash
@@ -39,6 +66,20 @@ AUDIO_PI_AUDIO_01_TOKEN=change-me
 AUDIO_PI_AUDIO_02_TOKEN=change-me
 HDMI_PI_VIDEO_01_TOKEN=change-me
 CAMERA_PI_CAMERA_01_TOKEN=change-me
+
+# UI authentication
+AUTH_USERS="admin:supersecret"
+# or AUTH_USERS_JSON='[{"username":"admin","password":"supersecret"}]'
+AUTH_ALLOW_FALLBACK=false
+AUTH_SESSION_TTL=43200
+AUTH_COOKIE_NAME=session
+AUTH_COOKIE_SECURE=true
+
+# Zigbee bridge (defaults derive from inventory if unset)
+ZIGBEE_MQTT_URL=mqtt://pi-video-01:1883
+ZIGBEE_MQTT_USER=zigbee
+ZIGBEE_MQTT_PASSWORD=change-me
+ZIGBEE_MQTT_BASE_TOPIC=zigbee2mqtt
 ```
 
 Point your `docker-compose.yml` service at the env file, for example:
@@ -66,7 +107,7 @@ cp /opt/fleet/inventory/device-interfaces.yaml /opt/app/config/devices.yaml
 ### Health endpoints & auth
 
 - `/healthz` on each device API is public so Prometheus and uptime probes never require tokens.
-- All other control routes (`/status`, `/play`, `/volume`, `/tv/*`, `/probe`, etc.) remain bearer-protected.
+- All other control routes (`/status`, `/play`, `/volume`, `/tv/*`, `/probe`, etc.) remain bearer-protected. The API keeps bearer support when proxying to devices and layers optional UI login sessions on top.
 - The API stops attaching bearer headers when polling `/healthz`; probes and scripts such as `scripts/acceptance.sh` likewise call `/healthz` unauthenticated.
 
 ### External dependencies
@@ -74,4 +115,3 @@ cp /opt/fleet/inventory/device-interfaces.yaml /opt/app/config/devices.yaml
 - `PROM_URL` should target Prometheus inside the compose network (`http://prometheus:9090/-/healthy`). Host port remaps like `9091` are for dashboards only.
 - `BLACKBOX_URL` should hit the exporter root (`http://blackbox:9115`). Treating `/metrics` as a liveness check is brittle.
 - Prefer Tailscale DNS names for device targets; if you must pin IPs, reserve them in ACLs so they survive re-authentication.
-

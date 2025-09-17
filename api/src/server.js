@@ -1,4 +1,4 @@
-import express from 'express';
+﻿import express from 'express';
 import helmet from 'helmet';
 import cors from 'cors';
 import { logger } from './utils/logger.js';
@@ -8,6 +8,10 @@ import health from './routes/health.js';
 import devices from './routes/devices.js';
 import logs from './routes/logs.js';
 import operations from './routes/operations.js';
+import video from './routes/video.js';
+import zigbee from './routes/zigbee.js';
+import camera from './routes/camera.js';
+import auth from './routes/auth.js';
 import { errorId } from './middleware/errorId.js';
 
 const app = express();
@@ -21,8 +25,12 @@ app.use(cspNonce);
 // Helmet without CSP (proxy provides strict CSP)
 app.use(helmet({ contentSecurityPolicy:false }));
 
+app.use('/api/auth', auth);
 app.use('/api/health', limitHealth, health);
 app.use('/api/devices', devices);
+app.use('/api/video', video);
+app.use('/api/zigbee', zigbee);
+app.use('/api/camera', camera);
 app.use('/api/logs', limitLogs, logs);
 app.use('/api/operations', operations);
 
