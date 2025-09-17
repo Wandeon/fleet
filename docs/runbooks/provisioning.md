@@ -27,9 +27,13 @@
    sudo mkdir -p /opt && cd /opt
    sudo git clone https://github.com/<your-org>/fleet.git
    sudo cp /opt/fleet/agent/role-agent.service /etc/systemd/system/
+   sudo cp /opt/fleet/agent/role-agent-watchdog.service /etc/systemd/system/
+   sudo cp /opt/fleet/agent/role-agent-watchdog.timer /etc/systemd/system/
+   sudo cp /opt/fleet/agent/role-agent-healthcheck.service /etc/systemd/system/
+   sudo cp /opt/fleet/agent/role-agent-healthcheck.timer /etc/systemd/system/
    sudo cp /opt/fleet/agent/role-agent.timer /etc/systemd/system/
    sudo systemctl daemon-reload
-   sudo systemctl enable --now role-agent.timer
+   sudo systemctl enable --now role-agent.timer role-agent-watchdog.timer role-agent-healthcheck.timer
    ```
 
    If you created the files manually or copied them from a Windows host, ensure the agent script is executable (or rely on the updated service that invokes bash explicitly):
@@ -41,10 +45,20 @@
    ```bash
    systemctl cat role-agent.service | grep -F "ExecStart=/usr/bin/env bash" -n || true
    ```
-6) Assign a role in `inventory/devices.yaml` and commit to `main`.
-7) Confirm convergence in ~2 minutes (Netdata, Uptime Kuma, Docker containers running).
+6) Enable watchdog protections:
+   ```bash
+   cd /opt/fleet
+   sudo ./scripts/setup-watchdogs.sh
+   sudo systemctl list-timers "role-agent*"
+   sudo systemctl status watchdog --no-pager
+   ```
+7) Assign a role in `inventory/devices.yaml` and commit to `main`.
+8) Confirm convergence in ~2 minutes (Netdata, Uptime Kuma, Docker containers running).
 
 ## Role-specific prep
 
 - **camera**: enable the CSI camera interface with `sudo raspi-config nonint do_camera 0` and set GPU memory to 256 MB before first convergence.
 - **hdmi-media**: identify the Zigbee coordinator serial port (`ls /dev/ttyACM*`) and update `roles/hdmi-media/.env.sops.enc` (MQTT credentials, PAN IDs, network key).
+
+
+
