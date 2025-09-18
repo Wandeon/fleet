@@ -9,9 +9,10 @@ services:
     ports:
       - "8082:8082"
     environment:
-      MEDIA_CONTROL_TOKEN: ${MEDIA_CONTROL_TOKEN}
-      HDMI_CONNECTOR: ${HDMI_CONNECTOR:-HDMI-A-1}
-      HDMI_AUDIO_DEVICE: ${HDMI_AUDIO_DEVICE:-plughw:vc4hdmi,0}
+      MEDIA_CONTROL_TOKEN: 
+      HDMI_CONNECTOR: 
+      HDMI_AUDIO_DEVICE: 
+      CEC_DEVICE_INDEX: 
     volumes:
       - /run:/run
     healthcheck:

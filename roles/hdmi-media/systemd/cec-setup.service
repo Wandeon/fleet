@@ -1,12 +1,17 @@
 [Unit]
-Description=HDMI-CEC TV setup (power on / set input)
+Description=Configure HDMI-CEC logical address
+Wants=network-online.target
 After=multi-user.target
 
 [Service]
 Type=oneshot
-ExecStart=/usr/bin/cec-ctl -s -d1 --to 0 --image-view-on
+EnvironmentFile=-/etc/default/hdmi-media
+Environment=CEC_DEVICE_INDEX=0
+Environment=CEC_OSD_NAME=%H
+ExecStart=/bin/sh -c 'for i in $(seq 1 20); do [ -e "/dev/cec${CEC_DEVICE_INDEX}" ] && exit 0; sleep 0.5; done; exit 1'
+ExecStart=/usr/bin/cec-ctl -d${CEC_DEVICE_INDEX} --clear
+ExecStart=/usr/bin/cec-ctl -d${CEC_DEVICE_INDEX} --playback --osd-name "${CEC_OSD_NAME}" --timeout 10s
 RemainAfterExit=yes
 
 [Install]
 WantedBy=multi-user.target
-

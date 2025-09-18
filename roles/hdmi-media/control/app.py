@@ -2,7 +2,9 @@ import os
 import json
 import socket
 import subprocess
-from typing import Optional
+import logging
+from pathlib import Path
+from typing import Optional, Tuple
 
 from fastapi import FastAPI, Header, HTTPException
 from fastapi.responses import PlainTextResponse
@@ -11,6 +13,8 @@ from prometheus_client import Gauge, CollectorRegistry, generate_latest, CONTENT
 
 MEDIA_CONTROL_TOKEN = os.environ.get("MEDIA_CONTROL_TOKEN", "")
 MPV_SOCKET = os.environ.get("MPV_SOCKET", "/run/mpv.sock")
+
+logger = logging.getLogger("hdmi-media.control")
 
 app = FastAPI(title="HDMI Media Control")
 
@@ -49,11 +53,43 @@ def mpv_get(property_name: str):
     return mpv_command({"command": ["get_property", property_name]})
 
 
+def resolve_cec_device() -> Tuple[str, Path]:
+    idx = "1" if str(os.environ.get("CEC_DEVICE_INDEX", "0")) == "1" else "0"
+    primary_path = Path(f"/dev/cec{idx}")
+    if primary_path.exists():
+        return idx, primary_path
+    fallback_idx = "0" if idx == "1" else "1"
+    fallback_path = Path(f"/dev/cec{fallback_idx}")
+    if fallback_path.exists():
+        logger.warning(
+            "Configured CEC device /dev/cec%s missing; falling back to /dev/cec%s",
+            idx,
+            fallback_idx,
+        )
+        return fallback_idx, fallback_path
+    return idx, primary_path
+
+
 def cec(*args: str) -> int:
+    idx, device_path = resolve_cec_device()
+    cmd = ["cec-ctl", f"-d{idx}", *args]
+    cmd_str = " ".join(cmd)
+    if not device_path.exists():
+        logger.error("CEC device %s not present; command skipped: %s", device_path, cmd_str)
+        return 1
     try:
-        return subprocess.call(["cec-ctl", *args])
+        subprocess.run(cmd, check=True, capture_output=True)
+        return 0
     except FileNotFoundError:
+        logger.error("cec-ctl binary not found on PATH")
         return 127
+    except subprocess.CalledProcessError as exc:
+        stderr = exc.stderr.decode("utf-8", errors="ignore") if exc.stderr else ""
+        if stderr:
+            logger.error("cec-ctl failed (rc=%s): %s", exc.returncode, stderr.strip())
+        else:
+            logger.error("cec-ctl failed (rc=%s)", exc.returncode)
+        return exc.returncode
 
 
 @app.get("/healthz", response_class=PlainTextResponse)
@@ -142,26 +178,25 @@ def volume(payload: dict, Authorization: Optional[str] = Header(None)):
 @app.post("/tv/power_on")
 def tv_power_on(Authorization: Optional[str] = Header(None)):
     check_auth(Authorization)
-    rc = cec("-s", "-d1", "--to", "0", "--image-view-on")
+    rc = cec("--to", "0", "--image-view-on")
     return {"ok": rc == 0}
 
 
 @app.post("/tv/power_off")
 def tv_power_off(Authorization: Optional[str] = Header(None)):
     check_auth(Authorization)
-    rc = cec("-s", "-d1", "--to", "0", "--standby")
+    rc = cec("--to", "0", "--standby")
     return {"ok": rc == 0}
 
 
 @app.post("/tv/input")
 def tv_input(payload: dict = None, Authorization: Optional[str] = Header(None)):
     check_auth(Authorization)
-    # For simplicity, mark this device as active source
-    rc = cec("-s", "-d1", "--to", "0", "--active-source")
+    rc = cec("--to", "0", "--active-source")
     return {"ok": rc == 0}
 
 
 if __name__ == "__main__":
     import uvicorn
-    uvicorn.run(app, host="0.0.0.0", port=8082)
 
+    uvicorn.run(app, host="0.0.0.0", port=8082)

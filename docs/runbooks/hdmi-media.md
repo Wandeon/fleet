@@ -23,6 +23,7 @@ This Pi drives the TV over HDMI (`hdmi-media` role) and simultaneously hosts the
    ```bash
    sudo ./roles/hdmi-media/install.sh
    ```
+4. Copy `roles/hdmi-media/etc-default-hdmi-media` to `/etc/default/hdmi-media` and set `CEC_DEVICE_INDEX` to the HDMI port in use (`0` for `/dev/cec0`, `1` for `/dev/cec1`).
 
 ## Secrets / environment
 

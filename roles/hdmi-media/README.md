@@ -15,6 +15,7 @@ Plays video/audio to the TV over HDMI on Raspberry Pi 5 and exposes a token-prot
 # Enable (optional) units
 sudo cp roles/hdmi-media/systemd/mpv-hdmi@.service /etc/systemd/system/
 sudo cp roles/hdmi-media/systemd/cec-setup.service /etc/systemd/system/
+sudo install -m 0644 roles/hdmi-media/etc-default-hdmi-media /etc/default/hdmi-media
 sudo systemctl daemon-reload
 sudo systemctl enable --now mpv-hdmi@hdmi.service
 # Optional CEC power-on at boot
@@ -28,6 +29,7 @@ sudo systemctl enable --now cec-setup.service
 - `MEDIA_CONTROL_TOKEN` (required)
 - `HDMI_CONNECTOR` (default `HDMI-A-1`)
 - `HDMI_AUDIO_DEVICE` (default `plughw:vc4hdmi,0`)
+- `CEC_DEVICE_INDEX` (default `0`; select `/dev/cec0` or `/dev/cec1`)
 
 `roles/hdmi-media/50-zigbee.yml` adds the Zigbee hub components. Additional environment variables:
 
@@ -35,11 +37,20 @@ sudo systemctl enable --now cec-setup.service
 
 Secrets were previously stored in an encrypted `.env.sops.enc`, but the file is now disabled as `.env.sops.enc.disabled`. Create a plain `.env` alongside the role with the required values (copy from `.env.example` as a starting point) and the agent will load it automatically. Missing `sops` binaries or decryption failures no longer abort the deployment; the agent logs a warning and continues with any plain-text env file.
 
+- `CEC_DEVICE_INDEX` (default `0`; select `/dev/cec0` or `/dev/cec1`)
+- `CEC_OSD_NAME` (default `%H`; used when registering the playback device name)
 - `ZIGBEE_SERIAL_PORT` (default `/dev/ttyACM0`)
 - `ZIGBEE_MQTT_USER` / `ZIGBEE_MQTT_PASSWORD`
 - `ZIGBEE_NETWORK_KEY`, `ZIGBEE_PAN_ID`, `ZIGBEE_EXT_PAN_ID`
 - `ZIGBEE_CHANNEL` (default `11`)
-- `ZIGBEE_PERMIT_JOIN` (default `false`)
+- Copy `roles/hdmi-media/etc-default-hdmi-media` to `/etc/default/hdmi-media` so systemd units and containers share the same defaults.
+- Override `CEC_DEVICE_INDEX` per host to match the active HDMI connector. Example inventory stanza:
+
+```ini
+[pi_video]
+pi-video-01 CEC_DEVICE_INDEX=0
+pi-video-02 CEC_DEVICE_INDEX=1
+```
 
 ## API
 
@@ -61,6 +72,14 @@ Auth: set `MEDIA_CONTROL_TOKEN` and include header `Authorization: Bearer <token
 - Zigbee2MQTT UI available at `http://<host>:8084` (enable SSH tunnel or tailscale ACLs as needed).
 - Initial device pairing requires `ZIGBEE_PERMIT_JOIN=true`; remember to set back to `false` afterwards.
 - Persisted data lives in Docker volumes `zigbee_mosquitto_data` and `zigbee2mqtt_data`.
+
+## Validation Checklist
+1. Pick the correct adapter: `sudo cec-ctl --list-devices` and update `/etc/default/hdmi-media` so `CEC_DEVICE_INDEX` matches `/dev/cec*`.
+2. Reload units and restart: `sudo systemctl daemon-reload`, then `sudo systemctl enable --now cec-setup.service`; restart your media-control stack so it inherits the env (e.g. `docker compose restart media-control`).
+3. Confirm a logical address is claimed: `sudo cec-ctl -d$CEC_DEVICE_INDEX -L` should show Playback Device 1.
+4. Exercise the API locally: `curl -X POST http://127.0.0.1:8082/tv/power_on` and `curl -X POST http://127.0.0.1:8082/tv/power_off`.
+5. Trace traffic if needed: `sudo cec-ctl -d$CEC_DEVICE_INDEX --monitor --trace` and trigger `/tv/power_on` to watch for ACKs.
+
 ## UI Integration Reference
 
 ### Device Information
@@ -114,6 +133,7 @@ Example `GET /status` response:
 ### Device Configuration Defaults
 - HDMI connector: `HDMI-A-1`
 - Audio device: `plughw:vc4hdmi,0`
+- CEC device index: `0` (set `CEC_DEVICE_INDEX=1` for `/dev/cec1`)
 - Zigbee serial port: `/dev/ttyACM0`
 - Zigbee channel: `11`
 - Zigbee PAN ID: `0x1A62`
