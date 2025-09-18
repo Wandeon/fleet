@@ -1,4 +1,4 @@
-﻿# Fleet API (Express)
+# Fleet API (Express)
 
 Minimal API scaffold to support the unified UI.
 
@@ -18,6 +18,11 @@ Minimal API scaffold to support the unified UI.
 - `GET /api/auth/session`
 
 ### Video control
+- `GET /api/video/files`
+- `POST /api/video/files/upload`
+- `DELETE /api/video/files/{fileId}`
+- `POST /api/video/play`
+- `POST /api/video/stop`
 - `POST /api/video/devices/:id/tv/power`
 - `POST /api/video/devices/:id/tv/volume`
 - `POST /api/video/devices/:id/tv/input`
@@ -65,6 +70,7 @@ BLACKBOX_URL=http://blackbox:9115
 AUDIO_PI_AUDIO_01_TOKEN=change-me
 AUDIO_PI_AUDIO_02_TOKEN=change-me
 HDMI_PI_VIDEO_01_TOKEN=change-me
+VIDEO_DATA_DIR=/app/data
 CAMERA_PI_CAMERA_01_TOKEN=change-me
 
 # UI authentication
@@ -114,4 +120,9 @@ cp /opt/fleet/inventory/device-interfaces.yaml /opt/app/config/devices.yaml
 
 - `PROM_URL` should target Prometheus inside the compose network (`http://prometheus:9090/-/healthy`). Host port remaps like `9091` are for dashboards only.
 - `BLACKBOX_URL` should hit the exporter root (`http://blackbox:9115`). Treating `/metrics` as a liveness check is brittle.
+- `ffmpeg` and `ffprobe` must be available in `PATH` for video thumbnail extraction.
 - Prefer Tailscale DNS names for device targets; if you must pin IPs, reserve them in ACLs so they survive re-authentication.
+
+
+
+
