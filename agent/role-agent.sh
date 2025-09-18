@@ -24,6 +24,105 @@ for cmd in git docker jq systemctl find install; do
     exit 1
   fi
 done
+HOSTNAME_ACTUAL=$(hostname)
+# Optional Prometheus textfile collector output
+TEXTFILE_COLLECTOR_DIR="${ROLE_AGENT_TEXTFILE_DIR:-/var/lib/node_exporter/textfile_collector}"
+METRIC_STATE_FILE="$STATE_DIR/role-agent.prom"
+lock_file_age_seconds() {
+  local file="$1"
+  local now mtime
+  now=$(date +%s)
+  if command -v stat >/dev/null 2>&1; then
+    if mtime=$(stat -c %Y "$file" 2>/dev/null); then
+      echo $((now - mtime))
+      return 0
+    elif mtime=$(stat -f %m "$file" 2>/dev/null); then
+      echo $((now - mtime))
+      return 0
+    fi
+  fi
+  if command -v python3 >/dev/null 2>&1; then
+    if mtime=$(python3 -c 'import os, sys; print(int(os.path.getmtime(sys.argv[1])))' "$file" 2>/dev/null); then
+      echo $((now - mtime))
+      return 0
+    fi
+  fi
+  echo 0
+  return 1
+}
+
+clear_stale_git_locks() {
+  local repo="$1"
+  local -a locks=(
+    "$repo/.git/index.lock"
+    "$repo/.git/shallow.lock"
+    "$repo/.git/packed-refs.lock"
+  )
+  local git_running=0
+  if command -v pgrep >/dev/null 2>&1; then
+    if pgrep -f "git.*${repo}" >/dev/null 2>&1; then
+      git_running=1
+    fi
+  fi
+  for lock in "${locks[@]}"; do
+    [[ -e "$lock" ]] || continue
+    if (( git_running )); then
+      echo "role-agent: git process detected; leaving lock $lock for next attempt" >&2
+      continue
+    fi
+    local age
+    age=$(lock_file_age_seconds "$lock") || age=0
+    if (( age >= 60 )); then
+      rm -f "$lock"
+      echo "role-agent: removed stale git lock $lock (age ${age}s)" >&2
+    else
+      echo "role-agent: git lock $lock present (age ${age}s); will retry later" >&2
+    fi
+  done
+}
+
+update_repo() {
+  local attempts=3
+  local attempt=1
+  while (( attempt <= attempts )); do
+    clear_stale_git_locks "$REPO_DIR"
+    set +e
+    git -C "$REPO_DIR" fetch --depth 1 origin main
+    local fetch_rc=$?
+    if (( fetch_rc == 0 )); then
+      git -C "$REPO_DIR" reset --hard origin/main
+      local reset_rc=$?
+      set -e
+      if (( reset_rc == 0 )); then
+        return 0
+      else
+        echo "role-agent: git reset failed on attempt ${attempt} (rc=${reset_rc})" >&2
+      fi
+    else
+      set -e
+      echo "role-agent: git fetch failed on attempt ${attempt} (rc=${fetch_rc})" >&2
+    fi
+    if (( attempt < attempts )); then
+      sleep $((attempt * 10))
+    fi
+    attempt=$((attempt + 1))
+  done
+  echo "ERROR: git update failed after ${attempts} attempts" >&2
+  exit 1
+}
+write_agent_metrics() {
+  local status="${1:-0}"
+  local ts=$(date +%s)
+  mkdir -p "$(dirname "$METRIC_STATE_FILE")"
+  cat > "$METRIC_STATE_FILE" <<EOF
+role_agent_last_run_timestamp{host="$HOSTNAME_ACTUAL"} $ts
+role_agent_last_run_success{host="$HOSTNAME_ACTUAL"} $status
+EOF
+  if [[ -d "$TEXTFILE_COLLECTOR_DIR" && -w "$TEXTFILE_COLLECTOR_DIR" ]]; then
+    cp "$METRIC_STATE_FILE" "$TEXTFILE_COLLECTOR_DIR/role-agent.prom" 2>/dev/null || true
+  fi
+}
+trap 'write_agent_metrics 0' ERR
 
 ensure_systemd_units() {
   local -a units=(
@@ -58,8 +157,7 @@ ensure_systemd_units() {
 compose_list_projects() {
   local output names
   if output=$(docker compose ls --format json 2>/dev/null); then
-    if names=$(jq -r '.[] | .Name' <<<"$output" 2>/dev/null); then
-      if [[ -n "$names" ]]; then
+    if names=$(printf '%s\n' "$output" | jq -r '.[] | .Name' 2>/dev/null); then
         printf '%s\n' "$names"
       fi
       return 0
@@ -72,7 +170,6 @@ compose_list_projects() {
 ensure_systemd_units
 
 # Determine role from inventory/devices.yaml by hostname
-HOSTNAME_ACTUAL=$(hostname)
 ROLE=$(awk -v h="$HOSTNAME_ACTUAL" '
   $1=="devices:" {in_devices=1}
   in_devices && $1==h":" {getline; print $2}
@@ -85,8 +182,7 @@ fi
 
 # Update repo
 if [[ -d "$REPO_DIR/.git" ]]; then
-  git -C "$REPO_DIR" fetch --depth 1 origin main
-  git -C "$REPO_DIR" reset --hard origin/main
+  update_repo
 else
   echo "ERROR: Repo not found at $REPO_DIR" >&2
   exit 1
@@ -182,4 +278,8 @@ echo "Converged role=$ROLE project=$PROJECT"
 # Reclaim space: remove dangling images (old commit builds)
 docker image prune -f >/dev/null 2>&1 || true
 
+write_agent_metrics 1
+
 exit 0
+
+

@@ -4,6 +4,7 @@ Fleet agents now install multiple safety nets to heal Pi nodes if they drift or 
 
 ## Systemd watchdog chain
 
+- `role-agent.timer` runs every 8 minutes with up to 90s jitter to prevent overlapping converger jobs.
 - `role-agent-watchdog.timer` runs every 5 minutes and checks for a recent `Converged` journal entry.
 - If no success within 15 minutes, it restarts `role-agent.service` and reboots the host after 3 failed attempts.
 - `role-agent-healthcheck.timer` inspects the active compose project; three consecutive unhealthy states trigger a compose recycle.
@@ -21,3 +22,21 @@ Fleet agents now install multiple safety nets to heal Pi nodes if they drift or 
 - Force an agent run: `sudo systemctl start role-agent.service`.
 - Disable watchdogs temporarily: `sudo systemctl stop watchdog role-agent-watchdog.timer role-agent-healthcheck.timer`.
 - Re-enable after maintenance: `sudo systemctl start watchdog role-agent-watchdog.timer role-agent-healthcheck.timer`.
+
+## Git lock recovery
+
+- The agent now prunes stale `.git/*.lock` files before each fetch, but manual cleanup is still available when needed.
+- To unblock a locked repo and re-run the converger:
+
+```
+sudo rm -f /opt/fleet/.git/{index,shallow,packed-refs}.lock
+sudo systemctl start role-agent.service
+```
+
+- Locks younger than a minute are left in place automatically; if you see repeated failures, verify no `git` processes are running before removing the files manually.
+
+## Monitoring agent freshness
+
+- Each convergence run writes Prometheus textfile metrics: `role_agent_last_run_timestamp` and `role_agent_last_run_success` (labelled by `host`).
+- By default the agent copies metrics into `/var/lib/node_exporter/textfile_collector/role-agent.prom` when that collector directory exists. Override the path with `ROLE_AGENT_TEXTFILE_DIR` if your node exporter uses a different location.
+- Alerting examples are defined in `vps/prometheus/alerts.yml` (`RoleAgentStale` after 15m without success, `RoleAgentFailure` when the last run failed for 5m).

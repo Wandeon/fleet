@@ -61,3 +61,14 @@ groups:
     labels: {severity: warning}
     annotations: {summary: "Blackbox HTTP probe failure"}
 
+  - alert: RoleAgentStale
+    expr: time() - role_agent_last_run_timestamp > 900
+    for: 5m
+    labels: {severity: warning}
+    annotations: {summary: "Role agent overdue", description: "{{ $labels.host }} has not converged in >15m"}
+
+  - alert: RoleAgentFailure
+    expr: role_agent_last_run_success == 0
+    for: 5m
+    labels: {severity: critical}
+    annotations: {summary: "Role agent failing", description: "Last converger run failed on {{ $labels.host }}"}

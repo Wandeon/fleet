@@ -3,9 +3,9 @@ Description=Fleet GitOps converger timer
 Requires=role-agent.service
 
 [Timer]
-OnBootSec=30s
-OnUnitActiveSec=2m
-RandomizedDelaySec=5
+OnBootSec=45s
+OnUnitActiveSec=8m
+RandomizedDelaySec=90
 Persistent=true
 
 [Install]
