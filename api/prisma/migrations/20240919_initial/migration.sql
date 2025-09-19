@@ -33,12 +33,14 @@ CREATE TABLE IF NOT EXISTS "DeviceEvent" (
   "origin" TEXT,
   "job_id" TEXT,
   "correlation_id" TEXT,
+  "at_month" DATETIME NOT NULL DEFAULT (strftime('%Y-%m-01T00:00:00Z', 'now')),
   "created_at" DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
   CONSTRAINT "DeviceEvent_device_id_fkey" FOREIGN KEY ("device_id") REFERENCES "Device"("id") ON DELETE CASCADE ON UPDATE CASCADE
 );
 
 CREATE INDEX IF NOT EXISTS "DeviceEvent_device_idx" ON "DeviceEvent"("device_id", "created_at");
 CREATE INDEX IF NOT EXISTS "DeviceEvent_type_idx" ON "DeviceEvent"("device_id", "event_type", "created_at");
+CREATE INDEX IF NOT EXISTS "DeviceEvent_month_idx" ON "DeviceEvent"("at_month");
 
 -- Create Job table
 CREATE TABLE IF NOT EXISTS "Job" (
