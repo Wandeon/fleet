@@ -3,9 +3,7 @@ FROM python:3.11-alpine3.20
 RUN apk add --no-cache alsa-utils ca-certificates && \
     update-ca-certificates || true
 
-RUN python3 -m ensurepip --upgrade || true && \
-    python3 -m pip install --no-cache-dir --upgrade pip setuptools wheel && \
-    python3 -m pip install --no-cache-dir \
+RUN python3 -m pip install --no-cache-dir \
       flask==3.0.3 itsdangerous==2.2.0 jinja2==3.1.4 werkzeug==3.0.3 click==8.1.7 blinker==1.8.2
 
 # App content is provided at runtime by the compose command script.
