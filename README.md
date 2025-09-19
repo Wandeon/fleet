@@ -22,6 +22,7 @@ If you only read one file to understand and operate the system, read this README
   - `docs/runbooks/provisioning.md:1` - OS + agent provisioning
   - `docs/runbooks/audio.md:1` - audio system: server, playback, API
   - `docs/runbooks/api-troubleshooting.md:1` - fix API container ES module startup failures
+  - `docs/runbooks/logging.md:1` - unified Loki log pipeline setup and verification
 
 ## GitOps Model
 
@@ -46,7 +47,7 @@ To add more devices, insert hostnames under `devices:` and set their roles.
 ## Roles
 
 - Baseline (all devices): `baseline/docker-compose.yml:1`
-  - Includes Netdata for local monitoring.
+  - Includes Netdata for local monitoring and Promtail for centralized logging to Loki.
   - Installs and maintains Claude Code CLI plus Slack/Playwright MCP servers (see `docs/runbooks/claude-code.md`).
 
 - Audio player (output-only listener): `roles/audio-player/40-app.yml:1`
@@ -85,7 +86,7 @@ To add more devices, insert hostnames under `devices:` and set their roles.
 
 ## Monitoring (VPS)
 
-- Stack: `vps/compose.prom-grafana-blackbox.yml:1` (Prometheus, Grafana, Blackbox)
+- Stack: `vps/compose.prom-grafana-blackbox.yml:1` (Prometheus, Grafana, Loki, Promtail, Blackbox)
 - Service-to-service checks should use the container endpoints (`http://prometheus:9090/-/healthy` and `http://blackbox:9115`); host-mapped ports such as `9091` are only for interactive access from the host/browser.
 - Prometheus scrape config: `vps/prometheus.yml:1` loads file SD targets from `/etc/prometheus/targets/*.json`.
 - Add targets:
@@ -94,6 +95,8 @@ To add more devices, insert hostnames under `devices:` and set their roles.
   - Camera: `vps/targets-camera.json:1`
   These files are generated from the device interface registry—update `inventory/device-interfaces.yaml:1` and run the validation script.
 - Dashboard: import `vps/grafana-dashboard-audio.json:1` in Grafana.
+- Unified logging: `baseline/promtail` ships systemd journal + Docker logs from every Pi to Loki. Configure the Loki push URL by setting `LOKI_ENDPOINT` (and optional `LOG_SITE`) in `/etc/fleet/agent.env`; the agent exports those variables before composing.
+- Grafana auto-loads a Loki data source (`vps/grafana/provisioning/datasources/loki.yml`). Use Grafana → Explore → Loki to query cross-fleet logs or build dashboards that mix metrics with log panels.
 - `vps/blackbox.yml` includes a module (`http_any_2xx_3xx_4xx_ok`) that treats 401/404 as success for the rare endpoints that still demand auth; aim Prometheus probes at `/healthz` so they return clean 200s whenever possible.
 
 ## Security

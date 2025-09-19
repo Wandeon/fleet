@@ -25,6 +25,17 @@ for cmd in git docker jq systemctl find install; do
   fi
 done
 HOSTNAME_ACTUAL=$(hostname)
+HOST_ENV_FILE="/etc/fleet/agent.env"
+if [[ -f "$HOST_ENV_FILE" ]]; then
+  set -a
+  # shellcheck source=/etc/fleet/agent.env
+  source "$HOST_ENV_FILE"
+  set +a
+fi
+
+export ROLE_AGENT_HOSTNAME="$HOSTNAME_ACTUAL"
+export LOG_SOURCE_HOST="${LOG_SOURCE_HOST:-$HOSTNAME_ACTUAL}"
+
 # Optional Prometheus textfile collector output
 TEXTFILE_COLLECTOR_DIR="${ROLE_AGENT_TEXTFILE_DIR:-/var/lib/node_exporter/textfile_collector}"
 METRIC_STATE_FILE="$STATE_DIR/role-agent.prom"
@@ -158,10 +169,9 @@ compose_list_projects() {
   local output names
   if output=$(docker compose ls --format json 2>/dev/null); then
     if names=$(printf '%s\n' "$output" | jq -r '.[] | .Name' 2>/dev/null); then
-        printf '%s\n' "$names"
-      fi
-      return 0
+      printf '%s\n' "$names"
     fi
+    return 0
   fi
   docker compose ls 2>/dev/null | awk 'NR>1 {print $1}' || true
   return 0
