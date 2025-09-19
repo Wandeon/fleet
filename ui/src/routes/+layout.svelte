@@ -1,6 +1,21 @@
+<script lang="ts">
+  import { onMount } from 'svelte';
+  import { connectSSE } from '$lib/stores/deviceStates';
+
+  let es: EventSource | undefined;
+
+  onMount(() => {
+    es = connectSSE('/api');
+    return () => es?.close();
+  });
+</script>
+
 <svelte:head>
   <script nonce="%sveltekit.nonce%">/* theme init */</script>
-  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/tailwindcss@3.4.13/dist/tailwind.min.css" />
+  <link
+    rel="stylesheet"
+    href="https://cdn.jsdelivr.net/npm/tailwindcss@3.4.13/dist/tailwind.min.css"
+  />
 </svelte:head>
 
 <div class="min-h-screen bg-neutral-50 text-neutral-900">
@@ -21,4 +36,3 @@
     Build info available on /about
   </footer>
 </div>
-

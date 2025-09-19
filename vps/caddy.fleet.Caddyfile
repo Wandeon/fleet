@@ -1,0 +1,19 @@
+log.beautyheadspabymartina.hr {
+  encode zstd gzip
+  tls you@example.com
+
+  @api path /api* /stream /metrics
+  reverse_proxy @api fleet-api:3005 {
+    header_up Authorization {>Authorization}
+  }
+
+  route /stream {
+    reverse_proxy fleet-api:3005 {
+      transport http {
+        keepalive 10
+      }
+    }
+  }
+
+  reverse_proxy fleet-ui:3000
+}
