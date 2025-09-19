@@ -3,7 +3,7 @@ set -euo pipefail
 
 REPO_DIR="/opt/fleet"
 STATE_DIR="/run/fleet"
-LOCK_FILE="$STATE_DIR/role-agent.lock"
+LOCK_FILE="$STATE_DIR/role-agent.loc
 THRESHOLD_MINUTES=${WATCHDOG_THRESHOLD_MINUTES:-60}
 MAX_RETRIES=${WATCHDOG_MAX_RETRIES:-3}
 STATE_FILE="$STATE_DIR/role-agent-watchdog.failcount"
