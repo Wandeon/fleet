@@ -67,6 +67,11 @@ Copy `.env.example` and populate secrets:
 ```bash
 DATABASE_URL="file:./data/fleet.db"
 PORT=3005
+NODE_ENV=production
+SESSION_SECRET=a1b2c3d4e5f6g7h8i9j0k1l2m3n4o5p6q7r8s9t0u1v2w3x4y5z6
+ADMIN_TOKEN=3e4f6b2f76cb888ff5730a98e2de066cdbc11cb41b7575ef6f58536a180cc3fc
+
+APP_BASE_URL=https://app.beautyheadspabymartina.hr
 
 AUDIO_PI_AUDIO_01_TOKEN=7d12cb8f5efe204d31923be1befaf5540a5b700ba8f026f3a3e5b8eba7d8245a
 AUDIO_PI_AUDIO_02_TOKEN=06db5c8f2535e983d024e8f42eef2e81ca4a71905270847560a33f8a79faf27b
@@ -87,8 +92,8 @@ Set `DATABASE_URL` to Postgres for production. The background worker starts auto
 
 ## Development Utilities
 
-- `npm run dev` — API with automatic restarts and embedded worker.
-- `npm run worker` — standalone worker process.
-- `npm run seed:devices` — sync database with inventory YAML.
-- `npm run migrate:dev` — create & apply new migrations while developing.
+- `npm run dev` â€” API with automatic restarts and embedded worker.
+- `npm run worker` â€” standalone worker process.
+- `npm run seed:devices` â€” sync database with inventory YAML.
+- `npm run migrate:dev` â€” create & apply new migrations while developing.
 
