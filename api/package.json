@@ -7,7 +7,13 @@
     "node": ">=18.18.0"
   },
   "scripts": {
-    "start": "node src/server.js"
+    "start": "node src/server.js",
+    "dev": "node --watch src/server.js",
+    "migrate": "prisma migrate deploy",
+    "migrate:dev": "prisma migrate dev",
+    "prisma:generate": "prisma generate",
+    "worker": "node src/worker/index.js",
+    "seed:devices": "node scripts/seed-devices.js"
   },
   "dependencies": {
     "cors": "^2.8.5",
@@ -19,6 +25,10 @@
     "mqtt": "^5.5.0",
     "multer": "^2.0.2",
     "nanoid": "^4.0.2",
-    "yaml": "^2.5.0"
+    "yaml": "^2.5.0",
+    "@prisma/client": "^5.16.1"
+  },
+  "devDependencies": {
+    "prisma": "^5.16.1"
   }
 }

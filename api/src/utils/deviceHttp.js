@@ -1,4 +1,4 @@
-﻿import { resolveDeviceUrl, buildAuthHeaders } from './deviceRegistry.js';
+import { getDeviceBaseUrl, buildDeviceAuthHeaders } from './deviceAddress.js';
 import { fetchWithTimeout, parseResponseContent } from './http.js';
 
 function ensureDevice(device) {
@@ -11,7 +11,7 @@ function buildHeaders(device, headers = {}, accept) {
   const baseHeaders = accept ? { Accept: accept } : { Accept: 'application/json, text/plain;q=0.8' };
   return {
     ...baseHeaders,
-    ...buildAuthHeaders(device),
+    ...buildDeviceAuthHeaders(device),
     ...headers,
   };
 }
@@ -68,6 +68,16 @@ export async function callDeviceEndpoint(device, options = {}) {
     headers: Object.fromEntries(response.headers.entries()),
     url: targetUrl,
   };
+}
+
+function resolveDeviceUrl(device, pathSuffix) {
+  const base = getDeviceBaseUrl(device);
+  if (!base) return null;
+  if (!pathSuffix) return base;
+  if (pathSuffix.startsWith('http://') || pathSuffix.startsWith('https://')) return pathSuffix;
+  const needsSlash = !base.endsWith('/') && !pathSuffix.startsWith('/');
+  if (base.endsWith('/') && pathSuffix.startsWith('/')) return `${base}${pathSuffix.slice(1)}`;
+  return needsSlash ? `${base}/${pathSuffix}` : `${base}${pathSuffix}`;
 }
 
 export function ensureKind(device, kinds = []) {

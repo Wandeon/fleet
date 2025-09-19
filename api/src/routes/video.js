@@ -1,8 +1,12 @@
 import path from 'path';
 import multer from 'multer';
 import { Router } from 'express';
-import { getDevice } from '../utils/deviceRegistry.js';
+import { getDevice as getRegistryDevice } from '../utils/deviceRegistry.js';
 import { callDeviceEndpoint, ensureKind } from '../utils/deviceHttp.js';
+import {
+  getDevice as getDeviceRecord
+} from '../services/deviceService.js';
+import { queueDeviceCommand } from '../services/commandService.js';
 import {
   ensureStorageReady,
   listVideoFiles,
@@ -66,12 +70,24 @@ function presentFile(req, file) {
 }
 
 function findVideoDevice(id) {
-  const device = getDevice(id);
+  const device = getRegistryDevice(id);
   if (!device) return null;
   if (!ensureKind(device, ['video', 'hdmi-media'])) {
     return null;
   }
   return device;
+}
+
+async function loadVideoDeviceRecord(id) {
+  try {
+    const device = await getDeviceRecord(id);
+    if (!ensureKind(device, ['video', 'hdmi-media'])) {
+      return null;
+    }
+    return device;
+  } catch (err) {
+    return null;
+  }
 }
 
 function sendProxyResponse(res, deviceId, result, overrideData) {
@@ -90,33 +106,6 @@ function handleProxyError(res, error, code = 'video_proxy_failed') {
   res.status(status).json({ error: code, detail });
 }
 
-async function invokeDevicePlayback(deviceId, options) {
-  const device = findVideoDevice(deviceId);
-  if (!device) {
-    return {
-      device_id: deviceId,
-      ok: false,
-      error: 'device_not_found',
-    };
-  }
-  try {
-    const result = await callDeviceEndpoint(device, options);
-    return {
-      device_id: deviceId,
-      ok: result.ok,
-      status: result.status,
-      data: result.data ?? null,
-    };
-  } catch (err) {
-    const detail = err instanceof Error ? err.message : String(err);
-    return {
-      device_id: deviceId,
-      ok: false,
-      error: detail,
-    };
-  }
-}
-
 function buildPlaybackUrl(req, fileId) {
   return makeAbsolute(req, `/api/video/files/${fileId}/stream`);
 }
@@ -128,7 +117,7 @@ router.get('/files', async (req, res) => {
     res.json({ files: presented, count: presented.length });
   } catch (err) {
     const detail = err instanceof Error ? err.message : String(err);
-    res.status(500).json({ error: 'video_list_failed', detail });
+    res.status(500).json({ status: 'error', message: 'list_failed', detail });
   }
 });
 
@@ -219,25 +208,31 @@ router.post('/play', async (req, res) => {
     return res.status(404).json({ status: 'error', message: 'file_not_found' });
   }
   const streamUrl = buildPlaybackUrl(req, fileId);
-  const tasks = deviceIds.map((id) =>
-    invokeDevicePlayback(id, {
+  const jobs = [];
+  for (const id of deviceIds) {
+    const deviceRecord = await loadVideoDeviceRecord(id);
+    if (!deviceRecord) {
+      jobs.push({ device_id: id, error: 'device_not_found' });
+      continue;
+    }
+    const requestDefinition = {
       path: '/play',
       method: 'POST',
       body: { url: streamUrl, start: 0 },
       timeout: 8000,
-    })
-  );
-  const results = await Promise.all(tasks);
-  const successCount = results.filter((r) => r.ok).length;
-  const failureCount = results.length - successCount;
-  const status = failureCount === 0 ? 'ok' : successCount > 0 ? 'partial' : 'error';
-  const message =
-    status === 'ok'
-      ? `Playback started on ${successCount} device${successCount === 1 ? '' : 's'}.`
-      : status === 'partial'
-        ? `Playback started on ${successCount} device(s); ${failureCount} failed.`
-        : 'Failed to start playback on all devices.';
-  res.status(status === 'error' ? 502 : 200).json({ status, message, file: presentFile(req, record.response), results });
+    };
+    const { jobId } = await queueDeviceCommand(deviceRecord, {
+      command: 'media.play',
+      payload: { url: streamUrl },
+      request: requestDefinition,
+      successEvent: 'media.play.started',
+      errorEvent: 'media.play.failed',
+      statePatch: { media: { status: 'playing', source: streamUrl } },
+      stateOnError: { media: { status: 'error', source: streamUrl } },
+    });
+    jobs.push({ device_id: id, job_id: jobId });
+  }
+  res.status(202).json({ status: 'accepted', jobs });
 });
 
 router.post('/stop', async (req, res) => {
@@ -246,30 +241,39 @@ router.post('/stop', async (req, res) => {
   if (deviceIds.length === 0) {
     return res.status(400).json({ status: 'error', message: 'device_ids_required' });
   }
-  const tasks = deviceIds.map((id) =>
-    invokeDevicePlayback(id, {
+  const jobs = [];
+  for (const id of deviceIds) {
+    const deviceRecord = await loadVideoDeviceRecord(id);
+    if (!deviceRecord) {
+      jobs.push({ device_id: id, error: 'device_not_found' });
+      continue;
+    }
+    const requestDefinition = {
       path: '/stop',
       method: 'POST',
       timeout: 8000,
-    })
-  );
-  const results = await Promise.all(tasks);
-  const successCount = results.filter((r) => r.ok).length;
-  const failureCount = results.length - successCount;
-  const status = failureCount === 0 ? 'ok' : successCount > 0 ? 'partial' : 'error';
-  const message =
-    status === 'ok'
-      ? `Playback stopped on ${successCount} device${successCount === 1 ? '' : 's'}.`
-      : status === 'partial'
-        ? `Playback stopped on ${successCount} device(s); ${failureCount} failed.`
-        : 'Failed to stop playback on all devices.';
-  res.status(status === 'error' ? 502 : 200).json({ status, message, results });
+    };
+    const { jobId } = await queueDeviceCommand(deviceRecord, {
+      command: 'media.stop',
+      payload: {},
+      request: requestDefinition,
+      successEvent: 'media.stop.success',
+      errorEvent: 'media.stop.failed',
+      statePatch: { media: { status: 'stopped' } },
+    });
+    jobs.push({ device_id: id, job_id: jobId });
+  }
+  res.status(202).json({ status: 'accepted', jobs });
 });
 
 router.post('/devices/:deviceId/tv/power', async (req, res) => {
   const { deviceId } = req.params;
-  const device = findVideoDevice(deviceId);
-  if (!device) {
+  const registryDevice = findVideoDevice(deviceId);
+  if (!registryDevice) {
+    return res.status(404).json({ error: 'device_not_found' });
+  }
+  const deviceRecord = await loadVideoDeviceRecord(deviceId);
+  if (!deviceRecord) {
     return res.status(404).json({ error: 'device_not_found' });
   }
 
@@ -287,26 +291,30 @@ router.post('/devices/:deviceId/tv/power', async (req, res) => {
     return res.status(400).json({ error: 'invalid_state', detail: 'state must be "on" or "off"' });
   }
 
+  const commandName = desired === 'on' ? 'tv.power_on' : 'tv.power_off';
   const pathSuffix = desired === 'on' ? '/tv/power_on' : '/tv/power_off';
-  try {
-    const result = await callDeviceEndpoint(device, {
-      path: pathSuffix,
-      method: 'POST',
-    });
-    const formatted =
-      result.data && typeof result.data === 'object'
-        ? { ...result.data, state: desired }
-        : { state: desired, response: result.data ?? null };
-    sendProxyResponse(res, deviceId, result, formatted);
-  } catch (err) {
-    handleProxyError(res, err, 'video_power_failed');
-  }
+
+  const { jobId } = await queueDeviceCommand(deviceRecord, {
+    command: commandName,
+    payload: { desired },
+    request: { path: pathSuffix, method: 'POST' },
+    successEvent: 'tv.power.changed',
+    errorEvent: 'tv.power.failed',
+    statePatch: { tv: { power: desired } },
+    markOfflineOnError: true,
+  });
+
+  res.status(202).json({ accepted: true, job_id: jobId, device: deviceId });
 });
 
 router.post('/devices/:deviceId/tv/volume', async (req, res) => {
   const { deviceId } = req.params;
-  const device = findVideoDevice(deviceId);
-  if (!device) {
+  const registryDevice = findVideoDevice(deviceId);
+  if (!registryDevice) {
+    return res.status(404).json({ error: 'device_not_found' });
+  }
+  const deviceRecord = await loadVideoDeviceRecord(deviceId);
+  if (!deviceRecord) {
     return res.status(404).json({ error: 'device_not_found' });
   }
   const body = req.body && typeof req.body === 'object' ? { ...req.body } : {};
@@ -325,35 +333,45 @@ router.post('/devices/:deviceId/tv/volume', async (req, res) => {
     return res.status(400).json({ error: 'invalid_payload', detail: 'Provide volume, direction, or mute state.' });
   }
 
-  try {
-    const result = await callDeviceEndpoint(device, {
-      path: '/volume',
-      method: 'POST',
-      body,
-    });
-    sendProxyResponse(res, deviceId, result);
-  } catch (err) {
-    handleProxyError(res, err, 'video_volume_failed');
-  }
+  const { jobId } = await queueDeviceCommand(deviceRecord, {
+    command: 'tv.volume',
+    payload: body,
+    request: { path: '/volume', method: 'POST', body },
+    successEvent: 'tv.volume.changed',
+    errorEvent: 'tv.volume.failed',
+    statePatch: { tv: { volume: body.volume ?? null } },
+  });
+
+  res.status(202).json({ accepted: true, job_id: jobId, device: deviceId });
 });
 
 router.post('/devices/:deviceId/tv/input', async (req, res) => {
   const { deviceId } = req.params;
-  const device = findVideoDevice(deviceId);
-  if (!device) {
+  const registryDevice = findVideoDevice(deviceId);
+  if (!registryDevice) {
+    return res.status(404).json({ error: 'device_not_found' });
+  }
+  const deviceRecord = await loadVideoDeviceRecord(deviceId);
+  if (!deviceRecord) {
     return res.status(404).json({ error: 'device_not_found' });
   }
   const payload = req.body && typeof req.body === 'object' ? req.body : {};
-  try {
-    const result = await callDeviceEndpoint(device, {
-      path: '/tv/input',
-      method: 'POST',
-      body: payload,
-    });
-    sendProxyResponse(res, deviceId, result);
-  } catch (err) {
-    handleProxyError(res, err, 'video_input_failed');
+
+  const source = typeof payload.source === 'string' ? payload.source : undefined;
+  if (!source) {
+    return res.status(400).json({ error: 'invalid_payload', detail: 'source required' });
   }
+
+  const { jobId } = await queueDeviceCommand(deviceRecord, {
+    command: 'tv.input',
+    payload,
+    request: { path: '/tv/input', method: 'POST', body: payload },
+    successEvent: 'tv.input.changed',
+    errorEvent: 'tv.input.failed',
+    statePatch: { tv: { input: source } },
+  });
+
+  res.status(202).json({ accepted: true, job_id: jobId, device: deviceId });
 });
 
 router.get('/devices/:deviceId/health', async (req, res) => {

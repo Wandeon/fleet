@@ -6,12 +6,10 @@ vps/secrets/*
 
 # OS metadata
 .DS_Store
-
 # Dependencies and build outputs
 node_modules/
 .svelte-kit/
 dist/
-
 # Backups
 *.bak
 *.backup

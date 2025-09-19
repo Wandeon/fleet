@@ -1,35 +1,55 @@
 import { Router } from 'express';
 import {
-  readDevices,
+  listDevices,
   getDevice,
-  buildAuthHeaders,
-} from '../utils/deviceRegistry.js';
+  getDeviceState,
+} from '../services/deviceService.js';
+import {
+  getDeviceStatusUrl,
+  buildDeviceAuthHeaders,
+} from '../utils/deviceAddress.js';
 import { fetchWithTimeout, parseResponseContent } from '../utils/http.js';
+import { NotFoundError } from '../utils/errors.js';
 
 const r = Router();
 
-r.get('/', (_req, res) => {
-  res.json(readDevices());
-});
-
-r.get('/:id', (req, res) => {
-  const device = getDevice(req.params.id);
-  if (!device) return res.status(404).json({ error: 'not_found' });
-  res.json(device);
-});
-
-r.get('/:id/status', async (req, res) => {
-  const device = getDevice(req.params.id);
-  if (!device) return res.status(404).json({ error: 'not_found' });
-  const url = device?.api?.status_url;
-  if (!url) return res.status(400).json({ error: 'status_unavailable' });
-
+r.get('/', async (_req, res, next) => {
   try {
+    const devices = await listDevices();
+    res.json({ devices });
+  } catch (err) {
+    next(err);
+  }
+});
+
+r.get('/:id', async (req, res, next) => {
+  try {
+    const device = await getDevice(req.params.id);
+    res.json(device);
+  } catch (err) {
+    next(err);
+  }
+});
+
+r.get('/:id/state', async (req, res, next) => {
+  try {
+    const state = await getDeviceState(req.params.id);
+    res.json(state);
+  } catch (err) {
+    next(err);
+  }
+});
+
+r.get('/:id/status', async (req, res, next) => {
+  try {
+    const device = await getDevice(req.params.id);
+    const url = getDeviceStatusUrl(device);
+    if (!url) throw new NotFoundError('status endpoint unavailable for device');
     const response = await fetchWithTimeout(url, {
       method: 'GET',
       headers: {
         Accept: 'application/json, text/plain;q=0.8',
-        ...buildAuthHeaders(device),
+        ...buildDeviceAuthHeaders(device),
       },
       timeout: 4000,
     });
@@ -40,8 +60,7 @@ r.get('/:id/status', async (req, res) => {
       data: payload,
     });
   } catch (err) {
-    const detail = err instanceof Error ? err.message : String(err);
-    res.status(502).json({ error: 'status_fetch_failed', detail });
+    next(err);
   }
 });
 
