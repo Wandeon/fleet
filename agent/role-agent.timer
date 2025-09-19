@@ -4,7 +4,7 @@ Requires=role-agent.service
 
 [Timer]
 OnBootSec=45s
-OnUnitActiveSec=8m
+OnUnitActiveSec=10m
 RandomizedDelaySec=90
 Persistent=true
 

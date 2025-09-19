@@ -4,24 +4,27 @@ Fleet agents now install multiple safety nets to heal Pi nodes if they drift or 
 
 ## Systemd watchdog chain
 
-- `role-agent.timer` runs every 8 minutes with up to 90s jitter to prevent overlapping converger jobs.
-- `role-agent-watchdog.timer` runs every 5 minutes and checks for a recent `Converged` journal entry.
-- If no success within 30 minutes (configurable via `WATCHDOG_THRESHOLD_MINUTES`), it restarts `role-agent.service` and reboot
-s the host after 3 failed attempts.
+
+- `role-agent.timer` runs every 10 minutes with up to 90s jitter to prevent overlapping converger jobs.
+- `role-agent-watchdog.timer` runs every 60 minutes and checks for a recent `Converged` journal entry.
+- If no success within 60 minutes (configurable via `WATCHDOG_THRESHOLD_MINUTES`), it restarts `role-agent.service` and reboots the host after 3 failed attempts.
 - `role-agent-healthcheck.timer` inspects the active compose project; three consecutive unhealthy states trigger a compose recycle.
 - View status with `systemctl list-timers "role-agent*"` and inspect logs via `journalctl -u role-agent-watchdog.service`.
 
 ### Tuning the convergence watchdog
 
 - Check the current cadence with `systemctl list-timers --all | grep role-agent`.
-- Override the convergence window if your converge cycle regularly exceeds 30 minutes:
+
+- Override the convergence window if your converge cycle regularly exceeds 60 minutes:
+
 
 ```
 sudo systemctl edit role-agent-watchdog.service
 
 [Service]
-Environment=WATCHDOG_THRESHOLD_MINUTES=45
-```
+
+Environment=WATCHDOG_THRESHOLD_MINUTES=90
+
 
 - Reload and restart after editing: `sudo systemctl daemon-reload && sudo systemctl restart role-agent-watchdog.timer`.
 
