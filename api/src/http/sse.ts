@@ -3,6 +3,7 @@ import type { Request, Response } from 'express';
 import { metrics } from '../lib/metrics.js';
 
 export const bus = new EventEmitter();
+bus.setMaxListeners(0);
 
 export function sseHandler(req: Request, res: Response) {
   res.set({

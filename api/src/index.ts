@@ -3,12 +3,19 @@ import morgan from 'morgan';
 import { router } from './http/routes.js';
 import { sseHandler } from './http/sse.js';
 import { metricsHandler } from './lib/metrics.js';
+import { auth } from './http/util-auth.js';
 
 const app = express();
 app.use(morgan('tiny'));
 
 app.get('/metrics', metricsHandler);
-app.get('/stream', sseHandler);
+
+const bearer = process.env.API_BEARER || '';
+if (bearer) {
+  app.get('/stream', auth(bearer), sseHandler);
+} else {
+  app.get('/stream', sseHandler);
+}
 app.use('/api', router);
 
 const port = Number(process.env.API_PORT || 3005);

@@ -32,6 +32,7 @@ services:
     build: ../ui
     environment:
       - PUBLIC_API_BASE=/api
+      - PUBLIC_API_BEARER=${API_BEARER}
     restart: unless-stopped
 
   caddy:

@@ -2,15 +2,14 @@ import express from 'express';
 import { prisma } from '../lib/db.js';
 import { auth } from './util-auth.js';
 import { enqueueJob } from '../services/jobs.js';
-import { metricsHandler } from '../lib/metrics.js';
 import { sseHandler } from './sse.js';
 
 export const router = express.Router();
 router.use(express.json());
 
-router.get('/metrics', metricsHandler);
-router.get('/stream', sseHandler);
 router.use(auth(process.env.API_BEARER || ''));
+
+router.get('/stream', sseHandler);
 
 router.get('/devices', async (_req, res) => {
   const devices = await prisma.device.findMany();

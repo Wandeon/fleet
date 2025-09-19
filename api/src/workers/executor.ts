@@ -10,9 +10,13 @@ export async function runPendingJobsOnce() {
     take: 20,
   });
   for (const job of jobs) {
+    const claimed = await updateJob(job.id, 'running', { expectedStatus: 'pending' });
+    if (!claimed) {
+      continue;
+    }
+
     const stop = metrics.jobs_duration.startTimer();
     try {
-      await updateJob(job.id, 'running');
       const device = await prisma.device.findUnique({ where: { id: job.deviceId } });
       if (!device) throw new Error('device not found');
 
@@ -29,11 +33,14 @@ export async function runPendingJobsOnce() {
         throw new Error(`unsupported command ${job.command}`);
       }
 
-      await updateJob(job.id, 'succeeded');
+      await updateJob(job.id, 'succeeded', { expectedStatus: 'running' });
       metrics.jobs_success.inc();
       stop();
     } catch (error: any) {
-      await updateJob(job.id, 'failed', error?.message || 'error');
+      await updateJob(job.id, 'failed', {
+        expectedStatus: 'running',
+        error: error?.message || 'error',
+      });
       metrics.jobs_fail.inc();
       stop();
     }
