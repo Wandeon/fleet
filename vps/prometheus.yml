@@ -38,5 +38,13 @@ scrape_configs:
     file_sd_configs:
       - files:
           - /etc/prometheus/targets/camera.json
+  - job_name: 'loki'
+    metrics_path: /metrics
+    static_configs:
+      - targets: ['loki:3100']
+  - job_name: 'promtail'
+    metrics_path: /metrics
+    static_configs:
+      - targets: ['promtail:9080']
 rule_files:
   - /etc/prometheus/alerts.yml

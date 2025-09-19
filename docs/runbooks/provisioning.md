@@ -22,6 +22,16 @@
    sudo nano /etc/fleet/age.key  # paste your private age key
    sudo chmod 600 /etc/fleet/age.key
    ```
+4.5) Configure host overrides that the agent exports before composing (log shipper, site tags, etc.):
+   ```bash
+   sudo tee /etc/fleet/agent.env >/dev/null <<'EOF'
+   # Loki push endpoint reachable from this node (Tailscale DNS or IP)
+   LOKI_ENDPOINT=http://fleet-vps:3100/loki/api/v1/push
+   # Optional site/region tag that flows into log labels
+   LOG_SITE=main
+   EOF
+   ```
+   Replace `fleet-vps` with the hostname or IP your nodes use to reach the central Loki service.
 5) Clone fleet repo and enable agent timer:
    ```bash
    sudo mkdir -p /opt && cd /opt
