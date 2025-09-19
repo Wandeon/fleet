@@ -2,6 +2,7 @@
   import { onMount } from 'svelte';
   import { deviceStates, jobs } from '$lib/stores/deviceStates';
   import {
+    apiFetch,
     loadSelected,
     rememberSelected,
     loadTvSource,
@@ -30,8 +31,8 @@
     fallbackSource = defaultSource;
     try {
       const [devicesRes, statesRes] = await Promise.all([
-        fetch('/api/devices'),
-        fetch('/api/device_states'),
+        apiFetch('/devices'),
+        apiFetch('/device_states'),
       ]);
       if (!devicesRes.ok) throw new Error(`Failed to load devices (${devicesRes.status})`);
       if (!statesRes.ok) throw new Error(`Failed to load states (${statesRes.status})`);
@@ -70,10 +71,9 @@
 
   async function sendCommand(deviceId: string, action: 'power_on' | 'power_off' | 'input', body?: any) {
     try {
-      const response = await fetch(`/api/video/devices/${deviceId}/tv/${action}`, {
+      const response = await apiFetch(`/video/devices/${deviceId}/tv/${action}`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: body ? JSON.stringify(body) : null,
+        body: body ? JSON.stringify(body) : undefined,
       });
       const data = await response.json();
       if (!response.ok || !data?.accepted) {

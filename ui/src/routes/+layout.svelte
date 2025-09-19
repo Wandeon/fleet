@@ -5,7 +5,7 @@
   let es: EventSource | undefined;
 
   onMount(() => {
-    es = connectSSE('/api');
+    es = connectSSE();
     return () => es?.close();
   });
 </script>
