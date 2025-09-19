@@ -10,6 +10,7 @@ vps/secrets/*
 node_modules/
 .svelte-kit/
 dist/
+build/
 # Backups
 *.bak
 *.backup
