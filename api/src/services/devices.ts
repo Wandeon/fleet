@@ -8,12 +8,34 @@ export async function upsertDeviceState(deviceId: string, patch: Record<string, 
     orderBy: { updatedAt: 'desc' },
   });
   const state = existing?.state ?? {};
-  const merged = { ...state, ...patch };
+  const { lastSeen, ...rest } = patch;
+  const merged = { ...state, ...rest } as Record<string, unknown>;
+
+  let lastSeenDate: Date | null = null;
+  if (typeof lastSeen === 'string' || lastSeen instanceof Date) {
+    const parsed = new Date(lastSeen);
+    if (!Number.isNaN(parsed.getTime())) {
+      lastSeenDate = parsed;
+      merged.lastSeen = parsed.toISOString();
+    }
+  }
+
+  const status = (rest as any).status || (state as any).status || existing?.status || 'online';
+  if (!lastSeenDate) {
+    if (status === 'online') {
+      lastSeenDate = new Date();
+      merged.lastSeen = lastSeenDate.toISOString();
+    } else if (existing?.lastSeen) {
+      lastSeenDate = existing.lastSeen;
+      merged.lastSeen = existing.lastSeen.toISOString();
+    }
+  }
+
   const saved = await prisma.deviceState.create({
     data: {
       deviceId,
-      status: (merged as any).status || 'online',
-      lastSeen: new Date(),
+      status,
+      lastSeen: lastSeenDate,
       state: merged,
     },
   });

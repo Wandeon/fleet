@@ -2,6 +2,7 @@ import axios from 'axios';
 import { prisma } from '../lib/db.js';
 import { updateJob } from '../services/jobs.js';
 import { metrics } from '../lib/metrics.js';
+import { joinDeviceUrl, normalizeAddress, resolveBearerToken } from '../lib/device-address.js';
 
 export async function runPendingJobsOnce() {
   const jobs = await prisma.job.findMany({
@@ -20,15 +21,21 @@ export async function runPendingJobsOnce() {
       const device = await prisma.device.findUnique({ where: { id: job.deviceId } });
       if (!device) throw new Error('device not found');
 
-      const { baseUrl, token } = (device.address as any) ?? {};
+      const address = normalizeAddress(device.address);
+      const baseUrl = address.baseUrl;
       if (!baseUrl) throw new Error('device missing baseUrl');
+
+      const token = resolveBearerToken(address);
       const headers = token ? { Authorization: `Bearer ${token}` } : {};
+      const post = async (path: string, payload: any = null) =>
+        axios.post(joinDeviceUrl(baseUrl, path), payload, { headers, timeout: 5000 });
+
       if (job.command === 'tv.power_on') {
-        await axios.post(`${baseUrl}/tv/power_on`, null, { headers, timeout: 5000 });
+        await post('/tv/power_on');
       } else if (job.command === 'tv.power_off') {
-        await axios.post(`${baseUrl}/tv/power_off`, null, { headers, timeout: 5000 });
+        await post('/tv/power_off');
       } else if (job.command === 'tv.input') {
-        await axios.post(`${baseUrl}/tv/input`, job.payload, { headers, timeout: 5000 });
+        await post('/tv/input', job.payload);
       } else {
         throw new Error(`unsupported command ${job.command}`);
       }
