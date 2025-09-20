@@ -33,6 +33,12 @@ if [[ -f "$HOST_ENV_FILE" ]]; then
   set +a
 fi
 
+# Backwards compatibility: allow hosts to set ZIGBEE_SERIAL and
+# automatically mirror it to ZIGBEE_SERIAL_PORT for docker compose.
+if [[ -n "${ZIGBEE_SERIAL:-}" && -z "${ZIGBEE_SERIAL_PORT:-}" ]]; then
+  export ZIGBEE_SERIAL_PORT="$ZIGBEE_SERIAL"
+fi
+
 export ROLE_AGENT_HOSTNAME="$HOSTNAME_ACTUAL"
 export LOG_SOURCE_HOST="${LOG_SOURCE_HOST:-$HOSTNAME_ACTUAL}"
 
