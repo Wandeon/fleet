@@ -1,12 +1,12 @@
 devices:
-#  pi-audio-01:
-#    role: audio-player
-#  pi-audio-02:
-#    role: audio-player
-#  pi-video-01:
-#    role: hdmi-media  # Zigbee hub
-#  pi-camera-01:
-#    role: camera
+  - name: pi-audio-01
+    role: noop
+  - name: pi-audio-02
+    role: noop
+  - name: pi-video-01
+    role: noop
+  - name: pi-camera-01
+    role: noop
   # Example HDMI media device
-  # pi-tv-01:
+  # - name: pi-tv-01
   #   role: hdmi-media
