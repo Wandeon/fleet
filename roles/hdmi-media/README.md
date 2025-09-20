@@ -37,10 +37,25 @@ sudo systemctl enable --now cec-setup.service
 
 Secrets were previously stored in an encrypted `.env.sops.enc`, but the file is now disabled as `.env.sops.enc.disabled`. Create a plain `.env` alongside the role with the required values (copy from `.env.example` as a starting point) and the agent will load it automatically. Missing `sops` binaries or decryption failures no longer abort the deployment; the agent logs a warning and continues with any plain-text env file.
 
+The agent also sources `/etc/fleet/agent.env` on the host before composing. Populate this file with Zigbee settings so restarts (or manual runs) keep the same serial port and credentials. Example snippet for `pi-video-01`:
+
+```bash
+sudo install -m 0755 -d /etc/fleet
+sudo tee /etc/fleet/agent.env >/dev/null <<'ENV'
+# Stable path to the ConBee (adjust to your adapter)
+ZIGBEE_SERIAL=/dev/serial/by-id/usb-dresden_elektronik_ConBee_III_DE03311823-if00-port0
+# Broker credentials consumed by Mosquitto + Zigbee2MQTT
+ZIGBEE_MQTT_USER=zigbee
+ZIGBEE_MQTT_PASSWORD=please-change-me
+ENV
+```
+
+The agent mirrors `ZIGBEE_SERIAL` into `ZIGBEE_SERIAL_PORT` automatically when only the former is defined, so the compose files receive the stable path.
+
 - `CEC_DEVICE_INDEX` (default `0`; select `/dev/cec0` or `/dev/cec1`)
 - `CEC_OSD_NAME` (default `%H`; used when registering the playback device name)
-- `ZIGBEE_SERIAL_PORT` (default `/dev/ttyACM0`)
-- `ZIGBEE_MQTT_USER` / `ZIGBEE_MQTT_PASSWORD`
+- `ZIGBEE_SERIAL_PORT` (set this to the stable `/dev/serial/by-id/...` path for your coordinator; falls back to `/dev/ttyACM0` if unset)
+- `ZIGBEE_MQTT_USER` / `ZIGBEE_MQTT_PASSWORD` (must exist so the agent can generate `/mosquitto/data/passwordfile`)
 - `ZIGBEE_NETWORK_KEY`, `ZIGBEE_PAN_ID`, `ZIGBEE_EXT_PAN_ID`
 - `ZIGBEE_CHANNEL` (default `11`)
 - Copy `roles/hdmi-media/etc-default-hdmi-media` to `/etc/default/hdmi-media` so systemd units and containers share the same defaults.
@@ -72,6 +87,79 @@ Auth: set `MEDIA_CONTROL_TOKEN` and include header `Authorization: Bearer <token
 - Zigbee2MQTT UI available at `http://<host>:8084` (enable SSH tunnel or tailscale ACLs as needed).
 - Initial device pairing requires `ZIGBEE_PERMIT_JOIN=true`; remember to set back to `false` afterwards.
 - Persisted data lives in Docker volumes `zigbee_mosquitto_data` and `zigbee2mqtt_data`.
+
+### Resetting the Zigbee stack on `pi-video-01`
+
+If the coordinator path changes or Mosquitto loops with `passwordfile` errors, reapply the host env and rebuild the role with this block. It sets a stable serial path, regenerates the password file, and restarts the containers:
+
+```bash
+# === pi-video-01: fix Zigbee serial + Mosquitto auth and rebuild ===
+set -euo pipefail
+
+# 1) Set/refresh host-level env used by the role (edit the creds as needed)
+sudo install -m 0755 -d /etc/fleet
+sudo tee /etc/fleet/agent.env >/dev/null <<'ENV'
+# Stable path to the ConBee III
+ZIGBEE_SERIAL=/dev/serial/by-id/usb-dresden_elektronik_ConBee_III_DE03311823-if00-port0
+
+# Broker credentials the stack expects (choose secure values)
+ZIGBEE_MQTT_USER=zigbee
+ZIGBEE_MQTT_PASSWORD=please-change-me
+ENV
+
+# 2) Remove any old, manually-run zigbee2mqtt container that might collide
+docker rm -f zigbee2mqtt >/dev/null 2>&1 || true
+
+# 3) Run the agent to recreate the compose project with the new env
+sudo /opt/fleet/agent/role-agent.sh
+
+# 4) Create the Mosquitto password file inside the broker's data volume
+MQTT_CONT="$(docker ps --filter name=zigbee-mqtt -q | head -n1)"
+if [ -n "$MQTT_CONT" ]; then
+  docker exec "$MQTT_CONT" sh -lc '
+    set -e
+    : "${ZIGBEE_MQTT_USER:?missing}"; : "${ZIGBEE_MQTT_PASSWORD:?missing}"
+    mosquitto_passwd -b /mosquitto/data/passwordfile "$ZIGBEE_MQTT_USER" "$ZIGBEE_MQTT_PASSWORD"
+    # Make sure perms are readable by mosquitto user
+    chown mosquitto:mosquitto /mosquitto/data/passwordfile || true
+    chmod 600 /mosquitto/data/passwordfile || true
+  '
+  # Bounce broker + zigbee2mqtt to pick up the password file
+  docker restart "$MQTT_CONT" >/dev/null
+fi
+
+Z2M_CONT="$(docker ps --filter name=zigbee2mqtt -q | head -n1)"
+[ -n "$Z2M_CONT" ] && docker restart "$Z2M_CONT" >/dev/null || true
+
+echo "Done. Give the services ~10-20s to settle, then run the test block."
+```
+
+After ~20 seconds run the quick checks to confirm serial + auth are healthy:
+
+```bash
+# === pi-video-01: quick checks ===
+
+# 1) Serial is stable and visible
+ls -l /dev/serial/by-id
+docker exec "$(docker ps --filter name=zigbee2mqtt -q | head -n1)" ls -l /dev/ttyUSB0 || true
+
+# 2) Broker came up and has a password file
+docker logs "$(docker ps --filter name=zigbee-mqtt -q | head -n1)" --tail=80 | sed -n '1,120p'
+docker exec "$(docker ps --filter name=zigbee-mqtt -q | head -n1)" sh -lc 'ls -l /mosquitto/data/passwordfile && head -c 0 /mosquitto/data/passwordfile && echo " [exists]"'
+
+# 3) Zigbee2MQTT connected to MQTT and opened the adapter
+docker logs "$(docker ps --filter name=zigbee2mqtt -q | head -n1)" --tail=120 | sed -n '1,200p'
+
+# 4) Optional: publish a test message (should not error)
+docker exec "$(docker ps --filter name=zigbee-mqtt -q | head -n1)" \
+  sh -lc 'mosquitto_pub -u "$ZIGBEE_MQTT_USER" -P "$ZIGBEE_MQTT_PASSWORD" -h localhost -t test/topic -m hello && echo "MQTT pub ok"'
+```
+
+**Why it works**
+
+- Uses the `/dev/serial/by-id/...` symlink so the ConBee path stays consistent across reboots.
+- Ensures Mosquitto's `/mosquitto/data/passwordfile` exists with credentials that match Zigbee2MQTT.
+- Removes stray containers so only the compose-managed services own the ports.
 
 ## Validation Checklist
 1. Pick the correct adapter: `sudo cec-ctl --list-devices` and update `/etc/default/hdmi-media` so `CEC_DEVICE_INDEX` matches `/dev/cec*`.

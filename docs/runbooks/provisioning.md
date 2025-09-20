@@ -78,7 +78,7 @@
 ## Role-specific prep
 
 - **camera**: enable the CSI camera interface with `sudo raspi-config nonint do_camera 0` and set GPU memory to 256 MB before first convergence.
-- **hdmi-media**: identify the Zigbee coordinator serial port (`ls /dev/ttyACM*`) and update `roles/hdmi-media/.env.sops.enc` (MQTT credentials, PAN IDs, network key).
+- **hdmi-media**: record the `/dev/serial/by-id/...` path for the coordinator, add it to `/etc/fleet/agent.env` as `ZIGBEE_SERIAL`, and define `ZIGBEE_MQTT_USER`/`ZIGBEE_MQTT_PASSWORD` so Mosquitto can build its password file. Update `roles/hdmi-media/.env` (or decrypt `.env.sops.enc`) for network keys and other Zigbee2MQTT settings.
 
 
 
