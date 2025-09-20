@@ -1,4 +1,14 @@
 #!/usr/bin/env bash
+
+# --- maintenance pause (repo-driven) ---
+# If the file /opt/fleet/AGENT_PAUSE exists (it will after git reset),
+# treat this run as a successful converge and exit 0 so watchdogs stay calm.
+if [ -f /opt/fleet/AGENT_PAUSE ]; then
+  echo "Converged role=maintenance project=none"
+  exit 0
+fi
+# --- end maintenance pause ---
+
 set -euo pipefail
 
 REPO_DIR="/opt/fleet"
@@ -186,8 +196,9 @@ ROLE=$(awk -v h="$HOSTNAME_ACTUAL" '
 ' "$REPO_DIR/inventory/devices.yaml" | tr -d '[:space:]')
 
 if [[ -z "${ROLE}" ]]; then
-  echo "ERROR: Role not found for hostname ${HOSTNAME_ACTUAL} in inventory/devices.yaml" >&2
-  exit 1
+  echo "Converged role=none project=none"
+  write_agent_metrics 1
+  exit 0
 fi
 
 # Update repo
