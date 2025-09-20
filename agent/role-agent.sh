@@ -177,7 +177,17 @@ compose_list_projects() {
   return 0
 }
 
-ensure_systemd_units
+stop_role_projects() {
+  local role_prefix="$1_"
+  mapfile -t existing_projects < <(compose_list_projects | grep "^${role_prefix}" || true)
+  if (( ${#existing_projects[@]} == 0 )); then
+    return 0
+  fi
+  for project in "${existing_projects[@]}"; do
+    echo "role-agent: stopping existing compose project ${project} before converge" >&2
+    docker compose -p "$project" down --remove-orphans || true
+  done
+}
 
 # Determine role from inventory/devices.yaml by hostname
 ROLE=$(awk -v h="$HOSTNAME_ACTUAL" '
@@ -190,6 +200,8 @@ if [[ -z "${ROLE}" ]]; then
   exit 1
 fi
 
+stop_role_projects "$ROLE"
+
 # Update repo
 if [[ -d "$REPO_DIR/.git" ]]; then
   update_repo
@@ -197,6 +209,8 @@ else
   echo "ERROR: Repo not found at $REPO_DIR" >&2
   exit 1
 fi
+
+ensure_systemd_units
 
 # Ensure Claude Code CLI and MCP servers are present
 SETUP_CLAUDE="$REPO_DIR/agent/setup-claude-tools.sh"
@@ -244,130 +258,6 @@ if (( ! ENV_SOURCED )); then
   echo "INFO: proceeding without role-specific env overrides for $ROLE" >&2
 fi
 
-# Media playback guard (audio/video) to avoid interrupting active sessions
-ROLE_AGENT_MEDIA_CHECK_TIMEOUT="${ROLE_AGENT_MEDIA_CHECK_TIMEOUT:-3}"
-
-audio_player_guard() {
-  local base="${AUDIO_CONTROL_BASE_URL:-http://127.0.0.1:8081}"
-  base="${base%/}"
-  local timeout="$ROLE_AGENT_MEDIA_CHECK_TIMEOUT"
-  local health_url="${base}/healthz"
-  local status_url="${base}/status"
-  local -a curl_common=(--silent --show-error --fail --max-time "$timeout")
-
-  set +e
-  curl "${curl_common[@]}" "$health_url" >/dev/null 2>&1
-  local health_rc=$?
-  set -e
-  if (( health_rc != 0 )); then
-    return 0
-  fi
-
-  local -a status_args=()
-  status_args+=("${curl_common[@]}")
-  if [[ -n "${AUDIO_CONTROL_TOKEN:-}" ]]; then
-    status_args+=(-H "Authorization: Bearer ${AUDIO_CONTROL_TOKEN}")
-  fi
-  status_args+=("$status_url")
-
-  local json
-  set +e
-  json=$(curl "${status_args[@]}" 2>/dev/null)
-  local status_rc=$?
-  set -e
-  if (( status_rc != 0 )) || [[ -z "$json" ]]; then
-    echo "role-agent: unable to query audio-control status (rc=${status_rc}); deferring converge to avoid interrupting playback" >&2
-    return 1
-  fi
-
-  local source
-  if ! source=$(printf '%s' "$json" | jq -r '.source // empty' 2>/dev/null); then
-    echo "role-agent: unable to parse audio-control status; deferring converge" >&2
-    return 1
-  fi
-  if [[ "$source" == "null" ]]; then
-    source=""
-  fi
-  if [[ -z "$source" || "$source" == "stop" ]]; then
-    return 0
-  fi
-
-  echo "role-agent: audio playback active (source=${source}); deferring converge until idle window (safe rebuild after midnight)" >&2
-  return 1
-}
-
-hdmi_media_guard() {
-  local base="${MEDIA_CONTROL_BASE_URL:-http://127.0.0.1:8082}"
-  base="${base%/}"
-  local timeout="$ROLE_AGENT_MEDIA_CHECK_TIMEOUT"
-  local health_url="${base}/healthz"
-  local status_url="${base}/status"
-  local -a curl_common=(--silent --show-error --fail --max-time "$timeout")
-
-  set +e
-  curl "${curl_common[@]}" "$health_url" >/dev/null 2>&1
-  local health_rc=$?
-  set -e
-  if (( health_rc != 0 )); then
-    return 0
-  fi
-
-  local -a status_args=()
-  status_args+=("${curl_common[@]}")
-  if [[ -n "${MEDIA_CONTROL_TOKEN:-}" ]]; then
-    status_args+=(-H "Authorization: Bearer ${MEDIA_CONTROL_TOKEN}")
-  fi
-  status_args+=("$status_url")
-
-  local json
-  set +e
-  json=$(curl "${status_args[@]}" 2>/dev/null)
-  local status_rc=$?
-  set -e
-  if (( status_rc != 0 )) || [[ -z "$json" ]]; then
-    echo "role-agent: unable to query media-control status (rc=${status_rc}); deferring converge to avoid interrupting playback" >&2
-    return 1
-  fi
-
-  local pause path
-  if ! pause=$(printf '%s' "$json" | jq -r '.pause // empty' 2>/dev/null); then
-    echo "role-agent: unable to parse media-control status; deferring converge" >&2
-    return 1
-  fi
-  if [[ "$pause" == "null" ]]; then
-    pause=""
-  fi
-  if ! path=$(printf '%s' "$json" | jq -r '.path // empty' 2>/dev/null); then
-    echo "role-agent: unable to parse media-control status; deferring converge" >&2
-    return 1
-  fi
-  if [[ "$path" == "null" ]]; then
-    path=""
-  fi
-  if [[ "$pause" == "true" || -z "$path" ]]; then
-    return 0
-  fi
-
-  echo "role-agent: HDMI media playback active; deferring converge until idle window (safe rebuild after midnight)" >&2
-  return 1
-}
-
-media_playback_guard() {
-  case "$ROLE" in
-    audio-player)
-      audio_player_guard
-      return $?
-      ;;
-    hdmi-media)
-      hdmi_media_guard
-      return $?
-      ;;
-    *)
-      return 0
-      ;;
-  esac
-}
-
 # Compose files (baseline + role, with lexical mix-ins if present)
 BASE="$REPO_DIR/baseline/docker-compose.yml"
 ROLE_DIR="$REPO_DIR/roles/$ROLE"
@@ -380,11 +270,6 @@ COMPOSE_FILES=("-f" "$BASE")
 for f in "${ROLE_OVERRIDES[@]}"; do
   COMPOSE_FILES+=("-f" "$f")
 done
-
-if ! media_playback_guard; then
-  write_agent_metrics 1
-  exit 0
-fi
 
 # Proactively stop and remove any old projects for this role (avoid port conflicts)
 mapfile -t OLD_PROJECTS_PRE < <(compose_list_projects | grep "^${ROLE}_" || true)
