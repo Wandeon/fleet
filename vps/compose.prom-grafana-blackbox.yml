@@ -46,12 +46,20 @@ services:
     user: root
     command:
       - --config.file=/etc/promtail/config.yaml
+      - --config.expand-env=true
     environment:
       - LOKI_ENDPOINT=${LOKI_ENDPOINT:-http://loki:3100/loki/api/v1/push}
       - LOG_SOURCE_HOST=${LOG_SOURCE_HOST:-monitoring-vps}
       - LOG_ENVIRONMENT=${LOG_ENVIRONMENT:-vps}
       - LOG_SITE=${LOG_SITE:-primary}
       - PROMTAIL_HTTP_PORT=${PROMTAIL_HTTP_PORT:-9080}
+      - LOKI_BATCH_WAIT=${LOKI_BATCH_WAIT:-1s}
+      - LOKI_BATCH_SIZE=${LOKI_BATCH_SIZE:-102400}
+      - LOKI_BACKOFF_MIN=${LOKI_BACKOFF_MIN:-500ms}
+      - LOKI_BACKOFF_MAX=${LOKI_BACKOFF_MAX:-5s}
+      - LOKI_BACKOFF_RETRIES=${LOKI_BACKOFF_RETRIES:-10}
+      - PROMTAIL_JOURNAL_MAX_AGE=${PROMTAIL_JOURNAL_MAX_AGE:-12h}
+      - PROMTAIL_DOCKER_REFRESH=${PROMTAIL_DOCKER_REFRESH:-5s}
     volumes:
       - promtail-data:/var/lib/promtail
       - /var/run/docker.sock:/var/run/docker.sock:ro

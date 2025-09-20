@@ -160,8 +160,20 @@ ensure_systemd_units() {
   if (( reload )); then
     systemctl daemon-reload
   fi
-  for timer in role-agent.timer role-agent-watchdog.timer role-agent-healthcheck.timer; do
-    systemctl enable --now "$timer" >/dev/null 2>&1 || true
+  # Always ensure the primary convergence timer remains scheduled.
+  systemctl enable --now role-agent.timer >/dev/null 2>&1 || true
+
+  # Optional timers (watchdog + healthcheck) should only be re-enabled if the
+  # host explicitly keeps them enabled. If an operator disables or masks the
+  # timer during maintenance we should respect that choice on subsequent runs.
+  local -a optional_timers=(
+    role-agent-watchdog.timer
+    role-agent-healthcheck.timer
+  )
+  for timer in "${optional_timers[@]}"; do
+    if systemctl is-enabled "$timer" >/dev/null 2>&1; then
+      systemctl enable --now "$timer" >/dev/null 2>&1 || true
+    fi
   done
 }
 

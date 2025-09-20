@@ -43,7 +43,16 @@
    sudo cp /opt/fleet/agent/role-agent-healthcheck.timer /etc/systemd/system/
    sudo cp /opt/fleet/agent/role-agent.timer /etc/systemd/system/
    sudo systemctl daemon-reload
-   sudo systemctl enable --now role-agent.timer role-agent-watchdog.timer role-agent-healthcheck.timer
+   sudo systemctl enable --now role-agent.timer
+   ```
+
+   The convergence timer above is the only unit enabled automatically. When
+   you're ready for the optional watchdog + healthcheck loops, turn them on
+   explicitly (the agent will respect your choice and leave them disabled until
+   you re-enable them):
+
+   ```bash
+   sudo systemctl enable --now role-agent-watchdog.timer role-agent-healthcheck.timer
    ```
 
    If you created the files manually or copied them from a Windows host, ensure the agent script is executable (or rely on the updated service that invokes bash explicitly):
@@ -55,7 +64,8 @@
    ```bash
    systemctl cat role-agent.service | grep -F "ExecStart=/usr/bin/env bash" -n || true
    ```
-6) Enable watchdog protections:
+6) Enable watchdog protections (optional but recommended once the node is in
+   steady state):
    ```bash
    cd /opt/fleet
    sudo ./scripts/setup-watchdogs.sh

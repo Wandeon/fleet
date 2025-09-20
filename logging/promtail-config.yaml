@@ -1,28 +1,28 @@
 server:
-  http_listen_port: {{ env "PROMTAIL_HTTP_PORT" | default "9080" }}
+  http_listen_port: ${PROMTAIL_HTTP_PORT}
   grpc_listen_port: 0
 
 positions:
   filename: /var/lib/promtail/positions.yaml
 
 clients:
-  - url: {{ env "LOKI_ENDPOINT" | default "http://loki:3100/loki/api/v1/push" }}
-    batchwait: {{ env "LOKI_BATCH_WAIT" | default "1s" }}
-    batchsize: {{ env "LOKI_BATCH_SIZE" | default "102400" }}
+  - url: ${LOKI_ENDPOINT}
+    batchwait: ${LOKI_BATCH_WAIT}
+    batchsize: ${LOKI_BATCH_SIZE}
     backoff_config:
-      min_period: {{ env "LOKI_BACKOFF_MIN" | default "500ms" }}
-      max_period: {{ env "LOKI_BACKOFF_MAX" | default "5s" }}
-      max_retries: {{ env "LOKI_BACKOFF_RETRIES" | default "10" }}
+      min_period: ${LOKI_BACKOFF_MIN}
+      max_period: ${LOKI_BACKOFF_MAX}
+      max_retries: ${LOKI_BACKOFF_RETRIES}
 
 scrape_configs:
   - job_name: system-journal
     journal:
-      max_age: {{ env "PROMTAIL_JOURNAL_MAX_AGE" | default "12h" }}
+      max_age: ${PROMTAIL_JOURNAL_MAX_AGE}
       labels:
         job: journal
-        host: {{ env "LOG_SOURCE_HOST" | default "unknown-host" }}
-        environment: {{ env "LOG_ENVIRONMENT" | default "device" }}
-        site: {{ env "LOG_SITE" | default "primary" }}
+        host: ${LOG_SOURCE_HOST}
+        environment: ${LOG_ENVIRONMENT}
+        site: ${LOG_SITE}
     relabel_configs:
       - source_labels: ['__journal__systemd_unit']
         target_label: 'unit'
@@ -38,7 +38,7 @@ scrape_configs:
   - job_name: docker-containers
     docker_sd_configs:
       - host: unix:///var/run/docker.sock
-        refresh_interval: {{ env "PROMTAIL_DOCKER_REFRESH" | default "5s" }}
+        refresh_interval: ${PROMTAIL_DOCKER_REFRESH}
     relabel_configs:
       - source_labels: ['__meta_docker_container_id']
         target_label: 'container_id'
@@ -50,11 +50,11 @@ scrape_configs:
         target_label: 'service'
       - source_labels: ['__meta_docker_container_label_com_docker_compose_project']
         target_label: 'project'
-      - replacement: {{ env "LOG_SOURCE_HOST" | default "unknown-host" }}
+      - replacement: ${LOG_SOURCE_HOST}
         target_label: host
-      - replacement: {{ env "LOG_ENVIRONMENT" | default "device" }}
+      - replacement: ${LOG_ENVIRONMENT}
         target_label: environment
-      - replacement: {{ env "LOG_SITE" | default "primary" }}
+      - replacement: ${LOG_SITE}
         target_label: site
     pipeline_stages:
       - docker: {}
