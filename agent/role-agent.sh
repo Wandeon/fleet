@@ -177,9 +177,18 @@ ensure_systemd_units() {
     role-agent-healthcheck.timer
   )
   for timer in "${optional_timers[@]}"; do
-    if systemctl is-enabled "$timer" >/dev/null 2>&1; then
-      systemctl enable --now "$timer" >/dev/null 2>&1 || true
-    fi
+    local state
+    state=$(systemctl is-enabled "$timer" 2>/dev/null || true)
+    case "$state" in
+      enabled|enabled-runtime|linked|linked-runtime)
+        systemctl enable --now "$timer" >/dev/null 2>&1 || true
+        ;;
+      *)
+        local log_state
+        log_state=${state:-unknown}
+        echo "role-agent: skipping enable for $timer (state: ${log_state}); respecting operator override" >&2
+        ;;
+    esac
   done
 }
 
