@@ -1,69 +1,65 @@
-# Temporarily disable camera role application services during maintenance.
-services: {}
+services:
+  camera-control:
+    build:
+      context: /opt/fleet/roles/camera/control
+    restart: unless-stopped
+    network_mode: host
+    depends_on:
+      camera-rtsp:
+        condition: service_started
+      camera-streamer:
+        condition: service_started
+    environment:
+      CAMERA_CONTROL_TOKEN: ${CAMERA_CONTROL_TOKEN:-}
+      CAMERA_HLS_URL: ${CAMERA_HLS_URL:-http://127.0.0.1:8888/camera/index.m3u8}
+      CAMERA_RTSP_URL: ${CAMERA_RTSP_URL:-rtsp://127.0.0.1:8554/camera}
+    healthcheck:
+      test: ["CMD", "curl", "-fsS", "http://127.0.0.1:8083/healthz"]
+      interval: 15s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
 
-# Original services commented out for later restoration:
-# services:
-#   camera-control:
-#     build:
-#       context: /opt/fleet/roles/camera/control
-#     restart: unless-stopped
-#     network_mode: host
-#     depends_on:
-#       camera-rtsp:
-#         condition: service_started
-#       camera-streamer:
-#         condition: service_started
-#     environment:
-#       CAMERA_CONTROL_TOKEN: ${CAMERA_CONTROL_TOKEN:-}
-#       CAMERA_HLS_URL: ${CAMERA_HLS_URL:-http://127.0.0.1:8888/camera/index.m3u8}
-#       CAMERA_RTSP_URL: ${CAMERA_RTSP_URL:-rtsp://127.0.0.1:8554/camera}
-#     healthcheck:
-#       test: ["CMD", "curl", "-fsS", "http://127.0.0.1:8083/healthz"]
-#       interval: 15s
-#       timeout: 5s
-#       retries: 3
-#       start_period: 10s
-# 
-#   camera-rtsp:
-#     image: bluenviron/mediamtx:latest
-#     restart: unless-stopped
-#     network_mode: host
-#     volumes:
-#       - /opt/fleet/roles/camera/mediamtx.yml:/mediamtx.yml:ro
-#     environment:
-#       MTX_PROTOCOLS: tcp
-#     healthcheck:
-#       test: ["CMD", "mediamtx", "--version"]
-#       interval: 30s
-#       timeout: 5s
-#       retries: 3
-#       start_period: 10s
-# 
-#   camera-streamer:
-#     build:
-#       context: /opt/fleet/roles/camera/streamer
-#     restart: unless-stopped
-#     depends_on:
-#       camera-rtsp:
-#         condition: service_started
-#     network_mode: host
-#     devices:
-#       - /dev/video0:/dev/video0
-#       - /dev/vchiq:/dev/vchiq
-#     volumes:
-#       - /dev/shm:/dev/shm
-#     environment:
-#       CAMERA_RTSP_URL: ${CAMERA_RTSP_URL:-rtsp://127.0.0.1:8554/camera}
-#       CAMERA_WIDTH: ${CAMERA_WIDTH:-1920}
-#       CAMERA_HEIGHT: ${CAMERA_HEIGHT:-1080}
-#       CAMERA_FRAMERATE: ${CAMERA_FRAMERATE:-20}
-#       CAMERA_BITRATE: ${CAMERA_BITRATE:-6000000}
-#       CAMERA_AWB: ${CAMERA_AWB:-auto}
-#       CAMERA_EXPOSURE: ${CAMERA_EXPOSURE:-normal}
-#     healthcheck:
-#       test: ["CMD", "pgrep", "-f", "libcamera-vid"]
-#       interval: 30s
-#       timeout: 5s
-#       retries: 3
-#       start_period: 15s
-# 
+  camera-rtsp:
+    image: bluenviron/mediamtx:latest
+    restart: unless-stopped
+    network_mode: host
+    volumes:
+      - /opt/fleet/roles/camera/mediamtx.yml:/mediamtx.yml:ro
+    environment:
+      MTX_PROTOCOLS: tcp
+    healthcheck:
+      test: ["CMD", "mediamtx", "--version"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
+
+  camera-streamer:
+    build:
+      context: /opt/fleet/roles/camera/streamer
+    restart: unless-stopped
+    depends_on:
+      camera-rtsp:
+        condition: service_started
+    network_mode: host
+    devices:
+      - /dev/video0:/dev/video0
+      - /dev/vchiq:/dev/vchiq
+    volumes:
+      - /dev/shm:/dev/shm
+    environment:
+      CAMERA_RTSP_URL: ${CAMERA_RTSP_URL:-rtsp://127.0.0.1:8554/camera}
+      CAMERA_WIDTH: ${CAMERA_WIDTH:-1920}
+      CAMERA_HEIGHT: ${CAMERA_HEIGHT:-1080}
+      CAMERA_FRAMERATE: ${CAMERA_FRAMERATE:-20}
+      CAMERA_BITRATE: ${CAMERA_BITRATE:-6000000}
+      CAMERA_AWB: ${CAMERA_AWB:-auto}
+      CAMERA_EXPOSURE: ${CAMERA_EXPOSURE:-normal}
+    healthcheck:
+      test: ["CMD", "pgrep", "-f", "libcamera-vid"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 15s
+

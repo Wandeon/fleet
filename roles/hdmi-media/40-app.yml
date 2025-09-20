@@ -1,27 +1,23 @@
-# Temporarily disable HDMI media role services during maintenance.
-services: {}
-
-# Original services commented out for later restoration:
-# services:
-#   media-control:
-#     image: media-control:local
-#     build:
-#       context: ./control
-#       dockerfile: Dockerfile
-#     restart: unless-stopped
-#     network_mode: host
-#     ports:
-#       - "8082:8082"
-#     environment:
-#       MEDIA_CONTROL_TOKEN: 
-#       HDMI_CONNECTOR: 
-#       HDMI_AUDIO_DEVICE: 
-#       CEC_DEVICE_INDEX: 
-#     volumes:
-#       - /run:/run
-#     healthcheck:
-#       test: ["CMD", "curl", "-fsS", "http://localhost:8082/healthz"]
-#       interval: 10s
-#       timeout: 3s
-#       retries: 5
-#       start_period: 10s
+services:
+  media-control:
+    image: media-control:local
+    build:
+      context: ./control
+      dockerfile: Dockerfile
+    restart: unless-stopped
+    network_mode: host
+    ports:
+      - "8082:8082"
+    environment:
+      MEDIA_CONTROL_TOKEN: 
+      HDMI_CONNECTOR: 
+      HDMI_AUDIO_DEVICE: 
+      CEC_DEVICE_INDEX: 
+    volumes:
+      - /run:/run
+    healthcheck:
+      test: ["CMD", "curl", "-fsS", "http://localhost:8082/healthz"]
+      interval: 10s
+      timeout: 3s
+      retries: 5
+      start_period: 10s
