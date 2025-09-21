@@ -67,3 +67,74 @@ This briefing walks a new frontend or full-stack developer through the moving pa
 4. **Token management.** Ensure the deployment environment provides all bearer tokens referenced by `token_env` keys (`AUDIO_*`, `HDMI_*`, `CAMERA_*`) before enabling new proxies; without them, poller and job requests will fail.【F:inventory/device-interfaces.yaml†L14-L260】【F:api/src/scripts/seed-from-yaml.ts†L52-L125】
 
 Keep this guide handy while you expand the SvelteKit UI or backend proxies—it links every moving part back to the definitive source file so you can make changes confidently.
+
+## Appendix A – Operator reconnaissance (September 2025)
+
+The operations team supplied the following notes after reviewing the live SvelteKit UI. Treat these as ground truth for the deployed build and validate new work against them when refactoring.
+
+### Authentication & session management
+
+- Login is hardcoded to accept the `admin`/`admin` credential pair in `src/routes/auth/login/+page.server.js`. Successful logins persist a `session=authenticated` cookie for one week and tag the user as an `administrator` role.
+- `src/routes/+layout.server.js` guards protected routes. Unauthenticated users are redirected to `/auth/login`, while authenticated operators are redirected away from `/auth/login` to the dashboard.
+- `/auth/logout` clears the session cookie to force a logout. There is currently no multi-user or multi-role support.
+
+### Navigation & feature toggles
+
+- The primary navigation links (Audio, Video, Cameras, Smart Home, Devices, Logs, Status, Settings) are statically declared in `src/routes/+layout.svelte`; there is no role-aware filtering.
+- All navigation targets have matching route directories, though some are still thin scaffolds. The Logs page only renders when `VITE_ENABLE_LOGS=true` is set in the environment.
+
+### Health monitoring
+
+- `src/routes/+layout.svelte` mounts a 30-second polling loop that calls `/api/health`. The UI maps the API response to three states: `healthy` → green “UP”, anything else → yellow “DEGRADED”, and request failures/timeouts → red “DOWN”.
+- The shared API wrapper enforces a 10-second fetch timeout and logs errors to the console when the health endpoint is unreachable.
+
+### Dashboard metrics
+
+- The home dashboard tallies “Active Devices” by fetching `/api/devices` and counting entries whose `status` is `online`. Each device is also polled periodically through `/api/devices/${device.id}/status` to keep the tally fresh.
+- When `/api/devices` fails, the UI logs the error and leaves the list empty, causing the tile to show `0/0` until data can be fetched again.
+- Quick-action cards on the home page are static links that cannot be reconfigured through settings or the backend today.
+
+### Device control surfaces
+
+- Audio, video, camera, and Zigbee device panels call their respective proxy endpoints (for example, `/api/audio/{device}/status`, `/api/video/devices/{id}/tv/power_on`). Rate limiting is not implemented client-side; backend session cookies are the primary protection.
+- Operators should confirm proxy coverage before surfacing new controls—the UI already contains helper functions for audio control (`getAudioDeviceStatus`, `controlAudioDevice`, `syncedAudioOperation`) that expect the backend to forward requests.
+
+### Logs & streaming console
+
+- The logs view streams up to 5,000 entries at a time via `$lib/logs/client.js`, supports pausing/resuming, filtering by host, and exposes an error state if the stream dies. Automatic reconnection uses exponential backoff and stops after ten failed attempts.
+- Operators can click a Refresh action to trigger a manual reconnect when the automatic retries are exhausted.
+
+### Telemetry & client logging
+
+- `$lib/telemetry.js` tracks lifecycle events (`app_open`, `app_close`), unhandled errors, and promise rejections. For each incident it buffers recent console output, stack traces, route information, and the active component.
+- Events are POSTed to `/api/client-log`. When the network is unavailable, telemetry queues events in `localStorage` and flushes them once connectivity returns.
+- Beta invite flows rely on `invite_token` and `invite_id` URL parameters that the telemetry module captures for operator attribution; tokens should be rotated or revoked server-side when necessary.
+
+### Environment & configuration notes
+
+- `.env` in the `ui/` directory is empty by default; the only documented toggle is `VITE_ENABLE_LOGS=true` to expose the log streaming console. Reverse proxies must continue to forward `/api/*` to the backend to reuse the hardcoded relative fetch paths.
+- No environment-specific hacks are present—deployments rely on consistent reverse-proxy behavior for CORS and cookie handling.
+
+### Error handling & operator feedback
+
+- Logout and other major user actions raise toast notifications, while deeper diagnostics (failed fetches, telemetry issues) are logged to the console and forwarded to `/api/client-log` for aggregation on the backend.
+- Operators investigating telemetry alerts should consult the backend storage pipeline; the frontend does not expose workflows beyond the toast notifications.
+
+### Future enhancements flagged by operations
+
+- Routes such as Smart Home hint at planned features but are not fully implemented. Collecting operator feedback should focus on multi-user access, customizable quick actions, and additional device proxies that align with the existing telemetry plumbing.
+
+## Appendix B – Operator interview prompts
+
+Use the following checklist when interviewing site operators or staging administrators to confirm the UI is configured correctly:
+
+1. **Authentication flow** – Are credentials beyond `admin/admin` in rotation? How are forced logouts handled, and is multi-user access on the roadmap?
+2. **Navigation coverage** – Which sections are actively used today, and do any rely on feature flags or backend configuration to show/hide links?
+3. **Health monitoring** – What polling interval is appropriate in production, what statuses does `/api/health` emit, and how should unreachable endpoints be surfaced to operators?
+4. **Dashboard metrics** – Which backend signals define “Active Devices”, and what contingencies exist when the device API is offline? Should quick actions be customizable?
+5. **Device controls** – Which device endpoints are exercised daily, and are there known gaps between UI expectations and backend behavior (latency, stale states)?
+6. **Logs viewer** – What log volume should the UI handle, how should operators recover from stream pauses, and which filters are most valuable?
+7. **Telemetry** – Who monitors `/api/client-log`, what is the retention policy, and how are invite tokens governed?
+8. **Environment configuration** – Which `.env` values are required for each environment, and are there quirks for proxies, CORS, or air-gapped deployments?
+9. **Error handling** – What workflow should operators follow when telemetry alerts fire, and when should the UI surface toast notifications versus silent logging?
+10. **Future enhancements** – Which upcoming UI features should be documented now, and what user feedback is shaping the next iteration?
