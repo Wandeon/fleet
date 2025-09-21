@@ -1,0 +1,100 @@
+# Production Docker Compose Configuration for Group-Intent Architecture
+# This extends your existing compose with necessary volumes and environment variables
+
+version: '3.8'
+
+services:
+  fleet-api:
+    build:
+      context: ../api
+      dockerfile: Dockerfile
+    environment:
+      # Core Configuration
+      - DATABASE_URL=${DATABASE_URL:-file:./data/fleet.db}
+      - API_PORT=${API_PORT:-3005}
+      - API_BEARER=${API_BEARER}
+
+      # Device Adapter (CRITICAL: must be 'http' for production)
+      - DEVICE_ADAPTER=${DEVICE_ADAPTER:-http}
+
+      # Device Authentication Tokens
+      - AUDIO_PI_AUDIO_01_TOKEN=${AUDIO_PI_AUDIO_01_TOKEN}
+      - AUDIO_PI_AUDIO_02_TOKEN=${AUDIO_PI_AUDIO_02_TOKEN}
+      - HDMI_PI_VIDEO_01_TOKEN=${HDMI_PI_VIDEO_01_TOKEN}
+      - CAMERA_PI_CAMERA_01_TOKEN=${CAMERA_PI_CAMERA_01_TOKEN}
+
+      # Authentication & Security
+      - JWT_SECRET=${JWT_SECRET}
+      - JWT_EXPIRES_IN=${JWT_EXPIRES_IN:-24h}
+
+      # Audio Library
+      - LIBRARY_ROOT=${LIBRARY_ROOT:-/var/lib/fleet/audio-library}
+      - MAX_UPLOAD_BYTES=${MAX_UPLOAD_BYTES:-104857600}
+
+      # Worker Configuration
+      - WORKER_POLL_INTERVAL_MS=${WORKER_POLL_INTERVAL_MS:-2000}
+      - AUDIO_MAX_DRIFT_MS=${AUDIO_MAX_DRIFT_MS:-600}
+      - SSE_HEARTBEAT_MS=${SSE_HEARTBEAT_MS:-15000}
+      - POLL_INTERVAL_MS=${POLL_INTERVAL_MS:-5000}
+
+      # Device Configuration
+      - DEVICE_YAML=${DEVICE_YAML:-../inventory/device-interfaces.yaml}
+
+      # Seed Configuration (Remove after first deployment)
+      - SEED_ADMIN_PASSWORD=${SEED_ADMIN_PASSWORD}
+
+      # Observability
+      - PROMETHEUS_ENABLED=${PROMETHEUS_ENABLED:-true}
+      - LOG_LEVEL=${LOG_LEVEL:-info}
+
+    volumes:
+      # Audio Library Storage (CRITICAL: must be persistent)
+      - ${LIBRARY_ROOT:-/var/lib/fleet/audio-library}:${LIBRARY_ROOT:-/var/lib/fleet/audio-library}
+
+      # Database Storage (if using file-based SQLite)
+      - api_data:/app/data
+
+      # Device Configuration
+      - ../inventory:/app/inventory:ro
+
+    ports:
+      - "${API_PORT:-3005}:${API_PORT:-3005}"
+
+    restart: unless-stopped
+
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:${API_PORT:-3005}/metrics"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+
+  fleet-ui:
+    build:
+      context: ../ui
+      dockerfile: Dockerfile
+    environment:
+      - PUBLIC_API_BASE=${PUBLIC_API_BASE:-/api}
+      - PUBLIC_API_BEARER=${PUBLIC_API_BEARER}
+      - NODE_ENV=production
+
+    ports:
+      - "${UI_PORT:-3006}:3000"
+
+    restart: unless-stopped
+
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:3000"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 30s
+
+volumes:
+  api_data:
+    driver: local
+
+# Usage:
+# 1. Copy your .env.production to vps/.env
+# 2. Ensure /var/lib/fleet/audio-library exists with proper permissions
+# 3. Run: docker compose -f docker-compose.production.yml up -d
