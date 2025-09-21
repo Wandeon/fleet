@@ -8,6 +8,7 @@ The monitoring stack that lives under `vps/compose.prom-grafana-blackbox.yml` is
 - **Blackbox exporter** – performs HTTP probes (including the Pi `/healthz` endpoints) and exposes probe results to Prometheus.
 - **Grafana** – dashboards and ad‑hoc graphing of the metrics stored in Prometheus.
 - **Alertmanager** – fan‑out component that turns Prometheus alerts into Slack messages or other notifications.
+- **Promtail** – defined in the overlay `vps/compose.promtail.yml` to forward VPS container/syslog output into Loki.
 
 Device targets are generated from `inventory/device-interfaces.yaml` and shipped to Prometheus as JSON files (`vps/targets-*.json`). Each device exposes a `/metrics` endpoint; the `up` metric becomes `0` when a scrape fails and is what powers the `DeviceOffline` alert.
 
@@ -26,9 +27,9 @@ Alert states are visible in the Prometheus UI (`http://<host>:9090/alerts`) and 
 1. **Create a Slack webhook.** In Slack → *App Directory* → *Incoming Webhooks*, create a webhook that posts into your `#ops-alerts` (or preferred) channel.
 2. **Store the secret locally.** Create `vps/secrets/slack-webhook.url` (excluded from git) containing only the webhook URL.
 3. **Review the Alertmanager config.** `vps/alertmanager.yml` routes every alert to Slack. Adjust the `channel` name or add more receivers as needed.
-4. **Start Alertmanager alongside Prometheus.**
+4. **Start Alertmanager alongside Prometheus.** Include the promtail overlay when composing so log collection is enabled.
    ```bash
-   docker compose -f vps/compose.prom-grafana-blackbox.yml up -d alertmanager
+   docker compose -f vps/compose.prom-grafana-blackbox.yml -f vps/compose.promtail.yml up -d alertmanager
    docker compose -f vps/compose.prom-grafana-blackbox.yml up -d prometheus grafana blackbox
    ```
    Prometheus is already configured to forward alerts to `alertmanager:9093`.
