@@ -1,6 +1,6 @@
-# Fleet API Production Cutover Kit
+# Fleet API Production Cutover Kit - Full Stack Edition
 
-Complete deployment package for transitioning from mock to real Pi device control.
+Complete deployment package for full-stack group-intent architecture covering audio, video, camera, and Zigbee devices.
 
 ## 📦 Kit Contents
 
@@ -9,13 +9,17 @@ Complete deployment package for transitioning from mock to real Pi device contro
 - **PRODUCTION-CUTOVER-CHECKLIST.md** - Comprehensive 7-phase validation checklist
 
 ### Configuration Templates
-- **api.env.production.example** - API environment variables with detailed comments
+- **api.env.production.example** - API environment variables with device tokens for all types
 - **ui.env.production.example** - UI environment variables
 - **docker-compose.production.yml** - Production container configuration
 
 ### Test Scripts
-- **smoke-test.sh** - API endpoint validation (executable)
-- **acceptance-test.sh** - End-to-end workflow testing (executable)
+- **smoke-test.sh** - Full-stack API endpoint validation (executable)
+- **acceptance-test.sh** - Original end-to-end workflow testing (executable)
+- **acceptance-audio.sh** - Audio group-specific testing (executable)
+- **acceptance-video.sh** - Video/display group testing (executable)
+- **acceptance-camera.sh** - Camera group testing (executable)
+- **acceptance-zigbee.sh** - Zigbee coordinator testing (executable)
 
 ## 🚀 Quick Deploy
 
@@ -47,16 +51,28 @@ Complete deployment package for transitioning from mock to real Pi device contro
 
 5. **Validate**:
    ```bash
+   # Run comprehensive smoke test for all device types
    ./smoke-test.sh http://localhost:3005 <API_BEARER_TOKEN>
+
+   # Run role-specific acceptance tests
+   ./acceptance-audio.sh http://localhost:3005 <API_BEARER_TOKEN>
+   ./acceptance-video.sh http://localhost:3005 <API_BEARER_TOKEN>
+   ./acceptance-camera.sh http://localhost:3005 <API_BEARER_TOKEN>
+   ./acceptance-zigbee.sh http://localhost:3005 <API_BEARER_TOKEN>
+
+   # Run original end-to-end test
    ./acceptance-test.sh http://localhost:3005 <API_BEARER_TOKEN>
    ```
 
 ## 🎯 Success Criteria
 
-✅ All smoke tests pass
-✅ Acceptance test completes end-to-end
-✅ Real audio plays on Pi devices via group commands
-✅ UI accessible with real-time device status updates
+✅ All smoke tests pass for all device types
+✅ All role-specific acceptance tests complete successfully
+✅ Audio plays on Pi devices via group commands
+✅ Video displays respond to power/input commands
+✅ Cameras respond to reboot/probe commands
+✅ Zigbee coordinator handles permit join/publish commands
+✅ UI accessible with real-time device status updates for all types
 
 ## 🆘 Support
 

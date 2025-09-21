@@ -122,21 +122,37 @@ test_endpoint "GET" "/api/fleet/layout" 200 "" "Fleet layout endpoint"
 # Test 3: Fleet State
 test_endpoint "GET" "/api/fleet/state" 200 "" "Fleet state endpoint"
 
-# Test 4: Check if all-audio group exists
+# Test 4: Check if all groups exist
 test_json_field "/api/fleet/layout" '.groups["all-audio"].name' "all-audio group exists"
+test_json_field "/api/fleet/layout" '.groups["all-displays"].name' "all-displays group exists"
+test_json_field "/api/fleet/layout" '.groups["exterior-cams"].name' "exterior-cams group exists"
+test_json_field "/api/fleet/layout" '.groups["zigbee-hubs"].name' "zigbee-hubs group exists"
 
 # Test 5: Device status endpoints
 test_endpoint "GET" "/api/audio/devices/pi-audio-01/status" 200 "" "Device pi-audio-01 status"
 test_endpoint "GET" "/api/audio/devices/pi-audio-02/status" 200 "" "Device pi-audio-02 status"
+test_endpoint "GET" "/api/audio/devices/pi-video-01/status" 200 "" "Device pi-video-01 status"
+test_endpoint "GET" "/api/audio/devices/pi-camera-01/status" 200 "" "Device pi-camera-01 status"
 
 # Test 6: Library endpoints
 test_endpoint "GET" "/api/library/files" 200 "" "Library files listing"
 
-# Test 7: Group commands (these return job IDs)
-test_endpoint "POST" "/api/groups/all-audio/volume" 202 '{"value":1.0}' "Group volume command"
-test_endpoint "POST" "/api/groups/all-audio/stop" 202 "" "Group stop command"
+# Test 7: Audio group commands (these return job IDs)
+test_endpoint "POST" "/api/groups/all-audio/volume" 202 '{"value":1.0}' "Audio group volume command"
+test_endpoint "POST" "/api/groups/all-audio/stop" 202 "" "Audio group stop command"
 
-# Test 8: Unauthorized access (should fail)
+# Test 8: Video group commands
+test_endpoint "POST" "/api/groups/all-displays/power_on" 202 "" "Video group power on command"
+test_endpoint "POST" "/api/groups/all-displays/input" 202 '{"source":"HDMI1"}' "Video group input command"
+
+# Test 9: Camera group commands
+test_endpoint "POST" "/api/groups/exterior-cams/probe" 202 "" "Camera group probe command"
+
+# Test 10: Zigbee group commands
+test_endpoint "POST" "/api/groups/zigbee-hubs/permit_join" 202 '{"duration":30}' "Zigbee permit join command"
+test_endpoint "POST" "/api/groups/zigbee-hubs/publish" 202 '{"topic":"test/topic","payload":{"state":"ON"}}' "Zigbee publish command"
+
+# Test 11: Unauthorized access (should fail)
 log_info "Testing unauthorized access..."
 local unauthorized_response
 unauthorized_response=$(curl -s -w "%{http_code}" "$API_URL/api/fleet/layout")
@@ -148,7 +164,7 @@ else
     log_error "Authorization not working - Expected HTTP 401, got $status_code"
 fi
 
-# Test 9: SSE endpoint connectivity
+# Test 12: SSE endpoint connectivity
 log_info "Testing SSE endpoint connectivity..."
 timeout 5s curl -s \
     -H "Authorization: Bearer $API_BEARER" \

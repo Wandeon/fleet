@@ -1,6 +1,6 @@
 import crypto from 'crypto';
 import { prisma } from '../lib/db.js';
-import { getAudioAdapter } from '../adapters/devices.js';
+import { getAudioAdapter, getVideoAdapter, getCameraAdapter, getZigbeeAdapter } from '../adapters/devices.js';
 import { bus } from '../http/sse.js';
 
 export type CommandStatus = 'pending' | 'in_progress' | 'completed' | 'partial_success' | 'failed';
@@ -70,12 +70,18 @@ async function processGroupJob(jobId: string): Promise<void> {
       include: { device: true },
     });
 
-    const audioDevices = groupMemberships
-      .filter(membership => membership.device.kind === 'audio')
-      .map(membership => membership.device);
+    // Group devices by kind
+    const devicesByKind = groupMemberships.reduce((acc, membership) => {
+      const kind = membership.device.kind;
+      if (!acc[kind]) {
+        acc[kind] = [];
+      }
+      acc[kind].push(membership.device);
+      return acc;
+    }, {} as Record<string, any[]>);
 
-    if (audioDevices.length === 0) {
-      throw new Error(`No audio devices found in group ${job.groupId}`);
+    if (Object.keys(devicesByKind).length === 0) {
+      throw new Error(`No devices found in group ${job.groupId}`);
     }
 
     // Parse payload
@@ -88,23 +94,101 @@ async function processGroupJob(jobId: string): Promise<void> {
       }
     }
 
-    // Execute command on all devices
+    // Execute command on all devices grouped by kind
     const results: DeviceResult[] = [];
-    const adapter = getAudioAdapter();
 
-    for (const device of audioDevices) {
-      try {
-        await executeCommand(adapter, device.id, job.command, parsedPayload);
-        results.push({
-          deviceId: device.id,
-          status: 'success',
-        });
-      } catch (error) {
-        results.push({
-          deviceId: device.id,
-          status: 'error',
-          error: error.message,
-        });
+    // Process audio devices
+    if (devicesByKind.audio?.length > 0) {
+      const adapter = getAudioAdapter();
+      for (const device of devicesByKind.audio) {
+        try {
+          await executeAudioCommand(adapter, device.id, job.command, parsedPayload);
+          results.push({
+            deviceId: device.id,
+            status: 'success',
+          });
+
+          // Emit individual device state update
+          await emitDeviceStateUpdate(device.id);
+        } catch (error) {
+          results.push({
+            deviceId: device.id,
+            status: 'error',
+            error: error.message,
+          });
+        }
+      }
+    }
+
+    // Process video devices
+    if (devicesByKind.video?.length > 0) {
+      const adapter = getVideoAdapter();
+      for (const device of devicesByKind.video) {
+        try {
+          await executeVideoCommand(adapter, device.id, job.command, parsedPayload);
+          results.push({
+            deviceId: device.id,
+            status: 'success',
+          });
+
+          // Emit individual device state update
+          await emitDeviceStateUpdate(device.id);
+        } catch (error) {
+          results.push({
+            deviceId: device.id,
+            status: 'error',
+            error: error.message,
+          });
+        }
+      }
+    }
+
+    // Process camera devices
+    if (devicesByKind.camera?.length > 0) {
+      const adapter = getCameraAdapter();
+      for (const device of devicesByKind.camera) {
+        try {
+          await executeCameraCommand(adapter, device.id, job.command, parsedPayload);
+          results.push({
+            deviceId: device.id,
+            status: 'success',
+          });
+
+          // Emit individual device state update
+          await emitDeviceStateUpdate(device.id);
+        } catch (error) {
+          results.push({
+            deviceId: device.id,
+            status: 'error',
+            error: error.message,
+          });
+        }
+      }
+    }
+
+    // Process Zigbee devices (note: video Pi also handles Zigbee)
+    if (devicesByKind.zigbee?.length > 0 ||
+        (job.command.startsWith('permit_join') || job.command.startsWith('reset') || job.command.startsWith('publish'))) {
+      const adapter = getZigbeeAdapter();
+      const zigbeeDevices = devicesByKind.zigbee || devicesByKind.video || [];
+
+      for (const device of zigbeeDevices) {
+        try {
+          await executeZigbeeCommand(adapter, device.id, job.command, parsedPayload);
+          results.push({
+            deviceId: device.id,
+            status: 'success',
+          });
+
+          // Emit individual device state update
+          await emitDeviceStateUpdate(device.id);
+        } catch (error) {
+          results.push({
+            deviceId: device.id,
+            status: 'error',
+            error: error.message,
+          });
+        }
       }
     }
 
@@ -130,7 +214,11 @@ async function processGroupJob(jobId: string): Promise<void> {
   }
 }
 
-async function executeCommand(adapter: any, deviceId: string, command: string, payload: any): Promise<void> {
+// ===============================================
+// DEVICE-SPECIFIC COMMAND EXECUTORS
+// ===============================================
+
+async function executeAudioCommand(adapter: any, deviceId: string, command: string, payload: any): Promise<void> {
   switch (command) {
     case 'play':
       if (!payload?.fileId) {
@@ -166,7 +254,100 @@ async function executeCommand(adapter: any, deviceId: string, command: string, p
       throw new Error(`Command ${command} not yet implemented`);
 
     default:
-      throw new Error(`Unknown command: ${command}`);
+      throw new Error(`Unknown audio command: ${command}`);
+  }
+}
+
+async function executeVideoCommand(adapter: any, deviceId: string, command: string, payload: any): Promise<void> {
+  switch (command) {
+    case 'power_on':
+      await adapter.powerOn(deviceId);
+      break;
+
+    case 'power_off':
+      await adapter.powerOff(deviceId);
+      break;
+
+    case 'input':
+      if (!payload?.source) {
+        throw new Error('source required for input command');
+      }
+      await adapter.setInput(deviceId, payload.source);
+      break;
+
+    default:
+      throw new Error(`Unknown video command: ${command}`);
+  }
+}
+
+async function executeCameraCommand(adapter: any, deviceId: string, command: string, payload: any): Promise<void> {
+  switch (command) {
+    case 'reboot':
+      await adapter.reboot(deviceId);
+      break;
+
+    case 'probe':
+      // Note: probe returns data, but for group commands we just execute it
+      await adapter.probe(deviceId);
+      break;
+
+    default:
+      throw new Error(`Unknown camera command: ${command}`);
+  }
+}
+
+async function executeZigbeeCommand(adapter: any, deviceId: string, command: string, payload: any): Promise<void> {
+  switch (command) {
+    case 'permit_join':
+      const duration = payload?.duration || 60;
+      await adapter.permitJoin(deviceId, duration);
+      break;
+
+    case 'reset':
+      await adapter.reset(deviceId);
+      break;
+
+    case 'publish':
+      if (!payload?.topic) {
+        throw new Error('topic required for publish command');
+      }
+      if (payload?.payload === undefined) {
+        throw new Error('payload required for publish command');
+      }
+      await adapter.publish(deviceId, payload.topic, payload.payload);
+      break;
+
+    default:
+      throw new Error(`Unknown Zigbee command: ${command}`);
+  }
+}
+
+// ===============================================
+// UTILITY FUNCTIONS
+// ===============================================
+
+async function emitDeviceStateUpdate(deviceId: string): Promise<void> {
+  try {
+    // Get latest device state and emit SSE update
+    const latestState = await prisma.deviceState.findFirst({
+      where: { deviceId },
+      orderBy: { updatedAt: 'desc' },
+    });
+
+    if (latestState) {
+      bus.emit('device_state', {
+        type: 'DEVICE_STATE_UPDATE',
+        data: {
+          deviceId: latestState.deviceId,
+          status: latestState.status,
+          lastSeen: latestState.lastSeen,
+          updatedAt: latestState.updatedAt,
+          state: JSON.parse(latestState.state),
+        },
+      });
+    }
+  } catch (error) {
+    console.warn(`Failed to emit device state update for ${deviceId}:`, error);
   }
 }
 

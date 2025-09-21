@@ -4,6 +4,21 @@ groups:
     kind: audio
     members: [pi-audio-01, pi-audio-02]
 
+  - id: all-displays
+    name: All Display Devices
+    kind: video
+    members: [pi-video-01]
+
+  - id: exterior-cams
+    name: Exterior Cameras
+    kind: camera
+    members: [pi-camera-01]
+
+  - id: zigbee-hubs
+    name: Zigbee Coordinators
+    kind: zigbee
+    members: [pi-video-01]
+
 devices:
   - id: pi-audio-01
     name: "Audio Player 01"

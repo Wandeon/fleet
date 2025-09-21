@@ -275,3 +275,238 @@ groupsRouter.post('/groups/:groupId/previous', async (req, res) => {
     return httpError(res, 500, 'COMMAND_ERROR', `Failed to execute previous command: ${error.message}`);
   }
 });
+
+// ===============================================
+// VIDEO/DISPLAY GROUP COMMANDS
+// ===============================================
+
+// POST /api/groups/:groupId/power_on
+groupsRouter.post('/groups/:groupId/power_on', async (req, res) => {
+  try {
+    const { groupId } = req.params;
+
+    // Verify group exists
+    const group = await prisma.group.findUnique({
+      where: { id: groupId },
+    });
+
+    if (!group) {
+      return httpError(res, 404, 'GROUP_NOT_FOUND', `Group ${groupId} not found`);
+    }
+
+    const { jobId } = await enqueueGroupJob(groupId, 'power_on');
+
+    res.status(202).json({
+      accepted: true,
+      job_id: jobId,
+    });
+  } catch (error) {
+    console.error('Group power_on error:', error);
+    return httpError(res, 500, 'COMMAND_ERROR', `Failed to execute power_on command: ${error.message}`);
+  }
+});
+
+// POST /api/groups/:groupId/power_off
+groupsRouter.post('/groups/:groupId/power_off', async (req, res) => {
+  try {
+    const { groupId } = req.params;
+
+    // Verify group exists
+    const group = await prisma.group.findUnique({
+      where: { id: groupId },
+    });
+
+    if (!group) {
+      return httpError(res, 404, 'GROUP_NOT_FOUND', `Group ${groupId} not found`);
+    }
+
+    const { jobId } = await enqueueGroupJob(groupId, 'power_off');
+
+    res.status(202).json({
+      accepted: true,
+      job_id: jobId,
+    });
+  } catch (error) {
+    console.error('Group power_off error:', error);
+    return httpError(res, 500, 'COMMAND_ERROR', `Failed to execute power_off command: ${error.message}`);
+  }
+});
+
+// POST /api/groups/:groupId/input
+groupsRouter.post('/groups/:groupId/input', async (req, res) => {
+  try {
+    const { groupId } = req.params;
+    const { source } = req.body;
+
+    if (!source) {
+      return httpError(res, 400, 'MISSING_INPUT_SOURCE', 'source is required');
+    }
+
+    // Verify group exists
+    const group = await prisma.group.findUnique({
+      where: { id: groupId },
+    });
+
+    if (!group) {
+      return httpError(res, 404, 'GROUP_NOT_FOUND', `Group ${groupId} not found`);
+    }
+
+    const { jobId } = await enqueueGroupJob(groupId, 'input', { source });
+
+    res.status(202).json({
+      accepted: true,
+      job_id: jobId,
+    });
+  } catch (error) {
+    console.error('Group input error:', error);
+    return httpError(res, 500, 'COMMAND_ERROR', `Failed to execute input command: ${error.message}`);
+  }
+});
+
+// ===============================================
+// CAMERA GROUP COMMANDS
+// ===============================================
+
+// POST /api/groups/:groupId/reboot
+groupsRouter.post('/groups/:groupId/reboot', async (req, res) => {
+  try {
+    const { groupId } = req.params;
+
+    // Verify group exists
+    const group = await prisma.group.findUnique({
+      where: { id: groupId },
+    });
+
+    if (!group) {
+      return httpError(res, 404, 'GROUP_NOT_FOUND', `Group ${groupId} not found`);
+    }
+
+    const { jobId } = await enqueueGroupJob(groupId, 'reboot');
+
+    res.status(202).json({
+      accepted: true,
+      job_id: jobId,
+    });
+  } catch (error) {
+    console.error('Group reboot error:', error);
+    return httpError(res, 500, 'COMMAND_ERROR', `Failed to execute reboot command: ${error.message}`);
+  }
+});
+
+// POST /api/groups/:groupId/probe
+groupsRouter.post('/groups/:groupId/probe', async (req, res) => {
+  try {
+    const { groupId } = req.params;
+
+    // Verify group exists
+    const group = await prisma.group.findUnique({
+      where: { id: groupId },
+    });
+
+    if (!group) {
+      return httpError(res, 404, 'GROUP_NOT_FOUND', `Group ${groupId} not found`);
+    }
+
+    const { jobId } = await enqueueGroupJob(groupId, 'probe');
+
+    res.status(202).json({
+      accepted: true,
+      job_id: jobId,
+    });
+  } catch (error) {
+    console.error('Group probe error:', error);
+    return httpError(res, 500, 'COMMAND_ERROR', `Failed to execute probe command: ${error.message}`);
+  }
+});
+
+// ===============================================
+// ZIGBEE GROUP COMMANDS
+// ===============================================
+
+// POST /api/groups/:groupId/permit_join
+groupsRouter.post('/groups/:groupId/permit_join', async (req, res) => {
+  try {
+    const { groupId } = req.params;
+    const { duration = 60 } = req.body;
+
+    // Verify group exists
+    const group = await prisma.group.findUnique({
+      where: { id: groupId },
+    });
+
+    if (!group) {
+      return httpError(res, 404, 'GROUP_NOT_FOUND', `Group ${groupId} not found`);
+    }
+
+    const { jobId } = await enqueueGroupJob(groupId, 'permit_join', { duration });
+
+    res.status(202).json({
+      accepted: true,
+      job_id: jobId,
+    });
+  } catch (error) {
+    console.error('Group permit_join error:', error);
+    return httpError(res, 500, 'COMMAND_ERROR', `Failed to execute permit_join command: ${error.message}`);
+  }
+});
+
+// POST /api/groups/:groupId/reset
+groupsRouter.post('/groups/:groupId/reset', async (req, res) => {
+  try {
+    const { groupId } = req.params;
+
+    // Verify group exists
+    const group = await prisma.group.findUnique({
+      where: { id: groupId },
+    });
+
+    if (!group) {
+      return httpError(res, 404, 'GROUP_NOT_FOUND', `Group ${groupId} not found`);
+    }
+
+    const { jobId } = await enqueueGroupJob(groupId, 'reset');
+
+    res.status(202).json({
+      accepted: true,
+      job_id: jobId,
+    });
+  } catch (error) {
+    console.error('Group reset error:', error);
+    return httpError(res, 500, 'COMMAND_ERROR', `Failed to execute reset command: ${error.message}`);
+  }
+});
+
+// POST /api/groups/:groupId/publish
+groupsRouter.post('/groups/:groupId/publish', async (req, res) => {
+  try {
+    const { groupId } = req.params;
+    const { topic, payload } = req.body;
+
+    if (!topic) {
+      return httpError(res, 400, 'MISSING_TOPIC', 'topic is required');
+    }
+
+    if (payload === undefined) {
+      return httpError(res, 400, 'MISSING_PAYLOAD', 'payload is required');
+    }
+
+    // Verify group exists
+    const group = await prisma.group.findUnique({
+      where: { id: groupId },
+    });
+
+    if (!group) {
+      return httpError(res, 404, 'GROUP_NOT_FOUND', `Group ${groupId} not found`);
+    }
+
+    const { jobId } = await enqueueGroupJob(groupId, 'publish', { topic, payload });
+
+    res.status(202).json({
+      accepted: true,
+      job_id: jobId,
+    });
+  } catch (error) {
+    console.error('Group publish error:', error);
+    return httpError(res, 500, 'COMMAND_ERROR', `Failed to execute publish command: ${error.message}`);
+  }
+});
