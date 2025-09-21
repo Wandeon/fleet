@@ -21,13 +21,14 @@ The fleet now ships logs from every Raspberry Pi and the VPS into a single Loki 
    sudo systemctl start role-agent.service
    docker ps --filter name=promtail
    ```
-3. On the VPS, start/restart the monitoring stack including Loki + promtail:
+3. Update `inventory/devices.yaml` so each managed node has `logs: true` and `loki_source: <hostname>`; the API and UI use these labels when building Loki queries.
+4. On the VPS, start/restart the monitoring stack including Loki + promtail:
    ```bash
    docker compose -f vps/compose.prom-grafana-blackbox.yml -f vps/compose.promtail.yml up -d alertmanager loki promtail
    docker compose -f vps/compose.prom-grafana-blackbox.yml up -d prometheus grafana blackbox
    ```
 
-4. Verify VPS ingestion in Grafana or `logcli`:
+5. Verify VPS ingestion in Grafana or `logcli`:
    ```bash
    docker run --rm -it grafana/logcli:2.9.1 \
      --addr=http://loki:3100 \
