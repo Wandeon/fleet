@@ -1,6 +1,8 @@
 import fs from 'node:fs';
 import path from 'node:path';
+import crypto from 'node:crypto';
 import yaml from 'js-yaml';
+import bcrypt from 'bcrypt';
 import { prisma } from '../lib/db.js';
 
 const defaultFiles = [
@@ -47,6 +49,13 @@ type InventoryDevice = {
   monitoring?: unknown;
   operations?: unknown;
   capabilities?: unknown;
+};
+
+type InventoryGroup = {
+  id: string;
+  name: string;
+  kind: string;
+  members: string[];
 };
 
 function selectAddress(device: InventoryDevice) {
@@ -106,20 +115,57 @@ function buildCapabilities(device: InventoryDevice) {
       update: {
         name: device.name,
         kind: device.kind || 'unknown',
-        address: selectAddress(device),
-        capabilities: buildCapabilities(device),
+        address: JSON.stringify(selectAddress(device)),
+        capabilities: JSON.stringify(buildCapabilities(device)),
         managed: device.managed ?? true,
       },
       create: {
         id: device.id,
         name: device.name,
         kind: device.kind || 'unknown',
-        address: selectAddress(device),
-        capabilities: buildCapabilities(device),
+        address: JSON.stringify(selectAddress(device)),
+        capabilities: JSON.stringify(buildCapabilities(device)),
         managed: device.managed ?? true,
       },
     });
   }
+
+  // Seed groups
+  for (const group of (doc?.groups as InventoryGroup[]) || []) {
+    if (!group?.id) continue;
+    await prisma.group.upsert({
+      where: { id: group.id },
+      update: { name: group.name, kind: group.kind },
+      create: { id: group.id, name: group.name, kind: group.kind },
+    });
+
+    // Seed group memberships
+    for (const deviceId of group.members || []) {
+      await prisma.groupMembership.upsert({
+        where: { groupId_deviceId: { groupId: group.id, deviceId } },
+        update: {},
+        create: { groupId: group.id, deviceId },
+      });
+    }
+  }
+
+  // Seed admin user if none exists
+  const adminExists = await prisma.user.findFirst({ where: { username: 'admin' } });
+  if (!adminExists) {
+    const password = process.env.SEED_ADMIN_PASSWORD || crypto.randomBytes(12).toString('base64url');
+    const hash = await bcrypt.hash(password, 10);
+    await prisma.user.create({
+      data: {
+        id: crypto.randomUUID(),
+        username: 'admin',
+        password: hash,
+        role: 'admin',
+      },
+    });
+    // eslint-disable-next-line no-console
+    console.log(`[seed] admin user created. username=admin password=${password}`);
+  }
+
   // eslint-disable-next-line no-console
   console.log('Seed complete');
   process.exit(0);

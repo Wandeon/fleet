@@ -1,0 +1,410 @@
+import express, { type Request } from 'express';
+import multer from 'multer';
+import path from 'path';
+import fs from 'fs/promises';
+import crypto from 'crypto';
+import { prisma } from '../lib/db.js';
+import { httpError } from './errors.js';
+
+export const libraryRouter = express.Router();
+
+const LIBRARY_ROOT = process.env.LIBRARY_ROOT || './audio-library';
+const MAX_UPLOAD_BYTES = parseInt(process.env.MAX_UPLOAD_BYTES || '104857600', 10); // 100MB
+
+// Ensure library directory exists
+try {
+  await fs.mkdir(LIBRARY_ROOT, { recursive: true });
+} catch (error) {
+  console.error('Failed to create library directory:', error);
+}
+
+// Mutex for upload operations (one at a time)
+let uploadInProgress = false;
+
+// Configure multer for file uploads
+const upload = multer({
+  storage: multer.memoryStorage(),
+  limits: {
+    fileSize: MAX_UPLOAD_BYTES,
+  },
+  fileFilter: (req, file, cb) => {
+    // Accept audio files
+    const allowedMimes = [
+      'audio/mpeg',
+      'audio/mp3',
+      'audio/wav',
+      'audio/flac',
+      'audio/ogg',
+      'audio/m4a',
+      'audio/aac',
+    ];
+
+    if (allowedMimes.includes(file.mimetype) || file.mimetype.startsWith('audio/')) {
+      cb(null, true);
+    } else {
+      cb(new Error('Only audio files are allowed'), false);
+    }
+  },
+});
+
+// GET /api/library/files - List all files
+libraryRouter.get('/files', async (req, res) => {
+  try {
+    const files = await prisma.file.findMany({
+      orderBy: { createdAt: 'desc' },
+    });
+    res.json({ files });
+  } catch (error) {
+    console.error('Failed to list files:', error);
+    return httpError(res, 500, 'DATABASE_ERROR', 'Failed to retrieve files');
+  }
+});
+
+// POST /api/library/upload - Upload a file
+libraryRouter.post('/upload', upload.single('file'), async (req: any, res) => {
+  try {
+    if (uploadInProgress) {
+      return httpError(res, 409, 'UPLOAD_IN_PROGRESS', 'Another upload is already in progress');
+    }
+
+    if (!req.file) {
+      return httpError(res, 400, 'NO_FILE', 'No file provided');
+    }
+
+    uploadInProgress = true;
+
+    const fileId = crypto.randomUUID();
+    const filename = req.file.originalname;
+    const ext = path.extname(filename);
+    const safeName = `${fileId}${ext}`;
+    const filePath = path.join(LIBRARY_ROOT, safeName);
+
+    try {
+      // Write file to disk
+      await fs.writeFile(filePath, req.file.buffer);
+
+      // Create database record
+      const file = await prisma.file.create({
+        data: {
+          id: fileId,
+          filename,
+          path: filePath,
+          size: req.file.size,
+          mime: req.file.mimetype,
+        },
+      });
+
+      res.status(201).json({
+        success: true,
+        file: {
+          id: file.id,
+          filename: file.filename,
+          size: file.size,
+          mime: file.mime,
+          createdAt: file.createdAt,
+        },
+      });
+    } catch (error) {
+      // Clean up file if database operation fails
+      try {
+        await fs.unlink(filePath);
+      } catch (unlinkError) {
+        console.error('Failed to clean up file after error:', unlinkError);
+      }
+      throw error;
+    }
+  } catch (error) {
+    console.error('Upload error:', error);
+    if (error.code === 'LIMIT_FILE_SIZE') {
+      return httpError(res, 413, 'FILE_TOO_LARGE', `File size exceeds limit of ${MAX_UPLOAD_BYTES} bytes`);
+    }
+    if (error.message === 'Only audio files are allowed') {
+      return httpError(res, 400, 'INVALID_FILE_TYPE', 'Only audio files are allowed');
+    }
+    return httpError(res, 500, 'UPLOAD_ERROR', 'Failed to upload file');
+  } finally {
+    uploadInProgress = false;
+  }
+});
+
+// DELETE /api/library/files/:id - Delete a file
+libraryRouter.delete('/files/:id', async (req, res) => {
+  try {
+    const { id } = req.params;
+
+    // Find file in database
+    const file = await prisma.file.findUnique({
+      where: { id },
+    });
+
+    if (!file) {
+      return httpError(res, 404, 'FILE_NOT_FOUND', 'File not found');
+    }
+
+    // Delete from filesystem
+    try {
+      await fs.unlink(file.path);
+    } catch (error) {
+      console.warn('Failed to delete file from filesystem:', error);
+      // Continue with database deletion even if file doesn't exist on disk
+    }
+
+    // Delete from database
+    await prisma.file.delete({
+      where: { id },
+    });
+
+    res.json({ success: true });
+  } catch (error) {
+    console.error('Delete error:', error);
+    return httpError(res, 500, 'DELETE_ERROR', 'Failed to delete file');
+  }
+});
+
+// GET /api/library/files/:id/download - Download a file
+libraryRouter.get('/files/:id/download', async (req, res) => {
+  try {
+    const { id } = req.params;
+
+    const file = await prisma.file.findUnique({
+      where: { id },
+    });
+
+    if (!file) {
+      return httpError(res, 404, 'FILE_NOT_FOUND', 'File not found');
+    }
+
+    // Check if file exists on disk
+    try {
+      await fs.access(file.path);
+    } catch (error) {
+      return httpError(res, 404, 'FILE_NOT_FOUND_ON_DISK', 'File not found on disk');
+    }
+
+    res.setHeader('Content-Type', file.mime);
+    res.setHeader('Content-Disposition', `attachment; filename="${file.filename}"`);
+    res.sendFile(path.resolve(file.path));
+  } catch (error) {
+    console.error('Download error:', error);
+    return httpError(res, 500, 'DOWNLOAD_ERROR', 'Failed to download file');
+  }
+});
+
+// PLAYLIST ENDPOINTS
+
+// GET /api/library/playlists - List all playlists
+libraryRouter.get('/playlists', async (req, res) => {
+  try {
+    const playlists = await prisma.playlist.findMany({
+      include: {
+        items: {
+          orderBy: { order: 'asc' },
+          include: {
+            // We'll need to get file details separately since we can't directly reference File
+          },
+        },
+      },
+      orderBy: { createdAt: 'desc' },
+    });
+
+    // Fetch file details for each playlist item
+    const playlistsWithFiles = await Promise.all(
+      playlists.map(async (playlist) => {
+        const itemsWithFiles = await Promise.all(
+          playlist.items.map(async (item) => {
+            const file = await prisma.file.findUnique({
+              where: { id: item.fileId },
+            });
+            return {
+              ...item,
+              file: file ? {
+                id: file.id,
+                filename: file.filename,
+                size: file.size,
+                mime: file.mime,
+              } : null,
+            };
+          })
+        );
+
+        return {
+          ...playlist,
+          items: itemsWithFiles,
+        };
+      })
+    );
+
+    res.json({ playlists: playlistsWithFiles });
+  } catch (error) {
+    console.error('Failed to list playlists:', error);
+    return httpError(res, 500, 'DATABASE_ERROR', 'Failed to retrieve playlists');
+  }
+});
+
+// POST /api/library/playlists - Create or update a playlist
+libraryRouter.post('/playlists', async (req, res) => {
+  try {
+    const { id, name, items } = req.body;
+
+    if (!name) {
+      return httpError(res, 400, 'MISSING_NAME', 'Playlist name is required');
+    }
+
+    if (!Array.isArray(items)) {
+      return httpError(res, 400, 'INVALID_ITEMS', 'Playlist items must be an array');
+    }
+
+    // Validate that all files exist
+    for (const item of items) {
+      if (!item.fileId) {
+        return httpError(res, 400, 'MISSING_FILE_ID', 'Each playlist item must have a fileId');
+      }
+
+      const file = await prisma.file.findUnique({
+        where: { id: item.fileId },
+      });
+
+      if (!file) {
+        return httpError(res, 404, 'FILE_NOT_FOUND', `File ${item.fileId} not found`);
+      }
+    }
+
+    let playlist;
+    if (id) {
+      // Update existing playlist
+      await prisma.$transaction(async (tx) => {
+        // Delete existing items
+        await tx.playlistItem.deleteMany({
+          where: { playlistId: id },
+        });
+
+        // Update playlist
+        playlist = await tx.playlist.update({
+          where: { id },
+          data: { name },
+        });
+
+        // Create new items
+        for (let i = 0; i < items.length; i++) {
+          await tx.playlistItem.create({
+            data: {
+              playlistId: playlist.id,
+              fileId: items[i].fileId,
+              order: i,
+            },
+          });
+        }
+      });
+    } else {
+      // Create new playlist
+      await prisma.$transaction(async (tx) => {
+        playlist = await tx.playlist.create({
+          data: { name },
+        });
+
+        // Create items
+        for (let i = 0; i < items.length; i++) {
+          await tx.playlistItem.create({
+            data: {
+              playlistId: playlist.id,
+              fileId: items[i].fileId,
+              order: i,
+            },
+          });
+        }
+      });
+    }
+
+    res.status(201).json({
+      success: true,
+      playlist: {
+        id: playlist.id,
+        name: playlist.name,
+        createdAt: playlist.createdAt,
+      },
+    });
+  } catch (error) {
+    console.error('Playlist save error:', error);
+    return httpError(res, 500, 'PLAYLIST_ERROR', 'Failed to save playlist');
+  }
+});
+
+// GET /api/library/playlists/:id - Get a specific playlist
+libraryRouter.get('/playlists/:id', async (req, res) => {
+  try {
+    const { id } = req.params;
+
+    const playlist = await prisma.playlist.findUnique({
+      where: { id },
+      include: {
+        items: {
+          orderBy: { order: 'asc' },
+        },
+      },
+    });
+
+    if (!playlist) {
+      return httpError(res, 404, 'PLAYLIST_NOT_FOUND', 'Playlist not found');
+    }
+
+    // Fetch file details for each item
+    const itemsWithFiles = await Promise.all(
+      playlist.items.map(async (item) => {
+        const file = await prisma.file.findUnique({
+          where: { id: item.fileId },
+        });
+        return {
+          ...item,
+          file: file ? {
+            id: file.id,
+            filename: file.filename,
+            size: file.size,
+            mime: file.mime,
+          } : null,
+        };
+      })
+    );
+
+    res.json({
+      playlist: {
+        ...playlist,
+        items: itemsWithFiles,
+      },
+    });
+  } catch (error) {
+    console.error('Playlist fetch error:', error);
+    return httpError(res, 500, 'PLAYLIST_ERROR', 'Failed to fetch playlist');
+  }
+});
+
+// DELETE /api/library/playlists/:id - Delete a playlist
+libraryRouter.delete('/playlists/:id', async (req, res) => {
+  try {
+    const { id } = req.params;
+
+    const playlist = await prisma.playlist.findUnique({
+      where: { id },
+    });
+
+    if (!playlist) {
+      return httpError(res, 404, 'PLAYLIST_NOT_FOUND', 'Playlist not found');
+    }
+
+    await prisma.$transaction(async (tx) => {
+      // Delete playlist items first
+      await tx.playlistItem.deleteMany({
+        where: { playlistId: id },
+      });
+
+      // Delete playlist
+      await tx.playlist.delete({
+        where: { id },
+      });
+    });
+
+    res.json({ success: true });
+  } catch (error) {
+    console.error('Playlist delete error:', error);
+    return httpError(res, 500, 'PLAYLIST_ERROR', 'Failed to delete playlist');
+  }
+});

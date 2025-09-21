@@ -1,0 +1,121 @@
+import express from 'express';
+import bcrypt from 'bcrypt';
+import jwt from 'jsonwebtoken';
+import { prisma } from '../lib/db.js';
+
+export const authRouter = express.Router();
+authRouter.use(express.json());
+
+const JWT_SECRET = process.env.JWT_SECRET || 'change-me-in-production';
+const JWT_EXPIRES_IN = process.env.JWT_EXPIRES_IN || '24h';
+
+authRouter.post('/login', async (req, res) => {
+  try {
+    const { username, password } = req.body;
+
+    if (!username || !password) {
+      return res.status(400).json({
+        error: { code: 'INVALID_CREDENTIALS', message: 'Username and password are required' }
+      });
+    }
+
+    // Find user by username
+    const user = await prisma.user.findUnique({
+      where: { username }
+    });
+
+    if (!user) {
+      return res.status(401).json({
+        error: { code: 'INVALID_CREDENTIALS', message: 'Invalid username or password' }
+      });
+    }
+
+    // Verify password
+    const isValidPassword = await bcrypt.compare(password, user.password);
+    if (!isValidPassword) {
+      return res.status(401).json({
+        error: { code: 'INVALID_CREDENTIALS', message: 'Invalid username or password' }
+      });
+    }
+
+    // Generate JWT token
+    const token = jwt.sign(
+      { userId: user.id, username: user.username, role: user.role },
+      JWT_SECRET as string,
+      { expiresIn: JWT_EXPIRES_IN }
+    );
+
+    // Set as httpOnly cookie (for browser flows)
+    res.cookie('session', token, {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === 'production',
+      sameSite: 'strict',
+      maxAge: 24 * 60 * 60 * 1000, // 24 hours
+    });
+
+    res.json({
+      success: true,
+      user: {
+        id: user.id,
+        username: user.username,
+        role: user.role,
+      },
+      token, // Also return token for API clients
+    });
+  } catch (error) {
+    console.error('Login error:', error);
+    res.status(500).json({
+      error: { code: 'INTERNAL_ERROR', message: 'Internal server error' }
+    });
+  }
+});
+
+authRouter.post('/logout', (_req, res) => {
+  res.clearCookie('session');
+  res.json({ success: true });
+});
+
+// Verify token endpoint
+authRouter.get('/verify', async (req, res) => {
+  try {
+    const authHeader = req.headers.authorization;
+    const sessionCookie = req.cookies?.session;
+
+    let token = null;
+    if (authHeader?.startsWith('Bearer ')) {
+      token = authHeader.substring(7);
+    } else if (sessionCookie) {
+      token = sessionCookie;
+    }
+
+    if (!token) {
+      return res.status(401).json({
+        error: { code: 'NO_TOKEN', message: 'No authentication token provided' }
+      });
+    }
+
+    const decoded = jwt.verify(token, JWT_SECRET) as any;
+    const user = await prisma.user.findUnique({
+      where: { id: decoded.userId }
+    });
+
+    if (!user) {
+      return res.status(401).json({
+        error: { code: 'INVALID_TOKEN', message: 'Invalid token' }
+      });
+    }
+
+    res.json({
+      valid: true,
+      user: {
+        id: user.id,
+        username: user.username,
+        role: user.role,
+      }
+    });
+  } catch (error) {
+    res.status(401).json({
+      error: { code: 'INVALID_TOKEN', message: 'Invalid or expired token' }
+    });
+  }
+});

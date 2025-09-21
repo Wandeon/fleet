@@ -11,8 +11,8 @@ model Device {
   id           String   @id
   name         String
   kind         String
-  address      Json
-  capabilities Json
+  address      String // JSON string
+  capabilities String // JSON string
   managed      Boolean  @default(true)
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt
@@ -20,6 +20,7 @@ model Device {
   states   DeviceState[]
   events   DeviceEvent[]
   jobs     Job[]
+  groupMemberships GroupMembership[]
 }
 
 model DeviceState {
@@ -28,7 +29,7 @@ model DeviceState {
   updatedAt  DateTime @updatedAt
   status     String
   lastSeen   DateTime?
-  state      Json
+  state      String // JSON string
   device     Device   @relation(fields: [deviceId], references: [id])
 
   @@index([deviceId, updatedAt])
@@ -38,7 +39,7 @@ model DeviceEvent {
   id            String   @id @default(cuid())
   deviceId      String
   eventType     String
-  payload       Json
+  payload       String // JSON string
   at            DateTime @default(now())
   origin        String
   correlationId String?
@@ -52,7 +53,7 @@ model Job {
   id         String   @id @default(cuid())
   deviceId   String
   command    String
-  payload    Json?
+  payload    String? // JSON string
   status     String
   error      String?
   createdAt  DateTime @default(now())
@@ -61,4 +62,65 @@ model Job {
 
   @@index([status, createdAt])
   @@index([deviceId, createdAt])
+}
+
+model Group {
+  id        String   @id
+  name      String
+  kind      String   // e.g., "audio", "video", "camera"
+  members   GroupMembership[]
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model GroupMembership {
+  groupId  String
+  deviceId String
+  group    Group   @relation(fields: [groupId], references: [id])
+  device   Device  @relation(fields: [deviceId], references: [id])
+  @@id([groupId, deviceId])
+}
+
+model File {
+  id        String   @id @default(cuid()) // UUID generated in app code
+  filename  String
+  path      String
+  size      Int
+  mime      String
+  createdAt DateTime @default(now())
+  // optional: checksum, uploaderId, tags
+}
+
+model User {
+  id        String   @id @default(cuid())
+  username  String   @unique
+  password  String   // bcrypt hash
+  role      String   // "admin" for now
+  createdAt DateTime @default(now())
+}
+
+model CommandLog {
+  id        String   @id @default(cuid())
+  userId    String?
+  groupId   String
+  command   String   // "play"|"pause"|"stop"|"volume"|"next"|"previous"
+  payload   String?  // JSON string
+  status    String   // "pending"|"in_progress"|"completed"|"partial_success"|"failed"
+  result    String?  // JSON string - per-device results [{deviceId,status,error?}]
+  createdAt DateTime @default(now())
+}
+
+model Playlist {
+  id        String   @id @default(cuid())
+  name      String
+  items     PlaylistItem[]
+  createdAt DateTime @default(now())
+}
+
+model PlaylistItem {
+  id        String   @id @default(cuid())
+  playlistId String
+  fileId    String
+  order     Int
+  playlist  Playlist @relation(fields: [playlistId], references: [id])
 }

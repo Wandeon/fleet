@@ -7,7 +7,15 @@ export async function upsertDeviceState(deviceId: string, patch: Record<string, 
     where: { deviceId },
     orderBy: { updatedAt: 'desc' },
   });
-  const state = existing?.state ?? {};
+  let state = {};
+  if (existing?.state) {
+    try {
+      state = JSON.parse(existing.state);
+    } catch (error) {
+      console.warn('Failed to parse device state JSON:', error);
+      state = {};
+    }
+  }
   const { lastSeen, ...rest } = patch;
   const merged = { ...state, ...rest } as Record<string, unknown>;
 
@@ -36,7 +44,7 @@ export async function upsertDeviceState(deviceId: string, patch: Record<string, 
       deviceId,
       status,
       lastSeen: lastSeenDate,
-      state: merged,
+      state: JSON.stringify(merged),
     },
   });
   bus.emit('state', { type: 'state', data: { deviceId, state: saved } });

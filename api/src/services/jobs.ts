@@ -5,13 +5,13 @@ import { bus } from '../http/sse.js';
 export async function enqueueJob(deviceId: string, command: string, payload: any) {
   const job = await prisma.$transaction(async (tx) => {
     const created = await tx.job.create({
-      data: { deviceId, command, payload, status: 'pending', error: null },
+      data: { deviceId, command, payload: payload ? JSON.stringify(payload) : null, status: 'pending', error: null },
     });
     await tx.deviceEvent.create({
       data: {
         deviceId,
         eventType: 'command.accepted',
-        payload: { command, payload },
+        payload: JSON.stringify({ command, payload }),
         origin: 'api',
         correlationId: created.id,
       },
@@ -55,7 +55,7 @@ export async function updateJob(
       data: {
         deviceId: fresh.deviceId,
         eventType: `command.${status}`,
-        payload: { command: fresh.command, error },
+        payload: JSON.stringify({ command: fresh.command, error }),
         origin: 'worker',
         correlationId: fresh.id,
       },
