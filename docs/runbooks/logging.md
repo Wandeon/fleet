@@ -5,7 +5,7 @@ The fleet now ships logs from every Raspberry Pi and the VPS into a single Loki 
 ## Components
 
 - **Promtail on devices** – added to the baseline compose file so every Pi tails Docker stdout/stderr and the systemd journal. The agent exports environment variables from `/etc/fleet/agent.env`, which must include `LOKI_ENDPOINT` (and optionally `LOG_SITE`).
-- **Promtail on the VPS** – part of `vps/compose.prom-grafana-blackbox.yml`; scrapes host-level containers and journals so the control plane and monitoring stack are captured too.
+- **Promtail on the VPS** – launched via `vps/compose.promtail.yml`; scrapes host-level containers and syslog so the control plane and monitoring stack are captured too.
 - **Loki** – runs in the same VPS stack with a 7-day retention window (`vps/loki-config.yml`). Data is stored under the `loki-data` Docker volume.
 - **Grafana Explore** – pre-provisioned Loki data source (`vps/grafana/provisioning/datasources/loki.yml`) exposes logs through the Grafana UI.
 
@@ -23,19 +23,46 @@ The fleet now ships logs from every Raspberry Pi and the VPS into a single Loki 
    ```
 3. On the VPS, start/restart the monitoring stack including Loki + promtail:
    ```bash
-   docker compose -f vps/compose.prom-grafana-blackbox.yml up -d alertmanager loki promtail
+   docker compose -f vps/compose.prom-grafana-blackbox.yml -f vps/compose.promtail.yml up -d alertmanager loki promtail
    docker compose -f vps/compose.prom-grafana-blackbox.yml up -d prometheus grafana blackbox
    ```
 
+4. Verify VPS ingestion in Grafana or `logcli`:
+   ```bash
+   docker run --rm -it grafana/logcli:2.9.1 \
+     --addr=http://loki:3100 \
+     query '{job="docker", host="vps"}'
+   ```
+
+## Device-side promtail quick start
+
+Follow these steps on each Raspberry Pi (audio, video, camera, etc.) so container and journal logs stream into Loki:
+
+1. Set the Loki endpoint and optional labels:
+   ```bash
+   sudo tee /etc/fleet/agent.env >/dev/null <<'EOF'
+LOKI_ENDPOINT=http://<vps-host-or-tailscale-ip>:3100/loki/api/v1/push
+LOG_SITE=primary
+EOF
+   ```
+2. Pull the latest baseline and restart the role agent (or compose manually):
+   ```bash
+   cd /opt/fleet
+   git pull
+   sudo systemctl restart role-agent.service
+   # or: docker compose -f baseline/docker-compose.yml up -d promtail
+   ```
+3. Confirm the promtail container is healthy:
+   ```bash
+   docker ps --filter name=promtail
+   docker logs promtail | tail
+   ```
+4. Validate in Grafana → Explore with `{host="pi-audio-01"}` (replace host label per node).
+
 ## Verifying ingestion
 
-- Grafana → Explore → Loki → run `{host="pi-audio-01"}` to confirm the device is forwarding logs.
-- Use `logcli` locally on the VPS for quick CLI checks:
-  ```bash
-  docker run --rm -it grafana/logcli:2.9.1 \
-    --addr=http://loki:3100 \
-    query '{host="pi-audio-01"}'
-  ```
+- Grafana → Explore → Loki → run `{job="docker", host="vps"}` for the VPS and `{host="pi-audio-01"}` (or other Pi hostnames) to confirm device forwarding.
+- Use `logcli` locally on the VPS for quick CLI checks (see example above).
 - Prometheus scrapes `loki:3100` and `promtail:9080`; alert on `up{job="loki"} == 0` to detect outages.
 
 ## Common issues

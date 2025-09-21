@@ -53,7 +53,7 @@ Prometheus scrapes each device class using file-based service discovery. Targets
 
 ```bash
 node scripts/validate-device-registry.mjs
-docker compose -f vps/compose.prom-grafana-blackbox.yml up -d alertmanager loki promtail prometheus grafana blackbox
+docker compose -f vps/compose.prom-grafana-blackbox.yml -f vps/compose.promtail.yml up -d alertmanager loki promtail prometheus grafana blackbox
 ```
 
 Targets:
@@ -72,8 +72,14 @@ Dashboards:
 ## Centralized Logging
 
 - Loki (`vps/loki-config.yml`) runs alongside Prometheus and keeps seven days of log history in the `loki-data` volume.
-- Promtail (`baseline/docker-compose.yml` on devices and the `promtail` service in this stack) tails Docker stdout and systemd journals across the fleet and pushes into Loki.
+- Promtail (`baseline/docker-compose.yml` on devices and the `promtail` overlay in `vps/compose.promtail.yml`) tails Docker stdout and host syslog across the fleet and pushes into Loki.
 - Set `LOKI_ENDPOINT=http://<vps>:3100/loki/api/v1/push` (plus optional `LOG_SITE`) in `/etc/fleet/agent.env` on each Pi so the agent exports the correct sink before composing.
+- Start (or refresh) the VPS collector with the monitoring stack overlay:
+  ```bash
+  docker compose -f vps/compose.prom-grafana-blackbox.yml -f vps/compose.promtail.yml up -d alertmanager loki promtail
+  docker compose -f vps/compose.prom-grafana-blackbox.yml up -d prometheus grafana blackbox
+  ```
+- In Grafana → Explore, query `{job="docker", host="vps"}` to validate VPS log ingestion, then `{host="pi-audio-01"}` (or another hostname) for device logs.
 - Explore logs in Grafana via **Explore → Loki**; key labels include `host`, `environment`, `site`, `service`, and `unit`.
 - Loki also exposes the HTTP API on port 3100 for direct queries with tools such as `logcli`.
 
@@ -93,7 +99,7 @@ Health checks:
 4. Start (or restart) the monitoring stack so Alertmanager picks up the secret:
 
    ```bash
-   docker compose -f vps/compose.prom-grafana-blackbox.yml up -d alertmanager loki promtail
+   docker compose -f vps/compose.prom-grafana-blackbox.yml -f vps/compose.promtail.yml up -d alertmanager loki promtail
    docker compose -f vps/compose.prom-grafana-blackbox.yml up -d prometheus grafana blackbox
    ```
 
