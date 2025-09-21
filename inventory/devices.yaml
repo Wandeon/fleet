@@ -1,12 +1,20 @@
 devices:
   pi-audio-01:
     role: audio-player
+    logs: true
+    loki_source: pi-audio-01
   pi-audio-02:
     role: audio-player
+    logs: true
+    loki_source: pi-audio-02
   pi-video-01:
     role: hdmi-media  # Zigbee hub
+    logs: true
+    loki_source: pi-video-01
   pi-camera-01:
     role: camera
+    logs: true
+    loki_source: pi-camera-01
   # Example HDMI media device
   # pi-tv-01:
   #   role: hdmi-media
