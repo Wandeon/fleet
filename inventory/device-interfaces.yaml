@@ -17,7 +17,7 @@ groups:
   - id: zigbee-hubs
     name: Zigbee Coordinators
     kind: zigbee
-    members: [pi-video-01]
+    members: [zigbee-on-video-01]
 
 devices:
   - id: pi-audio-01
@@ -198,7 +198,7 @@ devices:
       metrics_path: /metrics
       auth:
         type: bearer
-        token_env: HDMI_PI_VIDEO_01_TOKEN
+        token_env: VIDEO_PI_VIDEO_01_TOKEN
     endpoints:
       - label: Media control API
         url: http://pi-video-01:8082
@@ -264,6 +264,33 @@ devices:
         ui:
           type: button
           group: control
+      - id: power_on
+        label: Power On
+        method: POST
+        path: /power
+        body:
+          state: "on"
+        ui:
+          type: button
+          group: control
+      - id: power_off
+        label: Power Off
+        method: POST
+        path: /power
+        body:
+          state: "off"
+        ui:
+          type: button
+          group: control
+      - id: input_hdmi1
+        label: HDMI 1
+        method: POST
+        path: /input
+        body:
+          source: "HDMI1"
+        ui:
+          type: button
+          group: control
   - id: pi-camera-01
     name: "Camera"
     role: camera
@@ -318,4 +345,95 @@ devices:
         ui:
           type: button
           group: diagnostics
+          result: json
+      - id: reboot
+        label: Reboot Camera
+        method: POST
+        path: /reboot
+        ui:
+          type: button
+          group: control
+          result: json
+
+# Separate Zigbee device configuration
+  - id: zigbee-on-video-01
+    name: "Zigbee Coordinator"
+    role: zigbee-coordinator
+    kind: zigbee
+    management:
+      summary: "Zigbee2MQTT coordinator for smart home devices"
+      host: pi-video-01
+    api:
+      base_url: http://pi-video-01:8084
+      health_path: /status
+      status_path: /status
+      metrics_path: /metrics
+      auth:
+        type: bearer
+        token_env: ZIGBEE_ON_VIDEO_01_TOKEN
+    endpoints:
+      - label: Zigbee coordinator API
+        url: http://pi-video-01:8084
+      - label: Health check
+        url: http://pi-video-01:8084/status
+      - label: Zigbee2MQTT UI
+        url: http://pi-video-01:8080
+    monitoring:
+      prometheus_targets:
+        - job: zigbee-coordinator
+          target: pi-video-01:8084
+    operations:
+      - id: status
+        label: Pull Status
+        method: GET
+        path: /status
+        ui:
+          type: button
+          group: diagnostics
+          result: json
+      - id: permit_join
+        label: Permit Join
+        method: POST
+        path: /permit-join
+        body:
+          seconds: 60
+        ui:
+          type: button
+          group: control
+          result: json
+      - id: permit_join_custom
+        label: Permit Join (Custom Time)
+        method: POST
+        path: /permit-join
+        ui:
+          type: input_button
+          group: control
+          body_key: seconds
+          default: 60
+          result: json
+      - id: reset_network
+        label: Reset Network
+        method: POST
+        path: /reset
+        ui:
+          type: button
+          group: control
+          confirm: true
+          result: json
+      - id: publish_message
+        label: Publish MQTT Message
+        method: POST
+        path: /publish
+        ui:
+          type: form
+          group: advanced
+          fields:
+            - name: topic
+              type: text
+              label: Topic
+              required: true
+            - name: message
+              type: textarea
+              label: Message
+              required: true
           result: json

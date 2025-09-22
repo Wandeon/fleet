@@ -136,6 +136,84 @@ export async function savePlaylist(playlist: { id?: string; name: string; items:
   return response.json();
 }
 
+// Kind-specific device status (for diagnostics only)
+export async function getKindStatus(kind: 'audio' | 'video' | 'camera' | 'zigbee', deviceId: string) {
+  const endpoints = {
+    audio: `/audio/devices/${deviceId}/status`,
+    video: `/video/devices/${deviceId}/status`,
+    camera: `/camera/devices/${deviceId}/status`,
+    zigbee: `/zigbee/hubs/${deviceId}/status`,
+  };
+
+  const response = await apiFetch(endpoints[kind]);
+  if (!response.ok) {
+    throw new Error(`Failed to get ${kind} device status: ${response.statusText}`);
+  }
+  return response.json();
+}
+
+// Health check
+export async function getHealth() {
+  const response = await apiFetch('/health');
+  if (!response.ok) {
+    throw new Error(`Failed to get health: ${response.statusText}`);
+  }
+  return response.json();
+}
+
+// Logs API
+export async function getLogsSources() {
+  const response = await apiFetch('/logs/sources');
+  if (!response.ok) {
+    throw new Error(`Failed to get logs sources: ${response.statusText}`);
+  }
+  return response.json();
+}
+
+export async function getLogs(params: {
+  start?: string;
+  end?: string;
+  host?: string;
+  level?: string;
+  query?: string;
+  limit?: number;
+}) {
+  const searchParams = new URLSearchParams();
+  Object.entries(params).forEach(([key, value]) => {
+    if (value !== undefined) {
+      searchParams.append(key, String(value));
+    }
+  });
+
+  const response = await apiFetch(`/logs?${searchParams}`);
+  if (!response.ok) {
+    throw new Error(`Failed to get logs: ${response.statusText}`);
+  }
+  return response.json();
+}
+
+export async function exportLogs(params: {
+  start?: string;
+  end?: string;
+  host?: string;
+  level?: string;
+  query?: string;
+  limit?: number;
+}) {
+  const searchParams = new URLSearchParams();
+  Object.entries(params).forEach(([key, value]) => {
+    if (value !== undefined) {
+      searchParams.append(key, String(value));
+    }
+  });
+
+  const response = await apiFetch(`/logs/export?${searchParams}`);
+  if (!response.ok) {
+    throw new Error(`Failed to export logs: ${response.statusText}`);
+  }
+  return response.blob();
+}
+
 export const API_CONFIG = {
   base: API_BASE,
   bearer: API_BEARER,

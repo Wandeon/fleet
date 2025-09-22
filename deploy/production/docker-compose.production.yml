@@ -6,7 +6,7 @@ version: '3.8'
 services:
   fleet-api:
     build:
-      context: ../api
+      context: ../../api
       dockerfile: Dockerfile
     environment:
       # Core Configuration
@@ -20,8 +20,9 @@ services:
       # Device Authentication Tokens
       - AUDIO_PI_AUDIO_01_TOKEN=${AUDIO_PI_AUDIO_01_TOKEN}
       - AUDIO_PI_AUDIO_02_TOKEN=${AUDIO_PI_AUDIO_02_TOKEN}
-      - HDMI_PI_VIDEO_01_TOKEN=${HDMI_PI_VIDEO_01_TOKEN}
+      - VIDEO_PI_VIDEO_01_TOKEN=${VIDEO_PI_VIDEO_01_TOKEN}
       - CAMERA_PI_CAMERA_01_TOKEN=${CAMERA_PI_CAMERA_01_TOKEN}
+      - ZIGBEE_ON_VIDEO_01_TOKEN=${ZIGBEE_ON_VIDEO_01_TOKEN}
 
       # Authentication & Security
       - JWT_SECRET=${JWT_SECRET}
@@ -55,7 +56,7 @@ services:
       - api_data:/app/data
 
       # Device Configuration
-      - ../inventory:/app/inventory:ro
+      - ../../inventory:/app/inventory:ro
 
       # Video/Camera Data Storage (Optional: for thumbnails, recordings)
       - ${VIDEO_DATA_ROOT:-/var/lib/fleet/video-data}:/var/lib/fleet/video-data
@@ -81,7 +82,7 @@ services:
 
   fleet-ui:
     build:
-      context: ../ui
+      context: ../../ui
       dockerfile: Dockerfile
     environment:
       - PUBLIC_API_BASE=${PUBLIC_API_BASE:-/api}

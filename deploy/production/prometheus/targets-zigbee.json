@@ -2,12 +2,8 @@
   {
     "targets": ["pi-video-01:8084"],
     "labels": {
-      "job": "zigbee-coordinator",
-      "device_id": "pi-video-01",
-      "device_kind": "zigbee",
-      "device_role": "zigbee-coordinator",
-      "location": "control-hub",
-      "coordinator_type": "zigbee2mqtt"
+      "role": "zigbee",
+      "instance": "zigbee-on-video-01"
     }
   }
 ]

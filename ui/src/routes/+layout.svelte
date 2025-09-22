@@ -1,6 +1,6 @@
 <script lang="ts">
   import { onMount } from 'svelte';
-  import { connectSSE } from '$lib/stores/deviceStates';
+  import { connectSSE, sseConnected } from '$lib/stores/deviceStates';
 
   let es: EventSource | undefined;
 
@@ -22,11 +22,15 @@
   <header class="p-3 border-b bg-white sticky top-0 z-20">
     <div class="max-w-6xl mx-auto flex items-center gap-4">
       <strong>Fleet Dashboard</strong>
+      <div data-testid="sse.connected" class={`w-2 h-2 rounded-full ${$sseConnected ? 'bg-emerald-500' : 'bg-rose-500'}`} title={$sseConnected ? 'Live updates connected' : 'Live updates disconnected'}></div>
       <nav class="ml-auto flex gap-3 text-sm">
-        <a href="/">Home</a>
-        <a href="/operations">Operations</a>
-        <a href="/logs">Logs</a>
-        <a href="/about">About</a>
+        <a href="/" data-testid="nav.home">Home</a>
+        <a href="/audio" data-testid="nav.audio">Audio</a>
+        <a href="/video" data-testid="nav.video">Video</a>
+        <a href="/cameras" data-testid="nav.cameras">Cameras</a>
+        <a href="/smart-home" data-testid="nav.smart-home">Smart Home</a>
+        <a href="/logs" data-testid="nav.logs">Logs</a>
+        <a href="/about" data-testid="nav.about">About</a>
       </nav>
     </div>
   </header>
