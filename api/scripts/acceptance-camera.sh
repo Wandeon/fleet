@@ -65,7 +65,7 @@ fi
 log_info "Step 2: Checking pi-camera-01 device status..."
 status_response=$(curl -s \
     -H "Authorization: Bearer $API_BEARER" \
-    "$API_URL/api/audio/devices/pi-camera-01/status")
+    "$API_URL/api/camera/devices/pi-camera-01/status")
 
 if echo "$status_response" | jq -e '.status' >/dev/null 2>&1; then
     online=$(echo "$status_response" | jq -r '.status.online // false')
@@ -92,7 +92,7 @@ log_info "Step 4: Checking device status after probe..."
 sleep 1
 status_response=$(curl -s \
     -H "Authorization: Bearer $API_BEARER" \
-    "$API_URL/api/audio/devices/pi-camera-01/status")
+    "$API_URL/api/camera/devices/pi-camera-01/status")
 
 if echo "$status_response" | jq -e '.status' >/dev/null 2>&1; then
     online=$(echo "$status_response" | jq -r '.status.online // false')
@@ -145,7 +145,7 @@ done
 log_info "Step 7: Final camera status verification..."
 status_response=$(curl -s \
     -H "Authorization: Bearer $API_BEARER" \
-    "$API_URL/api/audio/devices/pi-camera-01/status")
+    "$API_URL/api/camera/devices/pi-camera-01/status")
 
 if echo "$status_response" | jq -e '.status' >/dev/null 2>&1; then
     online=$(echo "$status_response" | jq -r '.status.online // false')

@@ -1,0 +1,12 @@
+[
+  {
+    "targets": ["pi-camera-01:8083"],
+    "labels": {
+      "job": "camera-control",
+      "device_id": "pi-camera-01",
+      "device_kind": "camera",
+      "device_role": "camera",
+      "location": "exterior"
+    }
+  }
+]

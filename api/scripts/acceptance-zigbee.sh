@@ -65,7 +65,7 @@ fi
 log_info "Step 2: Checking Zigbee coordinator status..."
 status_response=$(curl -s \
     -H "Authorization: Bearer $API_BEARER" \
-    "$API_URL/api/audio/devices/pi-video-01/status")
+    "$API_URL/api/zigbee/hubs/pi-video-01/status")
 
 if echo "$status_response" | jq -e '.status' >/dev/null 2>&1; then
     coordinator_online=$(echo "$status_response" | jq -r '.status.coordinator_online // false')
@@ -93,7 +93,7 @@ log_info "Step 4: Checking coordinator status after permit join..."
 sleep 1
 status_response=$(curl -s \
     -H "Authorization: Bearer $API_BEARER" \
-    "$API_URL/api/audio/devices/pi-video-01/status")
+    "$API_URL/api/zigbee/hubs/pi-video-01/status")
 
 if echo "$status_response" | jq -e '.status' >/dev/null 2>&1; then
     permit_join=$(echo "$status_response" | jq -r '.status.permit_join // false')
@@ -128,7 +128,7 @@ check_job_status "$publish2_job_id" || exit 1
 log_info "Step 7: Checking Zigbee network map..."
 status_response=$(curl -s \
     -H "Authorization: Bearer $API_BEARER" \
-    "$API_URL/api/audio/devices/pi-video-01/status")
+    "$API_URL/api/zigbee/hubs/pi-video-01/status")
 
 if echo "$status_response" | jq -e '.status.network_map' >/dev/null 2>&1; then
     coordinator_ieee=$(echo "$status_response" | jq -r '.status.network_map.coordinator.ieee // "unknown"')
@@ -175,7 +175,7 @@ fi
 log_info "Step 9: Final coordinator status verification..."
 status_response=$(curl -s \
     -H "Authorization: Bearer $API_BEARER" \
-    "$API_URL/api/audio/devices/pi-video-01/status")
+    "$API_URL/api/zigbee/hubs/pi-video-01/status")
 
 if echo "$status_response" | jq -e '.status' >/dev/null 2>&1; then
     coordinator_online=$(echo "$status_response" | jq -r '.status.coordinator_online // false')

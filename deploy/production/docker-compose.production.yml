@@ -57,6 +57,16 @@ services:
       # Device Configuration
       - ../inventory:/app/inventory:ro
 
+      # Video/Camera Data Storage (Optional: for thumbnails, recordings)
+      - ${VIDEO_DATA_ROOT:-/var/lib/fleet/video-data}:/var/lib/fleet/video-data
+      - ${CAMERA_DATA_ROOT:-/var/lib/fleet/camera-data}:/var/lib/fleet/camera-data
+
+      # Zigbee Coordinator Data (Optional: for network backup/restore)
+      - ${ZIGBEE_DATA_ROOT:-/var/lib/fleet/zigbee-data}:/var/lib/fleet/zigbee-data
+
+      # Prometheus Targets (for monitoring configuration)
+      - ${PROMETHEUS_TARGETS_ROOT:-/var/lib/fleet/prometheus-targets}:/var/lib/fleet/prometheus-targets:ro
+
     ports:
       - "${API_PORT:-3005}:${API_PORT:-3005}"
 

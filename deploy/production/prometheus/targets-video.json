@@ -1,0 +1,12 @@
+[
+  {
+    "targets": ["pi-video-01:8082"],
+    "labels": {
+      "job": "video-control",
+      "device_id": "pi-video-01",
+      "device_kind": "video",
+      "device_role": "hdmi-media",
+      "location": "display-area"
+    }
+  }
+]

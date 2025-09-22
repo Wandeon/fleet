@@ -5,6 +5,9 @@ import { router } from './http/routes.js';
 // import { authRouter } from './http/auth.routes.js';
 // import { libraryRouter } from './http/audio.library.routes.js';
 import { audioDeviceRouter } from './http/audio.device.routes.js';
+import { videoDeviceRouter } from './http/video.device.routes.js';
+import { cameraDeviceRouter } from './http/camera.device.routes.js';
+import { zigbeeDeviceRouter } from './http/zigbee.device.routes.js';
 import { groupsRouter } from './http/groups.routes.js';
 import { sseHandler } from './http/sse.js';
 import { metricsHandler } from './lib/metrics.js';
@@ -19,7 +22,7 @@ app.get('/metrics', metricsHandler);
 // Auth routes (no auth required) - temporarily disabled
 // app.use('/api/auth', authRouter);
 
-// Library routes (auth required) - temporarily disabled for build
+// Library routes (auth required) - temporarily disabled for testing
 // const bearer = process.env.API_BEARER || '';
 // if (bearer) {
 //   app.use('/api/library', auth(bearer), libraryRouter);
@@ -27,12 +30,18 @@ app.get('/metrics', metricsHandler);
 //   app.use('/api/library', libraryRouter);
 // }
 
-// Audio device routes (auth required)
+// Device routes (auth required)
 const bearer = process.env.API_BEARER || '';
 if (bearer) {
   app.use('/api/audio', auth(bearer), audioDeviceRouter);
+  app.use('/api/video', auth(bearer), videoDeviceRouter);
+  app.use('/api/camera', auth(bearer), cameraDeviceRouter);
+  app.use('/api/zigbee', auth(bearer), zigbeeDeviceRouter);
 } else {
   app.use('/api/audio', audioDeviceRouter);
+  app.use('/api/video', videoDeviceRouter);
+  app.use('/api/camera', cameraDeviceRouter);
+  app.use('/api/zigbee', zigbeeDeviceRouter);
 }
 
 // Groups routes (auth required)

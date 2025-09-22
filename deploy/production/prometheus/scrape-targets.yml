@@ -1,0 +1,22 @@
+# Fleet Production Prometheus Scrape Targets
+# Custom targets for production monitoring
+
+# Example: Override default targets if needed
+# targets:
+#   - host: pi-audio-01
+#     port: 8081
+#     labels:
+#       job: audio-control
+#       device_kind: audio
+#       location: living-room
+#
+#   - host: pi-video-01
+#     port: 8082
+#     labels:
+#       job: video-control
+#       device_kind: video
+#       location: display-area
+
+# Note: Default targets are loaded from:
+# - deploy/production/prometheus/targets-*.json
+# These files are automatically generated during deployment

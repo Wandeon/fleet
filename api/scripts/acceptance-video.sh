@@ -65,7 +65,7 @@ fi
 log_info "Step 2: Checking pi-video-01 device status..."
 status_response=$(curl -s \
     -H "Authorization: Bearer $API_BEARER" \
-    "$API_URL/api/audio/devices/pi-video-01/status")
+    "$API_URL/api/video/devices/pi-video-01/status")
 
 if echo "$status_response" | jq -e '.status' >/dev/null 2>&1; then
     power=$(echo "$status_response" | jq -r '.status.power // false')
@@ -101,7 +101,7 @@ log_info "Step 5: Checking device status after commands..."
 sleep 2
 status_response=$(curl -s \
     -H "Authorization: Bearer $API_BEARER" \
-    "$API_URL/api/audio/devices/pi-video-01/status")
+    "$API_URL/api/video/devices/pi-video-01/status")
 
 if echo "$status_response" | jq -e '.status' >/dev/null 2>&1; then
     power=$(echo "$status_response" | jq -r '.status.power // false')
