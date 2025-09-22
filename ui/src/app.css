@@ -1,0 +1,15 @@
+/* Import legacy theme tokens and utilities */
+@import './lib/theme/legacy.css';
+
+/* Global styles */
+body {
+  margin: 0;
+  font-family: var(--legacy-font-family);
+  background: var(--legacy-bg-main);
+  color: var(--legacy-text-dark);
+}
+
+/* Override some Tailwind defaults with legacy styles when legacy classes are used */
+.legacy-app * {
+  font-family: var(--legacy-font-family);
+}

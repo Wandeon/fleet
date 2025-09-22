@@ -1,0 +1,259 @@
+/* Legacy Fleet Management Theme Variables */
+:root {
+  /* Colors */
+  --legacy-primary: #2563eb;
+  --legacy-primary-hover: #1d4ed8;
+  --legacy-primary-light: #3b82f6;
+  --legacy-primary-dark: #1e40af;
+
+  --legacy-bg-main: #f5f5f5;
+  --legacy-bg-card: #ffffff;
+  --legacy-bg-gray: #e5e7eb;
+  --legacy-bg-gray-hover: #d1d5db;
+
+  --legacy-text-dark: #1f2937;
+  --legacy-text-medium: #6b7280;
+  --legacy-text-light: #9ca3af;
+  --legacy-text-lighter: #4b5563;
+
+  --legacy-success: #10b981;
+  --legacy-error: #ef4444;
+  --legacy-warning: #f59e0b;
+
+  --legacy-border: #e5e7eb;
+  --legacy-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+  --legacy-shadow-hover: 0 4px 12px rgba(0, 0, 0, 0.15);
+
+  /* Spacing */
+  --legacy-space-xs: 0.25rem;
+  --legacy-space-sm: 0.5rem;
+  --legacy-space-md: 1rem;
+  --legacy-space-lg: 1.5rem;
+  --legacy-space-xl: 2rem;
+
+  /* Borders */
+  --legacy-radius-sm: 0.25rem;
+  --legacy-radius-md: 0.375rem;
+  --legacy-radius-lg: 0.5rem;
+
+  /* Typography */
+  --legacy-font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  --legacy-font-size-xs: 0.75rem;
+  --legacy-font-size-sm: 0.875rem;
+  --legacy-font-size-base: 1rem;
+  --legacy-font-size-lg: 1.125rem;
+  --legacy-font-size-xl: 1.25rem;
+  --legacy-font-size-2xl: 2rem;
+}
+
+/* Legacy Utility Classes */
+.legacy-app {
+  font-family: var(--legacy-font-family);
+  background: var(--legacy-bg-main);
+  color: var(--legacy-text-dark);
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+}
+
+.legacy-header {
+  background: var(--legacy-primary);
+  color: white;
+  padding: var(--legacy-space-md);
+  box-shadow: var(--legacy-shadow);
+}
+
+.legacy-nav {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  max-width: 1200px;
+  margin: 0 auto;
+}
+
+.legacy-nav-brand {
+  margin: 0;
+  color: white;
+  text-decoration: none;
+  font-weight: 600;
+}
+
+.legacy-nav-list {
+  display: flex;
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  gap: var(--legacy-space-xl);
+}
+
+.legacy-nav-link {
+  color: #e5e7eb;
+  text-decoration: none;
+  padding: var(--legacy-space-sm) var(--legacy-space-md);
+  border-radius: var(--legacy-radius-md);
+  transition: all 0.2s;
+}
+
+.legacy-nav-link:hover,
+.legacy-nav-link.active {
+  background: var(--legacy-primary-hover);
+  color: white;
+}
+
+.legacy-main {
+  flex: 1;
+  padding: var(--legacy-space-xl);
+  max-width: 1200px;
+  margin: 0 auto;
+  width: 100%;
+  box-sizing: border-box;
+}
+
+.legacy-card {
+  background: var(--legacy-bg-card);
+  padding: var(--legacy-space-lg);
+  border-radius: var(--legacy-radius-lg);
+  box-shadow: var(--legacy-shadow);
+}
+
+.legacy-card:hover {
+  box-shadow: var(--legacy-shadow-hover);
+  transform: translateY(-2px);
+  transition: all 0.2s;
+}
+
+.legacy-grid {
+  display: grid;
+  gap: var(--legacy-space-md);
+}
+
+.legacy-grid-auto {
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+}
+
+.legacy-grid-auto-lg {
+  grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+}
+
+.legacy-grid-devices {
+  grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+}
+
+/* Button Styles */
+.legacy-btn {
+  padding: var(--legacy-space-sm) var(--legacy-space-md);
+  border-radius: var(--legacy-radius-md);
+  text-decoration: none;
+  border: none;
+  cursor: pointer;
+  font-size: var(--legacy-font-size-sm);
+  transition: all 0.2s;
+  display: inline-block;
+  text-align: center;
+}
+
+.legacy-btn-primary {
+  background: var(--legacy-primary-light);
+  color: white;
+}
+
+.legacy-btn-primary:hover {
+  background: var(--legacy-primary);
+}
+
+.legacy-btn-secondary {
+  background: var(--legacy-bg-gray);
+  color: var(--legacy-text-lighter);
+}
+
+.legacy-btn-secondary:hover {
+  background: var(--legacy-bg-gray-hover);
+}
+
+.legacy-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+/* Status Pills */
+.legacy-pill {
+  padding: var(--legacy-space-xs) var(--legacy-space-sm);
+  border-radius: var(--legacy-radius-sm);
+  font-size: var(--legacy-font-size-xs);
+  font-weight: 500;
+}
+
+.legacy-pill-success {
+  background: #d1fae5;
+  color: #065f46;
+}
+
+.legacy-pill-error {
+  background: #fee2e2;
+  color: #991b1b;
+}
+
+.legacy-pill-warning {
+  background: #fef3c7;
+  color: #92400e;
+}
+
+.legacy-pill-gray {
+  background: var(--legacy-bg-gray);
+  color: var(--legacy-text-lighter);
+}
+
+/* Stats */
+.legacy-stat-value {
+  font-size: var(--legacy-font-size-2xl);
+  font-weight: bold;
+  margin-bottom: var(--legacy-space-xs);
+}
+
+.legacy-stat-value.healthy {
+  color: var(--legacy-success);
+}
+
+.legacy-stat-value.unhealthy {
+  color: var(--legacy-error);
+}
+
+.legacy-stat-meta {
+  font-size: var(--legacy-font-size-xs);
+  color: var(--legacy-text-light);
+}
+
+/* Alerts */
+.legacy-alert {
+  padding: var(--legacy-space-md);
+  border-radius: var(--legacy-radius-md);
+  margin-bottom: var(--legacy-space-md);
+}
+
+.legacy-alert-error {
+  background: #fef2f2;
+  color: #dc2626;
+  border: 1px solid #fecaca;
+}
+
+/* Responsive */
+@media (max-width: 768px) {
+  .legacy-nav {
+    flex-direction: column;
+    gap: var(--legacy-space-md);
+  }
+
+  .legacy-nav-list {
+    gap: var(--legacy-space-md);
+  }
+
+  .legacy-main {
+    padding: var(--legacy-space-md);
+  }
+
+  .legacy-grid-auto,
+  .legacy-grid-auto-lg,
+  .legacy-grid-devices {
+    grid-template-columns: 1fr;
+  }
+}

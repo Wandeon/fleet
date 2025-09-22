@@ -118,7 +118,7 @@ export async function deleteFile(fileId: string) {
 
 // Playlists
 export async function getPlaylists() {
-  const response = await apiFetch('/library/playlists');
+  const response = await apiFetch('/playlists');
   if (!response.ok) {
     throw new Error(`Failed to fetch playlists: ${response.statusText}`);
   }
@@ -126,7 +126,7 @@ export async function getPlaylists() {
 }
 
 export async function savePlaylist(playlist: { id?: string; name: string; items: { fileId: string }[] }) {
-  const response = await apiFetch('/library/playlists', {
+  const response = await apiFetch('/playlists', {
     method: 'POST',
     body: JSON.stringify(playlist),
   });

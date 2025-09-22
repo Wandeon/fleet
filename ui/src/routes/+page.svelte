@@ -55,12 +55,12 @@
 
   function getHealthBadgeClass(status: string) {
     const classes = {
-      online: 'bg-emerald-100 text-emerald-700 border-emerald-200',
-      degraded: 'bg-amber-100 text-amber-700 border-amber-200',
-      offline: 'bg-rose-100 text-rose-700 border-rose-200',
-      unknown: 'bg-neutral-100 text-neutral-600 border-neutral-200'
+      online: 'legacy-pill legacy-pill-success',
+      degraded: 'legacy-pill legacy-pill-warning',
+      offline: 'legacy-pill legacy-pill-error',
+      unknown: 'legacy-pill legacy-pill-gray'
     };
-    return `px-2 py-1 text-xs rounded-full border ${classes[status] || classes.unknown}`;
+    return classes[status] || classes.unknown;
   }
 
   function getGroupRoute(kind: string) {
@@ -74,91 +74,212 @@
   }
 </script>
 
-<div class="space-y-6">
-  <header>
-    <h1 class="text-2xl font-semibold mb-2">Fleet Dashboard</h1>
-    <p class="text-neutral-600">Monitor and control your fleet devices by group</p>
-  </header>
+<div class="dashboard">
+  <div class="header">
+    <h1>🚢 Fleet Management Dashboard</h1>
+  </div>
 
   {#if loading}
-    <div class="border rounded-lg bg-white p-4 shadow-sm">Loading...</div>
+    <div class="legacy-card">Loading...</div>
   {:else if error}
-    <div class="border border-rose-200 bg-rose-50 text-rose-700 rounded-lg p-4 shadow-sm">{error}</div>
+    <div class="legacy-alert legacy-alert-error">
+      <strong>Error:</strong> {error}
+    </div>
   {:else}
     <!-- System Health -->
     {#if healthStatus}
-      <div class="bg-white border rounded-lg p-4 shadow-sm">
-        <h2 class="text-lg font-semibold mb-3">System Health</h2>
-        <div class="flex items-center gap-3">
-          <span class={getHealthBadgeClass(healthStatus.status || 'unknown')}>
-            API: {healthStatus.status || 'unknown'}
-          </span>
-          {#if healthStatus.uptime}
-            <span class="text-sm text-neutral-500">Uptime: {Math.round(healthStatus.uptime / 1000)}s</span>
-          {/if}
+      <div class="legacy-grid legacy-grid-auto" style="margin-bottom: var(--legacy-space-xl);">
+        <div class="legacy-card">
+          <h3>🏥 System Health</h3>
+          <div class="legacy-stat-value {healthStatus.status === 'healthy' ? 'healthy' : 'unhealthy'}">
+            {(healthStatus.status || 'unknown').toUpperCase()}
+          </div>
+          <div class="legacy-stat-meta">
+            {#if healthStatus.uptime}
+              Uptime: {Math.round(healthStatus.uptime / 1000)}s
+            {:else}
+              API Status
+            {/if}
+          </div>
+        </div>
+
+        <div class="legacy-card">
+          <h3>📱 Device Groups</h3>
+          <div class="legacy-stat-value">{groups.length}</div>
+          <div class="legacy-stat-meta">
+            Total groups configured
+          </div>
+        </div>
+
+        <div class="legacy-card">
+          <h3>🎛️ Total Devices</h3>
+          <div class="legacy-stat-value">
+            {groups.reduce((total, group) => total + (group.devices?.length || 0), 0)}
+          </div>
+          <div class="legacy-stat-meta">
+            Audio: {groups.filter(g => g.kind === 'audio').reduce((total, g) => total + (g.devices?.length || 0), 0)} •
+            Video: {groups.filter(g => g.kind === 'video').reduce((total, g) => total + (g.devices?.length || 0), 0)} •
+            Camera: {groups.filter(g => g.kind === 'camera').reduce((total, g) => total + (g.devices?.length || 0), 0)}
+          </div>
         </div>
       </div>
     {/if}
 
-    <!-- Group Overview -->
-    <div class="bg-white border rounded-lg p-4 shadow-sm">
-      <h2 class="text-lg font-semibold mb-4">Device Groups</h2>
-      <div class="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-        {#each groups as group}
-          <a
-            href={getGroupRoute(group.kind)}
-            class="block p-4 border rounded-lg hover:bg-neutral-50 transition-colors"
-          >
-            <div class="flex items-center justify-between mb-2">
-              <h3 class="font-medium">{group.name}</h3>
-              <span class={getHealthBadgeClass(getGroupHealth(group))}>
-                {getGroupHealth(group)}
-              </span>
+    <!-- Device Groups -->
+    {#if groups.length > 0}
+      <div class="devices-section">
+        <h2>🎛️ Device Group Overview</h2>
+        <div class="legacy-grid legacy-grid-devices">
+          {#each groups as group}
+            <div class="legacy-card device-card">
+              <div class="device-header">
+                <h3>
+                  {#if group.kind === 'audio'}🎵
+                  {:else if group.kind === 'video'}📺
+                  {:else if group.kind === 'camera'}📷
+                  {:else if group.kind === 'zigbee'}🏠
+                  {:else}📱{/if}
+                  {group.name}
+                </h3>
+                <span class={getHealthBadgeClass(getGroupHealth(group))}>
+                  {getGroupHealth(group)}
+                </span>
+              </div>
+
+              <div class="device-info">
+                <p><strong>Type:</strong> {group.kind}</p>
+                <p><strong>Devices:</strong> {group.devices?.length || 0}</p>
+                <p><strong>Status:</strong> {getGroupHealth(group)}</p>
+              </div>
+
+              <div class="device-actions">
+                <a href={getGroupRoute(group.kind)} class="legacy-btn legacy-btn-primary">View & Control</a>
+                <button class="legacy-btn legacy-btn-secondary">Quick Status</button>
+              </div>
             </div>
-            <div class="text-sm text-neutral-600">
-              {group.devices?.length || 0} devices
-            </div>
-            <div class="text-xs text-neutral-500 mt-1 capitalize">
-              {group.kind} group
-            </div>
-          </a>
-        {/each}
+          {/each}
+        </div>
       </div>
-    </div>
+    {/if}
 
     <!-- Quick Actions -->
-    <div class="bg-white border rounded-lg p-4 shadow-sm">
-      <h2 class="text-lg font-semibold mb-4">Quick Actions</h2>
-      <div class="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-        <a href="/audio" class="px-4 py-3 bg-emerald-50 border border-emerald-200 rounded-lg hover:bg-emerald-100 transition-colors">
-          <div class="font-medium text-emerald-700">Audio Control</div>
-          <div class="text-sm text-emerald-600">Playback & Library</div>
+    <div class="quick-actions">
+      <h2>🚀 Quick Actions</h2>
+      <div class="legacy-grid legacy-grid-auto-lg">
+        <a href="/audio" class="legacy-card action-card">
+          <h3>🎵 Audio Control</h3>
+          <p>Manage audio playback, library uploads, and speaker control</p>
         </a>
-        <a href="/video" class="px-4 py-3 bg-blue-50 border border-blue-200 rounded-lg hover:bg-blue-100 transition-colors">
-          <div class="font-medium text-blue-700">Video Control</div>
-          <div class="text-sm text-blue-600">Display Management</div>
+
+        <a href="/video" class="legacy-card action-card">
+          <h3>📺 Video Control</h3>
+          <p>Control display devices, TV power, and media playback</p>
         </a>
-        <a href="/cameras" class="px-4 py-3 bg-purple-50 border border-purple-200 rounded-lg hover:bg-purple-100 transition-colors">
-          <div class="font-medium text-purple-700">Camera Control</div>
-          <div class="text-sm text-purple-600">Monitoring & Capture</div>
+
+        <a href="/cameras" class="legacy-card action-card">
+          <h3>📷 Camera Control</h3>
+          <p>Monitor camera feeds and manage video capture settings</p>
         </a>
-        <a href="/smart-home" class="px-4 py-3 bg-amber-50 border border-amber-200 rounded-lg hover:bg-amber-100 transition-colors">
-          <div class="font-medium text-amber-700">Smart Home</div>
-          <div class="text-sm text-amber-600">Zigbee Network</div>
+
+        <a href="/smart-home" class="legacy-card action-card">
+          <h3>🏠 Smart Home</h3>
+          <p>Zigbee device pairing and smart home automation control</p>
         </a>
       </div>
-    </div>
-
-    <!-- Usage Guide -->
-    <div class="bg-neutral-50 border rounded-lg p-4 text-sm">
-      <h3 class="font-medium mb-2">Getting Started</h3>
-      <ul class="space-y-1 text-neutral-600">
-        <li>• Use the navigation above to access each device category</li>
-        <li>• All controls operate on groups of devices simultaneously</li>
-        <li>• Device status updates automatically via live stream</li>
-        <li>• Check the green/red indicator next to "Fleet Dashboard" for connection status</li>
-      </ul>
     </div>
   {/if}
 </div>
+
+<style>
+  .dashboard {
+    space-y: 2rem;
+  }
+
+  .header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 2rem;
+  }
+
+  .header h1 {
+    margin: 0;
+    color: var(--legacy-text-dark);
+  }
+
+  .devices-section {
+    margin-bottom: 2rem;
+  }
+
+  .devices-section h2 {
+    margin-bottom: 1rem;
+    color: var(--legacy-text-dark);
+  }
+
+  .device-card {
+    transition: transform 0.2s;
+  }
+
+  .device-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 1rem;
+  }
+
+  .device-header h3 {
+    margin: 0;
+    color: var(--legacy-text-dark);
+  }
+
+  .device-info {
+    margin-bottom: 1rem;
+  }
+
+  .device-info p {
+    margin: 0.25rem 0;
+    font-size: var(--legacy-font-size-sm);
+    color: var(--legacy-text-medium);
+  }
+
+  .device-actions {
+    display: flex;
+    gap: 0.5rem;
+  }
+
+  .quick-actions h2 {
+    margin-bottom: 1rem;
+    color: var(--legacy-text-dark);
+  }
+
+  .action-card {
+    text-decoration: none;
+    color: inherit;
+    transition: transform 0.2s;
+  }
+
+  .action-card:hover {
+    transform: translateY(-2px);
+    box-shadow: var(--legacy-shadow-hover);
+  }
+
+  .action-card h3 {
+    margin: 0 0 0.5rem 0;
+    color: var(--legacy-text-dark);
+  }
+
+  .action-card p {
+    margin: 0;
+    color: var(--legacy-text-medium);
+    font-size: var(--legacy-font-size-sm);
+  }
+
+  @media (max-width: 768px) {
+    .header {
+      flex-direction: column;
+      gap: 1rem;
+      align-items: stretch;
+    }
+  }
+</style>
 

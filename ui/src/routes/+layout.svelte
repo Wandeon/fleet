@@ -1,6 +1,8 @@
 <script lang="ts">
   import { onMount } from 'svelte';
   import { connectSSE, sseConnected } from '$lib/stores/deviceStates';
+  import { page } from '$app/stores';
+  import '../app.css';
 
   let es: EventSource | undefined;
 
@@ -18,26 +20,25 @@
   />
 </svelte:head>
 
-<div class="min-h-screen bg-neutral-50 text-neutral-900">
-  <header class="p-3 border-b bg-white sticky top-0 z-20">
-    <div class="max-w-6xl mx-auto flex items-center gap-4">
-      <strong>Fleet Dashboard</strong>
-      <div data-testid="sse.connected" class={`w-2 h-2 rounded-full ${$sseConnected ? 'bg-emerald-500' : 'bg-rose-500'}`} title={$sseConnected ? 'Live updates connected' : 'Live updates disconnected'}></div>
-      <nav class="ml-auto flex gap-3 text-sm">
-        <a href="/" data-testid="nav.home">Home</a>
-        <a href="/audio" data-testid="nav.audio">Audio</a>
-        <a href="/video" data-testid="nav.video">Video</a>
-        <a href="/cameras" data-testid="nav.cameras">Cameras</a>
-        <a href="/smart-home" data-testid="nav.smart-home">Smart Home</a>
-        <a href="/logs" data-testid="nav.logs">Logs</a>
-        <a href="/about" data-testid="nav.about">About</a>
-      </nav>
-    </div>
+<div class="legacy-app">
+  <header class="legacy-header">
+    <nav class="legacy-nav">
+      <h1>
+        <a href="/" class="legacy-nav-brand">🚢 Fleet Management 2.0</a>
+        <div data-testid="sse.connected" class={`w-2 h-2 rounded-full inline-block ml-2 ${$sseConnected ? 'bg-emerald-500' : 'bg-rose-500'}`} title={$sseConnected ? 'Live updates connected' : 'Live updates disconnected'}></div>
+      </h1>
+      <ul class="legacy-nav-list">
+        <li><a href="/" class:active={$page.url.pathname === '/'} class="legacy-nav-link" data-testid="nav.home">Dashboard</a></li>
+        <li><a href="/audio" class:active={$page.url.pathname === '/audio'} class="legacy-nav-link" data-testid="nav.audio">Audio</a></li>
+        <li><a href="/video" class:active={$page.url.pathname === '/video'} class="legacy-nav-link" data-testid="nav.video">Video</a></li>
+        <li><a href="/cameras" class:active={$page.url.pathname === '/cameras'} class="legacy-nav-link" data-testid="nav.cameras">Cameras</a></li>
+        <li><a href="/smart-home" class:active={$page.url.pathname === '/smart-home'} class="legacy-nav-link" data-testid="nav.smart-home">Smart Home</a></li>
+        <li><a href="/logs" class:active={$page.url.pathname === '/logs'} class="legacy-nav-link" data-testid="nav.logs">Logs</a></li>
+        <li><a href="/about" class:active={$page.url.pathname === '/about'} class="legacy-nav-link" data-testid="nav.about">About</a></li>
+      </ul>
+    </nav>
   </header>
-  <main class="max-w-6xl mx-auto p-3">
+  <main class="legacy-main">
     <slot />
   </main>
-  <footer class="p-3 text-xs text-neutral-500 max-w-6xl mx-auto">
-    Build info available on /about
-  </footer>
 </div>
