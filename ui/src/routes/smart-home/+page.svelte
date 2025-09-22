@@ -29,8 +29,10 @@
         getFleetState(),
       ]);
 
-      // Find the zigbee group
-      zigbeeGroup = layout.groups?.find((g: Group) => g.kind === 'zigbee');
+      // Find the zigbee group - handle both array and object formats
+      const groupsData = layout.groups || [];
+      const groupsArray = Array.isArray(groupsData) ? groupsData : Object.values(groupsData);
+      zigbeeGroup = groupsArray.find((g: Group) => g.kind === 'zigbee');
 
       // Set initial device states
       if (state.states) {

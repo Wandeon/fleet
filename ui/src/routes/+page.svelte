@@ -23,7 +23,9 @@
         getHealth().catch(() => ({ status: 'unknown' }))
       ]);
 
-      groups = layout.groups || [];
+      // Handle both array and object formats for groups
+      const groupsData = layout.groups || [];
+      groups = Array.isArray(groupsData) ? groupsData : Object.values(groupsData);
       healthStatus = health;
 
       // Set initial device states

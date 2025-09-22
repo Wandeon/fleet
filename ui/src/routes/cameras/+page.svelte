@@ -28,8 +28,10 @@
         getFleetState(),
       ]);
 
-      // Find the camera group
-      cameraGroup = layout.groups?.find((g: Group) => g.kind === 'camera');
+      // Find the camera group - handle both array and object formats
+      const groupsData = layout.groups || [];
+      const groupsArray = Array.isArray(groupsData) ? groupsData : Object.values(groupsData);
+      cameraGroup = groupsArray.find((g: Group) => g.kind === 'camera');
 
       // Set initial device states
       if (state.states) {

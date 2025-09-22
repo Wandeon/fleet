@@ -31,8 +31,10 @@
         getFleetState(),
       ]);
 
-      // Find the video group
-      videoGroup = layout.groups?.find((g: Group) => g.kind === 'video');
+      // Find the video group - handle both array and object formats
+      const groupsData = layout.groups || [];
+      const groupsArray = Array.isArray(groupsData) ? groupsData : Object.values(groupsData);
+      videoGroup = groupsArray.find((g: Group) => g.kind === 'video');
 
       // Set initial device states
       if (state.states) {
