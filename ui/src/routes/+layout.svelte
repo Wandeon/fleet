@@ -25,6 +25,7 @@
       <nav class="ml-auto flex gap-3 text-sm">
         <a href="/">Home</a>
         <a href="/operations">Operations</a>
+        <a href="/logs">Logs</a>
         <a href="/about">About</a>
       </nav>
     </div>
