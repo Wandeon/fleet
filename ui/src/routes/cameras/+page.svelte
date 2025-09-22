@@ -33,8 +33,10 @@
 
       // Set initial device states
       if (state.states) {
+        // Handle both array and object formats for states
+        const statesArray = Array.isArray(state.states) ? state.states : Object.values(state.states || {});
         const stateMap = Object.fromEntries(
-          state.states.map((s: any) => [s.deviceId, s.state])
+          statesArray.map((s: any) => [s.deviceId, s.state])
         );
         deviceStates.set(stateMap);
       }

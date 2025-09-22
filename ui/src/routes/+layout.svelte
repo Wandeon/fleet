@@ -3,6 +3,7 @@
   import { connectSSE, sseConnected } from '$lib/stores/deviceStates';
   import { page } from '$app/stores';
   import '../app.css';
+  import '$lib/theme/legacy.css';
 
   let es: EventSource | undefined;
 
@@ -14,10 +15,6 @@
 
 <svelte:head>
   <script nonce="%sveltekit.nonce%">/* theme init */</script>
-  <link
-    rel="stylesheet"
-    href="https://cdn.jsdelivr.net/npm/tailwindcss@3.4.13/dist/tailwind.min.css"
-  />
 </svelte:head>
 
 <div class="legacy-app">
