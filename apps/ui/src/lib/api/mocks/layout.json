@@ -1,0 +1,72 @@
+{
+  "health": {
+    "updatedAt": "2025-01-12T12:21:05Z",
+    "uptime": "18 days 6h",
+    "metrics": [
+      {
+        "id": "audio",
+        "label": "Audio Pis online",
+        "value": "2 / 2",
+        "status": "ok",
+        "hint": "pi-audio-01, pi-audio-02"
+      },
+      {
+        "id": "video",
+        "label": "TV online",
+        "value": "HDMI1",
+        "status": "ok",
+        "hint": "Last sync 3m ago"
+      },
+      {
+        "id": "zigbee",
+        "label": "Zigbee devices",
+        "value": "24",
+        "status": "warn",
+        "hint": "2 battery alerts"
+      },
+      {
+        "id": "camera",
+        "label": "Cameras online",
+        "value": "3 / 4",
+        "status": "warn",
+        "hint": "Studio cam idle"
+      }
+    ]
+  },
+  "errors": [
+    {
+      "id": "err-1",
+      "timestamp": "2025-01-12T11:57:12Z",
+      "message": "pi-audio-02 didn’t respond. Retry?",
+      "severity": "error",
+      "actionLabel": "Retry"
+    },
+    {
+      "id": "err-2",
+      "timestamp": "2025-01-12T11:31:10Z",
+      "message": "Zigbee hub offline. Check power and network.",
+      "severity": "warning",
+      "actionLabel": "Open docs"
+    }
+  ],
+  "events": [
+    {
+      "id": "evt-1",
+      "timestamp": "2025-01-12T12:18:35Z",
+      "message": "Operator muted lounge TV",
+      "severity": "info"
+    },
+    {
+      "id": "evt-2",
+      "timestamp": "2025-01-12T12:05:42Z",
+      "message": "Door sensor triggered",
+      "severity": "warning"
+    },
+    {
+      "id": "evt-3",
+      "timestamp": "2025-01-12T11:45:08Z",
+      "message": "Camera hall-01 resumed recording",
+      "severity": "info"
+    }
+  ]
+}

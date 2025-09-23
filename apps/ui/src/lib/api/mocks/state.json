@@ -1,0 +1,10 @@
+{
+  "connection": {
+    "status": "online",
+    "latencyMs": 42
+  },
+  "build": {
+    "commit": "mock",
+    "version": "0.1.0"
+  }
+}
