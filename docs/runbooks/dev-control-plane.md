@@ -14,7 +14,7 @@ This guide captures the dev-only control plane plan we agreed on. Follow it when
    cp .env.example .env
    npm install
    npm run migrate
-   npm run seed:devices
+   npm run seed:yaml
    npm run dev
    ```
 3. Run the quick health checks in another terminal:
@@ -35,16 +35,13 @@ This guide captures the dev-only control plane plan we agreed on. Follow it when
   VIDEO_PI_VIDEO_01_TOKEN=...
   CAMERA_PI_CAMERA_01_TOKEN=...
   ```
-- Switch `DATABASE_URL` to Postgres if you prefer; rerun `npm run migrate` and `npm run seed:devices` afterward.
+- Switch `DATABASE_URL` to Postgres if you prefer; rerun `npm run migrate` and `npm run seed:yaml` afterward.
 
 ## 3. Generic operations endpoint
 
-- Add an Express router at `api/src/routes/operations.ts` that:
-  - Looks up the device by slug from Prisma (seeded by the registry).
-  - Resolves an operation spec from `capabilities.operations`.
-  - Builds the device request (URL, method, headers, body) using the normalized registry data.
-  - Enqueues a `job` with `kind: "operation"`, stores the serialized request, emits an SSE `job` event, and responds with `{ accepted: true, job_id }`.
-- Mount it from `api/src/server.ts` via `app.use("/api/operations", operationsRouter);`.
+- The API now exposes `POST /api/operations/:deviceId/:operationId` (see `api/src/http/routes.ts`).
+- `executeOperation` in `api/src/services/operations.ts` resolves the registry entry, builds the HTTP request, forwards it directly to the device, and records `operation.*` events.
+- Requests return the downstream status code plus JSON body; failures surface the device response or error string for the UI.
 
 ## 4. Worker execution for generic jobs
 
@@ -87,7 +84,7 @@ Update the worker loop so queued jobs with `kind === "operation"` are executed:
 
 ## 9. Troubleshooting quick hits
 
-- `operation_not_found`: registry lacks `capabilities.operations` or you forgot to reseed (`npm run seed:devices`).
+- `operation_not_found`: registry lacks `capabilities.operations` or you forgot to reseed (`npm run seed:yaml`).
 - `unauthorized`: API enforces `API_BEARER`; ensure the UI sets `PUBLIC_API_BEARER`.
 - Device shows offline but responds to curl: check `base_url`/`health_path` in `inventory/device-interfaces.yaml`.
 - Empty logs panel: device missing Promtail config or `LOKI_ENDPOINT` in `/etc/fleet/agent.env`.
