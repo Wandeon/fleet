@@ -1,276 +1,393 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-REPO_DIR="/opt/fleet"
-STATE_DIR="/run/fleet"
-LOCK_FILE="$STATE_DIR/role-agent.lock"
-AGE_KEY_FILE="/etc/fleet/age.key"
-ROLE=""
+# shellcheck disable=SC2034
+# Exit codes
+EXIT_SUCCESS=0
+EXIT_INVENTORY_NOT_FOUND=10
+EXIT_SECRETS_MISSING=11
+EXIT_SECRETS_DECRYPT=12
+EXIT_COMPOSE_FAILED=20
+EXIT_ROLLBACK_FAILED=21
+EXIT_PREREQ_MISSING=30
 
-mkdir -p "$STATE_DIR"
+SCRIPT_NAME="role-agent"
+DRY_RUN=0
+TRACE=0
+LOG_JSON=0
+FORCE_REBUILD=0
+
+usage() {
+  cat <<EOF
+Usage: ${SCRIPT_NAME}.sh [--dry-run] [--trace] [--log-json] [--force-rebuild]
+
+Flags:
+  --dry-run        Validate and plan without applying changes.
+  --trace          Enable shell tracing for debugging.
+  --log-json       Emit structured JSON logs in addition to human-readable logs.
+  --force-rebuild  Rebuild images without cache and force container recreation.
+  --help           Show this message.
+EOF
+}
+
+while [[ $# -gt 0 ]]; do
+  case "$1" in
+    --dry-run)
+      DRY_RUN=1
+      shift
+      ;;
+    --trace)
+      TRACE=1
+      shift
+      ;;
+    --log-json)
+      LOG_JSON=1
+      shift
+      ;;
+    --force-rebuild)
+      FORCE_REBUILD=1
+      shift
+      ;;
+    --help)
+      usage
+      exit 0
+      ;;
+    *)
+      echo "Unknown flag: $1" >&2
+      usage
+      exit $EXIT_PREREQ_MISSING
+      ;;
+  esac
+done
+
+if (( TRACE )); then
+  set -x
+fi
+
+# Globals and defaults
+REPO_DIR="${ROLE_AGENT_REPO_DIR:-/opt/fleet}"
+RUN_DIR="${ROLE_AGENT_RUN_DIR:-/var/run/fleet}"
+LEGACY_RUN_DIR="/run/fleet"
+LOCK_FILE="$RUN_DIR/role-agent.lock"
+LOCK_COMPOSE="$RUN_DIR/compose.lock"
+HEALTH_FILE="$RUN_DIR/health.json"
+COMMIT_FILE="$RUN_DIR/commit.sha"
+HISTORY_DIR="$RUN_DIR/projects"
+PLAN_HISTORY_BASE="$HISTORY_DIR/plan"
+HISTORY_KEEP=${ROLE_AGENT_HISTORY_KEEP:-2}
+METRIC_FILE="$RUN_DIR/role-agent.prom"
+TEXTFILE_COLLECTOR_DIR="${ROLE_AGENT_TEXTFILE_DIR:-/var/lib/node_exporter/textfile_collector}"
+AGE_KEY_FILE="${SOPS_AGE_KEY_FILE:-/etc/fleet/age.key}"
+SCRIPT_DIR=$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)
+LIB_DIR="$SCRIPT_DIR/lib"
+INVENTORY_TO_JSON="$LIB_DIR/inventory_to_json.py"
+HOSTNAME_ACTUAL="${ROLE_AGENT_HOSTNAME:-$(hostname -f 2>/dev/null || hostname)}"
+LOG_HOST="$HOSTNAME_ACTUAL"
+LOG_ROLE=""
+LOG_COMMIT=""
+CURRENT_STEP="startup"
+CURRENT_STEP_START=0
+SCRIPT_START_MS=0
+HEALTH_ERRORS=()
+ROLLBACK_ATTEMPTED=0
+ROLLBACK_SUCCEEDED=0
+PREVIOUS_COMMIT=""
+TARGET_COMMIT=""
+
+ensure_run_dir() {
+  install -d -m 0700 "$RUN_DIR"
+  if [[ "$RUN_DIR" != "$LEGACY_RUN_DIR" ]]; then
+    if [[ ! -e "$LEGACY_RUN_DIR" ]]; then
+      ln -s "$RUN_DIR" "$LEGACY_RUN_DIR" 2>/dev/null || true
+    fi
+  fi
+  install -d -m 0700 "$HISTORY_DIR"
+  install -d -m 0700 "$PLAN_HISTORY_BASE"
+}
+
+now_ms() {
+  local now
+  if now=$(date +%s%3N 2>/dev/null); then
+    printf '%s\n' "$now"
+  else
+    python3 - <<'PY'
+import time
+print(int(time.time() * 1000))
+PY
+  fi
+}
+
+iso_time() {
+  date -u +"%Y-%m-%dT%H:%M:%SZ"
+}
+
+start_step() {
+  CURRENT_STEP="$1"
+  CURRENT_STEP_START=$(now_ms)
+}
+
+log_emit() {
+  local level="$1"
+  local message="$2"
+  local ts
+  ts=$(iso_time)
+  local duration_ms
+  if [[ -n "$CURRENT_STEP_START" && "$CURRENT_STEP_START" != 0 ]]; then
+    local now
+    now=$(now_ms)
+    duration_ms=$((now - CURRENT_STEP_START))
+  else
+    duration_ms=0
+  fi
+  printf '[role-agent] %s %-5s %s\n' "$ts" "$level" "$message"
+  if (( LOG_JSON )); then
+    jq -n \
+      --arg ts "$ts" \
+      --arg level "$level" \
+      --arg msg "$message" \
+      --arg host "$LOG_HOST" \
+      --arg role "$LOG_ROLE" \
+      --arg commit "$LOG_COMMIT" \
+      --arg step "$CURRENT_STEP" \
+      --argjson duration $duration_ms \
+      '{ts:$ts, level:$level, msg:$msg, host:$host, role:$role, commit:$commit, step:$step, duration_ms:$duration}'
+  fi
+}
+
+log_info() { log_emit INFO "$1"; }
+log_warn() { log_emit WARN "$1"; }
+log_err() { log_emit ERROR "$1"; }
+
+append_error() {
+  HEALTH_ERRORS+=("$1")
+  log_err "$1"
+}
+
+# shellcheck disable=SC2317
+write_metrics() {
+  local status_value="$1"
+  local ts
+  ts=$(date +%s)
+  cat >"$METRIC_FILE" <<EOF
+role_agent_last_run_timestamp{host="$LOG_HOST"} $ts
+role_agent_last_run_success{host="$LOG_HOST"} $status_value
+EOF
+  if [[ -d "$TEXTFILE_COLLECTOR_DIR" && -w "$TEXTFILE_COLLECTOR_DIR" ]]; then
+    cp "$METRIC_FILE" "$TEXTFILE_COLLECTOR_DIR/role-agent.prom" 2>/dev/null || true
+  fi
+}
+
+# shellcheck disable=SC2317
+errors_json() {
+  if (( ${#HEALTH_ERRORS[@]} )); then
+    printf '%s\0' "${HEALTH_ERRORS[@]}" | jq -Rs 'split("\u0000")[:-1]'
+  else
+    printf '[]'
+  fi
+}
+
+# shellcheck disable=SC2317
+write_health() {
+  local exit_code="$1"
+  local finished
+  finished=$(iso_time)
+  local finished_ms
+  finished_ms=$(now_ms)
+  local duration_ms=$((finished_ms - SCRIPT_START_MS))
+  local status_text="error"
+  case "$exit_code" in
+    0)
+      status_text="ok"
+      ;;
+    "$EXIT_COMPOSE_FAILED")
+      if (( ROLLBACK_ATTEMPTED )) && (( ROLLBACK_SUCCEEDED )); then
+        status_text="degraded"
+      fi
+      ;;
+    *)
+      status_text="error"
+      ;;
+  esac
+  local errors_json
+  errors_json=$(errors_json)
+  local base_json
+  base_json=$(jq -n \
+    --arg host "$LOG_HOST" \
+    --arg role "$LOG_ROLE" \
+    --arg commit "$LOG_COMMIT" \
+    --arg status "$status_text" \
+    --arg started "$SCRIPT_STARTED_AT" \
+    --arg finished "$finished" \
+    --argjson duration "$duration_ms" \
+    --argjson errors "$errors_json" \
+    '{hostname:$host, role:$role, commit:$commit, status:$status, startedAt:$started, finishedAt:$finished, durationMs:$duration, errors:$errors}')
+  local result="$base_json"
+  if (( DRY_RUN )); then
+    result=$(jq -n --argjson base "$result" '$base + {dryRun:true}')
+  fi
+  if (( ROLLBACK_ATTEMPTED )); then
+    result=$(jq -n --argjson base "$result" --argjson rollback "$ROLLBACK_SUCCEEDED" '$base + {rollbackAttempted:true, rollbackSucceeded:($rollback == 1)}')
+  fi
+  printf '%s\n' "$result" > "$HEALTH_FILE"
+}
+
+# shellcheck disable=SC2317
+cleanup_temp_env() {
+  if [[ -n "${TMP_ENV_FILE:-}" && -f "$TMP_ENV_FILE" ]]; then
+    rm -f "$TMP_ENV_FILE"
+  fi
+}
+
+# shellcheck disable=SC2317
+on_exit() {
+  local exit_code=$?
+  trap - EXIT
+  cleanup_temp_env
+  write_health "$exit_code" || true
+  if (( exit_code == 0 )); then
+    write_metrics 1
+  else
+    write_metrics 0
+  fi
+  exit "$exit_code"
+}
+
+trap on_exit EXIT
+
+ensure_run_dir
+SCRIPT_START_MS=$(now_ms)
+SCRIPT_STARTED_AT=$(iso_time)
+
 exec 200>"$LOCK_FILE"
 if ! flock -n 200; then
-  echo "role-agent: another execution is already in progress" >&2
+  log_warn "another execution is already in progress"
   exit 0
 fi
 
-# Make repo safe for git operations when ownership differs
-git config --system --add safe.directory "$REPO_DIR" 2>/dev/null || true
+exec 201>"$LOCK_COMPOSE"
+if ! flock 201; then
+  append_error "failed to acquire compose lock"
+  exit $EXIT_PREREQ_MISSING
+fi
 
-# Ensure required commands exist
-for cmd in git docker jq curl systemctl find install; do
+start_step "prerequisites"
+
+required_cmds=(git jq python3)
+if ! command -v docker >/dev/null 2>&1; then
+  append_error "docker binary not found"
+  exit $EXIT_PREREQ_MISSING
+fi
+if command -v docker compose >/dev/null 2>&1; then
+  DOCKER_COMPOSE=(docker compose)
+elif command -v docker-compose >/dev/null 2>&1; then
+  DOCKER_COMPOSE=(docker-compose)
+else
+  append_error "docker compose CLI not available"
+  exit $EXIT_PREREQ_MISSING
+fi
+for cmd in "${required_cmds[@]}"; do
   if ! command -v "$cmd" >/dev/null 2>&1; then
-    echo "ERROR: required command '$cmd' not found" >&2
-    exit 1
+    append_error "required command missing: $cmd"
+    exit $EXIT_PREREQ_MISSING
   fi
 done
-HOSTNAME_ACTUAL=$(hostname)
-HOST_ENV_FILE="/etc/fleet/agent.env"
-if [[ -f "$HOST_ENV_FILE" ]]; then
-  set -a
-  # shellcheck source=/etc/fleet/agent.env
-  source "$HOST_ENV_FILE"
-  set +a
+
+if [[ ! -d "$REPO_DIR/.git" ]]; then
+  append_error "repo not found at $REPO_DIR"
+  exit $EXIT_PREREQ_MISSING
 fi
 
-# Backwards compatibility: allow hosts to set ZIGBEE_SERIAL and
-# automatically mirror it to ZIGBEE_SERIAL_PORT for docker compose.
-if [[ -n "${ZIGBEE_SERIAL:-}" && -z "${ZIGBEE_SERIAL_PORT:-}" ]]; then
-  export ZIGBEE_SERIAL_PORT="$ZIGBEE_SERIAL"
+git config --system --add safe.directory "$REPO_DIR" >/dev/null 2>&1 || true
+
+start_step "inventory"
+if [[ ! -x "$INVENTORY_TO_JSON" ]]; then
+  append_error "inventory helper missing at $INVENTORY_TO_JSON"
+  exit $EXIT_PREREQ_MISSING
 fi
 
-export ROLE_AGENT_HOSTNAME="$HOSTNAME_ACTUAL"
-export LOG_SOURCE_HOST="${LOG_SOURCE_HOST:-$HOSTNAME_ACTUAL}"
+INVENTORY_JSON=$(/usr/bin/env python3 "$INVENTORY_TO_JSON" "$REPO_DIR/inventory/devices.yaml" 2>/dev/null || true)
+if [[ -z "$INVENTORY_JSON" ]]; then
+  append_error "failed to parse inventory at $REPO_DIR/inventory/devices.yaml"
+  exit $EXIT_PREREQ_MISSING
+fi
 
-# Optional Prometheus textfile collector output
-TEXTFILE_COLLECTOR_DIR="${ROLE_AGENT_TEXTFILE_DIR:-/var/lib/node_exporter/textfile_collector}"
-METRIC_STATE_FILE="$STATE_DIR/role-agent.prom"
-lock_file_age_seconds() {
-  local file="$1"
-  local now mtime
-  now=$(date +%s)
-  if command -v stat >/dev/null 2>&1; then
-    if mtime=$(stat -c %Y "$file" 2>/dev/null); then
-      echo $((now - mtime))
-      return 0
-    elif mtime=$(stat -f %m "$file" 2>/dev/null); then
-      echo $((now - mtime))
-      return 0
-    fi
-  fi
-  if command -v python3 >/dev/null 2>&1; then
-    if mtime=$(python3 -c 'import os, sys; print(int(os.path.getmtime(sys.argv[1])))' "$file" 2>/dev/null); then
-      echo $((now - mtime))
-      return 0
-    fi
-  fi
-  echo 0
-  return 1
-}
+ROLE=$(printf '%s' "$INVENTORY_JSON" | jq -r --arg host "$HOSTNAME_ACTUAL" '.[$host].role // empty')
+if [[ -z "$ROLE" || "$ROLE" == "null" ]]; then
+  append_error "Role for host $HOSTNAME_ACTUAL not found. Add to inventory/devices.yaml:\n  devices:\n    $HOSTNAME_ACTUAL:\n      role: <role-name>"
+  exit $EXIT_INVENTORY_NOT_FOUND
+fi
+LOG_ROLE="$ROLE"
+log_info "resolved host $HOSTNAME_ACTUAL role=$ROLE"
 
-clear_stale_git_locks() {
-  local repo="$1"
-  local -a locks=(
-    "$repo/.git/index.lock"
-    "$repo/.git/shallow.lock"
-    "$repo/.git/packed-refs.lock"
-  )
-  local git_running=0
-  if command -v pgrep >/dev/null 2>&1; then
-    if pgrep -f "git.*${repo}" >/dev/null 2>&1; then
-      git_running=1
-    fi
-  fi
-  for lock in "${locks[@]}"; do
-    [[ -e "$lock" ]] || continue
-    if (( git_running )); then
-      echo "role-agent: git process detected; leaving lock $lock for next attempt" >&2
-      continue
-    fi
-    local age
-    age=$(lock_file_age_seconds "$lock") || age=0
-    if (( age >= 60 )); then
-      rm -f "$lock"
-      echo "role-agent: removed stale git lock $lock (age ${age}s)" >&2
-    else
-      echo "role-agent: git lock $lock present (age ${age}s); will retry later" >&2
-    fi
-  done
-}
-
+start_step "git-sync"
 update_repo() {
   local attempts=3
   local attempt=1
   while (( attempt <= attempts )); do
-    clear_stale_git_locks "$REPO_DIR"
-    set +e
-    git -C "$REPO_DIR" fetch --depth 1 origin main
-    local fetch_rc=$?
-    if (( fetch_rc == 0 )); then
-      git -C "$REPO_DIR" reset --hard origin/main
-      local reset_rc=$?
-      set -e
-      if (( reset_rc == 0 )); then
+    if git -C "$REPO_DIR" fetch --depth 1 origin main; then
+      if git -C "$REPO_DIR" reset --hard origin/main; then
         return 0
-      else
-        echo "role-agent: git reset failed on attempt ${attempt} (rc=${reset_rc})" >&2
       fi
-    else
-      set -e
-      echo "role-agent: git fetch failed on attempt ${attempt} (rc=${fetch_rc})" >&2
     fi
-    if (( attempt < attempts )); then
-      sleep $((attempt * 10))
-    fi
+    log_warn "git sync attempt $attempt failed"
+    sleep $((attempt * 5))
     attempt=$((attempt + 1))
   done
-  echo "ERROR: git update failed after ${attempts} attempts" >&2
-  exit 1
-}
-write_agent_metrics() {
-  local status="${1:-0}"
-  local ts=$(date +%s)
-  mkdir -p "$(dirname "$METRIC_STATE_FILE")"
-  cat > "$METRIC_STATE_FILE" <<EOF
-role_agent_last_run_timestamp{host="$HOSTNAME_ACTUAL"} $ts
-role_agent_last_run_success{host="$HOSTNAME_ACTUAL"} $status
-EOF
-  if [[ -d "$TEXTFILE_COLLECTOR_DIR" && -w "$TEXTFILE_COLLECTOR_DIR" ]]; then
-    cp "$METRIC_STATE_FILE" "$TEXTFILE_COLLECTOR_DIR/role-agent.prom" 2>/dev/null || true
-  fi
-}
-trap 'write_agent_metrics 0' ERR
-
-ensure_systemd_units() {
-  local -a units=(
-    role-agent.service
-    role-agent.timer
-    role-agent-watchdog.service
-    role-agent-watchdog.timer
-    role-agent-healthcheck.service
-    role-agent-healthcheck.timer
-  )
-  local reload=0
-  for unit in "${units[@]}"; do
-    local src="$REPO_DIR/agent/$unit"
-    local dest="/etc/systemd/system/$unit"
-    if [[ ! -f "$src" ]]; then
-      echo "WARNING: expected unit $unit missing in repo" >&2
-      continue
-    fi
-    if [[ ! -f "$dest" ]] || ! cmp -s "$src" "$dest"; then
-      install -D -m 0644 "$src" "$dest"
-      reload=1
-    fi
-  done
-  if (( reload )); then
-    systemctl daemon-reload
-  fi
-  # Always ensure the primary convergence timer remains scheduled.
-  systemctl enable --now role-agent.timer >/dev/null 2>&1 || true
-
-  # Optional timers (watchdog + healthcheck) should only be re-enabled if the
-  # host explicitly keeps them enabled. If an operator disables or masks the
-  # timer during maintenance we should respect that choice on subsequent runs.
-  local -a optional_timers=(
-    role-agent-watchdog.timer
-    role-agent-healthcheck.timer
-  )
-  for timer in "${optional_timers[@]}"; do
-    local state
-    state=$(systemctl is-enabled "$timer" 2>/dev/null || true)
-    case "$state" in
-      enabled|enabled-runtime|linked|linked-runtime)
-        systemctl enable --now "$timer" >/dev/null 2>&1 || true
-        ;;
-      *)
-        local log_state
-        log_state=${state:-unknown}
-        echo "role-agent: skipping enable for $timer (state: ${log_state}); respecting operator override" >&2
-        ;;
-    esac
-  done
+  return 1
 }
 
-compose_list_projects() {
-  local output names
-  if output=$(docker compose ls --format json 2>/dev/null); then
-    if names=$(printf '%s\n' "$output" | jq -r '.[] | .Name' 2>/dev/null); then
-      printf '%s\n' "$names"
-    fi
-    return 0
-  fi
-  docker compose ls 2>/dev/null | awk 'NR>1 {print $1}' || true
-  return 0
-}
-
-stop_role_projects() {
-  local role_prefix="$1_"
-  mapfile -t existing_projects < <(compose_list_projects | grep "^${role_prefix}" || true)
-  if (( ${#existing_projects[@]} == 0 )); then
-    return 0
-  fi
-  for project in "${existing_projects[@]}"; do
-    echo "role-agent: stopping existing compose project ${project} before converge" >&2
-    docker compose -p "$project" down --remove-orphans || true
-  done
-}
-
-# Determine role from inventory/devices.yaml by hostname
-ROLE=$(awk -v h="$HOSTNAME_ACTUAL" '
-  $1=="devices:" {in_devices=1}
-  in_devices && $1==h":" {getline; print $2}
-' "$REPO_DIR/inventory/devices.yaml" | tr -d '[:space:]')
-
-if [[ -z "${ROLE}" ]]; then
-  echo "ERROR: Role not found for hostname ${HOSTNAME_ACTUAL} in inventory/devices.yaml" >&2
-  exit 1
+if ! update_repo; then
+  append_error "failed to update repository"
+  exit $EXIT_PREREQ_MISSING
 fi
 
-stop_role_projects "$ROLE"
+TARGET_COMMIT=$(git -C "$REPO_DIR" rev-parse --short HEAD)
+LOG_COMMIT="$TARGET_COMMIT"
+log_info "repo synced to commit $TARGET_COMMIT"
 
-# Update repo
-if [[ -d "$REPO_DIR/.git" ]]; then
-  update_repo
-else
-  echo "ERROR: Repo not found at $REPO_DIR" >&2
-  exit 1
+if [[ -f "$COMMIT_FILE" ]]; then
+  PREVIOUS_COMMIT=$(cat "$COMMIT_FILE" 2>/dev/null || true)
 fi
 
-ensure_systemd_units
-
-# Ensure Claude Code CLI and MCP servers are present
-SETUP_CLAUDE="$REPO_DIR/agent/setup-claude-tools.sh"
-if [[ -x "$SETUP_CLAUDE" ]]; then
-  if ! "$SETUP_CLAUDE"; then
-    echo "WARNING: setup-claude-tools failed; continuing" >&2
-  fi
+PROJECT_NAME="${ROLE}_${TARGET_COMMIT}"
+PREVIOUS_PROJECT=""
+if [[ -n "$PREVIOUS_COMMIT" ]]; then
+  PREVIOUS_PROJECT="${ROLE}_${PREVIOUS_COMMIT}"
 fi
 
-# Decrypt role env if present
-ENC_ENV="$REPO_DIR/roles/$ROLE/.env.sops.enc"
-PLAIN_ENV="$REPO_DIR/roles/$ROLE/.env"
+start_step "secrets"
+ROLE_DIR="$REPO_DIR/roles/$ROLE"
+ENC_ENV="$ROLE_DIR/.env.sops.enc"
+PLAIN_ENV="$ROLE_DIR/.env"
 ENV_SOURCED=0
-
 if [[ -f "$ENC_ENV" ]]; then
   if ! command -v sops >/dev/null 2>&1; then
-    echo "WARNING: sops not found; skipping decryption for $ROLE" >&2
-  elif [[ ! -f "$AGE_KEY_FILE" ]]; then
-    echo "WARNING: AGE key not found at $AGE_KEY_FILE; skipping $ENC_ENV" >&2
-  else
-    export SOPS_AGE_KEY_FILE="$AGE_KEY_FILE"
-    TMP_ENV="$STATE_DIR/${ROLE}.env"
-    if sops --decrypt "$ENC_ENV" > "$TMP_ENV"; then
-      set -a
-      # shellcheck source=/dev/null
-      source "$TMP_ENV"
-      set +a
-      ENV_SOURCED=1
-    else
-      echo "WARNING: failed to decrypt $ENC_ENV; falling back to plain env" >&2
-    fi
-    rm -f "$TMP_ENV"
+    append_error "sops required for $ENC_ENV but not found"
+    exit $EXIT_SECRETS_MISSING
   fi
+  if [[ ! -f "$AGE_KEY_FILE" ]]; then
+    append_error "AGE key missing at $AGE_KEY_FILE"
+    exit $EXIT_SECRETS_MISSING
+  fi
+  perms=$(stat -c %a "$AGE_KEY_FILE" 2>/dev/null || echo "")
+  if [[ "$perms" != "600" ]]; then
+    append_error "AGE key $AGE_KEY_FILE must have 0600 permissions"
+    exit $EXIT_SECRETS_MISSING
+  fi
+  TMP_ENV_FILE=$(mktemp "$RUN_DIR/${ROLE}.env.XXXXXX")
+  export SOPS_AGE_KEY_FILE="$AGE_KEY_FILE"
+  if sops --decrypt "$ENC_ENV" >"$TMP_ENV_FILE"; then
+    set -a
+    # shellcheck source=/dev/null
+    source "$TMP_ENV_FILE"
+    set +a
+    ENV_SOURCED=1
+  else
+    append_error "failed to decrypt $ENC_ENV"
+    exit $EXIT_SECRETS_DECRYPT
+  fi
+  rm -f "$TMP_ENV_FILE"
+  unset TMP_ENV_FILE
 fi
 
 if (( ! ENV_SOURCED )) && [[ -f "$PLAIN_ENV" ]]; then
@@ -282,55 +399,239 @@ if (( ! ENV_SOURCED )) && [[ -f "$PLAIN_ENV" ]]; then
 fi
 
 if (( ! ENV_SOURCED )); then
-  echo "INFO: proceeding without role-specific env overrides for $ROLE" >&2
+  log_warn "no role env overrides found for $ROLE"
 fi
 
-# Compose files (baseline + role, with lexical mix-ins if present)
-BASE="$REPO_DIR/baseline/docker-compose.yml"
-ROLE_DIR="$REPO_DIR/roles/$ROLE"
+start_step "compose-plan"
+BASE_COMPOSE="$REPO_DIR/baseline/docker-compose.yml"
+if [[ ! -f "$BASE_COMPOSE" ]]; then
+  append_error "baseline compose file missing at $BASE_COMPOSE"
+  exit $EXIT_PREREQ_MISSING
+fi
 readarray -t ROLE_OVERRIDES < <(find "$ROLE_DIR" -maxdepth 1 -type f -name '[0-9][0-9]-*.yml' | sort)
-
-COMMIT=$(git -C "$REPO_DIR" rev-parse --short HEAD)
-PROJECT="${ROLE}_${COMMIT}"
-
-COMPOSE_FILES=("-f" "$BASE")
-for f in "${ROLE_OVERRIDES[@]}"; do
-  COMPOSE_FILES+=("-f" "$f")
+COMPOSE_FILES_ARGS=(-f "$BASE_COMPOSE")
+PLAN_FILES=("$BASE_COMPOSE")
+for override in "${ROLE_OVERRIDES[@]}"; do
+  COMPOSE_FILES_ARGS+=(-f "$override")
+  PLAN_FILES+=("$override")
 done
+log_info "compose plan: ${PLAN_FILES[*]}"
 
-# Proactively stop and remove any old projects for this role (avoid port conflicts)
-mapfile -t OLD_PROJECTS_PRE < <(compose_list_projects | grep "^${ROLE}_" || true)
-for OLD in "${OLD_PROJECTS_PRE[@]}"; do
-  if [[ "$OLD" != "$PROJECT" ]]; then
-    docker compose -p "$OLD" down --volumes || true
+PLAN_FILES_REL=()
+for plan_path in "${PLAN_FILES[@]}"; do
+  if [[ "$plan_path" == "$REPO_DIR"/* ]]; then
+    PLAN_FILES_REL+=("${plan_path#"$REPO_DIR"/}")
+  else
+    PLAN_FILES_REL+=("$plan_path")
   fi
 done
 
-# Optional env-file support from repo root
-DOCKER_ARGS=()
+COMPOSE_GLOBAL_ARGS=()
 if [[ -f "$REPO_DIR/.env" ]]; then
-  DOCKER_ARGS+=("--env-file" "$REPO_DIR/.env")
+  COMPOSE_GLOBAL_ARGS+=(--env-file "$REPO_DIR/.env")
 fi
 
-LOCK_FILE_COMPOSE="$STATE_DIR/compose.lock"
-exec 201>"$LOCK_FILE_COMPOSE"
-flock 201
+compose_run() {
+  "${DOCKER_COMPOSE[@]}" "${COMPOSE_GLOBAL_ARGS[@]}" "${COMPOSE_FILES_ARGS[@]}" "$@"
+}
 
-docker compose "${DOCKER_ARGS[@]}" -p "$PROJECT" "${COMPOSE_FILES[@]}" up -d --build --remove-orphans
+compose_ls() {
+  "${DOCKER_COMPOSE[@]}" ls --format json
+}
 
-# Cleanup old projects for same role
-mapfile -t OLD_PROJECTS < <(compose_list_projects | grep "^${ROLE}_" | grep -v "$PROJECT" || true)
-for OLD in "${OLD_PROJECTS[@]}"; do
-  docker compose -p "$OLD" down --volumes || true
+attempt_rollback() {
+  local prev_commit="$1"
+  local prev_project="$2"
+  local plan_dir="$PLAN_HISTORY_BASE/$ROLE"
+  local plan_file="$plan_dir/${prev_commit}.plan"
+  if [[ ! -f "$plan_file" ]]; then
+    append_error "rollback plan missing for commit $prev_commit"
+    return 1
+  fi
+  local rollback_temp
+  rollback_temp=$(mktemp -d "$RUN_DIR/rollback.${prev_project}.XXXXXX")
+  local -a rollback_args=()
+  local rollback_failed=0
+  while IFS= read -r rel_path || [[ -n "$rel_path" ]]; do
+    [[ -z "$rel_path" ]] && continue
+    local dest="$rollback_temp/$rel_path"
+    mkdir -p "$(dirname "$dest")"
+    if ! git -C "$REPO_DIR" show "${prev_commit}:${rel_path}" >"$dest" 2>/dev/null; then
+      append_error "unable to materialize ${rel_path} from $prev_commit"
+      rollback_failed=1
+      break
+    fi
+    rollback_args+=(-f "$dest")
+  done <"$plan_file"
+  if (( rollback_failed || ${#rollback_args[@]} == 0 )); then
+    rm -rf "$rollback_temp"
+    return 1
+  fi
+  if "${DOCKER_COMPOSE[@]}" "${COMPOSE_GLOBAL_ARGS[@]}" -p "$prev_project" "${rollback_args[@]}" up -d --remove-orphans; then
+    rm -rf "$rollback_temp"
+    return 0
+  fi
+  append_error "rollback failed for $prev_project"
+  rm -rf "$rollback_temp"
+  return 1
+}
+
+start_step "compose-validate"
+if ! compose_run config >/dev/null; then
+  append_error "docker compose config validation failed"
+  exit $EXIT_COMPOSE_FAILED
+fi
+
+if (( DRY_RUN )); then
+  log_info "dry-run complete; no changes applied"
+  exit 0
+fi
+
+start_step "compose-converge"
+OLD_PROJECTS=()
+if compose_ls_output=$(compose_ls 2>/dev/null); then
+  mapfile -t OLD_PROJECTS < <(printf '%s\n' "$compose_ls_output" | jq -r '.[].Name' | grep "^${ROLE}_" || true)
+fi
+
+if [[ -z "$PREVIOUS_PROJECT" && ${#OLD_PROJECTS[@]} -gt 0 ]]; then
+  PREVIOUS_PROJECT="${OLD_PROJECTS[0]}"
+fi
+
+for old in "${OLD_PROJECTS[@]}"; do
+  if [[ "$old" != "$PROJECT_NAME" ]]; then
+    log_info "stopping compose project $old prior to converge"
+    "${DOCKER_COMPOSE[@]}" "${COMPOSE_GLOBAL_ARGS[@]}" -p "$old" down || true
+  fi
 done
 
-echo "Converged role=$ROLE project=$PROJECT"
+compose_up_args=("${DOCKER_COMPOSE[@]}" "${COMPOSE_GLOBAL_ARGS[@]}" -p "$PROJECT_NAME" "${COMPOSE_FILES_ARGS[@]}" up -d)
+if (( FORCE_REBUILD )); then
+  log_info "force rebuild enabled"
+  "${DOCKER_COMPOSE[@]}" "${COMPOSE_GLOBAL_ARGS[@]}" -p "$PROJECT_NAME" "${COMPOSE_FILES_ARGS[@]}" build --no-cache --pull
+  compose_up_args+=(--build --force-recreate --remove-orphans)
+else
+  compose_up_args+=(--build --remove-orphans)
+fi
 
-# Reclaim space: remove dangling images (old commit builds)
-docker image prune -f >/dev/null 2>&1 || true
+if ! "${compose_up_args[@]}"; then
+  append_error "docker compose up failed"
+  ROLLBACK_ATTEMPTED=1
+  rollback_rc=$EXIT_COMPOSE_FAILED
+  if [[ -n "$PREVIOUS_PROJECT" && -n "$PREVIOUS_COMMIT" ]]; then
+    log_warn "attempting rollback to $PREVIOUS_PROJECT"
+    if attempt_rollback "$PREVIOUS_COMMIT" "$PREVIOUS_PROJECT"; then
+      ROLLBACK_SUCCEEDED=1
+      log_warn "rollback succeeded using $PREVIOUS_PROJECT"
+    else
+      rollback_rc=$EXIT_ROLLBACK_FAILED
+    fi
+  fi
+  exit $rollback_rc
+fi
 
-write_agent_metrics 1
+log_info "compose converge succeeded for project $PROJECT_NAME"
 
+echo "$TARGET_COMMIT" > "$COMMIT_FILE"
+
+start_step "cleanup"
+HISTORY_FILE="$HISTORY_DIR/${ROLE}.history"
+new_history=()
+if [[ -f "$HISTORY_FILE" ]]; then
+  mapfile -t existing_history <"$HISTORY_FILE"
+  for commit in "${existing_history[@]}"; do
+    [[ -n "$commit" && "$commit" != "$TARGET_COMMIT" ]] && new_history+=("$commit")
+  done
+fi
+new_history+=("$TARGET_COMMIT")
+max_entries=$(( HISTORY_KEEP + 1 ))
+if (( max_entries < 1 )); then
+  max_entries=1
+fi
+if (( ${#new_history[@]} > max_entries )); then
+  start_index=$(( ${#new_history[@]} - max_entries ))
+  new_history=("${new_history[@]:$start_index}")
+fi
+printf '%s\n' "${new_history[@]}" > "$HISTORY_FILE"
+
+PLAN_DIR="$PLAN_HISTORY_BASE/$ROLE"
+install -d -m 0700 "$PLAN_DIR"
+PLAN_FILE_CURRENT="$PLAN_DIR/${TARGET_COMMIT}.plan"
+printf '%s\n' "${PLAN_FILES_REL[@]}" > "$PLAN_FILE_CURRENT"
+
+# Remove plan files no longer referenced
+for plan_path in "$PLAN_DIR"/*.plan; do
+  [[ -e "$plan_path" ]] || continue
+  plan_commit=$(basename "$plan_path" .plan)
+  keep=0
+  for commit in "${new_history[@]}"; do
+    if [[ "$plan_commit" == "$commit" ]]; then
+      keep=1
+      break
+    fi
+  done
+  if (( ! keep )); then
+    rm -f "$plan_path"
+  fi
+done
+
+if compose_ls_output=$(compose_ls 2>/dev/null); then
+  mapfile -t role_projects < <(printf '%s\n' "$compose_ls_output" | jq -r '.[].Name' | grep "^${ROLE}_" || true)
+  for project in "${role_projects[@]}"; do
+    keep=0
+    for commit in "${new_history[@]}"; do
+      if [[ "$project" == "${ROLE}_${commit}" ]]; then
+        keep=1
+        break
+      fi
+    done
+    if (( ! keep )); then
+      log_info "pruning compose project $project"
+      "${DOCKER_COMPOSE[@]}" "${COMPOSE_GLOBAL_ARGS[@]}" -p "$project" down --volumes || true
+    fi
+  done
+fi
+prune_images_if_needed() {
+  local threshold_gb=${ROLE_AGENT_PRUNE_THRESHOLD_GB:-3}
+  local threshold_bytes=$((threshold_gb * 1024 * 1024 * 1024))
+  local images_line
+  images_line=$(docker system df --format '{{.Type}} {{.Size}}' 2>/dev/null | awk '$1=="Images" {print $2" "$3}' | head -n1)
+  if [[ -z "$images_line" ]]; then
+    return
+  fi
+  local size unit
+  size=$(printf '%s' "$images_line" | awk '{print $1}')
+  unit=$(printf '%s' "$images_line" | awk '{print tolower($2)}')
+  local multiplier=1
+  case "$unit" in
+    b|bytes) multiplier=1 ;;
+    kb|kib) multiplier=1024 ;;
+    mb|mib) multiplier=$((1024*1024)) ;;
+    gb|gib) multiplier=$((1024*1024*1024)) ;;
+    tb|tib) multiplier=$((1024*1024*1024*1024)) ;;
+    *) multiplier=1 ;;
+  esac
+  local size_bytes
+  size_bytes=$(awk -v s="$size" -v m="$multiplier" 'BEGIN {printf "%.0f", s*m}')
+  if [[ -n "$size_bytes" ]] && (( size_bytes > threshold_bytes )); then
+    log_info "image usage exceeds threshold (${threshold_gb}GB); pruning dangling images"
+    docker image prune -f >/dev/null 2>&1 || true
+  fi
+  local full_prune_file="$RUN_DIR/last-full-prune"
+  local now_ts
+  now_ts=$(date +%s)
+  local prune_age=$((7*24*3600))
+  local last_run=0
+  if [[ -f "$full_prune_file" ]]; then
+    last_run=$(cat "$full_prune_file" 2>/dev/null || echo 0)
+  fi
+  if (( now_ts - last_run > prune_age )); then
+    log_info "performing weekly docker system prune"
+    docker system prune -af >/dev/null 2>&1 || true
+    echo "$now_ts" > "$full_prune_file"
+  fi
+}
+
+prune_images_if_needed
+
+log_info "convergence complete"
 exit 0
-
-

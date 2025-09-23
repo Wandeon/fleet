@@ -26,9 +26,10 @@ If you only read one file to understand and operate the system, read this README
 
 ## GitOps Model
 
-- The agent (`agent/role-agent.sh:1`) runs on each Pi as a systemd timer. It pulls `main`, decrypts role env (SOPS/age), builds a Docker Compose project combining `baseline/` with the mapped role, and brings containers up.
+- The agent (`agent/role-agent.sh:1`) runs on each Pi via the systemd timer in `agent/systemd/`. It pulls `main`, decrypts role env (SOPS/age), builds a Docker Compose project combining `baseline/` with the mapped role, and brings containers up.
 - Inventory drives behavior: `inventory/devices.yaml:1` maps the current hostname to a role.
 - Secrets: each role may include `.env.sops.enc` which the agent decrypts at runtime via `SOPS_AGE_KEY_FILE=/etc/fleet/age.key` on the device. Commit only encrypted files.
+- Health and rollbacks: every converge writes `/var/run/fleet/health.json`, `/var/run/fleet/commit.sha`, and plan history for rollback. See `docs/runbooks/agent.md:1` for installation, timers, exit codes, and troubleshooting.
 
 ## Quick Start
 
