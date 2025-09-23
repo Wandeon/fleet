@@ -6,8 +6,8 @@ import { enqueueGroupJob } from '../services/group-jobs.js';
 export const groupsRouter = express.Router();
 groupsRouter.use(express.json());
 
-// GET /api/fleet/layout - Get groups and devices
-groupsRouter.get('/fleet/layout', async (req, res) => {
+// GET /layout - Get groups and devices (mounted at /api/fleet)
+groupsRouter.get('/layout', async (req, res) => {
   try {
     const groups = await prisma.group.findMany({
       include: {
@@ -67,8 +67,8 @@ groupsRouter.get('/fleet/layout', async (req, res) => {
   }
 });
 
-// GET /api/fleet/state - Get latest device states
-groupsRouter.get('/fleet/state', async (req, res) => {
+// GET /state - Get latest device states (mounted at /api/fleet)
+groupsRouter.get('/state', async (req, res) => {
   try {
     // Get the latest state for each device
     const latestStates = await prisma.deviceState.findMany({
@@ -105,8 +105,8 @@ groupsRouter.get('/fleet/state', async (req, res) => {
   }
 });
 
-// POST /api/groups/:groupId/play
-groupsRouter.post('/groups/:groupId/play', async (req, res) => {
+// POST /:groupId/play (mounted at /api/groups)
+groupsRouter.post('/:groupId/play', async (req, res) => {
   try {
     const { groupId } = req.params;
     const { fileId } = req.body;
@@ -146,7 +146,7 @@ groupsRouter.post('/groups/:groupId/play', async (req, res) => {
 });
 
 // POST /api/groups/:groupId/pause
-groupsRouter.post('/groups/:groupId/pause', async (req, res) => {
+groupsRouter.post('/:groupId/pause', async (req, res) => {
   try {
     const { groupId } = req.params;
 
@@ -172,7 +172,7 @@ groupsRouter.post('/groups/:groupId/pause', async (req, res) => {
 });
 
 // POST /api/groups/:groupId/stop
-groupsRouter.post('/groups/:groupId/stop', async (req, res) => {
+groupsRouter.post('/:groupId/stop', async (req, res) => {
   try {
     const { groupId } = req.params;
 
@@ -198,7 +198,7 @@ groupsRouter.post('/groups/:groupId/stop', async (req, res) => {
 });
 
 // POST /api/groups/:groupId/volume
-groupsRouter.post('/groups/:groupId/volume', async (req, res) => {
+groupsRouter.post('/:groupId/volume', async (req, res) => {
   try {
     const { groupId } = req.params;
     const { value } = req.body;
@@ -233,7 +233,7 @@ groupsRouter.post('/groups/:groupId/volume', async (req, res) => {
 });
 
 // POST /api/groups/:groupId/next
-groupsRouter.post('/groups/:groupId/next', async (req, res) => {
+groupsRouter.post('/:groupId/next', async (req, res) => {
   try {
     const { groupId } = req.params;
 
@@ -255,7 +255,7 @@ groupsRouter.post('/groups/:groupId/next', async (req, res) => {
 });
 
 // POST /api/groups/:groupId/previous
-groupsRouter.post('/groups/:groupId/previous', async (req, res) => {
+groupsRouter.post('/:groupId/previous', async (req, res) => {
   try {
     const { groupId } = req.params;
 
@@ -281,7 +281,7 @@ groupsRouter.post('/groups/:groupId/previous', async (req, res) => {
 // ===============================================
 
 // POST /api/groups/:groupId/power_on
-groupsRouter.post('/groups/:groupId/power_on', async (req, res) => {
+groupsRouter.post('/:groupId/power_on', async (req, res) => {
   try {
     const { groupId } = req.params;
 
@@ -307,7 +307,7 @@ groupsRouter.post('/groups/:groupId/power_on', async (req, res) => {
 });
 
 // POST /api/groups/:groupId/power_off
-groupsRouter.post('/groups/:groupId/power_off', async (req, res) => {
+groupsRouter.post('/:groupId/power_off', async (req, res) => {
   try {
     const { groupId } = req.params;
 
@@ -333,7 +333,7 @@ groupsRouter.post('/groups/:groupId/power_off', async (req, res) => {
 });
 
 // POST /api/groups/:groupId/input
-groupsRouter.post('/groups/:groupId/input', async (req, res) => {
+groupsRouter.post('/:groupId/input', async (req, res) => {
   try {
     const { groupId } = req.params;
     const { source } = req.body;
@@ -368,7 +368,7 @@ groupsRouter.post('/groups/:groupId/input', async (req, res) => {
 // ===============================================
 
 // POST /api/groups/:groupId/reboot
-groupsRouter.post('/groups/:groupId/reboot', async (req, res) => {
+groupsRouter.post('/:groupId/reboot', async (req, res) => {
   try {
     const { groupId } = req.params;
 
@@ -394,7 +394,7 @@ groupsRouter.post('/groups/:groupId/reboot', async (req, res) => {
 });
 
 // POST /api/groups/:groupId/probe
-groupsRouter.post('/groups/:groupId/probe', async (req, res) => {
+groupsRouter.post('/:groupId/probe', async (req, res) => {
   try {
     const { groupId } = req.params;
 
@@ -424,7 +424,7 @@ groupsRouter.post('/groups/:groupId/probe', async (req, res) => {
 // ===============================================
 
 // POST /api/groups/:groupId/permit_join
-groupsRouter.post('/groups/:groupId/permit_join', async (req, res) => {
+groupsRouter.post('/:groupId/permit_join', async (req, res) => {
   try {
     const { groupId } = req.params;
     const { duration = 60 } = req.body;
@@ -451,7 +451,7 @@ groupsRouter.post('/groups/:groupId/permit_join', async (req, res) => {
 });
 
 // POST /api/groups/:groupId/reset
-groupsRouter.post('/groups/:groupId/reset', async (req, res) => {
+groupsRouter.post('/:groupId/reset', async (req, res) => {
   try {
     const { groupId } = req.params;
 
@@ -477,7 +477,7 @@ groupsRouter.post('/groups/:groupId/reset', async (req, res) => {
 });
 
 // POST /api/groups/:groupId/publish
-groupsRouter.post('/groups/:groupId/publish', async (req, res) => {
+groupsRouter.post('/:groupId/publish', async (req, res) => {
   try {
     const { groupId } = req.params;
     const { topic, payload } = req.body;

@@ -37,5 +37,9 @@ EXPOSE 3005
 HEALTHCHECK --interval=30s --timeout=10s --start-period=40s --retries=3 \
   CMD curl -f http://localhost:3005/metrics || exit 1
 
-# Start the application
-CMD ["npm", "start"]
+# Copy start script
+COPY start-all.sh ./
+RUN chmod +x start-all.sh
+
+# Start both API and worker
+CMD ["./start-all.sh"]

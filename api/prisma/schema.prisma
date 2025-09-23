@@ -83,12 +83,15 @@ model GroupMembership {
 
 model File {
   id        String   @id @default(cuid()) // UUID generated in app code
-  filename  String
-  path      String
+  name      String   // display name
+  path      String   // filesystem path
   size      Int
-  mime      String
+  mimeType  String
   createdAt DateTime @default(now())
-  // optional: checksum, uploaderId, tags
+  updatedAt DateTime @updatedAt
+
+  // Relations
+  playlistItems PlaylistItem[]
 }
 
 model User {
@@ -111,16 +114,21 @@ model CommandLog {
 }
 
 model Playlist {
-  id        String   @id @default(cuid())
-  name      String
-  items     PlaylistItem[]
-  createdAt DateTime @default(now())
+  id          String   @id @default(cuid())
+  name        String
+  description String?
+  items       PlaylistItem[]
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
 }
 
 model PlaylistItem {
-  id        String   @id @default(cuid())
+  id         String   @id @default(cuid())
   playlistId String
-  fileId    String
-  order     Int
-  playlist  Playlist @relation(fields: [playlistId], references: [id])
+  fileId     String
+  order      Int
+  playlist   Playlist @relation(fields: [playlistId], references: [id])
+  file       File     @relation(fields: [fileId], references: [id])
+
+  @@unique([playlistId, order])
 }

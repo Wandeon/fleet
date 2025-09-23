@@ -53,10 +53,16 @@ router.get('/logs', async (req, res) => {
     });
     res.json(result);
   } catch (err) {
-    const status = typeof (err as any)?.status === 'number' ? (err as any).status : 502;
     const message = err instanceof Error ? err.message : 'Failed to query logs';
-    log.error({ err: message, status }, 'logs endpoint error');
-    res.status(status).json({ error: message });
+    log.error({ err: message }, 'logs endpoint error - graceful degradation');
+
+    // Graceful degradation: return 200 with empty results and soft error
+    res.status(200).json({
+      entries: [],
+      total: 0,
+      error: 'loki_unreachable',
+      message: 'Log service temporarily unavailable'
+    });
   }
 });
 

@@ -104,7 +104,11 @@ export async function pollOnce() {
   const devices = await prisma.device.findMany({ where: { managed: true } });
   await Promise.all(
     devices.map(async (device) => {
-      const address = normalizeAddress(device.address);
+      // Parse JSON string address to object before normalizing
+      const addressData = typeof device.address === 'string'
+        ? JSON.parse(device.address)
+        : device.address;
+      const address = normalizeAddress(addressData);
       const baseUrl = address.baseUrl;
       if (!baseUrl) return;
 
