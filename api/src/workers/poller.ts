@@ -102,54 +102,71 @@ async function fetchStatus(
 
 export async function pollOnce() {
   const devices = await prisma.device.findMany({ where: { managed: true } });
+
   await Promise.all(
     devices.map(async (device) => {
-      // Parse JSON string address to object before normalizing
-      const addressData = typeof device.address === 'string'
-        ? JSON.parse(device.address)
-        : device.address;
-      const address = normalizeAddress(addressData);
-      const baseUrl = address.baseUrl;
-      if (!baseUrl) return;
+      try {
 
-      const token = resolveBearerToken(address);
-      const headers = token ? { Authorization: `Bearer ${token}` } : {};
+        // Parse JSON string address to object before normalizing
+        const addressData = typeof device.address === 'string'
+          ? JSON.parse(device.address)
+          : device.address;
+        const address = normalizeAddress(addressData);
+        const baseUrl = address.baseUrl;
 
-      const [health, status] = await Promise.all([
-        checkHealth(baseUrl, headers, resolveHealthPaths(address)),
-        fetchStatus(baseUrl, headers, resolveStatusPath(address)),
-      ]);
+        console.log(`[POLL] ${device.id} baseUrl: ${baseUrl}`);
+        if (!baseUrl) {
+          console.log(`[POLL] ${device.id} SKIP: No baseUrl`);
+          return;
+        }
 
-      const patch: Record<string, unknown> = {
-        status: health.ok ? 'online' : 'offline',
-        lastHealth: health.ok ? 'ok' : 'fail',
-        poller: {
-          health: {
-            ok: health.ok,
-            at: health.at,
-            path: health.path ?? health.attempted[health.attempted.length - 1],
-            attempted: health.attempted,
-            data: health.data ?? null,
-            error: health.error ? serializeError(health.error) : null,
+        const token = resolveBearerToken(address);
+        console.log(`[POLL] ${device.id} token resolved: ${token ? 'YES' : 'NO'}`);
+        const headers = token ? { Authorization: `Bearer ${token}` } : {};
+
+        const [health, status] = await Promise.all([
+          checkHealth(baseUrl, headers, resolveHealthPaths(address)),
+          fetchStatus(baseUrl, headers, resolveStatusPath(address)),
+        ]);
+
+        console.log(`[POLL] ${device.id} health: ${health.ok}, status: ${status.ok}`);
+
+        const patch: Record<string, unknown> = {
+          status: health.ok ? 'online' : 'offline',
+          lastHealth: health.ok ? 'ok' : 'fail',
+          poller: {
+            health: {
+              ok: health.ok,
+              at: health.at,
+              path: health.path ?? health.attempted[health.attempted.length - 1],
+              attempted: health.attempted,
+              data: health.data ?? null,
+              error: health.error ? serializeError(health.error) : null,
+            },
+            status: {
+              ok: status.ok,
+              at: status.at,
+              path: status.path,
+              error: status.error ? serializeError(status.error) : null,
+            },
           },
-          status: {
-            ok: status.ok,
-            at: status.at,
-            path: status.path,
-            error: status.error ? serializeError(status.error) : null,
-          },
-        },
-      };
+        };
 
-      if (health.ok) {
-        patch.lastSeen = health.at;
+        if (health.ok) {
+          patch.lastSeen = health.at;
+        }
+
+        if (status.ok && status.data !== undefined) {
+          patch.snapshot = status.data;
+        }
+
+        console.log(`[POLL] ${device.id} patch ready:`, JSON.stringify(patch, null, 2));
+
+        const result = await upsertDeviceState(device.id, patch);
+
+      } catch (error) {
+        console.error(`[POLL] ${device.id} ERROR:`, error);
       }
-
-      if (status.ok && status.data !== undefined) {
-        patch.snapshot = status.data;
-      }
-
-      await upsertDeviceState(device.id, patch);
     }),
   );
 }
