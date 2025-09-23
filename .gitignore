@@ -11,6 +11,7 @@ node_modules/
 .svelte-kit/
 dist/
 build/
+reports/
 # Backups
 *.bak
 *.backup

@@ -1,4 +1,10 @@
 {
+
+  "name": "fleet-root",
+  "private": true,
+  "scripts": {
+    "acceptance": "npm --prefix tests/acceptance run acceptance"
+
   "name": "fleet-monorepo",
   "private": true,
   "scripts": {
@@ -11,5 +17,6 @@
     "@stoplight/spectral-cli": "^6.11.0",
     "@stoplight/spectral-rulesets": "^1.22.0",
     "openapi-typescript-codegen": "^0.23.0"
+
   }
 }
