@@ -5,7 +5,7 @@ const YAMLModule = await (async () => {
   try {
     return await import('yaml');
   } catch (err) {
-    return await import('../api/node_modules/yaml/dist/index.js');
+    return await import('../apps/api/node_modules/yaml/dist/index.js');
   }
 })();
 const YAML = YAMLModule.default;
@@ -41,12 +41,12 @@ for (const entry of registry.devices) {
   }
 }
 
-const promConfig = loadYaml('vps/prometheus.yml');
+const promConfig = loadYaml('infra/vps/prometheus.yml');
 const jobTargets = new Map();
 const targetFileMap = {
-  'audio-player': 'vps/targets-audio.json',
-  'media-control': 'vps/targets-hdmi-media.json',
-  'camera-control': 'vps/targets-camera.json',
+  'audio-player': 'infra/vps/targets-audio.json',
+  'media-control': 'infra/vps/targets-hdmi-media.json',
+  'camera-control': 'infra/vps/targets-camera.json',
 };
 
 for (const [job, file] of Object.entries(targetFileMap)) {
@@ -93,15 +93,15 @@ for (const device of registry.devices) {
     const job = target.job;
     const value = target.target;
     if (job && !declaredJobs.has(job)) {
-      errors.push(`Job ${job} referenced by ${device.id} is not present in vps/prometheus.yml`);
+      errors.push(`Job ${job} referenced by ${device.id} is not present in infra/vps/prometheus.yml`);
     }
     if (!jobTargets.has(job)) {
-      errors.push(`Job ${job} referenced by ${device.id} is not present in vps/prometheus.yml`);
+      errors.push(`Job ${job} referenced by ${device.id} is not present in infra/vps/prometheus.yml`);
       continue;
     }
     const knownTargets = jobTargets.get(job);
     if (!knownTargets.has(value)) {
-      errors.push(`Target ${value} for job ${job} (device ${device.id}) missing from vps targets`);
+      errors.push(`Target ${value} for job ${job} (device ${device.id}) missing from infra/vps targets`);
     }
   }
 }

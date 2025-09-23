@@ -1,5 +1,6 @@
 {
   "compilerOptions": {
+<<<<<<< HEAD
     "target": "ES2021",
     "module": "CommonJS",
     "lib": ["ES2021", "DOM"],
@@ -17,4 +18,18 @@
   },
   "include": ["src/**/*.ts"],
   "exclude": ["node_modules", "dist", "tests", "__tests__"]
+=======
+    "target": "ES2020",
+    "module": "NodeNext",
+    "moduleResolution": "NodeNext",
+    "outDir": "dist",
+    "rootDir": "src",
+    "esModuleInterop": true,
+    "forceConsistentCasingInFileNames": true,
+    "strict": false,
+    "skipLibCheck": true
+  },
+  "include": ["src/**/*.ts", "src/**/*.d.ts"],
+  "exclude": ["node_modules", "dist"]
+>>>>>>> b93bf99 (Finalize observability stack)
 }

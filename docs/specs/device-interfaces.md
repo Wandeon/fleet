@@ -76,7 +76,7 @@ If a device requires bearer authentication, set `api.auth.token_env` to the envi
 
 ### Monitoring Targets
 
-`monitoring.prometheus_targets` declares the `{ job, target }` pairs that must exist inside the Prometheus file-SD JSON files. The validation script keeps `vps/targets-*.json` in sync:
+`monitoring.prometheus_targets` declares the `{ job, target }` pairs that must exist inside the Prometheus file-SD JSON files. The validation script keeps `infra/vps/targets-*.json` in sync:
 
 ```bash
 node scripts/validate-device-registry.mjs
