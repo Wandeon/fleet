@@ -6,7 +6,8 @@ import path from 'path';
 import fs from 'fs/promises';
 
 export const libraryRouter = express.Router();
-libraryRouter.use(express.json());
+// Note: express.json() removed for library routes as multer handles file uploads
+// and express.json() has a much smaller default limit that conflicts with file uploads
 
 // Configure multer for file uploads
 const storage = multer.diskStorage({
@@ -40,7 +41,7 @@ const upload = multer({
     }
   },
   limits: {
-    fileSize: 100 * 1024 * 1024 // 100MB limit
+    fileSize: Number(process.env.MAX_UPLOAD_BYTES) || (100 * 1024 * 1024) // Use env var or 100MB default
   }
 });
 
