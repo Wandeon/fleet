@@ -1,0 +1,66 @@
+{
+  "id": null,
+  "uid": "audio-player",
+  "title": "Audio Player",
+  "tags": ["fleet", "audio"],
+  "schemaVersion": 39,
+  "version": 1,
+  "refresh": "30s",
+  "time": { "from": "now-12h", "to": "now" },
+  "templating": { "list": [] },
+  "annotations": { "list": [] },
+  "panels": [
+    {
+      "id": 1,
+      "type": "timeseries",
+      "title": "Stream Up",
+      "datasource": { "type": "prometheus", "uid": "Prometheus" },
+      "targets": [ { "refId": "A", "expr": "stream_up", "legendFormat": "stream" } ],
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 0 }
+    },
+    {
+      "id": 2,
+      "type": "timeseries",
+      "title": "Fallback Active",
+      "datasource": { "type": "prometheus", "uid": "Prometheus" },
+      "targets": [ { "refId": "A", "expr": "fallback_active", "legendFormat": "fallback" } ],
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 0 }
+    },
+    {
+      "id": 3,
+      "type": "timeseries",
+      "title": "Volume Level",
+      "datasource": { "type": "prometheus", "uid": "Prometheus" },
+      "targets": [ { "refId": "A", "expr": "volume_level", "legendFormat": "volume" } ],
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 8 }
+    },
+    {
+      "id": 4,
+      "type": "stat",
+      "title": "Circuit Breaker Open",
+      "datasource": { "type": "prometheus", "uid": "Prometheus" },
+      "targets": [ { "refId": "A", "expr": "sum(circuit_breaker_state)" } ],
+      "gridPos": { "h": 4, "w": 12, "x": 12, "y": 8 },
+      "options": {
+        "reduceOptions": { "calcs": ["last"], "fields": "", "values": false }
+      }
+    },
+    {
+      "id": 5,
+      "type": "table",
+      "title": "Upstream Device Failures (6h)",
+      "datasource": { "type": "prometheus", "uid": "Prometheus" },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "sum(increase(upstream_device_failures_total[6h])) by (deviceId, reason)",
+          "format": "table"
+        }
+      ],
+      "gridPos": { "h": 8, "w": 24, "x": 0, "y": 16 },
+      "options": {
+        "showHeader": true
+      }
+    }
+  ]
+}

@@ -1,0 +1,139 @@
+# VPS Monitoring Stack
+
+This directory contains Docker Compose files for the central monitoring stack and optional streaming services.
+
+## Grafana Credentials
+
+The Grafana service reads credentials from `monitoring.env`. Create this file
+from the provided example and supply secure values:
+
+```bash
+cp monitoring.env.example monitoring.env
+# edit monitoring.env and set GF_SECURITY_ADMIN_USER and GF_SECURITY_ADMIN_PASSWORD
+```
+
+> **Note:** Never commit `monitoring.env` to version control.
+
+## Icecast Server
+
+Run an Icecast server to accept audio streams from Raspberry Pi audio clients.
+
+1) Create env file from the example and set strong passwords:
+
+```bash
+cp infra/vps/icecast.env.example infra/vps/icecast.env
+# edit infra/vps/icecast.env
+```
+
+2) Start Icecast on the VPS:
+
+```bash
+docker compose -f infra/vps/compose.icecast.yml --env-file infra/vps/icecast.env up -d
+```
+
+3) Verify:
+
+- Visit `http://<vps-host>:8000` to see the Icecast status page.
+- When a Pi connects, a mount (e.g., `/pi-audio-01.opus`) appears.
+
+4) Verify effective config inside container (passwords match env):
+
+```bash
+docker exec icecast sh -lc "grep -o '<source-password>.*</source-password>' /etc/icecast.xml || true"
+```
+
+### Network Access
+
+- If using a public VPS, open TCP port `8000` in your firewall (or change the published port in `infra/vps/compose.icecast.yml`).
+- If using Tailscale only, set `ICECAST_HOST` to the VPS Tailscale IP/hostname and you do not need to expose port 8000 publicly.
+
+## Monitoring Devices
+
+Prometheus scrapes each device class using file-based service discovery. Targets are maintained automatically from `inventory/device-interfaces.yaml`; run the validation script after editing the registry:
+
+```bash
+node scripts/validate-device-registry.mjs
+docker compose -f infra/vps/compose.prom-grafana-blackbox.yml -f infra/vps/compose.promtail.yml up -d alertmanager loki promtail prometheus grafana blackbox
+```
+
+Targets:
+
+- Audio players: `infra/vps/targets-audio.json`
+- HDMI/Zigbee hub: `infra/vps/targets-hdmi-media.json`
+- Camera control: `infra/vps/targets-camera.json`
+- When the API performs service-to-service checks, point it at `http://prometheus:9090/-/healthy` and `http://blackbox:9115` (container ports). Host-port remaps such as `9091` exist purely for browser access.
+- Prefer Tailscale DNS names over raw IPs in the target files so re-authenticated nodes keep the same identity; if IPs are unavoidable, reserve them via Tailscale ACLs.
+
+Dashboards:
+
+- Audio playback: `grafana/dashboards/audio-player.json`
+- Create additional dashboards for HDMI or camera roles using the exported metrics (`media_playing`, `camera_stream_online`, etc.).
+
+## Centralized Logging
+
+- Loki (`infra/vps/loki-config.yml`) runs alongside Prometheus and keeps seven days of log history in the `loki-data` volume.
+- Promtail (`baseline/docker-compose.yml` on devices and the `promtail` overlay in `infra/vps/compose.promtail.yml`) tails Docker stdout and host syslog across the fleet and pushes into Loki.
+- Set `LOKI_ENDPOINT=http://<vps>:3100/loki/api/v1/push` (plus optional `LOG_SITE`) in `/etc/fleet/agent.env` on each Pi so the agent exports the correct sink before composing.
+- Start (or refresh) the VPS collector with the monitoring stack overlay:
+  ```bash
+  docker compose -f infra/vps/compose.prom-grafana-blackbox.yml -f infra/vps/compose.promtail.yml up -d alertmanager loki promtail
+  docker compose -f infra/vps/compose.prom-grafana-blackbox.yml up -d prometheus grafana blackbox
+  ```
+- In Grafana → Explore, query `{job="docker", host="vps"}` to validate VPS log ingestion, then `{host="pi-audio-01"}` (or another hostname) for device logs.
+- Explore logs in Grafana via **Explore → Loki**; key labels include `host`, `environment`, `site`, `service`, and `unit`.
+- Loki also exposes the HTTP API on port 3100 for direct queries with tools such as `logcli`.
+
+Health checks:
+
+- Audio players: `GET /healthz` on :8081
+- HDMI media controller: `GET /healthz` on :8082
+- Camera control service: `GET /healthz` on :8083 (also probes HLS and RTSP)
+- Blackbox exporter (`infra/vps/blackbox.yml`) now ships with a `http_any_2xx_3xx_4xx_ok` module to tolerate the rare endpoints that still answer with 401/404; wherever possible, keep `/healthz` public so probes receive a clean 200.
+
+
+### Alerting & Slack notifications
+
+1. Create a Slack Incoming Webhook that posts into your operations channel.
+2. Put the webhook URL into `infra/vps/secrets/slack-webhook.url` (one line, no quotes).
+3. Review `infra/vps/alertmanager.yml` to confirm the Slack channel name and grouping match your expectations. Each device gets its own notification because alerts are grouped by `alertname` + `instance`.
+4. Start (or restart) the monitoring stack so Alertmanager picks up the secret:
+
+   ```bash
+   docker compose -f infra/vps/compose.prom-grafana-blackbox.yml -f infra/vps/compose.promtail.yml up -d alertmanager loki promtail
+   docker compose -f infra/vps/compose.prom-grafana-blackbox.yml up -d prometheus grafana blackbox
+   ```
+
+5. Test end-to-end by firing a synthetic alert:
+
+   ```bash
+   docker run --rm --network host prom/alertmanager amtool \
+     alert add TestNotification alertname="DeviceOffline" instance="demo" job="audio-player"
+   ```
+
+   A Slack message should appear immediately; Alertmanager will also send a “resolved” message when the alert expires.
+
+## Optional: API Reverse Proxy
+
+If you prefer to access a Pi’s control API via the VPS hostname, set up an Nginx proxy (single target example):
+
+1) Create `infra/vps/audio-proxy.conf` from the example below and set your Pi’s Tailscale IP.
+
+```nginx
+server {
+  listen 8082;
+  location / {
+    proxy_set_header Host $host;
+    proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+    proxy_pass http://100.101.102.103:8081; # Pi Tailscale IP
+  }
+}
+```
+
+2) Run a simple proxy container:
+
+```bash
+docker run -d --name audio-proxy --restart unless-stopped -p 8082:8082 \
+  -v $(pwd)/infra/vps/audio-proxy.conf:/etc/nginx/conf.d/default.conf:ro nginx:alpine
+```
+
+> You still need to include the bearer `Authorization` header if `AUDIO_CONTROL_TOKEN` is set.

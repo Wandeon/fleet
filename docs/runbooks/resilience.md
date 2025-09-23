@@ -58,4 +58,4 @@ sudo systemctl start role-agent.service
 
 - Each convergence run writes Prometheus textfile metrics: `role_agent_last_run_timestamp` and `role_agent_last_run_success` (labelled by `host`).
 - By default the agent copies metrics into `/var/lib/node_exporter/textfile_collector/role-agent.prom` when that collector directory exists. Override the path with `ROLE_AGENT_TEXTFILE_DIR` if your node exporter uses a different location.
-- Alerting examples are defined in `vps/prometheus/alerts.yml` (`RoleAgentStale` after 15m without success, `RoleAgentFailure` when the last run failed for 5m).
+- Alerting examples are defined in `infra/vps/prometheus/alerts.yml` (`RoleAgentStale` after 15m without success, `RoleAgentFailure` when the last run failed for 5m).

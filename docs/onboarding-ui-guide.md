@@ -16,7 +16,7 @@ This briefing walks a new frontend or full-stack developer through the moving pa
 
 ## 3. Express API & worker
 ### 3.1 Bootstrapping & configuration
-- Install dependencies, then run `npm run migrate`, `npm run generate`, and `npm run seed:yaml` to sync Prisma with the YAML registry. The dev server runs on port 3005 (`npm run dev`). Production compose services run the same sequence before `npm run start` / `npm run worker` and set `API_BEARER` for auth.【F:api/package.json†L9-L17】【F:vps/compose.fleet.yml†L1-L37】
+- Install dependencies, then run `npm run migrate`, `npm run generate`, and `npm run seed:yaml` to sync Prisma with the YAML registry. The dev server runs on port 3005 (`npm run dev`). Production compose services run the same sequence before `npm run start` / `npm run worker` and set `API_BEARER` for auth.【F:apps/api/package.json†L9-L17】【F:infra/vps/compose.fleet.yml†L1-L37】
 - `DEVICE_YAML` defaults to the repository inventory; override via env if you need a staged config. Tokens referenced by `token_env` must exist in the API container environment so proxy requests can be authenticated.【F:api/src/scripts/seed-from-yaml.ts†L52-L125】
 
 ### 3.2 HTTP surface today
@@ -38,8 +38,8 @@ This briefing walks a new frontend or full-stack developer through the moving pa
 
 ## 4. Logging, monitoring, and reverse proxy
 - **Device shipping.** Promtail runs on every Pi with configurable Loki endpoint, host/environment/site labels, and journal/Docker scrapes. Use the logging runbook to ensure `/etc/fleet/agent.env` has the right sink before convergence.【F:baseline/docker-compose.yml†L27-L54】【F:docs/runbooks/logging.md†L12-L82】
-- **Central stack.** `vps/compose.prom-grafana-blackbox.yml` + `vps/compose.promtail.yml` start Prometheus, Grafana, Loki, Alertmanager, and a promtail collector. Targets are generated from the device registry; re-run `scripts/validate-device-registry.mjs` and redeploy when inventory changes.【F:vps/README.md†L50-L113】【F:scripts/validate-device-registry.mjs†L18-L102】
-- **Reverse proxy.** The `fleet-ui` and `fleet-api` containers are published through Caddy at `log.beautyheadspabymartina.hr`, forwarding `/api`, `/metrics`, and `/stream` to port 3005 and everything else to the SvelteKit Node adapter on port 3000.【F:vps/compose.fleet.yml†L1-L48】【F:vps/caddy.fleet.Caddyfile†L1-L19】
+- **Central stack.** `infra/vps/compose.prom-grafana-blackbox.yml` + `infra/vps/compose.promtail.yml` start Prometheus, Grafana, Loki, Alertmanager, and a promtail collector. Targets are generated from the device registry; re-run `scripts/validate-device-registry.mjs` and redeploy when inventory changes.【F:infra/vps/README.md†L50-L113】【F:scripts/validate-device-registry.mjs†L18-L102】
+- **Reverse proxy.** The `fleet-ui` and `fleet-api` containers are published through Caddy at `log.beautyheadspabymartina.hr`, forwarding `/api`, `/metrics`, and `/stream` to port 3005 and everything else to the SvelteKit Node adapter on port 3000.【F:infra/vps/compose.fleet.yml†L1-L48】【F:infra/vps/caddy.fleet.Caddyfile†L1-L19】
 
 ## 5. SvelteKit UI overview
 - **Global SSE connection.** `+layout.svelte` opens an `EventSource` to `/stream` on mount, updating the `deviceStates` and `jobs` stores in `lib/stores/deviceStates.ts`. The helper in `lib/api.ts` injects `PUBLIC_API_BASE`/`PUBLIC_API_BEARER` and attaches the bearer token to the SSE query string when required.【F:ui/src/routes/+layout.svelte†L1-L39】【F:ui/src/lib/stores/deviceStates.ts†L1-L18】【F:ui/src/lib/api.ts†L1-L56】

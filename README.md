@@ -14,9 +14,9 @@ If you only read one file to understand and operate the system, read this README
 - `host-config/common:1` - host OS configs (e.g., Docker daemon)
 - `host-config/raspi-hifiberry.md:1` - HiFiBerry overlay + ALSA defaults
 - `agent/role-agent.sh:1` - convergence agent that applies baseline + role
-- `vps/*.yml` - VPS Compose stacks (Icecast, Prometheus, Grafana, Blackbox, etc.)
-  - `vps/compose.icecast.yml:1`, `vps/icecast.env.example:1`
-  - `vps/compose.prom-grafana-blackbox.yml:1`, `vps/prometheus.yml:1`, `vps/targets-audio.json.example:1`
+- `infra/vps/*.yml` - VPS Compose stacks (Icecast, Prometheus, Grafana, Blackbox, etc.)
+  - `infra/vps/compose.icecast.yml:1`, `infra/vps/icecast.env.example:1`
+  - `infra/vps/compose.prom-grafana-blackbox.yml:1`, `infra/vps/prometheus.yml:1`, `infra/vps/targets-audio.json.example:1`
 - `scripts/audioctl.sh:1` - helper CLI to control audio players via API
 - `docs/` - runbooks and ADRs
   - `docs/runbooks/provisioning.md:1` - OS + agent provisioning
@@ -61,7 +61,7 @@ To add more devices, insert hostnames under `devices:` and set their roles.
 
 ## Audio System Overview (Playback-Only)
 
-- Streaming server (VPS): Icecast stack `vps/compose.icecast.yml:1` (configure `vps/icecast.env:1` from example). Verify at `http://<vps>:8000`. Feed Icecast from a file or any external encoder/source per your setup.
+- Streaming server (VPS): Icecast stack `infra/vps/compose.icecast.yml:1` (configure `infra/vps/icecast.env:1` from example). Verify at `http://<vps>:8000`. Feed Icecast from a file or any external encoder/source per your setup.
 - Player Pi (role `audio-player`): plays from Icecast to ALSA output. Supports automatic fallback and remote control. See `roles/audio-player/README.md:1` and `docs/runbooks/audio.md:1`.
 
 ## Control API (audio-player)
@@ -86,18 +86,18 @@ To add more devices, insert hostnames under `devices:` and set their roles.
 
 ## Monitoring (VPS)
 
-- Stack: `vps/compose.prom-grafana-blackbox.yml:1` (Prometheus, Grafana, Loki, Promtail, Blackbox)
+- Stack: `infra/vps/compose.prom-grafana-blackbox.yml` (Prometheus, Grafana, Loki, Promtail, Blackbox)
 - Service-to-service checks should use the container endpoints (`http://prometheus:9090/-/healthy` and `http://blackbox:9115`); host-mapped ports such as `9091` are only for interactive access from the host/browser.
-- Prometheus scrape config: `vps/prometheus.yml:1` loads file SD targets from `/etc/prometheus/targets/*.json`.
+- Prometheus scrape config: `infra/vps/prometheus.yml` loads file SD targets from `/etc/prometheus/targets/*.json`.
 - Add targets:
-  - Audio: `vps/targets-audio.json:1`
-  - HDMI/Zigbee: `vps/targets-hdmi-media.json:1`
-  - Camera: `vps/targets-camera.json:1`
-  These files are generated from the device interface registry—update `inventory/device-interfaces.yaml:1` and run the validation script.
-- Dashboard: import `vps/grafana-dashboard-audio.json:1` in Grafana.
+  - Audio: `infra/vps/targets-audio.json`
+  - HDMI/Zigbee: `infra/vps/targets-hdmi-media.json`
+  - Camera: `infra/vps/targets-camera.json`
+  These files are generated from the device interface registry—update `inventory/device-interfaces.yaml` and run the validation script.
+- Dashboards are versioned under `grafana/dashboards/` and auto-provisioned at startup (Fleet Overview, Audio Player, Agent Convergence).
 - Unified logging: `baseline/promtail` ships systemd journal + Docker logs from every Pi to Loki. Configure the Loki push URL by setting `LOKI_ENDPOINT` (and optional `LOG_SITE`) in `/etc/fleet/agent.env`; the agent exports those variables before composing. Mark devices with `logs: true` and `loki_source: <hostname>` in `inventory/devices.yaml` so the API/UI can surface host filters automatically.
-- Grafana auto-loads a Loki data source (`vps/grafana/provisioning/datasources/loki.yml`). Use Grafana → Explore → Loki to query cross-fleet logs or build dashboards that mix metrics with log panels.
-- `vps/blackbox.yml` includes a module (`http_any_2xx_3xx_4xx_ok`) that treats 401/404 as success for the rare endpoints that still demand auth; aim Prometheus probes at `/healthz` so they return clean 200s whenever possible.
+- Grafana auto-loads a Loki data source (`infra/vps/grafana/provisioning/datasources/loki.yml`). Use Grafana → Explore → Loki to query cross-fleet logs or build dashboards that mix metrics with log panels.
+- `infra/vps/blackbox.yml` includes a module (`http_any_2xx_3xx_4xx_ok`) that treats 401/404 as success for the rare endpoints that still demand auth; aim Prometheus probes at `/healthz` so they return clean 200s whenever possible.
 
 ## Security
 
@@ -108,7 +108,7 @@ To add more devices, insert hostnames under `devices:` and set their roles.
 ## Operations Cheatsheet
 
 - Start Icecast on VPS:
-  - `docker compose -f vps/compose.icecast.yml --env-file vps/icecast.env up -d`
+  - `docker compose -f infra/vps/compose.icecast.yml --env-file infra/vps/icecast.env up -d`
 - Provision a Pi: follow `docs/runbooks/provisioning.md:1`.
 - Set hostname to match inventory and reboot:
   - `sudo hostnamectl set-hostname pi-audio-01` (or `pi-audio-02`) then `sudo reboot`
@@ -116,7 +116,7 @@ To add more devices, insert hostnames under `devices:` and set their roles.
 - Audio player control from VPS:
   - `AUDIOCTL_HOST=<pi-ts> AUDIOCTL_TOKEN=<tok> ./scripts/audioctl.sh status`
   - `... set-url http://<vps>:8000/<mount>` / `... upload fallback.mp3` / `... play file` / `... volume 0.8`
-- Monitoring: create `vps/targets-audio.json` and restart Prometheus service from the compose stack.
+- Monitoring: create/update `infra/vps/targets-audio.json` and restart the Prometheus service from the compose stack.
 
 Tips:
 - Containers are project-keyed by commit (no fixed `container_name`). Use filters to inspect:
@@ -136,17 +136,17 @@ Tips:
 - Current inventory: `pi-audio-01` and `pi-audio-02` assigned to `audio-player`.
 - Suggested next steps:
   - Lock down Tailscale ACLs for `:8081` access from the VPS only.
-  - Optionally proxy control via the VPS as described in `vps/README.md:1`.
+  - Optionally proxy control via the VPS as described in `infra/vps/README.md:1`.
 
 ---
 
 Change history and design notes live under `docs/changelog.md:1` and `docs/adr/:1`.
 ## Unified UI & Hardening
 
-- Reverse proxy (NGINX) with CSP nonce, HSTS preload, WS upgrades: see `vps/nginx.conf`.
+- Reverse proxy (NGINX) with CSP nonce, HSTS preload, WS upgrades: see `infra/vps/nginx.conf`.
 - API: Express with validation, rate limits, incident IDs; `/api/health`, `/api/devices`, `/api/logs`, `/api/operations/*`.
 - UI: SvelteKit operations dashboard renders all devices declared in `inventory/device-interfaces.yaml`, showing current health, endpoints, and role-specific actions (audio playback, HDMI control, camera probes).
-- Monitoring: Prometheus alert rules in `vps/prometheus/alerts.yml` (loaded via `vps/prometheus.yml`).
+- Monitoring: Prometheus alert rules in `infra/vps/prometheus/alerts.yml` (loaded via `infra/vps/prometheus.yml`).
 - Verification: run `scripts/stabilization-verification.ps1`.
 
 ## Device Interface Registry

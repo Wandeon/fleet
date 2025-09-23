@@ -1,7 +1,30 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
+START_TS=$(date +%s)
+
 REPO_DIR="/opt/fleet"
+LOG_LIB="$REPO_DIR/agent/logging.sh"
+
+if [[ -f "$LOG_LIB" ]]; then
+  # shellcheck source=/opt/fleet/agent/logging.sh
+  source "$LOG_LIB"
+else
+  _fallback_log() {
+    local level="$1"
+    shift
+    local msg="$*"
+    local ts=$(date -u +"%Y-%m-%dT%H:%M:%S.%3NZ")
+    printf '{"ts":"%s","level":"%s","msg":"%s","service":"role-agent","host":"%s","role":"%s","commit":"unknown","correlationId":null,"durationMs":null,"errorCode":null}\n' \
+      "$ts" "$level" "$msg" "$(hostname 2>/dev/null || echo unknown)" "${ROLE:-unknown}"
+  }
+  log_info() { _fallback_log info "$@"; }
+  log_warn() { _fallback_log warn "$@"; }
+  log_error() { _fallback_log error "$@"; }
+  log_debug() { _fallback_log debug "$@"; }
+fi
+
+export FLEET_LOG_SERVICE="${FLEET_LOG_SERVICE:-role-agent}"
 STATE_DIR="/run/fleet"
 LOCK_FILE="$STATE_DIR/role-agent.lock"
 AGE_KEY_FILE="/etc/fleet/age.key"
@@ -10,7 +33,7 @@ ROLE=""
 mkdir -p "$STATE_DIR"
 exec 200>"$LOCK_FILE"
 if ! flock -n 200; then
-  echo "role-agent: another execution is already in progress" >&2
+  log_info "role-agent execution already in progress"
   exit 0
 fi
 
@@ -18,13 +41,14 @@ fi
 git config --system --add safe.directory "$REPO_DIR" 2>/dev/null || true
 
 # Ensure required commands exist
-for cmd in git docker jq curl systemctl find install; do
+for cmd in git docker jq curl systemctl find install python3; do
   if ! command -v "$cmd" >/dev/null 2>&1; then
-    echo "ERROR: required command '$cmd' not found" >&2
+    log_error "required command missing" command="$cmd"
     exit 1
   fi
 done
 HOSTNAME_ACTUAL=$(hostname)
+export FLEET_LOG_HOST="${FLEET_LOG_HOST:-$HOSTNAME_ACTUAL}"
 HOST_ENV_FILE="/etc/fleet/agent.env"
 if [[ -f "$HOST_ENV_FILE" ]]; then
   set -a
@@ -84,16 +108,16 @@ clear_stale_git_locks() {
   for lock in "${locks[@]}"; do
     [[ -e "$lock" ]] || continue
     if (( git_running )); then
-      echo "role-agent: git process detected; leaving lock $lock for next attempt" >&2
+      log_warn "git process detected; leaving lock for next attempt" lock_path="$lock"
       continue
     fi
     local age
     age=$(lock_file_age_seconds "$lock") || age=0
     if (( age >= 60 )); then
       rm -f "$lock"
-      echo "role-agent: removed stale git lock $lock (age ${age}s)" >&2
+      log_warn "removed stale git lock" lock_path="$lock" age_seconds="$age"
     else
-      echo "role-agent: git lock $lock present (age ${age}s); will retry later" >&2
+      log_info "git lock present; will retry later" lock_path="$lock" age_seconds="$age"
     fi
   done
 }
@@ -113,27 +137,33 @@ update_repo() {
       if (( reset_rc == 0 )); then
         return 0
       else
-        echo "role-agent: git reset failed on attempt ${attempt} (rc=${reset_rc})" >&2
+        log_warn "git reset failed" attempt="$attempt" exit_code="$reset_rc"
       fi
     else
       set -e
-      echo "role-agent: git fetch failed on attempt ${attempt} (rc=${fetch_rc})" >&2
+      log_warn "git fetch failed" attempt="$attempt" exit_code="$fetch_rc"
     fi
     if (( attempt < attempts )); then
       sleep $((attempt * 10))
     fi
     attempt=$((attempt + 1))
   done
-  echo "ERROR: git update failed after ${attempts} attempts" >&2
+  log_error "git update failed after retries" attempts="$attempts"
   exit 1
 }
 write_agent_metrics() {
   local status="${1:-0}"
   local ts=$(date +%s)
+  local commit_label="${FLEET_LOG_COMMIT:-unknown}"
+  local duration=$((ts - START_TS))
+  if (( duration < 0 )); then
+    duration=0
+  fi
   mkdir -p "$(dirname "$METRIC_STATE_FILE")"
   cat > "$METRIC_STATE_FILE" <<EOF
-role_agent_last_run_timestamp{host="$HOSTNAME_ACTUAL"} $ts
-role_agent_last_run_success{host="$HOSTNAME_ACTUAL"} $status
+role_agent_last_run_timestamp{host="$HOSTNAME_ACTUAL",commit="$commit_label"} $ts
+role_agent_last_run_success{host="$HOSTNAME_ACTUAL",commit="$commit_label"} $status
+role_agent_last_run_duration_seconds{host="$HOSTNAME_ACTUAL",commit="$commit_label"} $duration
 EOF
   if [[ -d "$TEXTFILE_COLLECTOR_DIR" && -w "$TEXTFILE_COLLECTOR_DIR" ]]; then
     cp "$METRIC_STATE_FILE" "$TEXTFILE_COLLECTOR_DIR/role-agent.prom" 2>/dev/null || true
@@ -155,7 +185,7 @@ ensure_systemd_units() {
     local src="$REPO_DIR/agent/$unit"
     local dest="/etc/systemd/system/$unit"
     if [[ ! -f "$src" ]]; then
-      echo "WARNING: expected unit $unit missing in repo" >&2
+      log_warn "expected systemd unit missing in repo" unit="$unit"
       continue
     fi
     if [[ ! -f "$dest" ]] || ! cmp -s "$src" "$dest"; then
@@ -186,7 +216,7 @@ ensure_systemd_units() {
       *)
         local log_state
         log_state=${state:-unknown}
-        echo "role-agent: skipping enable for $timer (state: ${log_state}); respecting operator override" >&2
+        log_info "skipping optional timer enable; respecting operator override" timer="$timer" state="$log_state"
         ;;
     esac
   done
@@ -211,7 +241,7 @@ stop_role_projects() {
     return 0
   fi
   for project in "${existing_projects[@]}"; do
-    echo "role-agent: stopping existing compose project ${project} before converge" >&2
+    log_info "stopping existing compose project before converge" project="$project"
     docker compose -p "$project" down --remove-orphans || true
   done
 }
@@ -223,9 +253,11 @@ ROLE=$(awk -v h="$HOSTNAME_ACTUAL" '
 ' "$REPO_DIR/inventory/devices.yaml" | tr -d '[:space:]')
 
 if [[ -z "${ROLE}" ]]; then
-  echo "ERROR: Role not found for hostname ${HOSTNAME_ACTUAL} in inventory/devices.yaml" >&2
+  log_error "role not found in inventory" hostname="$HOSTNAME_ACTUAL"
   exit 1
 fi
+
+export FLEET_LOG_ROLE="${FLEET_LOG_ROLE:-$ROLE}"
 
 stop_role_projects "$ROLE"
 
@@ -233,7 +265,7 @@ stop_role_projects "$ROLE"
 if [[ -d "$REPO_DIR/.git" ]]; then
   update_repo
 else
-  echo "ERROR: Repo not found at $REPO_DIR" >&2
+  log_error "repository directory missing" repo_path="$REPO_DIR"
   exit 1
 fi
 
@@ -243,7 +275,7 @@ ensure_systemd_units
 SETUP_CLAUDE="$REPO_DIR/agent/setup-claude-tools.sh"
 if [[ -x "$SETUP_CLAUDE" ]]; then
   if ! "$SETUP_CLAUDE"; then
-    echo "WARNING: setup-claude-tools failed; continuing" >&2
+    log_warn "setup-claude-tools failed; continuing"
   fi
 fi
 
@@ -254,9 +286,9 @@ ENV_SOURCED=0
 
 if [[ -f "$ENC_ENV" ]]; then
   if ! command -v sops >/dev/null 2>&1; then
-    echo "WARNING: sops not found; skipping decryption for $ROLE" >&2
+    log_warn "sops not found; skipping env decryption" role="$ROLE"
   elif [[ ! -f "$AGE_KEY_FILE" ]]; then
-    echo "WARNING: AGE key not found at $AGE_KEY_FILE; skipping $ENC_ENV" >&2
+    log_warn "age key missing; skipping encrypted env" key_path="$AGE_KEY_FILE" env_file="$ENC_ENV"
   else
     export SOPS_AGE_KEY_FILE="$AGE_KEY_FILE"
     TMP_ENV="$STATE_DIR/${ROLE}.env"
@@ -267,7 +299,7 @@ if [[ -f "$ENC_ENV" ]]; then
       set +a
       ENV_SOURCED=1
     else
-      echo "WARNING: failed to decrypt $ENC_ENV; falling back to plain env" >&2
+      log_warn "failed to decrypt env; falling back to plain" env_file="$ENC_ENV"
     fi
     rm -f "$TMP_ENV"
   fi
@@ -282,7 +314,7 @@ if (( ! ENV_SOURCED )) && [[ -f "$PLAIN_ENV" ]]; then
 fi
 
 if (( ! ENV_SOURCED )); then
-  echo "INFO: proceeding without role-specific env overrides for $ROLE" >&2
+  log_info "proceeding without role-specific env overrides" role="$ROLE"
 fi
 
 # Compose files (baseline + role, with lexical mix-ins if present)
@@ -292,6 +324,8 @@ readarray -t ROLE_OVERRIDES < <(find "$ROLE_DIR" -maxdepth 1 -type f -name '[0-9
 
 COMMIT=$(git -C "$REPO_DIR" rev-parse --short HEAD)
 PROJECT="${ROLE}_${COMMIT}"
+
+export FLEET_LOG_COMMIT="${FLEET_LOG_COMMIT:-$COMMIT}"
 
 COMPOSE_FILES=("-f" "$BASE")
 for f in "${ROLE_OVERRIDES[@]}"; do
@@ -324,7 +358,7 @@ for OLD in "${OLD_PROJECTS[@]}"; do
   docker compose -p "$OLD" down --volumes || true
 done
 
-echo "Converged role=$ROLE project=$PROJECT"
+log_info "converged" role="$ROLE" project="$PROJECT"
 
 # Reclaim space: remove dangling images (old commit builds)
 docker image prune -f >/dev/null 2>&1 || true

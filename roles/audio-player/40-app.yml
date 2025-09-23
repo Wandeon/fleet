@@ -17,6 +17,9 @@ services:
       - ICECAST_PORT=${ICECAST_PORT:-8000}
       - ICECAST_MOUNT=${ICECAST_MOUNT:-}
       - FALLBACK_FILE=${FALLBACK_FILE:-/data/fallback.mp3}
+      - LOG_SERVICE=audio-player
+      - LOG_ROLE=audio-player
+      - LOG_COMMIT=${FLEET_LOG_COMMIT:-unknown}
     volumes:
       - audio_data:/data
     healthcheck:
@@ -32,13 +35,45 @@ services:
         set -e
         mkdir -p /app
         cat > /app/player.py <<"PY"
-        import json, os, subprocess, sys, time, signal
+        import datetime
+        import json
+        import os
+        import signal
+        import socket
+        import subprocess
+        import sys
+        import time
+        from typing import Any
+
         DATA = "/data"
         CFG_PATH = os.path.join(DATA, "config.json")
+        STATE_PATH = os.path.join(DATA, "player-state.json")
         OUT = os.environ.get("AUDIO_OUTPUT_DEVICE", "hw:0,0")
         DEF_URL = os.environ.get("STREAM_URL", "")
         VOL = float(os.environ.get("AUDIO_VOLUME", "1.0"))
         FALLBACK = os.environ.get("FALLBACK_FILE", "/data/fallback.mp3")
+
+        LOG_SERVICE = os.environ.get("LOG_SERVICE", "audio-player")
+        LOG_ROLE = os.environ.get("LOG_ROLE", "audio-player")
+        LOG_COMMIT = os.environ.get("LOG_COMMIT", os.environ.get("FLEET_COMMIT", "unknown"))
+        HOST = os.environ.get("LOG_HOST", socket.gethostname())
+
+        def log_event(level: str, msg: str, **fields: Any) -> None:
+            entry = {
+                "ts": datetime.datetime.utcnow().isoformat(timespec="milliseconds") + "Z",
+                "level": level,
+                "msg": msg,
+                "service": LOG_SERVICE,
+                "host": HOST,
+                "role": LOG_ROLE,
+                "commit": LOG_COMMIT,
+                "correlationId": fields.pop("correlationId", None),
+                "durationMs": fields.pop("durationMs", None),
+                "errorCode": fields.pop("errorCode", None),
+            }
+            entry.update({k: v for k, v in fields.items() if v is not None})
+            print(json.dumps(entry), flush=True)
+
         def load_config():
             cfg = {"stream_url": DEF_URL, "volume": VOL, "mode": "auto", "source": "stream"}
             try:
@@ -47,27 +82,60 @@ services:
             except Exception:
                 pass
             return cfg
+
         def save_config(cfg):
             tmp = CFG_PATH + ".tmp"
             with open(tmp, "w") as f:
                 json.dump(cfg, f)
             os.replace(tmp, CFG_PATH)
+
+        def write_state(state):
+            tmp = STATE_PATH + ".tmp"
+            with open(tmp, "w") as f:
+                json.dump(state, f)
+            os.replace(tmp, STATE_PATH)
+
         def play_ffmpeg(input_url, volume):
             args = [
-                "ffmpeg", "-hide_banner", "-loglevel", "info",
+                "ffmpeg", "-hide_banner", "-loglevel", "warning",
                 "-reconnect", "1", "-reconnect_streamed", "1", "-reconnect_on_network_error", "1", "-reconnect_delay_max", "2",
                 "-i", input_url, "-vn", "-af", f"volume={volume}", "-c:a", "pcm_s16le", "-f", "alsa", OUT
             ]
             return subprocess.Popen(args)
+
         def play_file_loop(path, volume):
-            args = ["ffmpeg", "-hide_banner", "-loglevel", "info", "-stream_loop", "-1", "-re", "-i", path, "-vn", "-af", f"volume={volume}", "-c:a", "pcm_s16le", "-f", "alsa", OUT]
+            args = [
+                "ffmpeg", "-hide_banner", "-loglevel", "warning", "-stream_loop", "-1", "-re", "-i", path,
+                "-vn", "-af", f"volume={volume}", "-c:a", "pcm_s16le", "-f", "alsa", OUT
+            ]
             return subprocess.Popen(args)
+
         def ffprobe_ok(url):
             try:
-                r = subprocess.run(["ffprobe", "-v", "error", "-timeout", "2000000", "-i", url, "-of", "json", "-show_format"], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, timeout=4)
+                r = subprocess.run(
+                    ["ffprobe", "-v", "error", "-timeout", "2000000", "-i", url, "-of", "json", "-show_format"],
+                    stdout=subprocess.DEVNULL,
+                    stderr=subprocess.DEVNULL,
+                    timeout=4,
+                )
                 return r.returncode == 0
             except Exception:
                 return False
+
+        def build_state(current, volume, url, last_switch_iso, fallback_path):
+            return {
+                "current": current,
+                "volume_level": volume,
+                "stream_url": url,
+                "stream_up": 1 if current == "stream" else 0,
+                "fallback_active": 1 if current == "file" else 0,
+                "last_switch_timestamp": last_switch_iso,
+                "fallback_available": 1 if os.path.exists(fallback_path) else 0,
+            }
+
+        def now_iso():
+            return datetime.datetime.utcnow().isoformat(timespec="milliseconds") + "Z"
+
         def main():
             os.makedirs(DATA, exist_ok=True)
             if not os.path.exists(CFG_PATH):
@@ -75,27 +143,20 @@ services:
             last_mtime = os.path.getmtime(CFG_PATH)
             proc = None
             current = "stop"
+            last_switch = now_iso()
+            last_state = None
             while True:
                 cfg = load_config()
                 desired = cfg.get("source", "stream")
-                vol = float(cfg.get("volume", VOL))
+                vol = float(cfg.get("volume", VOL) or VOL)
                 url = cfg.get("stream_url", DEF_URL)
                 fb = FALLBACK
-                # Detect config changes
                 try:
                     mt = os.path.getmtime(CFG_PATH)
                 except FileNotFoundError:
                     mt = last_mtime
-                if mt != last_mtime and proc is not None:
-                    proc.terminate()
-                    try:
-                        proc.wait(timeout=2)
-                    except Exception:
-                        proc.kill()
-                    proc = None
-                    current = "stop"
+                if mt != last_mtime:
                     last_mtime = mt
-                if desired == "stop":
                     if proc is not None and proc.poll() is None:
                         proc.terminate()
                         try:
@@ -104,35 +165,59 @@ services:
                             proc.kill()
                     proc = None
                     current = "stop"
-                    time.sleep(1)
-                    continue
-                if desired == "file" or (cfg.get("mode", "auto") == "auto" and (not url or not ffprobe_ok(url))):
-                    # play file if exists
+                    log_event("info", "configuration updated; restarting playback")
+                next_state = current
+                if desired == "stop":
+                    if proc is not None and proc.poll() is None:
+                        proc.terminate()
+                        try:
+                            proc.wait(timeout=2)
+                        except Exception:
+                            proc.kill()
+                    proc = None
+                    next_state = "stop"
+                elif desired == "file" or (cfg.get("mode", "auto") == "auto" and (not url or not ffprobe_ok(url))):
                     if os.path.exists(fb):
                         if current != "file":
                             if proc is not None and proc.poll() is None:
-                                proc.terminate(); time.sleep(0.3)
+                                proc.terminate()
+                                time.sleep(0.3)
                             proc = play_file_loop(fb, vol)
-                            current = "file"
+                            next_state = "file"
+                            last_switch = now_iso()
+                            log_event("warn", "falling back to local file", stream_url=url)
                     else:
-                        # nothing to play, wait
-                        time.sleep(2)
-                        continue
+                        log_event("warn", "fallback file missing", path=fb)
+                        next_state = "stop"
+                        proc = None
                 else:
-                    # play stream
                     if current != "stream":
                         if proc is not None and proc.poll() is None:
-                            proc.terminate(); time.sleep(0.3)
+                            proc.terminate()
+                            time.sleep(0.3)
                         proc = play_ffmpeg(url, vol)
-                        current = "stream"
-                # If the process died quickly, fallback to file next loop
+                        next_state = "stream"
+                        last_switch = now_iso()
+                        log_event("info", "switching to stream", stream_url=url)
                 time.sleep(1)
                 if proc is not None and proc.poll() is not None:
-                    current = "stop"
-            
+                    log_event("warn", "playback process exited unexpectedly")
+                    proc = None
+                    next_state = "stop"
+                state_payload = build_state(next_state, vol, url, last_switch, fb)
+                if state_payload != last_state:
+                    write_state(state_payload)
+                    last_state = state_payload
+                current = next_state
+
         if __name__ == "__main__":
-            signal.signal(signal.SIGTERM, lambda s,f: sys.exit(0))
-            main()
+            signal.signal(signal.SIGTERM, lambda s, f: sys.exit(0))
+            try:
+                main()
+            except Exception as exc:
+                log_event("error", "player crashed", error=str(exc))
+                raise
+
         PY
         exec python3 /app/player.py
 
@@ -150,6 +235,9 @@ services:
       - AUTH_TOKEN=${AUDIO_CONTROL_TOKEN:-}
       - MIXER_CARD=${AUDIO_MIXER_CARD:-0}
       - MIXER_CONTROL=${AUDIO_MIXER_CONTROL:-Master}
+      - LOG_SERVICE=audio-control
+      - LOG_ROLE=audio-player
+      - LOG_COMMIT=${FLEET_LOG_COMMIT:-unknown}
     volumes:
       - audio_data:/data
     healthcheck:
@@ -165,124 +253,265 @@ services:
         set -e
         # Flask and dependencies are preinstalled in the image
         mkdir -p /app
-        cat > /app/app.py <<"PY" 
-        from flask import Flask, request, jsonify, Response
-        import os, json, subprocess, re
-        BIND = os.environ.get("CONTROL_BIND","0.0.0.0")
-        PORT = int(os.environ.get("CONTROL_PORT","8081"))
-        DATA = os.environ.get("AUDIO_DATA_DIR","/data")
+        cat > /app/app.py <<"PY"
+        from flask import Flask, request, jsonify, Response, g
+        import datetime
+        import json
+        import os
+        import re
+        import socket
+        import subprocess
+        import time
+        import uuid
+
+        BIND = os.environ.get("CONTROL_BIND", "0.0.0.0")
+        PORT = int(os.environ.get("CONTROL_PORT", "8081"))
+        DATA = os.environ.get("AUDIO_DATA_DIR", "/data")
         CFG = os.path.join(DATA, "config.json")
+        STATE = os.path.join(DATA, "player-state.json")
         FB = os.path.join(DATA, "fallback.mp3")
         TOKEN = os.environ.get("AUTH_TOKEN", "")
         MIXER_CARD = os.environ.get("MIXER_CARD", "0")
         MIXER_CONTROL = os.environ.get("MIXER_CONTROL", "Master")
+
+        LOG_SERVICE = os.environ.get("LOG_SERVICE", "audio-control")
+        LOG_ROLE = os.environ.get("LOG_ROLE", "audio-player")
+        LOG_COMMIT = os.environ.get("LOG_COMMIT", os.environ.get("FLEET_COMMIT", "unknown"))
+        HOST = os.environ.get("LOG_HOST", socket.gethostname())
+
         app = Flask(__name__)
+
+        def log_event(level: str, msg: str, **fields):
+            correlation = fields.pop("correlationId", getattr(g, "correlation_id", None))
+            duration = fields.pop("durationMs", None)
+            error_code = fields.pop("errorCode", None)
+            entry = {
+                "ts": datetime.datetime.utcnow().isoformat(timespec="milliseconds") + "Z",
+                "level": level,
+                "msg": msg,
+                "service": LOG_SERVICE,
+                "host": HOST,
+                "role": LOG_ROLE,
+                "commit": LOG_COMMIT,
+                "correlationId": correlation,
+                "durationMs": duration,
+                "errorCode": error_code,
+            }
+            entry.update({k: v for k, v in fields.items() if v is not None})
+            print(json.dumps(entry), flush=True)
+
         def _authed():
-          if not TOKEN:
-            return True
-          auth = request.headers.get('Authorization','')
-          return auth.startswith('Bearer ') and auth.split(' ',1)[1] == TOKEN
-        @app.before_request
-        def _guard():
-          if request.path in ('/healthz',):
-            return None
-          if not _authed():
-            return ("unauthorized", 401)
+            if not TOKEN:
+                return True
+            auth = request.headers.get("Authorization", "")
+            return auth.startswith("Bearer ") and auth.split(" ", 1)[1] == TOKEN
+
         def load():
-          cfg={"stream_url":"","volume":1.0,"mode":"auto","source":"stream"}
-          try:
-            with open(CFG) as f: cfg.update(json.load(f))
-          except Exception: pass
-          return cfg
+            cfg = {"stream_url": "", "volume": 1.0, "mode": "auto", "source": "stream"}
+            try:
+                with open(CFG) as f:
+                    cfg.update(json.load(f))
+            except Exception:
+                pass
+            return cfg
+
         def save(cfg):
-          tmp=CFG+".tmp"
-          with open(tmp,'w') as f: json.dump(cfg,f)
-          os.replace(tmp,CFG)
-        @app.get('/status')
+            tmp = CFG + ".tmp"
+            with open(tmp, "w") as f:
+                json.dump(cfg, f)
+            os.replace(tmp, CFG)
+
+        def load_state():
+            try:
+                with open(STATE) as f:
+                    return json.load(f)
+            except Exception:
+                return {}
+
+        def to_epoch(ts: str) -> float:
+            if not ts:
+                return 0.0
+            try:
+                cleaned = ts.replace("Z", "+00:00")
+                return datetime.datetime.fromisoformat(cleaned).timestamp()
+            except Exception:
+                return 0.0
+
+        @app.before_request
+        def _before_request():
+            correlation = request.headers.get("X-Correlation-Id", "").strip()
+            if not correlation:
+                correlation = str(uuid.uuid4())
+            g.correlation_id = correlation
+            g.start_time = time.perf_counter()
+            if request.path not in ("/metrics", "/healthz"):
+                log_event("info", "request received", correlationId=correlation, method=request.method, path=request.path)
+            return None if request.path in ("/healthz", "/metrics") or _authed() else ("unauthorized", 401)
+
+        @app.after_request
+        def _after_request(response):
+            correlation = getattr(g, "correlation_id", None)
+            if correlation:
+                response.headers["X-Correlation-Id"] = correlation
+            duration = None
+            start = getattr(g, "start_time", None)
+            if start is not None:
+                duration = (time.perf_counter() - start) * 1000
+            if request.path not in ("/metrics",):
+                level = "info"
+                if response.status_code >= 500:
+                    level = "error"
+                elif response.status_code >= 400:
+                    level = "warn"
+                log_event(level, "request completed", correlationId=correlation, durationMs=duration, status=response.status_code, method=request.method, path=request.path)
+            return response
+
+        @app.errorhandler(Exception)
+        def _error_handler(err):
+            correlation = getattr(g, "correlation_id", None)
+            log_event("error", "unhandled error", correlationId=correlation, error=str(err))
+            return ("internal error", 500)
+
+        @app.get("/status")
         def status():
-          cfg=load()
-          cfg["fallback_exists"] = os.path.exists(FB)
-          return jsonify(cfg)
-        @app.get('/config')
+            cfg = load()
+            state = load_state()
+            cfg["fallback_exists"] = os.path.exists(FB)
+            cfg["player_state"] = state
+            return jsonify(cfg)
+
+        @app.get("/config")
         def get_cfg():
-          return jsonify(load())
-        @app.put('/config')
+            return jsonify(load())
+
+        @app.put("/config")
         def put_cfg():
-          data=request.get_json(force=True)
-          cfg=load(); cfg.update({k:v for k,v in data.items() if k in ['stream_url','volume','mode','source']})
-          if 'volume' in cfg:
-            try: cfg['volume']=float(cfg['volume'])
-            except: cfg['volume']=1.0
-          save(cfg)
-          return jsonify(cfg)
-        @app.post('/volume')
+            data = request.get_json(force=True)
+            cfg = load()
+            for key in ["stream_url", "volume", "mode", "source"]:
+                if key in data:
+                    cfg[key] = data[key]
+            if "volume" in cfg:
+                try:
+                    cfg["volume"] = float(cfg["volume"])
+                except Exception:
+                    cfg["volume"] = 1.0
+            save(cfg)
+            log_event("info", "configuration updated", correlationId=getattr(g, "correlation_id", None))
+            return jsonify(cfg)
+
+        @app.post("/volume")
         def volume():
-          data=request.get_json(force=True); v=float(data.get('volume',1.0)); cfg=load(); cfg['volume']=v; save(cfg); return jsonify(cfg)
-        @app.post('/play')
+            data = request.get_json(force=True)
+            v = float(data.get("volume", 1.0))
+            cfg = load()
+            cfg["volume"] = v
+            save(cfg)
+            log_event("info", "volume changed", correlationId=getattr(g, "correlation_id", None), volume=v)
+            return jsonify(cfg)
+
+        @app.post("/play")
         def play():
-          data=request.get_json(force=True); src=data.get('source','stream'); mode=data.get('mode')
-          cfg=load(); cfg['source']=src; 
-          if mode in ('auto','manual'): cfg['mode']=mode
-          if 'stream_url' in data: cfg['stream_url']=data['stream_url']
-          save(cfg); return jsonify(cfg)
-        @app.post('/stop')
+            data = request.get_json(force=True)
+            cfg = load()
+            cfg["source"] = data.get("source", "stream")
+            mode = data.get("mode")
+            if mode in ("auto", "manual"):
+                cfg["mode"] = mode
+            if "stream_url" in data:
+                cfg["stream_url"] = data["stream_url"]
+            save(cfg)
+            log_event("info", "play requested", correlationId=getattr(g, "correlation_id", None), source=cfg["source"], stream_url=cfg.get("stream_url"))
+            return jsonify(cfg)
+
+        @app.post("/stop")
         def stop():
-          cfg=load(); cfg['source']='stop'; save(cfg); return jsonify(cfg)
-        @app.post('/upload')
+            cfg = load()
+            cfg["source"] = "stop"
+            save(cfg)
+            log_event("info", "stop requested", correlationId=getattr(g, "correlation_id", None))
+            return jsonify(cfg)
+
+        @app.post("/upload")
         def upload():
-          if 'file' not in request.files: return ("missing file",400)
-          f=request.files['file']; os.makedirs(DATA, exist_ok=True); f.save(FB); return jsonify({"saved":True,"path":FB})
-        @app.get('/healthz')
+            if "file" not in request.files:
+                log_event("warn", "upload missing file", correlationId=getattr(g, "correlation_id", None))
+                return ("missing file", 400)
+            f = request.files["file"]
+            os.makedirs(DATA, exist_ok=True)
+            f.save(FB)
+            log_event("info", "fallback uploaded", correlationId=getattr(g, "correlation_id", None), path=FB)
+            return jsonify({"saved": True, "path": FB})
+
+        @app.get("/healthz")
         def healthz():
-          return 'ok'
+            return "ok"
+
         def _amixer_cmd(*args):
-          return ["amixer", "-c", str(MIXER_CARD), *args]
+            return ["amixer", "-c", str(MIXER_CARD), *args]
+
         def _get_hw_vol():
-          try:
-            out = subprocess.check_output(_amixer_cmd("get", MIXER_CONTROL), text=True)
-            # Parse like: Front Left: Playback 74 [100%] ...
-            m = re.search(r"\[(\d+)%\]", out)
-            if m:
-              return int(m.group(1))
-          except Exception:
-            pass
-          return None
-        @app.get('/hwvolume')
+            try:
+                out = subprocess.check_output(_amixer_cmd("get", MIXER_CONTROL), text=True)
+                m = re.search(r"\[(\d+)%\]", out)
+                if m:
+                    return int(m.group(1))
+            except Exception:
+                return None
+            return None
+
+        @app.get("/hwvolume")
         def hwvolume_get():
-          v = _get_hw_vol()
-          return jsonify({"mixer_card": int(MIXER_CARD), "mixer_control": MIXER_CONTROL, "volume_percent": v})
-        @app.post('/hwvolume')
+            v = _get_hw_vol()
+            return jsonify({"mixer_card": int(MIXER_CARD), "mixer_control": MIXER_CONTROL, "volume_percent": v})
+
+        @app.post("/hwvolume")
         def hwvolume_set():
-          data = request.get_json(force=True)
-          v = int(data.get('volume_percent', 100))
-          v = max(0, min(100, v))
-          try:
-            subprocess.check_call(_amixer_cmd("set", MIXER_CONTROL, f"{v}%"))
-          except Exception as e:
-            return (str(e), 500)
-          return jsonify({"ok": True, "volume_percent": v})
-        @app.get('/metrics')
+            data = request.get_json(force=True)
+            v = int(data.get("volume_percent", 100))
+            v = max(0, min(100, v))
+            try:
+                subprocess.check_call(_amixer_cmd("set", MIXER_CONTROL, f"{v}%"))
+            except Exception as exc:
+                log_event("error", "hardware volume update failed", correlationId=getattr(g, "correlation_id", None), error=str(exc))
+                return (str(exc), 500)
+            log_event("info", "hardware volume updated", correlationId=getattr(g, "correlation_id", None), volume_percent=v)
+            return jsonify({"ok": True, "volume_percent": v})
+
+        @app.get("/metrics")
         def metrics():
-          cfg=load(); fb = os.path.exists(FB)
-          lines = []
-          lines.append('# HELP audio_volume Software volume (0.0-2.0)')
-          lines.append('# TYPE audio_volume gauge')
-          try:
-            vol = float(cfg.get('volume',1.0))
-          except:
-            vol = 1.0
-          lines.append(f'audio_volume {vol}')
-          lines.append('# HELP audio_fallback_exists Whether fallback file exists')
-          lines.append('# TYPE audio_fallback_exists gauge')
-          lines.append(f'audio_fallback_exists {1 if fb else 0}')
-          source = cfg.get('source','stream')
-          for s in ['stream','file','stop']:
-            lines.append(f'audio_source_state{{source="{s}"}} {1 if s==source else 0}')
-          return Response('\n'.join(lines)+'\n', mimetype='text/plain')
-        if __name__=='__main__':
-          os.makedirs(DATA, exist_ok=True)
-          if not os.path.exists(CFG): save(load())
-          app.run(host=BIND, port=PORT)
+            cfg = load()
+            state = load_state()
+            volume = cfg.get("volume", 1.0)
+            try:
+                volume = float(volume)
+            except Exception:
+                volume = 1.0
+            stream_up = int(state.get("stream_up", 0))
+            fallback_active = int(state.get("fallback_active", 0))
+            last_switch = state.get("last_switch_timestamp")
+            lines = [
+                "# HELP stream_up Whether the primary stream is active",
+                "# TYPE stream_up gauge",
+                f"stream_up {stream_up}",
+                "# HELP fallback_active Whether fallback audio is playing",
+                "# TYPE fallback_active gauge",
+                f"fallback_active {fallback_active}",
+                "# HELP volume_level Configured software volume",
+                "# TYPE volume_level gauge",
+                f"volume_level {volume}",
+                "# HELP last_switch_timestamp Unix timestamp of last source switch",
+                "# TYPE last_switch_timestamp gauge",
+                f"last_switch_timestamp {to_epoch(last_switch)}",
+            ]
+            return Response("\n".join(lines) + "\n", mimetype="text/plain")
+
+        if __name__ == "__main__":
+            os.makedirs(DATA, exist_ok=True)
+            if not os.path.exists(CFG):
+                save(load())
+            app.run(host=BIND, port=PORT)
+
         PY
         exec python3 /app/app.py
 

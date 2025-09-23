@@ -1,85 +1,134 @@
-# Unified Logging Runbook
+# Logging Runbook
 
-The fleet now ships logs from every Raspberry Pi and the VPS into a single Loki instance. Use this guide to verify the pipeline and troubleshoot noisy nodes.
+Fleet now emits **structured JSON logs** from every service so that operators and developers can pivot on correlation IDs, hosts, and error codes without fighting free-form text. This runbook explains the log schema, how the API and agents populate the fields, and the quickest ways to retrieve events from journald, Docker, or Grafana/Loki.
 
-## Components
+> All JSON lines share the same top-level fields: `ts`, `level`, `msg`, `service`, `host`, `role`, `commit`, `correlationId`, `durationMs`, and `errorCode`. Additional key/value pairs may appear depending on the message.
 
-- **Promtail on devices** – added to the baseline compose file so every Pi tails Docker stdout/stderr and the systemd journal. The agent exports environment variables from `/etc/fleet/agent.env`, which must include `LOKI_ENDPOINT` (and optionally `LOG_SITE`).
-- **Promtail on the VPS** – launched via `vps/compose.promtail.yml`; scrapes host-level containers and syslog so the control plane and monitoring stack are captured too.
-- **Loki** – runs in the same VPS stack with a 7-day retention window (`vps/loki-config.yml`). Data is stored under the `loki-data` Docker volume.
-- **Grafana Explore** – pre-provisioned Loki data source (`vps/grafana/provisioning/datasources/loki.yml`) exposes logs through the Grafana UI.
+## Field reference
 
-## Provisioning checklist
+| Field | Description |
+| ----- | ----------- |
+| `ts` | RFC3339 timestamp emitted in UTC. |
+| `level` | `debug`, `info`, `warn`, or `error`. |
+| `msg` | Human readable message for dashboards / alerts. |
+| `service` | Logical service name (`fleet-api`, `fleet-worker`, `role-agent`, `audio-control`, etc.). |
+| `host` | Hostname of the node that produced the log (Pi or VPS). |
+| `role` | Device role (`audio-player`, `camera`, `control-plane`, …). |
+| `commit` | Git SHA the process is running (injected via `FLEET_LOG_COMMIT`). |
+| `correlationId` | Request/operation correlation identifier propagated across HTTP and worker jobs. |
+| `durationMs` | Request/operation duration when available. |
+| `errorCode` | Machine readable failure code (HTTP status, upstream reason, etc.). |
 
-1. Ensure `/etc/fleet/agent.env` exists on each node:
-   ```bash
-   cat /etc/fleet/agent.env
-   # LOKI_ENDPOINT should resolve (Tailscale DNS or IP)
-   ```
-2. Restart or force a convergence so the updated baseline launches promtail:
-   ```bash
-   sudo systemctl start role-agent.service
-   docker ps --filter name=promtail
-   ```
-3. Update `inventory/devices.yaml` so each managed node has `logs: true` and `loki_source: <hostname>`; the API and UI use these labels when building Loki queries.
-4. On the VPS, start/restart the monitoring stack including Loki + promtail:
-   ```bash
-   docker compose -f vps/compose.prom-grafana-blackbox.yml -f vps/compose.promtail.yml up -d alertmanager loki promtail
-   docker compose -f vps/compose.prom-grafana-blackbox.yml up -d prometheus grafana blackbox
-   ```
+### Generating correlation IDs
 
-5. Verify VPS ingestion in Grafana or `logcli`:
-   ```bash
-   docker run --rm -it grafana/logcli:2.9.1 \
-     --addr=http://loki:3100 \
-     query '{job="docker", host="vps"}'
-   ```
+* Incoming HTTP requests use `X-Correlation-Id` if provided; otherwise the API generates one and echoes it back.
+* Worker jobs and downstream device calls reuse the request-scoped ID via AsyncLocalStorage. When the API invokes an audio player, the correlation ID is forwarded as the `X-Correlation-Id` header so device logs can be joined with backend traces.
+* Shell helpers (`agent/logging.sh`) accept `FLEET_LOG_CORRELATION_ID` to participate in the same flow when invoked from automation.
 
-## Device-side promtail quick start
+### Service specific behaviour
 
-Follow these steps on each Raspberry Pi (audio, video, camera, etc.) so container and journal logs stream into Loki:
+* **API (`apps/api`)** – Uses Pino HTTP middleware. Structured logs live in the `fleet-api` container (`docker logs fleet-api`) and are shipped to journald + Loki via promtail. Middleware automatically records `route`, `method`, `status`, and timing fields.
+* **Worker (`fleet-worker`)** – Shares the same logger as the API but sets `service=fleet-worker`. Long running jobs add custom fields such as `deviceId`, `jobId`, or `errorCode` describing upstream failures.
+* **role-agent** – All Bash utilities load `agent/logging.sh`. Logs are written to stdout (captured by systemd) and include the host, role, and commit labels for every convergence run. Use `journalctl -u role-agent.service -o json-pretty` for pretty output.
+* **audio-control** – Flask application logs requests and stream state changes via the same JSON helper. Every audio event includes `stream`, `deviceId`, and fallback indicators so dashboards can pivot on playback behaviour.
 
-1. Set the Loki endpoint and optional labels:
-   ```bash
-   sudo tee /etc/fleet/agent.env >/dev/null <<'EOF'
-LOKI_ENDPOINT=http://<vps-host-or-tailscale-ip>:3100/loki/api/v1/push
-LOG_SITE=primary
-EOF
-   ```
-2. Pull the latest baseline and restart the role agent (or compose manually):
-   ```bash
-   cd /opt/fleet
-   git pull
-   sudo systemctl restart role-agent.service
-   # or: docker compose -f baseline/docker-compose.yml up -d promtail
-   ```
-3. Confirm the promtail container is healthy:
-   ```bash
-   docker ps --filter name=promtail
-   docker logs promtail | tail
-   ```
-4. Validate in Grafana → Explore with `{host="pi-audio-01"}` (replace host label per node).
+### Samples
 
-## Verifying ingestion
+#### API request
+```json
+{
+  "ts": "2025-04-03T21:18:09.984Z",
+  "level": "info",
+  "msg": "HTTP request completed",
+  "service": "fleet-api",
+  "host": "vps-prod",
+  "role": "control-plane",
+  "commit": "7d3c4e1",
+  "correlationId": "5c2d0c94-ecfe-4a5a-8f6d-5c6a7f5b21ea",
+  "durationMs": 142.31,
+  "errorCode": null,
+  "method": "POST",
+  "route": "/api/devices/pi-audio-01/jobs",
+  "status": 200
+}
+```
 
-- Grafana → Explore → Loki → run `{job="docker", host="vps"}` for the VPS and `{host="pi-audio-01"}` (or other Pi hostnames) to confirm device forwarding.
-- Use `logcli` locally on the VPS for quick CLI checks (see example above).
-- Prometheus scrapes `loki:3100` and `promtail:9080`; alert on `up{job="loki"} == 0` to detect outages.
+#### role-agent convergence
+```json
+{
+  "ts": "2025-04-03T21:19:12.102Z",
+  "level": "error",
+  "msg": "git update failed after retries",
+  "service": "role-agent",
+  "host": "pi-audio-02",
+  "role": "audio-player",
+  "commit": "7d3c4e1",
+  "correlationId": null,
+  "durationMs": null,
+  "errorCode": "GIT_FETCH",
+  "attempts": 3
+}
+```
 
-## Common issues
+#### Audio-control playback switch
+```json
+{
+  "ts": "2025-04-03T21:20:52.771Z",
+  "level": "warn",
+  "msg": "Stream fallback engaged",
+  "service": "audio-control",
+  "host": "pi-audio-01",
+  "role": "audio-player",
+  "commit": "7d3c4e1",
+  "correlationId": "5c2d0c94-ecfe-4a5a-8f6d-5c6a7f5b21ea",
+  "durationMs": null,
+  "errorCode": "STREAM_DOWN",
+  "stream": "icecast",
+  "fallback": "file://fallback.mp3"
+}
+```
 
-| Symptom | Action |
-| ------- | ------ |
-| No logs from a Pi | Check `/etc/fleet/agent.env` for a valid `LOKI_ENDPOINT` and that the promtail container is running (`docker ps | grep promtail`). |
-| Loki up but Grafana shows empty results | Verify promtail labels; search for `{environment="device"}` to broaden filters. |
-| High cardinality | Add `match` stages in `logging/promtail-config.yaml` to drop noisy services or extra labels, then commit the change and let the agent converge. |
+## Retrieving logs
 
-## Retention and storage
+### Journald (system services)
+```bash
+# Follow agent convergence logs on a Pi
+sudo journalctl -u role-agent.service -o json-pretty -f
 
-- Loki retention defaults to 7 days (`table_manager.retention_period`). Adjust in `vps/loki-config.yml` if you need longer history.
-- The `loki-data` volume can grow quickly; monitor disk usage and prune with `docker volume rm` after stopping the stack if you need to reclaim space.
+# Show the last failed convergence and include error metadata
+sudo journalctl -u role-agent.service -o json-pretty --grep '"level":"error"' | tail
+```
 
-## Extending
+### Docker (VPS containers)
+```bash
+# Backend API / worker
+cd /opt/fleet
+docker compose -f infra/vps/compose.fleet.yml logs -f fleet-api
 
-- Add additional labels by editing `logging/promtail-config.yaml` (for example, include `role` or `job` labels sourced from host environment variables).
-- To ingest logs from external services, deploy another promtail instance and point it at the same `LOKI_ENDPOINT`/tenant. Remember to tag with a unique `site`.
+# Audio control container on a Pi
+docker logs --tail=200 -f audio-control
+```
+
+### Grafana → Explore (Loki)
+
+1. Open Grafana at `https://<vps-host>:3000` (credentials from `infra/vps/monitoring.env`).
+2. Navigate to **Explore → Loki**.
+3. Query examples:
+   * `{service="fleet-api", correlationId="5c2d0c94-ecfe-4a5a-8f6d-5c6a7f5b21ea"}` – trace a request across API and device logs.
+   * `{service="role-agent", level="error"} |= "GIT_FETCH"` – surface Git failures during convergence.
+   * `{service="audio-control"} |= "fallback"` – inspect fallback activations.
+
+Use the **Log context** feature in Grafana to pull surrounding entries when investigating multi-step failures.
+
+## Operational tips
+
+* Always include `X-Correlation-Id` when calling the API from scripts. This guarantees the value flows to workers, device control planes, and the logging helpers.
+* When diagnosing device drift, start with logs filtered by `correlationId` and then pivot to the new **Agent Convergence** dashboard to confirm the last deployment commit and runtime of the agent.
+* Promtail continues to ship logs into Loki from both the VPS and Raspberry Pis. If logs disappear, verify the promtail containers defined in `infra/vps/compose.promtail.yml` and on the devices are running before blaming application code.
+* The acceptance workflow (`scripts/acceptance.sh`) is invaluable after incident response—run it to validate that every audio player can reach Icecast and that the role agents completed a fresh convergence.
+
+## Extending logging
+
+* **New Bash utilities** should `source agent/logging.sh` and rely on `log_info`/`log_error`. Export `FLEET_LOG_*` variables to enrich the output when the script knows the host, role, or correlation ID ahead of time.
+* **Node/TypeScript services** should import the shared Pino logger from `apps/api/src/observability/logging.ts` to inherit the same format and correlation context.
+* If you need to add a new error taxonomy, prefer structured `errorCode` values (e.g., `GIT_FETCH`, `STREAM_DOWN`, `DEVICE_UNREACHABLE`) so alerts and dashboards can group failures without fragile substring matches.

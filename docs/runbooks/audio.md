@@ -5,10 +5,10 @@ This guide connects Raspberry Pi players (role `audio-player`) to an Icecast ser
 ## VPS: Icecast
 
 1) On the VPS, ensure Docker is installed.
-2) Create `vps/icecast.env` from `vps/icecast.env.example` and set strong passwords.
+2) Create `infra/vps/icecast.env` from `infra/vps/icecast.env.example` and set strong passwords.
 3) Start the server:
    ```bash
-   docker compose -f vps/compose.icecast.yml --env-file vps/icecast.env up -d
+   docker compose -f infra/vps/compose.icecast.yml --env-file infra/vps/icecast.env up -d
    ```
 4) Open `http://<vps-host>:8000` and keep the Source password handy.
 
