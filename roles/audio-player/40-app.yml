@@ -1,7 +1,7 @@
 services:
   audio-player:
     build:
-      context: ../roles/audio-player/docker
+      context: ./docker
       dockerfile: audio-player.Dockerfile
     restart: unless-stopped
     devices:
@@ -53,7 +53,7 @@ services:
 
   audio-control:
     build:
-      context: ../roles/audio-player/docker
+      context: ./docker
       dockerfile: audio-control.Dockerfile
     restart: unless-stopped
     ports:
