@@ -4,6 +4,12 @@
 
   let sliderValues = {};
   let results = {};
+  $: summaryText =
+    typeof device?.management === 'string'
+      ? device.management
+      : typeof device?.management?.summary === 'string'
+        ? device.management.summary
+        : null;
 
   $: if (device && device.operations) {
     const defaults = {};
@@ -89,6 +95,9 @@
     <div>
       <h2 class="text-lg font-semibold">{device.name}</h2>
       <p class="text-sm text-neutral-500">{device.kind} · {device.role}</p>
+      {#if summaryText}
+        <p class="text-xs text-neutral-500 mt-1">{summaryText}</p>
+      {/if}
     </div>
     <span class={`text-xs px-3 py-1 rounded-full uppercase tracking-wide ${badgeClass(healthStatus)}`}>
       {healthStatus ?? 'UNKNOWN'}
@@ -159,6 +168,9 @@
       {/if}
       {#if device.api?.health_url}
         <li><span class="font-medium text-neutral-700">Health:</span> <code>{device.api.health_url}</code></li>
+      {/if}
+      {#if device.api?.status_url}
+        <li><span class="font-medium text-neutral-700">Status:</span> <code>{device.api.status_url}</code></li>
       {/if}
       {#if device.api?.metrics_url}
         <li><span class="font-medium text-neutral-700">Metrics:</span> <code>{device.api.metrics_url}</code></li>

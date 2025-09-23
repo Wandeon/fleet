@@ -7,10 +7,10 @@ Backend service that orchestrates edge devices (audio, video, camera, zigbee) an
 ```bash
 cd api
 npm install
-npm run prisma:generate
 npm run migrate
-npm run seed:devices   # import inventory/device-interfaces.yaml
-npm run dev            # starts the API with background worker
+npm run generate
+npm run seed:yaml   # import inventory/device-interfaces.yaml
+npm run dev         # starts the API with background worker
 ```
 
 SQLite is used by default (`DATABASE_URL=file:./data/fleet.db`). Switch to Postgres by changing `DATABASE_URL` and running migrations again.
@@ -23,33 +23,18 @@ SQLite is used by default (`DATABASE_URL=file:./data/fleet.db`). Switch to Postg
 - `GET /api/devices/:id`
 - `GET /api/devices/:id/state`
 - `GET /api/device_states`
-- `GET /api/device_events?device_id=&since=&limit=`
+- `GET /api/device_events?device_id=&since=`
 - `GET /api/jobs/:jobId`
-- `GET /api/stream` (Server-Sent Events feed)
+- `GET /api/logs`
+- `GET /stream` (Server-Sent Events feed)
+- `GET /metrics`
 
-### Video
-- `GET /api/video/files`
-- `POST /api/video/files/upload`
-- `DELETE /api/video/files/{fileId}`
-- `POST /api/video/play`
-- `POST /api/video/stop`
-- `POST /api/video/devices/:id/tv/power`
-- `POST /api/video/devices/:id/tv/volume`
+### Operations
+- `POST /api/operations/:deviceId/:operationId`
+  - Executes any operation declared in `inventory/device-interfaces.yaml`.
+- `POST /api/video/devices/:id/tv/power_on`
+- `POST /api/video/devices/:id/tv/power_off`
 - `POST /api/video/devices/:id/tv/input`
-- `GET /api/video/devices/:id/health`
-
-### Zigbee
-- `POST /api/zigbee/hubs/:id/permit-join`
-- `GET /api/zigbee/hubs/:id/endpoints`
-- `DELETE /api/zigbee/endpoints/:endpointId`
-- `GET /api/zigbee/endpoints/:endpointId/status`
-
-### Camera
-- `GET /api/camera/devices/:id/health`
-- `GET /api/camera/devices/:id/stream`
-- `POST /api/camera/devices/:id/snapshot`
-- `POST /api/camera/devices/:id/recording`
-- `GET /api/camera/events`
 
 Authentication and rate limiter settings remain unchanged (bearer tokens or UI session cookies).
 
@@ -86,7 +71,7 @@ Set `DATABASE_URL` to Postgres for production. The background worker starts auto
 ## Deployment Notes
 
 1. Run `npm run migrate` on boot (or via entrypoint) to apply pending migrations.
-2. Seed the DB (`npm run seed:devices`) whenever `inventory/device-interfaces.yaml` changes.
+2. Seed the DB (`npm run seed:yaml`) whenever `inventory/device-interfaces.yaml` changes.
 3. Expose `/api/stream` through your reverse proxy with keep-alive enabled for SSE.
 4. Prometheus can continue scraping edge devices; API metrics will be expanded in follow-up work.
 
@@ -94,6 +79,6 @@ Set `DATABASE_URL` to Postgres for production. The background worker starts auto
 
 - `npm run dev` — API with automatic restarts and embedded worker.
 - `npm run worker` — standalone worker process.
-- `npm run seed:devices` — sync database with inventory YAML.
+- `npm run seed:yaml` — sync database with inventory YAML.
 - `npm run migrate:dev` — create & apply new migrations while developing.
 

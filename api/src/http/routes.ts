@@ -5,6 +5,7 @@ import { enqueueJob } from '../services/jobs.js';
 import { sseHandler } from './sse.js';
 import { fetchLogs } from '../services/logs.js';
 import { log } from '../lib/logger.js';
+import { executeOperation, OperationError } from '../services/operations.js';
 
 export const router = express.Router();
 router.use(express.json());
@@ -60,9 +61,71 @@ router.get('/logs', async (req, res) => {
   }
 });
 
+function normalizeComponentStatus(status?: string | null) {
+  const value = (status || '').toLowerCase();
+  if (value === 'online' || value === 'up' || value === 'healthy') return 'UP';
+  if (value === 'degraded' || value === 'warning' || value === 'partial') return 'DEGRADED';
+  if (value === 'offline' || value === 'down' || value === 'error') return 'DOWN';
+  return 'UNKNOWN';
+}
+
+router.get('/health', async (_req, res) => {
+  const [devices, states] = await Promise.all([
+    prisma.device.findMany({ select: { id: true, name: true, kind: true } }),
+    prisma.deviceState.findMany({ orderBy: { updatedAt: 'desc' } }),
+  ]);
+
+  const latestState = new Map<string, (typeof states)[number]>();
+  for (const state of states) {
+    if (!latestState.has(state.deviceId)) {
+      latestState.set(state.deviceId, state);
+    }
+  }
+
+  const components: Record<string, string> = {};
+  const details = devices.map((device) => {
+    const state = latestState.get(device.id);
+    const componentStatus = normalizeComponentStatus(state?.status);
+    components[device.id] = componentStatus;
+    return {
+      id: device.id,
+      name: device.name,
+      kind: device.kind,
+      status: componentStatus,
+      updatedAt: state?.updatedAt?.toISOString() ?? null,
+      lastSeen: state?.lastSeen?.toISOString() ?? null,
+    };
+  });
+
+  const componentValues = Object.values(components);
+  const overall = componentValues.length
+    ? componentValues.includes('DOWN')
+      ? 'DOWN'
+      : componentValues.includes('DEGRADED')
+        ? 'DEGRADED'
+        : 'UP'
+    : 'UNKNOWN';
+
+  res.json({
+    overall,
+    components,
+    devices: details,
+    timestamp: new Date().toISOString(),
+  });
+});
+
 router.get('/devices', async (_req, res) => {
   const devices = await prisma.device.findMany();
   res.json({ devices });
+});
+
+router.get('/devices/:id', async (req, res) => {
+  const device = await prisma.device.findUnique({ where: { id: req.params.id } });
+  if (!device) {
+    res.status(404).json({ error: 'device not found' });
+    return;
+  }
+  res.json({ device });
 });
 
 router.get('/device_states', async (_req, res) => {
@@ -108,4 +171,23 @@ router.post('/video/devices/:id/tv/input', async (req, res) => {
 router.get('/jobs/:id', async (req, res) => {
   const job = await prisma.job.findUnique({ where: { id: req.params.id } });
   res.json({ job });
+});
+
+router.post('/operations/:deviceId/:operationId', async (req, res) => {
+  try {
+    const result = await executeOperation(req.params.deviceId, req.params.operationId, req.body);
+    res.status(result.status).json({
+      ok: result.ok,
+      status: result.status,
+      data: result.data,
+      headers: result.headers,
+    });
+  } catch (error) {
+    if (error instanceof OperationError) {
+      res.status(error.status).json({ error: error.message, data: error.data ?? null });
+      return;
+    }
+    log.error({ err: error instanceof Error ? error.message : error }, 'operation execution failed');
+    res.status(500).json({ error: 'internal error' });
+  }
 });
