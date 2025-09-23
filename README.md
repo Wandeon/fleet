@@ -115,7 +115,7 @@ To add more devices, insert hostnames under `devices:` and set their roles.
 - Assign role: edit `inventory/devices.yaml:1` and wait ~2 minutes for convergence.
 - Audio player control from VPS:
   - `AUDIOCTL_HOST=<pi-ts> AUDIOCTL_TOKEN=<tok> ./scripts/audioctl.sh status`
-  - `... set-url http://<vps>:8000/<mount>` / `... upload fallback.mp3` / `... play file` / `... volume 0.8`
+  - CLI matrix, retries, and examples live in `docs/runbooks/audio.md`.
 - Monitoring: create `vps/targets-audio.json` and restart Prometheus service from the compose stack.
 
 Tips:
@@ -124,7 +124,8 @@ Tips:
 - Control API health endpoint: `curl -fsS http://<pi>:8081/healthz` (container has an internal healthcheck too).
 - Env defaults suppress ICECAST warnings until you configure `STREAM_URL` (or `ICECAST_*`).
 - Acceptance check from VPS:
-  - `SSH_USER=admin AUDIOCTL_TOKEN=<tok> ICECAST_URL=http://<vps>:8000/<mount> ./scripts/acceptance.sh pi-audio-01 pi-audio-02`
+  - `SSH_USER=admin AUDIOCTL_TOKEN=<tok> ./scripts/acceptance.sh --icecast http://<vps>:8000/<mount> --play-both pi-audio-{01,02}`
+  - See `docs/acceptance-audio.md` for workflow details and exit codes.
 - Prefer Tailscale DNS names (e.g., `pi-audio-01.tailnet.ts.net`) instead of raw IPs when adding Prometheus/Blackbox targets; if an IP must be used, reserve it via Tailscale ACLs so it survives device re-authentication.
 
 ## Project Status & Next Steps
