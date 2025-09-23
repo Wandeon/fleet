@@ -124,7 +124,8 @@ Tips:
 - Control API health endpoint: `curl -fsS http://<pi>:8081/healthz` (container has an internal healthcheck too).
 - Env defaults suppress ICECAST warnings until you configure `STREAM_URL` (or `ICECAST_*`).
 - Acceptance check from VPS:
-  - `SSH_USER=admin AUDIOCTL_TOKEN=<tok> ICECAST_URL=http://<vps>:8000/<mount> ./scripts/acceptance.sh pi-audio-01 pi-audio-02`
+  - `SSH_USER=admin AUDIOCTL_TOKEN=<tok> ./scripts/acceptance.sh --icecast http://<vps>:8000/<mount> --play-both pi-audio-01 pi-audio-02`
+  - See `docs/acceptance-audio.md` for the full workflow (summary table, metrics check, retries, and exit-code semantics).
 - Prefer Tailscale DNS names (e.g., `pi-audio-01.tailnet.ts.net`) instead of raw IPs when adding Prometheus/Blackbox targets; if an IP must be used, reserve it via Tailscale ACLs so it survives device re-authentication.
 
 ## Project Status & Next Steps
