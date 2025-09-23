@@ -1,0 +1,29 @@
+{
+  "cameras": [
+    {
+      "id": "cam-lobby-01",
+      "displayName": "Lobby Entrance",
+      "online": true,
+      "recording": true,
+      "lastEventAt": "2024-03-28T08:58:45Z"
+    },
+    {
+      "id": "cam-parking-02",
+      "displayName": "Parking Lot",
+      "online": true,
+      "recording": true,
+      "lastEventAt": "2024-03-28T08:43:12Z"
+    },
+    {
+      "id": "cam-warehouse-01",
+      "displayName": "Warehouse",
+      "online": false,
+      "recording": false,
+      "lastEventAt": null
+    }
+  ],
+  "storage": {
+    "usedPercent": 62.5,
+    "retentionDays": 14
+  }
+}

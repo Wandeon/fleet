@@ -1,0 +1,29 @@
+{
+  "items": [
+    {
+      "id": "evt-feed-001",
+      "source": "audio",
+      "title": "Lobby Speakers playback resumed",
+      "severity": "info",
+      "timestamp": "2024-03-28T08:55:05Z",
+      "correlationId": "14d6f1fd-4c9f-4e8d-8621-9254cb59aa81"
+    },
+    {
+      "id": "evt-feed-002",
+      "source": "camera",
+      "title": "Parking Lot motion event",
+      "severity": "warning",
+      "timestamp": "2024-03-28T08:43:12Z",
+      "correlationId": null
+    },
+    {
+      "id": "evt-feed-003",
+      "source": "zigbee",
+      "title": "Evening scene armed",
+      "severity": "info",
+      "timestamp": "2024-03-27T23:01:00Z",
+      "correlationId": null
+    }
+  ],
+  "nextCursor": null
+}

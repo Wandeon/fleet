@@ -1,0 +1,23 @@
+HTTP/1.1 200 OK
+Content-Security-Policy: default-src 'self';base-uri 'self';font-src 'self' https: data:;form-action 'self';frame-ancestors 'self';img-src 'self' data:;object-src 'none';script-src 'self';script-src-attr 'none';style-src 'self' https: 'unsafe-inline';upgrade-insecure-requests
+Cross-Origin-Opener-Policy: same-origin
+Cross-Origin-Resource-Policy: same-origin
+Origin-Agent-Cluster: ?1
+Referrer-Policy: no-referrer
+Strict-Transport-Security: max-age=15552000; includeSubDomains
+X-Content-Type-Options: nosniff
+X-DNS-Prefetch-Control: off
+X-Download-Options: noopen
+X-Frame-Options: SAMEORIGIN
+X-Permitted-Cross-Domain-Policies: none
+X-XSS-Protection: 0
+Access-Control-Allow-Origin: *
+x-correlation-id: 9224dff8-1a27-466e-bb5b-ac9a426d91a9
+Content-Type: application/json; charset=utf-8
+Content-Length: 1618
+ETag: W/"652-UDBd9187uCydKMDUkvQSXytQvQI"
+Date: Tue, 23 Sep 2025 18:59:51 GMT
+Connection: keep-alive
+Keep-Alive: timeout=5
+
+{"generatedAt":"2025-09-23T18:59:50.995Z","audio":{"devices":[{"id":"pi-audio-01","displayName":"Lobby Speakers","online":true,"playback":{"state":"playing","source":"stream","trackTitle":"Ambient Lobby Stream","since":"2024-03-28T08:55:00Z"},"volume":{"level":0.85,"locked":false},"lastSeen":"2024-03-28T09:05:00Z","capabilities":["play","stop","volume","upload"],"config":{"streamUrl":"http://stream.example.com/lobby","mode":"live","defaultSource":"stream"}},{"id":"pi-audio-02","displayName":"Patio Speakers","online":false,"playback":{"state":"error","source":"stream","errorMessage":"Device offline"},"volume":{"level":0.5,"locked":true},"lastSeen":"2024-03-28T08:50:10Z","capabilities":["play","stop","volume"],"config":{"streamUrl":"http://stream.example.com/patio","mode":"live","defaultSource":"stream"}},{"id":"pi-audio-03","displayName":"Conference Room","online":true,"playback":{"state":"idle","source":"stream"},"volume":{"level":0.65,"locked":false},"lastSeen":"2024-03-28T09:01:17Z","capabilities":["play","stop","volume","configuration"],"config":{"streamUrl":"http://stream.example.com/conference","mode":"fallback","defaultSource":"file"}}]},"video":{"tv":{"id":"tv-main-hall","displayName":"Main Hall TV","online":true,"power":"on","input":"HDMI2","availableInputs":["HDMI1","HDMI2","HDMI3"],"volume":18,"mute":false,"lastSeen":"2024-03-28T09:04:27Z"}},"zigbee":{"coordinatorOnline":true,"devicesOnline":3,"totalDevices":3,"scenesAvailable":["evening","away","cleanup"]},"camera":{"totalCameras":3,"onlineCameras":2,"recordingCameras":2,"motionEventsToday":0,"lastEventAt":"2024-03-28T08:58:45Z"}}

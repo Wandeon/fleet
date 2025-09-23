@@ -1,0 +1,26 @@
+{
+  "status": "degraded",
+  "updatedAt": "2024-03-28T09:06:30Z",
+  "modules": [
+    {
+      "id": "audio",
+      "status": "degraded",
+      "message": "1 device offline (pi-audio-02)"
+    },
+    {
+      "id": "video",
+      "status": "healthy",
+      "message": null
+    },
+    {
+      "id": "zigbee",
+      "status": "healthy",
+      "message": null
+    },
+    {
+      "id": "camera",
+      "status": "healthy",
+      "message": null
+    }
+  ]
+}

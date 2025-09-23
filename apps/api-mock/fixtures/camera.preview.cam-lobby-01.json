@@ -1,0 +1,5 @@
+{
+  "cameraId": "cam-lobby-01",
+  "url": "https://cdn.example.com/cam-lobby-01/live.m3u8?token=mock",
+  "expiresAt": "2024-03-28T10:00:00Z"
+}

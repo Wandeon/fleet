@@ -1,0 +1,24 @@
+HTTP/1.1 401 Unauthorized
+Content-Security-Policy: default-src 'self';base-uri 'self';font-src 'self' https: data:;form-action 'self';frame-ancestors 'self';img-src 'self' data:;object-src 'none';script-src 'self';script-src-attr 'none';style-src 'self' https: 'unsafe-inline';upgrade-insecure-requests
+Cross-Origin-Opener-Policy: same-origin
+Cross-Origin-Resource-Policy: same-origin
+Origin-Agent-Cluster: ?1
+Referrer-Policy: no-referrer
+Strict-Transport-Security: max-age=15552000; includeSubDomains
+X-Content-Type-Options: nosniff
+X-DNS-Prefetch-Control: off
+X-Download-Options: noopen
+X-Frame-Options: SAMEORIGIN
+X-Permitted-Cross-Domain-Policies: none
+X-XSS-Protection: 0
+Access-Control-Allow-Origin: *
+x-correlation-id: 05a0177d-6e8d-4372-b9d5-c687d65b8e0f
+Content-Type: application/json; charset=utf-8
+WWW-Authenticate: Bearer realm="fleet-api"
+Content-Length: 117
+ETag: W/"75-TheJl/TtG89eNsz4HSt7RQTlYqQ"
+Date: Tue, 23 Sep 2025 18:59:53 GMT
+Connection: keep-alive
+Keep-Alive: timeout=5
+
+{"code":"AUTH_REQUIRED","message":"Bearer token is required.","correlationId":"05a0177d-6e8d-4372-b9d5-c687d65b8e0f"}
