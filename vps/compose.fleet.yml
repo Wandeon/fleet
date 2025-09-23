@@ -1,6 +1,7 @@
 services:
   fleet-api:
     build: ../api
+    image: ${FLEET_API_IMAGE:-ghcr.io/org/fleet-api:latest}
     environment:
       - NODE_ENV=production
       - API_PORT=3005
@@ -17,6 +18,7 @@ services:
 
   fleet-worker:
     build: ../api
+    image: ${FLEET_WORKER_IMAGE:-ghcr.io/org/fleet-api:latest}
     environment:
       - NODE_ENV=production
       - DATABASE_URL=file:/data/fleet.db
@@ -30,6 +32,7 @@ services:
 
   fleet-ui:
     build: ../ui
+    image: ${FLEET_UI_IMAGE:-ghcr.io/org/fleet-ui:latest}
     environment:
       - PUBLIC_API_BASE=/api
       - PUBLIC_API_BEARER=${API_BEARER}
