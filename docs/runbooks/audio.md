@@ -63,46 +63,83 @@ Use this when the Pi is a listener that plays audio out to an ALSA device (e.g.,
 
 Note: On first converge after repo updates, Compose builds the small `audio-player` and `audio-control` images on-device; this takes a bit longer only the first time.
 
-### Fallback File and Control API
+### Control API and CLI
 
 - The player automatically falls back to a local file if the stream is unavailable (auto mode). Upload a fallback file via the API as `/data/fallback.mp3`.
+- API base URL: `http://<pi-host>:8081` — keep this on a trusted network (e.g., Tailscale). When `AUDIO_CONTROL_TOKEN` is set, every endpoint except `/healthz` requires `Authorization: Bearer <token>`.
+- The status payload now includes runtime fields such as `requested_source`, `now_playing`, `fallback_active`, `stream_up`, and `last_switch_timestamp`. Logs persist on disk at `/data/player.log` (player loop) and `/data/control.log` (Flask API).
 
-- API base URL: `http://<pi-host>:8081`
-  - If you set `AUDIO_CONTROL_TOKEN`, include header `Authorization: Bearer <token>`.
+#### Endpoint reference
 
-- Endpoints:
-  - `POST /upload` - multipart form-data with `file=@yourfile.mp3`
-    ```bash
-    curl -H 'Authorization: Bearer <token>' -F "file=@/path/to/fallback.mp3" http://<pi>:8081/upload
-    ```
-  - `PUT /config` - set stream URL, volume, mode, source
-    ```bash
-    curl -H 'Authorization: Bearer <token>' -X PUT http://<pi>:8081/config \
-      -H 'Content-Type: application/json' \
-      -d '{"stream_url":"http://<vps>:8000/<mount>","volume":1.0,"mode":"auto","source":"stream"}'
-    ```
-  - `POST /play` - switch source between stream/file
-    ```bash
-    curl -H 'Authorization: Bearer <token>' -X POST http://<pi>:8081/play -H 'Content-Type: application/json' -d '{"source":"file"}'
-    ```
-  - `POST /stop` - stop playback
-  - `POST /volume` - set volume (0.0-2.0)
-  - `GET /status` - current config and `fallback_exists`
-  - `GET /metrics` - Prometheus-style metrics (requires same auth header if token set)
+- `POST /upload` — multipart form upload (`file=@...`) that writes `/data/fallback.mp3`.
+- `PUT /config` — update any of `stream_url`, `volume` (0.0–2.0), `mode` (`auto|manual`), or `source` (`stream|file|stop`). Values outside supported ranges are rejected.
+- `POST /play` / `POST /stop` — switch sources; `/play` accepts `{"source":"stream"}` or `{"source":"file"}` and optional `{"mode":"manual"}`.
+- `POST /volume` — `{ "volume": 0.8 }` to change the software gain.
+- `GET /status` — merged config plus runtime state (`now_playing`, fallback flag, volume, stream health).
+- `GET /metrics` — Prometheus text format (requires the Bearer token when auth is enabled).
+- `GET /healthz` — unauthenticated liveness probe.
 
-Security note: expose port 8081 only on trusted networks (e.g., via Tailscale ACLs). Use `AUDIO_CONTROL_TOKEN` to require a bearer token.
+#### CLI helper (`scripts/audioctl.sh`)
 
-From the VPS, you can use the helper CLI:
+| Action | Command | Notes |
+| --- | --- | --- |
+| Inspect state | `./scripts/audioctl.sh --host pi status` | Pretty-prints `/status`; add `--json` for raw output. |
+| Check liveness | `./scripts/audioctl.sh --host pi health` | Returns the plain-text `/healthz` response. |
+| Show metrics | `./scripts/audioctl.sh --host pi metrics` | Prints the first 20 lines from `/metrics`. |
+| Set volume | `./scripts/audioctl.sh --host pi volume 0.80` | Validates 0.0–2.0 before calling `/volume`. |
+| Play sources | `./scripts/audioctl.sh --host pi play stream` / `... play file` | Uses `POST /play`. |
+| Stop playback | `./scripts/audioctl.sh --host pi stop` | Calls `POST /stop`. |
+| Update stream URL | `./scripts/audioctl.sh --host pi set-url http://vps:8000/mount` | Writes through `PUT /config`. |
+| Upload fallback | `./scripts/audioctl.sh --host pi upload ~/music/fallback.mp3` | Streams the file via multipart form. |
+| Force mode/source | `./scripts/audioctl.sh --host pi mode manual` / `... source stop` | Sends targeted `PUT /config` updates. |
+
+CLI flags: `--timeout` (seconds, default 5) and `--retries` (idempotent GETs) handle slow networks; `--json` disables `jq` pretty-printing. `--host`, `--port`, `--base-url`, and `--token` override the environment (`AUDIOCTL_HOST`, `AUDIOCTL_PORT`, `AUDIOCTL_BASE_URL`, `AUDIOCTL_TOKEN`).
+
+Example session:
 
 ```bash
-AUDIOCTL_HOST=<pi-tailscale-ip-or-name> AUDIOCTL_TOKEN=<token> \
-  ./scripts/audioctl.sh status
+# Status and metrics
+AUDIOCTL_HOST=pi-audio-01 AUDIOCTL_TOKEN=<token> ./scripts/audioctl.sh status
+AUDIOCTL_HOST=pi-audio-01 AUDIOCTL_TOKEN=<token> ./scripts/audioctl.sh metrics
+
+# Upload a fallback track and start it explicitly
+./scripts/audioctl.sh --host pi-audio-01 --token <token> upload ~/Music/fallback.mp3
+./scripts/audioctl.sh --host pi-audio-01 --token <token> play file
+
+# Return to the stream at 80% volume, forcing auto mode
+./scripts/audioctl.sh --host pi-audio-01 --token <token> volume 0.8
+./scripts/audioctl.sh --host pi-audio-01 --token <token> mode auto
+./scripts/audioctl.sh --host pi-audio-01 --token <token> play stream
 ```
+
+#### Metrics and monitoring
+
+The control API exposes Prometheus metrics at `/metrics` (token-protected when auth is enabled):
+
+- `audio_volume` — current software gain.
+- `audio_fallback_exists` — 1 when `/data/fallback.mp3` is present.
+- `audio_fallback_active` — 1 while the fallback file is playing.
+- `audio_stream_up` — 1 when the stream pipeline is healthy.
+- `audio_last_switch_timestamp` — epoch seconds when playback last changed sources.
+- `audio_source_state{source="stream|file|stop"}` — requested source flags from the config file.
+- `audio_now_playing_state{state="stream|file|stop"}` — actual state reported by the player loop.
+- `audio_mode_state{mode="auto|manual"}` — requested playback mode.
+- `audio_player_state_info{last_error="..."}` — info gauge capturing the most recent player error string.
+
+Point Prometheus at `vps/targets-audio.json` so each Pi is scraped on `:8081`. Grafana dashboards can graph `audio_stream_up` versus `audio_fallback_active` to confirm steady playback.
+
+#### Troubleshooting
+
+- `401 unauthorized` — Bearer token missing or wrong; export `AUDIOCTL_TOKEN` before running the CLI.
+- Timeouts — confirm the Pi is reachable on your private network; inspect `/data/control.log` for API errors.
+- Device offline — `/healthz` fails; SSH in and run `docker ps | grep audio-control` or inspect the agent logs. Review `/data/player.log` for ffmpeg failures.
+- Silence while `now_playing=stream` — check `audio_player_state_info{last_error="..."}` and verify Icecast connectivity.
 
 ## Verify Stream
 
 - On the VPS Icecast status page, check that your mount (e.g., `/pi-audio-01.opus`) is listed and receiving data from your chosen source.
 - Open the stream URL in a modern player: `http://<vps-host>:8000/<mount>`.
+- See `docs/acceptance-audio.md` for a scripted end-to-end check that exercises both Pis, Icecast, and the CLI in one run.
 
 ## Notes
 

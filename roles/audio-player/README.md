@@ -18,12 +18,13 @@ Notes:
 Container/runtime notes:
 
 - No fixed `container_name` is set; the agent launches a commit‑keyed compose project. Use `docker compose ls` and `docker ps | grep audio-` to discover names.
-- The control container installs Flask at startup using the interpreter’s pip (`ensurepip` + `python3 -m pip`). The device must have outbound network access on first run. Consider baking a tiny image if startup time matters.
+- The compose overlay builds lightweight Python images from `roles/audio-player/docker`, bundling `/app/player.py` and `/app/control.py`. The first build on each Pi still downloads Python dependencies from PyPI, so outbound network access is required once.
 - A healthcheck probes `/healthz` inside the container. You can query it via `curl http://<pi>:8081/healthz`.
+- Player and control logs persist on the shared volume: `/data/player.log` (ffmpeg events, fallback switches) and `/data/control.log` (API access + validation errors).
 
 Controller API (audio-control on port 8081):
 
-- `GET /status`: current config + whether fallback exists
+- `GET /status`: current config plus runtime fields (`requested_source`, `now_playing`, `fallback_active`, `stream_up`, `last_switch_timestamp`)
 - `GET /config`: read config
 - `PUT /config`: JSON body with any of `stream_url`, `volume` (0.0–2.0), `mode` (`auto`|`manual`), `source` (`stream`|`file`|`stop`)
 - `POST /volume`: `{ "volume": 0.8 }`
@@ -31,7 +32,7 @@ Controller API (audio-control on port 8081):
 - `POST /stop`: stop playback
 - `POST /upload`: multipart form with `file` to set `/data/fallback.mp3`
 - `GET /healthz`: liveness
-- `GET /metrics`: Prometheus-style metrics (include bearer if token set)
+- `GET /metrics`: Prometheus-style metrics (include bearer if token set) — includes gauges for `audio_stream_up`, `audio_fallback_active`, `audio_last_switch_timestamp`, and string info via `audio_player_state_info{last_error="..."}`
 - `GET /hwvolume`: returns current hardware mixer volume percent (if mixer available)
 - `POST /hwvolume`: set hardware mixer volume percent, body: `{ "volume_percent": 75 }`
 
