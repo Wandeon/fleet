@@ -1,0 +1,42 @@
+name: API CI
+
+on:
+  push:
+    paths:
+      - 'apps/api/**'
+  pull_request:
+    paths:
+      - 'apps/api/**'
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: apps/api
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 18
+          cache: 'npm'
+          cache-dependency-path: apps/api/package-lock.json
+      - run: npm ci
+      - run: npm run lint
+      - run: npm run typecheck
+      - run: npm test
+      - run: npm run contract
+      - run: npm run build
+      - name: Build Docker image
+        run: docker build -t fleet-api:ci .
+      - name: Smoke test container
+        run: |
+          docker run -d --rm \
+            -p 3015:3015 \
+            -e API_BEARER=test-token \
+            -e DEVICE_REGISTRY_JSON='{"devices":[{"id":"pi-audio-01","name":"Test","role":"audio","baseUrl":"http://127.0.0.1:65535"}]}' \
+            --name fleet-api fleet-api:ci
+          sleep 5
+          curl -f http://127.0.0.1:3015/healthz
+          curl -f -H 'Authorization: Bearer test-token' http://127.0.0.1:3015/fleet/layout
+          docker stop fleet-api

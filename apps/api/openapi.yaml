@@ -1,0 +1,1713 @@
+openapi: 3.0.3
+info:
+  title: Fleet Control API
+  version: 0.1.0
+  description: |
+    Public web API consumed by the Fleet web UI. The API aggregates multiple
+    device roles (audio players, video/CEC, Zigbee, cameras) and exposes a
+    consistent contract for UI integrations.
+  contact:
+    name: Fleet Platform Team
+    email: platform@fleet.example
+servers:
+  - url: /api
+security:
+  - bearerAuth: []
+tags:
+  - name: Fleet
+    description: Layout metadata and overall fleet state aggregation.
+  - name: Audio
+    description: Distributed audio player control and configuration.
+  - name: Video
+    description: CEC-enabled TV power, input, volume, and mute controls.
+  - name: Zigbee
+    description: Zigbee lighting and scene orchestration endpoints.
+  - name: Camera
+    description: Camera health summaries, event feeds, and preview links.
+  - name: Health
+    description: Cross-module health reporting and recent event feeds.
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+  headers:
+    CorrelationId:
+      description: Correlation identifier for tracing requests end-to-end.
+      schema:
+        type: string
+    RateLimitLimit:
+      description: Maximum number of requests allowed in the current window.
+      schema:
+        type: integer
+        format: int32
+    RateLimitRemaining:
+      description: Remaining requests in the current window.
+      schema:
+        type: integer
+        format: int32
+    RetryAfterSeconds:
+      description: Seconds until clients may retry after a 429 response.
+      schema:
+        type: integer
+        format: int32
+  parameters:
+    LimitParam:
+      name: limit
+      in: query
+      description: Maximum number of results to return.
+      schema:
+        type: integer
+        format: int32
+        minimum: 1
+        maximum: 200
+        default: 50
+    CursorParam:
+      name: cursor
+      in: query
+      description: Opaque pagination cursor returned by previous responses.
+      schema:
+        type: string
+    SinceParam:
+      name: since
+      in: query
+      description: Filter events to those occurring at or after the ISO-8601 timestamp.
+      schema:
+        type: string
+        format: date-time
+    EventsLimitParam:
+      name: limit
+      in: query
+      description: Maximum number of events to return.
+      schema:
+        type: integer
+        format: int32
+        minimum: 1
+        maximum: 200
+        default: 50
+  schemas:
+    Error:
+      type: object
+      required:
+        - code
+        - message
+        - correlationId
+      properties:
+        code:
+          type: string
+          description: Machine-readable error code.
+          example: AUDIO_DEVICE_TIMEOUT
+        message:
+          type: string
+          description: Human-readable summary of the error.
+          example: Audio player pi-audio-01 timed out while responding.
+        hint:
+          type: string
+          description: Optional client-facing recommendation.
+          example: Retry in a few seconds or check device connectivity.
+        correlationId:
+          type: string
+          description: Correlates the request across systems.
+          example: 14d6f1fd-4c9f-4e8d-8621-9254cb59aa81
+        details:
+          description: Additional contextual information.
+          type: object
+          nullable: true
+          additionalProperties: true
+          example:
+            deviceId: pi-audio-01
+            timeoutMs: 4000
+    FleetLayout:
+      type: object
+      required:
+        - updatedAt
+        - modules
+      properties:
+        updatedAt:
+          type: string
+          format: date-time
+          description: Timestamp when the layout was generated.
+        modules:
+          type: array
+          items:
+            $ref: '#/components/schemas/LayoutModule'
+    LayoutModule:
+      type: object
+      required:
+        - id
+        - displayName
+        - enabled
+        - capabilities
+      properties:
+        id:
+          type: string
+          description: Stable module identifier.
+          example: audio
+        displayName:
+          type: string
+          example: Audio Players
+        enabled:
+          type: boolean
+          description: Whether the module is currently enabled in the UI.
+        description:
+          type: string
+          nullable: true
+          example: Controls for distributed audio zones.
+        capabilities:
+          type: array
+          items:
+            type: string
+          example:
+            - playback
+            - volume
+            - configuration
+    FleetState:
+      type: object
+      required:
+        - generatedAt
+        - audio
+        - video
+        - zigbee
+        - camera
+      properties:
+        generatedAt:
+          type: string
+          format: date-time
+        audio:
+          type: object
+          required:
+            - devices
+          properties:
+            devices:
+              type: array
+              items:
+                $ref: '#/components/schemas/AudioDeviceStatus'
+        video:
+          type: object
+          required:
+            - tv
+          properties:
+            tv:
+              $ref: '#/components/schemas/TvStatus'
+        zigbee:
+          $ref: '#/components/schemas/ZigbeeStateSummary'
+        camera:
+          $ref: '#/components/schemas/CameraStateSummary'
+    AudioDeviceStatus:
+      type: object
+      required:
+        - id
+        - displayName
+        - online
+        - playback
+        - volume
+        - lastSeen
+      properties:
+        id:
+          type: string
+          example: pi-audio-01
+        displayName:
+          type: string
+          example: Lobby Speakers
+        online:
+          type: boolean
+        playback:
+          $ref: '#/components/schemas/AudioPlaybackState'
+        volume:
+          $ref: '#/components/schemas/AudioVolumeState'
+        lastSeen:
+          type: string
+          format: date-time
+        capabilities:
+          type: array
+          description: Supported control surfaces exposed by the device.
+          items:
+            type: string
+          example:
+            - play
+            - stop
+            - volume
+            - upload
+        config:
+          $ref: '#/components/schemas/AudioConfigState'
+    AudioPlaybackState:
+      type: object
+      required:
+        - state
+        - source
+      properties:
+        state:
+          type: string
+          description: Current playback state.
+          enum:
+            - idle
+            - playing
+            - buffering
+            - error
+          example: playing
+        source:
+          type: string
+          description: Active audio source.
+          enum:
+            - stream
+            - file
+        trackTitle:
+          type: string
+          nullable: true
+          example: Ambient Lobby Stream
+        since:
+          type: string
+          format: date-time
+          nullable: true
+        errorMessage:
+          type: string
+          nullable: true
+    AudioVolumeState:
+      type: object
+      required:
+        - level
+      properties:
+        level:
+          type: number
+          format: float
+          minimum: 0
+          maximum: 2
+          example: 0.85
+        locked:
+          type: boolean
+          description: Whether the device volume is currently hardware locked.
+          default: false
+        lastChangedBy:
+          type: string
+          nullable: true
+          example: ui
+    AudioConfigState:
+      type: object
+      properties:
+        streamUrl:
+          type: string
+          format: uri
+          nullable: true
+        mode:
+          type: string
+          nullable: true
+          description: Device operating mode.
+          example: live
+        defaultSource:
+          type: string
+          nullable: true
+          enum:
+            - stream
+            - file
+    AudioDeviceList:
+      type: object
+      required:
+        - items
+      properties:
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/AudioDeviceStatus'
+        nextCursor:
+          type: string
+          nullable: true
+    AudioPlayRequest:
+      type: object
+      required:
+        - source
+      properties:
+        source:
+          type: string
+          enum:
+            - stream
+            - file
+        resume:
+          type: boolean
+          description: Resume previous playback position when available.
+          default: false
+    AudioStopResponse:
+      type: object
+      required:
+        - id
+        - playback
+      properties:
+        id:
+          type: string
+        playback:
+          $ref: '#/components/schemas/AudioPlaybackState'
+    AudioVolumeRequest:
+      type: object
+      required:
+        - volume
+      properties:
+        volume:
+          type: number
+          format: float
+          minimum: 0
+          maximum: 2
+          example: 1.0
+    AudioVolumeResponse:
+      allOf:
+        - $ref: '#/components/schemas/AudioDeviceStatus'
+    AudioConfigRequest:
+      type: object
+      properties:
+        streamUrl:
+          type: string
+          format: uri
+        mode:
+          type: string
+          enum:
+            - live
+            - fallback
+        source:
+          type: string
+          enum:
+            - stream
+            - file
+    AudioConfigResponse:
+      allOf:
+        - $ref: '#/components/schemas/AudioDeviceStatus'
+    TvStatus:
+      type: object
+      required:
+        - id
+        - displayName
+        - online
+        - power
+        - input
+        - volume
+        - mute
+        - lastSeen
+      properties:
+        id:
+          type: string
+          example: tv-main-hall
+        displayName:
+          type: string
+          example: Main Hall TV
+        online:
+          type: boolean
+        power:
+          type: string
+          enum:
+            - on
+            - off
+        input:
+          type: string
+          example: HDMI1
+        availableInputs:
+          type: array
+          items:
+            type: string
+          example:
+            - HDMI1
+            - HDMI2
+            - HDMI3
+        volume:
+          type: integer
+          minimum: 0
+          maximum: 100
+        mute:
+          type: boolean
+        lastSeen:
+          type: string
+          format: date-time
+    TvPowerRequest:
+      type: object
+      required:
+        - on
+      properties:
+        on:
+          type: boolean
+    TvInputRequest:
+      type: object
+      required:
+        - input
+      properties:
+        input:
+          type: string
+          example: HDMI2
+    TvVolumeRequest:
+      type: object
+      required:
+        - level
+      properties:
+        level:
+          type: integer
+          minimum: 0
+          maximum: 100
+    TvMuteRequest:
+      type: object
+      required:
+        - mute
+      properties:
+        mute:
+          type: boolean
+    ZigbeeStateSummary:
+      type: object
+      required:
+        - coordinatorOnline
+        - devicesOnline
+        - totalDevices
+      properties:
+        coordinatorOnline:
+          type: boolean
+        devicesOnline:
+          type: integer
+        totalDevices:
+          type: integer
+        scenesAvailable:
+          type: array
+          items:
+            type: string
+          example:
+            - evening
+            - away
+    ZigbeeDeviceList:
+      type: object
+      required:
+        - items
+      properties:
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/ZigbeeDeviceSummary'
+        nextCursor:
+          type: string
+          nullable: true
+    ZigbeeDeviceSummary:
+      type: object
+      required:
+        - id
+        - displayName
+        - type
+        - state
+      properties:
+        id:
+          type: string
+          example: zigbee-switch-01
+        displayName:
+          type: string
+          example: Lobby Lighting
+        type:
+          type: string
+          example: switch
+        state:
+          type: string
+          example: on
+        batteryPercent:
+          type: number
+          nullable: true
+          minimum: 0
+          maximum: 100
+        lastSeen:
+          type: string
+          format: date-time
+    ZigbeeActionRequest:
+      type: object
+      required:
+        - action
+      properties:
+        action:
+          type: string
+          enum:
+            - toggle
+            - on
+            - off
+            - scene
+        scene:
+          type: string
+          description: Required when action is scene.
+          nullable: true
+    CameraStateSummary:
+      type: object
+      required:
+        - totalCameras
+        - onlineCameras
+        - recordingCameras
+      properties:
+        totalCameras:
+          type: integer
+        onlineCameras:
+          type: integer
+        recordingCameras:
+          type: integer
+        motionEventsToday:
+          type: integer
+        lastEventAt:
+          type: string
+          format: date-time
+          nullable: true
+    CameraSummary:
+      type: object
+      required:
+        - cameras
+        - storage
+      properties:
+        cameras:
+          type: array
+          items:
+            $ref: '#/components/schemas/CameraSummaryItem'
+        storage:
+          $ref: '#/components/schemas/CameraStorageSummary'
+    CameraSummaryItem:
+      type: object
+      required:
+        - id
+        - displayName
+        - online
+        - recording
+      properties:
+        id:
+          type: string
+          example: cam-lobby-01
+        displayName:
+          type: string
+          example: Lobby Entrance
+        online:
+          type: boolean
+        recording:
+          type: boolean
+        lastEventAt:
+          type: string
+          format: date-time
+          nullable: true
+    CameraStorageSummary:
+      type: object
+      required:
+        - usedPercent
+        - retentionDays
+      properties:
+        usedPercent:
+          type: number
+          minimum: 0
+          maximum: 100
+        retentionDays:
+          type: integer
+    CameraEvents:
+      type: object
+      required:
+        - items
+      properties:
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/CameraEvent'
+        nextCursor:
+          type: string
+          nullable: true
+    CameraEvent:
+      type: object
+      required:
+        - id
+        - cameraId
+        - type
+        - timestamp
+      properties:
+        id:
+          type: string
+          example: evt-20240101-01
+        cameraId:
+          type: string
+          example: cam-lobby-01
+        type:
+          type: string
+          example: motion
+        severity:
+          type: string
+          enum:
+            - info
+            - warning
+            - critical
+        timestamp:
+          type: string
+          format: date-time
+        clipUrl:
+          type: string
+          format: uri
+          nullable: true
+        thumbnailUrl:
+          type: string
+          format: uri
+          nullable: true
+        synopsis:
+          type: string
+          nullable: true
+    CameraPreview:
+      type: object
+      required:
+        - cameraId
+        - url
+      properties:
+        cameraId:
+          type: string
+        url:
+          type: string
+          format: uri
+        expiresAt:
+          type: string
+          format: date-time
+    HealthSummary:
+      type: object
+      required:
+        - status
+        - updatedAt
+        - modules
+      properties:
+        status:
+          type: string
+          enum:
+            - healthy
+            - degraded
+            - down
+        updatedAt:
+          type: string
+          format: date-time
+        modules:
+          type: array
+          items:
+            $ref: '#/components/schemas/ModuleHealth'
+    ModuleHealth:
+      type: object
+      required:
+        - id
+        - status
+      properties:
+        id:
+          type: string
+          example: audio
+        status:
+          type: string
+          enum:
+            - healthy
+            - degraded
+            - down
+        message:
+          type: string
+          nullable: true
+          example: 1 device offline (pi-audio-02)
+    RecentEvents:
+      type: object
+      required:
+        - items
+      properties:
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/RecentEvent'
+        nextCursor:
+          type: string
+          nullable: true
+    RecentEvent:
+      type: object
+      required:
+        - id
+        - source
+        - title
+        - severity
+        - timestamp
+      properties:
+        id:
+          type: string
+        source:
+          type: string
+          example: audio
+        title:
+          type: string
+          example: Lobby Speakers playback resumed
+        severity:
+          type: string
+          enum:
+            - info
+            - warning
+            - critical
+        timestamp:
+          type: string
+          format: date-time
+        correlationId:
+          type: string
+          nullable: true
+  responses:
+    UnauthorizedError:
+      description: Authentication credentials missing or invalid.
+      headers:
+        x-correlation-id:
+          $ref: '#/components/headers/CorrelationId'
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+          examples:
+            missingToken:
+              value:
+                code: AUTH_REQUIRED
+                message: Bearer token is required.
+                hint: Provide an Authorization header with a valid token.
+                correlationId: aaaaa1111-2222-3333-4444-555555555555
+    ForbiddenError:
+      description: Authenticated user lacks required scope.
+      headers:
+        x-correlation-id:
+          $ref: '#/components/headers/CorrelationId'
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+          examples:
+            forbidden:
+              value:
+                code: AUTH_FORBIDDEN
+                message: Token is missing the required scope for audio:write.
+                correlationId: bbbbb1111-2222-3333-4444-555555555555
+    NotFoundError:
+      description: Requested resource could not be found.
+      headers:
+        x-correlation-id:
+          $ref: '#/components/headers/CorrelationId'
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+          examples:
+            notFound:
+              value:
+                code: RESOURCE_NOT_FOUND
+                message: Audio device pi-audio-99 was not found.
+                correlationId: ccccc1111-2222-3333-4444-555555555555
+    ValidationError:
+      description: Request payload failed validation.
+      headers:
+        x-correlation-id:
+          $ref: '#/components/headers/CorrelationId'
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+          examples:
+            invalidVolume:
+              value:
+                code: VALIDATION_FAILED
+                message: Volume must be between 0.0 and 2.0.
+                details:
+                  field: volume
+                  minimum: 0
+                  maximum: 2
+                correlationId: ddddd1111-2222-3333-4444-555555555555
+    ConflictError:
+      description: Resource is in a conflicting state.
+      headers:
+        x-correlation-id:
+          $ref: '#/components/headers/CorrelationId'
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+          examples:
+            conflict:
+              value:
+                code: RESOURCE_BUSY
+                message: TV is processing another command.
+                correlationId: eeeee1111-2222-3333-4444-555555555555
+    RateLimitError:
+      description: Request rate limit exceeded.
+      headers:
+        x-correlation-id:
+          $ref: '#/components/headers/CorrelationId'
+        x-ratelimit-limit:
+          $ref: '#/components/headers/RateLimitLimit'
+        x-ratelimit-remaining:
+          $ref: '#/components/headers/RateLimitRemaining'
+        retry-after:
+          $ref: '#/components/headers/RetryAfterSeconds'
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+          examples:
+            throttled:
+              value:
+                code: RATE_LIMIT_EXCEEDED
+                message: Too many requests. Please retry later.
+                correlationId: fffff1111-2222-3333-4444-555555555555
+    BadGatewayError:
+      description: Upstream device returned an invalid response or is unreachable.
+      headers:
+        x-correlation-id:
+          $ref: '#/components/headers/CorrelationId'
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+          examples:
+            badGateway:
+              value:
+                code: UPSTREAM_UNAVAILABLE
+                message: Audio backend is unreachable.
+                correlationId: ggggg1111-2222-3333-4444-555555555555
+    GatewayTimeoutError:
+      description: Upstream device timed out while processing the request.
+      headers:
+        x-correlation-id:
+          $ref: '#/components/headers/CorrelationId'
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+          examples:
+            timeout:
+              value:
+                code: AUDIO_DEVICE_TIMEOUT
+                message: Audio device pi-audio-01 timed out.
+                hint: Ensure the device is powered on and reachable.
+                correlationId: hhhhh1111-2222-3333-4444-555555555555
+    InternalError:
+      description: Unexpected server error occurred.
+      headers:
+        x-correlation-id:
+          $ref: '#/components/headers/CorrelationId'
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+          examples:
+            internal:
+              value:
+                code: INTERNAL_ERROR
+                message: Unexpected error occurred.
+                correlationId: iiiii1111-2222-3333-4444-555555555555
+
+paths:
+  /fleet/layout:
+    get:
+      tags:
+        - Fleet
+      summary: Retrieve layout metadata for Fleet UI modules.
+      description: Returns the list of modules the UI should render and their exposed capabilities.
+      operationId: getFleetLayout
+      responses:
+        '200':
+          description: Layout information for all modules.
+          headers:
+            x-correlation-id:
+              $ref: '#/components/headers/CorrelationId'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/FleetLayout'
+              examples:
+                default:
+                  summary: Example layout
+                  value:
+                    updatedAt: '2024-03-28T09:00:00Z'
+                    modules:
+                      - id: audio
+                        displayName: Audio Players
+                        enabled: true
+                        description: Controls for distributed audio zones.
+                        capabilities:
+                          - playback
+                          - volume
+                          - configuration
+                      - id: video
+                        displayName: TV Control
+                        enabled: true
+                        capabilities:
+                          - power
+                          - input
+                          - volume
+                      - id: zigbee
+                        displayName: Zigbee Lighting
+                        enabled: true
+                        capabilities:
+                          - toggle
+                          - scene
+                      - id: camera
+                        displayName: Cameras
+                        enabled: true
+                        capabilities:
+                          - live-preview
+                          - events
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '403':
+          $ref: '#/components/responses/ForbiddenError'
+        '429':
+          $ref: '#/components/responses/RateLimitError'
+        '500':
+          $ref: '#/components/responses/InternalError'
+  /fleet/state:
+    get:
+      tags:
+        - Fleet
+      summary: Retrieve summarized state for the dashboard view.
+      description: Aggregates the latest audio, video, Zigbee, and camera status into a single payload for the dashboard.
+      operationId: getFleetState
+      responses:
+        '200':
+          description: Summarized fleet state.
+          headers:
+            x-correlation-id:
+              $ref: '#/components/headers/CorrelationId'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/FleetState'
+              examples:
+                default:
+                  summary: Fleet overview
+                  value:
+                    generatedAt: '2024-03-28T09:05:00Z'
+                    audio:
+                      devices:
+                        - id: pi-audio-01
+                          displayName: Lobby Speakers
+                          online: true
+                          playback:
+                            state: playing
+                            source: stream
+                            trackTitle: Ambient Lobby Stream
+                            since: '2024-03-28T08:55:00Z'
+                          volume:
+                            level: 0.9
+                            locked: false
+                          lastSeen: '2024-03-28T09:05:00Z'
+                          capabilities:
+                            - play
+                            - stop
+                            - volume
+                            - upload
+                          config:
+                            streamUrl: 'http://stream.example.com/lobby'
+                            mode: live
+                            defaultSource: stream
+                        - id: pi-audio-02
+                          displayName: Patio Speakers
+                          online: false
+                          playback:
+                            state: error
+                            source: stream
+                            errorMessage: Heartbeat lost
+                          volume:
+                            level: 0.5
+                          lastSeen: '2024-03-28T08:40:12Z'
+                    video:
+                      tv:
+                        id: tv-main-hall
+                        displayName: Main Hall TV
+                        online: true
+                        power: on
+                        input: HDMI2
+                        availableInputs:
+                          - HDMI1
+                          - HDMI2
+                          - HDMI3
+                        volume: 18
+                        mute: false
+                        lastSeen: '2024-03-28T09:04:27Z'
+                    zigbee:
+                      coordinatorOnline: true
+                      devicesOnline: 22
+                      totalDevices: 24
+                      scenesAvailable:
+                        - evening
+                        - away
+                    camera:
+                      totalCameras: 6
+                      onlineCameras: 6
+                      recordingCameras: 5
+                      motionEventsToday: 8
+                      lastEventAt: '2024-03-28T08:58:45Z'
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '403':
+          $ref: '#/components/responses/ForbiddenError'
+        '429':
+          $ref: '#/components/responses/RateLimitError'
+        '500':
+          $ref: '#/components/responses/InternalError'
+  /audio/devices:
+    get:
+      tags:
+        - Audio
+      summary: List registered audio devices.
+      description: Returns a paginated list of audio players and their latest telemetry.
+      operationId: listAudioDevices
+      parameters:
+        - $ref: '#/components/parameters/LimitParam'
+        - $ref: '#/components/parameters/CursorParam'
+      responses:
+        '200':
+          description: Collection of audio devices.
+          headers:
+            x-correlation-id:
+              $ref: '#/components/headers/CorrelationId'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AudioDeviceList'
+              examples:
+                default:
+                  value:
+                    items:
+                      - id: pi-audio-01
+                        displayName: Lobby Speakers
+                        online: true
+                        playback:
+                          state: playing
+                          source: stream
+                        volume:
+                          level: 0.85
+                        lastSeen: '2024-03-28T09:05:00Z'
+                      - id: pi-audio-02
+                        displayName: Patio Speakers
+                        online: false
+                        playback:
+                          state: error
+                          source: stream
+                          errorMessage: Device offline
+                        volume:
+                          level: 0.5
+                          locked: true
+                        lastSeen: '2024-03-28T08:50:10Z'
+                    nextCursor: null
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '403':
+          $ref: '#/components/responses/ForbiddenError'
+        '429':
+          $ref: '#/components/responses/RateLimitError'
+        '502':
+          $ref: '#/components/responses/BadGatewayError'
+        '504':
+          $ref: '#/components/responses/GatewayTimeoutError'
+  /audio/{id}:
+    get:
+      tags:
+        - Audio
+      summary: Retrieve status for a specific audio device.
+      description: Fetches the real-time playback, volume, and connectivity status for a single audio player.
+      operationId: getAudioDevice
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: Audio device identifier.
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Current device status.
+          headers:
+            x-correlation-id:
+              $ref: '#/components/headers/CorrelationId'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AudioDeviceStatus'
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '403':
+          $ref: '#/components/responses/ForbiddenError'
+        '404':
+          $ref: '#/components/responses/NotFoundError'
+        '429':
+          $ref: '#/components/responses/RateLimitError'
+        '502':
+          $ref: '#/components/responses/BadGatewayError'
+        '504':
+          $ref: '#/components/responses/GatewayTimeoutError'
+  /audio/{id}/play:
+    post:
+      tags:
+        - Audio
+      summary: Start playback on an audio device.
+      description: Requests the player to begin playback from either the live stream or cached fallback file.
+      operationId: playAudioDevice
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AudioPlayRequest'
+            examples:
+              stream:
+                value:
+                  source: stream
+              file:
+                value:
+                  source: file
+                  resume: true
+      responses:
+        '200':
+          description: Updated device status after triggering playback.
+          headers:
+            x-correlation-id:
+              $ref: '#/components/headers/CorrelationId'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AudioDeviceStatus'
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '403':
+          $ref: '#/components/responses/ForbiddenError'
+        '404':
+          $ref: '#/components/responses/NotFoundError'
+        '409':
+          description: Device busy and cannot accept playback command.
+          headers:
+            x-correlation-id:
+              $ref: '#/components/headers/CorrelationId'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              examples:
+                busy:
+                  value:
+                    code: AUDIO_DEVICE_BUSY
+                    message: Device pi-audio-01 is switching sources.
+                    hint: Retry after the current action completes.
+                    correlationId: 4ab2f33e-2cdd-4c02-afad-305feff5df4f
+        '422':
+          $ref: '#/components/responses/ValidationError'
+        '429':
+          $ref: '#/components/responses/RateLimitError'
+        '502':
+          $ref: '#/components/responses/BadGatewayError'
+        '504':
+          $ref: '#/components/responses/GatewayTimeoutError'
+  /audio/{id}/stop:
+    post:
+      tags:
+        - Audio
+      summary: Stop playback on an audio device.
+      description: Immediately halts playback and reports the resulting idle state for the device.
+      operationId: stopAudioDevice
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Playback halted.
+          headers:
+            x-correlation-id:
+              $ref: '#/components/headers/CorrelationId'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AudioStopResponse'
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '403':
+          $ref: '#/components/responses/ForbiddenError'
+        '404':
+          $ref: '#/components/responses/NotFoundError'
+        '429':
+          $ref: '#/components/responses/RateLimitError'
+        '502':
+          $ref: '#/components/responses/BadGatewayError'
+        '504':
+          $ref: '#/components/responses/GatewayTimeoutError'
+  /audio/{id}/volume:
+    post:
+      tags:
+        - Audio
+      summary: Adjust playback volume for an audio device.
+      description: Sets the absolute gain multiplier on the target player (0.0–2.0 range).
+      operationId: setAudioDeviceVolume
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AudioVolumeRequest'
+      responses:
+        '200':
+          description: Updated device volume state.
+          headers:
+            x-correlation-id:
+              $ref: '#/components/headers/CorrelationId'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AudioVolumeResponse'
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '403':
+          $ref: '#/components/responses/ForbiddenError'
+        '404':
+          $ref: '#/components/responses/NotFoundError'
+        '422':
+          $ref: '#/components/responses/ValidationError'
+        '429':
+          $ref: '#/components/responses/RateLimitError'
+        '502':
+          $ref: '#/components/responses/BadGatewayError'
+        '504':
+          $ref: '#/components/responses/GatewayTimeoutError'
+  /audio/{id}/config:
+    put:
+      tags:
+        - Audio
+      summary: Update persistent configuration for an audio device.
+      description: Persists stream URLs, fallback behaviour, and default source selection for a player.
+      operationId: updateAudioDeviceConfig
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AudioConfigRequest'
+      responses:
+        '200':
+          description: Updated device configuration and status.
+          headers:
+            x-correlation-id:
+              $ref: '#/components/headers/CorrelationId'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AudioConfigResponse'
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '403':
+          $ref: '#/components/responses/ForbiddenError'
+        '404':
+          $ref: '#/components/responses/NotFoundError'
+        '409':
+          description: Device busy updating configuration.
+          headers:
+            x-correlation-id:
+              $ref: '#/components/headers/CorrelationId'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '422':
+          $ref: '#/components/responses/ValidationError'
+        '429':
+          $ref: '#/components/responses/RateLimitError'
+        '502':
+          $ref: '#/components/responses/BadGatewayError'
+        '504':
+          $ref: '#/components/responses/GatewayTimeoutError'
+  /video/tv:
+    get:
+      tags:
+        - Video
+      summary: Retrieve the current TV state.
+      description: Reports the TV's power, input, volume, and mute status via the backend CEC adapter.
+      operationId: getTvStatus
+      responses:
+        '200':
+          description: TV status details.
+          headers:
+            x-correlation-id:
+              $ref: '#/components/headers/CorrelationId'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TvStatus'
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '403':
+          $ref: '#/components/responses/ForbiddenError'
+        '429':
+          $ref: '#/components/responses/RateLimitError'
+        '502':
+          $ref: '#/components/responses/BadGatewayError'
+        '504':
+          $ref: '#/components/responses/GatewayTimeoutError'
+  /video/tv/power:
+    post:
+      tags:
+        - Video
+      summary: Toggle TV power state.
+      description: Sends a CEC command to turn the TV on or off and returns the updated status snapshot.
+      operationId: setTvPower
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/TvPowerRequest'
+      responses:
+        '200':
+          description: Updated TV status.
+          headers:
+            x-correlation-id:
+              $ref: '#/components/headers/CorrelationId'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TvStatus'
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '403':
+          $ref: '#/components/responses/ForbiddenError'
+        '409':
+          description: TV is already processing another command.
+          headers:
+            x-correlation-id:
+              $ref: '#/components/headers/CorrelationId'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '422':
+          $ref: '#/components/responses/ValidationError'
+        '429':
+          $ref: '#/components/responses/RateLimitError'
+        '502':
+          $ref: '#/components/responses/BadGatewayError'
+        '504':
+          $ref: '#/components/responses/GatewayTimeoutError'
+  /video/tv/input:
+    post:
+      tags:
+        - Video
+      summary: Change the active TV input.
+      description: Switches the HDMI input using CEC and yields the refreshed device status.
+      operationId: setTvInput
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/TvInputRequest'
+      responses:
+        '200':
+          description: Updated TV status.
+          headers:
+            x-correlation-id:
+              $ref: '#/components/headers/CorrelationId'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TvStatus'
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '403':
+          $ref: '#/components/responses/ForbiddenError'
+        '409':
+          $ref: '#/components/responses/ConflictError'
+        '422':
+          $ref: '#/components/responses/ValidationError'
+        '429':
+          $ref: '#/components/responses/RateLimitError'
+        '502':
+          $ref: '#/components/responses/BadGatewayError'
+        '504':
+          $ref: '#/components/responses/GatewayTimeoutError'
+  /video/tv/volume:
+    post:
+      tags:
+        - Video
+      summary: Set the absolute TV volume level.
+      description: Issues an absolute volume command and returns the post-change TV status payload.
+      operationId: setTvVolume
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/TvVolumeRequest'
+      responses:
+        '200':
+          description: Updated TV status including volume details.
+          headers:
+            x-correlation-id:
+              $ref: '#/components/headers/CorrelationId'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TvStatus'
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '403':
+          $ref: '#/components/responses/ForbiddenError'
+        '422':
+          $ref: '#/components/responses/ValidationError'
+        '429':
+          $ref: '#/components/responses/RateLimitError'
+        '502':
+          $ref: '#/components/responses/BadGatewayError'
+        '504':
+          $ref: '#/components/responses/GatewayTimeoutError'
+  /video/tv/mute:
+    post:
+      tags:
+        - Video
+      summary: Toggle TV mute state.
+      description: Updates the mute flag through CEC commands and returns the latest status snapshot.
+      operationId: setTvMute
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/TvMuteRequest'
+      responses:
+        '200':
+          description: Updated TV status.
+          headers:
+            x-correlation-id:
+              $ref: '#/components/headers/CorrelationId'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TvStatus'
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '403':
+          $ref: '#/components/responses/ForbiddenError'
+        '429':
+          $ref: '#/components/responses/RateLimitError'
+        '502':
+          $ref: '#/components/responses/BadGatewayError'
+        '504':
+          $ref: '#/components/responses/GatewayTimeoutError'
+  /zigbee/devices:
+    get:
+      tags:
+        - Zigbee
+      summary: List Zigbee devices with their latest state.
+      description: Provides a paginated list of Zigbee switches, sensors, and lights with recent telemetry.
+      operationId: listZigbeeDevices
+      parameters:
+        - $ref: '#/components/parameters/LimitParam'
+        - $ref: '#/components/parameters/CursorParam'
+      responses:
+        '200':
+          description: Zigbee device collection.
+          headers:
+            x-correlation-id:
+              $ref: '#/components/headers/CorrelationId'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ZigbeeDeviceList'
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '403':
+          $ref: '#/components/responses/ForbiddenError'
+        '429':
+          $ref: '#/components/responses/RateLimitError'
+        '502':
+          $ref: '#/components/responses/BadGatewayError'
+        '504':
+          $ref: '#/components/responses/GatewayTimeoutError'
+  /zigbee/devices/{id}/action:
+    post:
+      tags:
+        - Zigbee
+      summary: Execute a control action on a Zigbee device.
+      description: Sends toggle, on/off, or scene commands to a Zigbee endpoint and reports the updated device state.
+      operationId: runZigbeeDeviceAction
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ZigbeeActionRequest'
+      responses:
+        '202':
+          description: Action accepted.
+          headers:
+            x-correlation-id:
+              $ref: '#/components/headers/CorrelationId'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ZigbeeDeviceSummary'
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '403':
+          $ref: '#/components/responses/ForbiddenError'
+        '404':
+          $ref: '#/components/responses/NotFoundError'
+        '409':
+          $ref: '#/components/responses/ConflictError'
+        '422':
+          $ref: '#/components/responses/ValidationError'
+        '429':
+          $ref: '#/components/responses/RateLimitError'
+        '502':
+          $ref: '#/components/responses/BadGatewayError'
+        '504':
+          $ref: '#/components/responses/GatewayTimeoutError'
+  /camera/summary:
+    get:
+      tags:
+        - Camera
+      summary: Retrieve aggregated camera health and storage information.
+      description: Summarises camera online/offline status and recording storage utilisation.
+      operationId: getCameraSummary
+      responses:
+        '200':
+          description: Camera summary data.
+          headers:
+            x-correlation-id:
+              $ref: '#/components/headers/CorrelationId'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CameraSummary'
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '403':
+          $ref: '#/components/responses/ForbiddenError'
+        '429':
+          $ref: '#/components/responses/RateLimitError'
+        '502':
+          $ref: '#/components/responses/BadGatewayError'
+        '504':
+          $ref: '#/components/responses/GatewayTimeoutError'
+  /camera/events:
+    get:
+      tags:
+        - Camera
+      summary: List recent camera events.
+      description: Provides paginated camera motion/offline events with optional time filtering.
+      operationId: listCameraEvents
+      parameters:
+        - $ref: '#/components/parameters/EventsLimitParam'
+        - $ref: '#/components/parameters/CursorParam'
+        - $ref: '#/components/parameters/SinceParam'
+      responses:
+        '200':
+          description: Recent camera events.
+          headers:
+            x-correlation-id:
+              $ref: '#/components/headers/CorrelationId'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CameraEvents'
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '403':
+          $ref: '#/components/responses/ForbiddenError'
+        '429':
+          $ref: '#/components/responses/RateLimitError'
+        '502':
+          $ref: '#/components/responses/BadGatewayError'
+        '504':
+          $ref: '#/components/responses/GatewayTimeoutError'
+  /camera/preview/{id}:
+    get:
+      tags:
+        - Camera
+      summary: Generate a temporary preview URL for a camera feed.
+      description: Issues a signed URL for live preview playback when available for the requested camera.
+      operationId: getCameraPreview
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Preview URL for the requested camera.
+          headers:
+            x-correlation-id:
+              $ref: '#/components/headers/CorrelationId'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CameraPreview'
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '403':
+          $ref: '#/components/responses/ForbiddenError'
+        '404':
+          $ref: '#/components/responses/NotFoundError'
+        '429':
+          $ref: '#/components/responses/RateLimitError'
+        '502':
+          $ref: '#/components/responses/BadGatewayError'
+        '504':
+          $ref: '#/components/responses/GatewayTimeoutError'
+  /health/summary:
+    get:
+      tags:
+        - Health
+      summary: Fleet-wide health summary for observability panel.
+      description: Collates module health states, marking degraded components and timestamping the snapshot.
+      operationId: getHealthSummary
+      responses:
+        '200':
+          description: Health information for modules.
+          headers:
+            x-correlation-id:
+              $ref: '#/components/headers/CorrelationId'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HealthSummary'
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '403':
+          $ref: '#/components/responses/ForbiddenError'
+        '429':
+          $ref: '#/components/responses/RateLimitError'
+        '500':
+          $ref: '#/components/responses/InternalError'
+  /events/recent:
+    get:
+      tags:
+        - Health
+      summary: Retrieve recent cross-module events for the activity feed.
+      description: Returns a flattened, paginated activity feed across all Fleet subsystems.
+      operationId: getRecentEvents
+      parameters:
+        - $ref: '#/components/parameters/EventsLimitParam'
+        - $ref: '#/components/parameters/CursorParam'
+      responses:
+        '200':
+          description: Recent fleet events.
+          headers:
+            x-correlation-id:
+              $ref: '#/components/headers/CorrelationId'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RecentEvents'
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '403':
+          $ref: '#/components/responses/ForbiddenError'
+        '429':
+          $ref: '#/components/responses/RateLimitError'
+        '500':
+          $ref: '#/components/responses/InternalError'

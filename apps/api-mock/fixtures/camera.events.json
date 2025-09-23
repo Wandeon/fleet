@@ -1,0 +1,35 @@
+{
+  "items": [
+    {
+      "id": "evt-20240328-001",
+      "cameraId": "cam-lobby-01",
+      "type": "motion",
+      "severity": "info",
+      "timestamp": "2024-03-28T08:58:45Z",
+      "clipUrl": "https://cdn.example.com/cam-lobby-01/evt-20240328-001.mp4",
+      "thumbnailUrl": "https://cdn.example.com/cam-lobby-01/evt-20240328-001.jpg",
+      "synopsis": "Motion detected near lobby entrance."
+    },
+    {
+      "id": "evt-20240328-002",
+      "cameraId": "cam-parking-02",
+      "type": "motion",
+      "severity": "warning",
+      "timestamp": "2024-03-28T08:43:12Z",
+      "clipUrl": "https://cdn.example.com/cam-parking-02/evt-20240328-002.mp4",
+      "thumbnailUrl": "https://cdn.example.com/cam-parking-02/evt-20240328-002.jpg",
+      "synopsis": "Vehicle lingered near the south lot."
+    },
+    {
+      "id": "evt-20240328-003",
+      "cameraId": "cam-warehouse-01",
+      "type": "offline",
+      "severity": "critical",
+      "timestamp": "2024-03-28T08:10:00Z",
+      "clipUrl": null,
+      "thumbnailUrl": null,
+      "synopsis": "Camera lost connection."
+    }
+  ],
+  "nextCursor": null
+}

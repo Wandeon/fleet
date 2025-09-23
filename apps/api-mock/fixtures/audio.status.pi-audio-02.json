@@ -1,0 +1,21 @@
+{
+  "id": "pi-audio-02",
+  "displayName": "Patio Speakers",
+  "online": false,
+  "playback": {
+    "state": "error",
+    "source": "stream",
+    "errorMessage": "Device offline"
+  },
+  "volume": {
+    "level": 0.5,
+    "locked": true
+  },
+  "lastSeen": "2024-03-28T08:50:10Z",
+  "capabilities": ["play", "stop", "volume"],
+  "config": {
+    "streamUrl": "http://stream.example.com/patio",
+    "mode": "live",
+    "defaultSource": "stream"
+  }
+}

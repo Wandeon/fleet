@@ -1,0 +1,23 @@
+{
+  "id": "pi-audio-01",
+  "displayName": "Lobby Speakers",
+  "online": true,
+  "playback": {
+    "state": "playing",
+    "source": "stream",
+    "trackTitle": "Ambient Lobby Stream",
+    "since": "2024-03-28T08:55:00Z"
+  },
+  "volume": {
+    "level": 0.9,
+    "locked": false,
+    "lastChangedBy": "ui"
+  },
+  "lastSeen": "2024-03-28T09:05:00Z",
+  "capabilities": ["play", "stop", "volume", "upload"],
+  "config": {
+    "streamUrl": "http://stream.example.com/lobby",
+    "mode": "live",
+    "defaultSource": "stream"
+  }
+}

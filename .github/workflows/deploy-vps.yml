@@ -2,6 +2,7 @@ name: Deploy to VPS
 
 on:
   push:
+
     branches:
       - main
   workflow_dispatch:
@@ -172,3 +173,265 @@ jobs:
         run: |
           echo "Acceptance failed" >&2
           exit 2
+
+    branches: [main]
+
+permissions:
+  contents: read
+  packages: write
+
+env:
+  REGISTRY: ghcr.io
+  ACCEPTANCE_HOSTS: ${{ secrets.ACCEPTANCE_HOSTS || 'pi-audio-01 pi-audio-02' }}
+  ACCEPTANCE_ICECAST: ${{ secrets.ACCEPTANCE_ICECAST || 'http://localhost:8000/mount' }}
+  ACCEPTANCE_SSH_USER: ${{ secrets.ACCEPTANCE_SSH_USER || 'admin' }}
+
+jobs:
+  build-images:
+    name: Build & push images
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+    outputs:
+      owner: ${{ steps.meta.outputs.owner }}
+      api_image: ${{ steps.meta.outputs.api_image }}
+      api_image_latest: ${{ steps.meta.outputs.api_image_latest }}
+      api_digest: ${{ steps.build_api.outputs.digest }}
+      ui_image: ${{ steps.meta.outputs.ui_image }}
+      ui_image_latest: ${{ steps.meta.outputs.ui_image_latest }}
+      ui_digest: ${{ steps.build_ui.outputs.digest }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Prepare image metadata
+        id: meta
+        run: |
+          set -euo pipefail
+          owner=$(echo "${GITHUB_REPOSITORY_OWNER}" | tr '[:upper:]' '[:lower:]')
+          api_image="ghcr.io/${owner}/fleet-api"
+          ui_image="ghcr.io/${owner}/fleet-ui"
+          sha="${GITHUB_SHA}"
+          {
+            echo "owner=${owner}"
+            echo "api_image=${api_image}:${sha}"
+            echo "api_image_latest=${api_image}:latest"
+            echo "ui_image=${ui_image}:${sha}"
+            echo "ui_image_latest=${ui_image}:latest"
+          } >> "$GITHUB_OUTPUT"
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Log in to GHCR
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.repository_owner }}
+          password: ${{ secrets.GHCR_PAT }}
+
+      - name: Build and push API image
+        id: build_api
+        uses: docker/build-push-action@v5
+        with:
+          context: ./api
+          push: true
+          tags: |
+            ${{ steps.meta.outputs.api_image }}
+            ${{ steps.meta.outputs.api_image_latest }}
+          cache-from: type=gha,scope=api
+          cache-to: type=gha,scope=api,mode=max
+          platforms: linux/amd64
+
+      - name: Build and push UI image
+        id: build_ui
+        uses: docker/build-push-action@v5
+        with:
+          context: ./ui
+          push: true
+          tags: |
+            ${{ steps.meta.outputs.ui_image }}
+            ${{ steps.meta.outputs.ui_image_latest }}
+          cache-from: type=gha,scope=ui
+          cache-to: type=gha,scope=ui,mode=max
+          platforms: linux/amd64
+
+  deploy:
+    name: Deploy to fleet VPS
+    runs-on: ubuntu-latest
+    needs: build-images
+    permissions:
+      contents: read
+    env:
+      VPS_HOST: ${{ secrets.VPS_HOST }}
+      VPS_USER: ${{ secrets.VPS_USER }}
+      VPS_SSH_KEY: ${{ secrets.VPS_SSH_KEY }}
+      AUDIOCTL_TOKEN: ${{ secrets.ACCEPTANCE_AUDIOCTL_TOKEN }}
+    outputs:
+      api_health: ${{ steps.api_health.outputs.status }}
+      ui_health: ${{ steps.ui_health.outputs.status }}
+      acceptance_log: ${{ steps.acceptance.outputs.summary }}
+      deploy_log: ${{ steps.run_deploy.outputs.log }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Ensure SSH key
+        run: |
+          set -euo pipefail
+          if [ -z "${VPS_SSH_KEY}" ] || [ -z "${VPS_HOST}" ] || [ -z "${VPS_USER}" ]; then
+            echo "VPS connection secrets are not fully configured" >&2
+            exit 1
+          fi
+          mkdir -p ~/.ssh
+          printf '%s\n' "${VPS_SSH_KEY}" > ~/.ssh/id_ed25519
+          chmod 600 ~/.ssh/id_ed25519
+          ssh-keyscan -H "${VPS_HOST}" >> ~/.ssh/known_hosts
+
+      - name: Create remote directory
+        run: |
+          set -euo pipefail
+          ssh "${VPS_USER}@${VPS_HOST}" 'mkdir -p /opt/fleet'
+
+      - name: Sync repository to VPS
+        run: |
+          set -euo pipefail
+          rsync -az --delete --exclude '.git/' --exclude '.deploy/' --exclude 'node_modules/' ./ "${VPS_USER}@${VPS_HOST}:/opt/fleet"
+
+      - name: Push deployment environment
+        id: envfile
+        env:
+          API_IMAGE: ${{ needs.build-images.outputs.api_image }}
+          UI_IMAGE: ${{ needs.build-images.outputs.ui_image }}
+          RELEASE_SHA: ${{ github.sha }}
+        run: |
+          set -euo pipefail
+          tmp=$(mktemp)
+          {
+            printf 'FLEET_API_IMAGE=%s\n' "$(printf '%q' "${API_IMAGE}")"
+            printf 'FLEET_WORKER_IMAGE=%s\n' "$(printf '%q' "${API_IMAGE}")"
+            printf 'FLEET_UI_IMAGE=%s\n' "$(printf '%q' "${UI_IMAGE}")"
+            printf 'FLEET_RELEASE_SHA=%s\n' "$(printf '%q' "${RELEASE_SHA}")"
+            printf 'ACCEPTANCE_HOSTS=%s\n' "$(printf '%q' "${ACCEPTANCE_HOSTS}")"
+            printf 'ICECAST_URL=%s\n' "$(printf '%q' "${ACCEPTANCE_ICECAST}")"
+            printf 'ACCEPTANCE_SSH_USER=%s\n' "$(printf '%q' "${ACCEPTANCE_SSH_USER}")"
+            printf 'AUDIOCTL_TOKEN=%s\n' "$(printf '%q' "${AUDIOCTL_TOKEN}")"
+          } > "$tmp"
+          scp "$tmp" "${VPS_USER}@${VPS_HOST}:/tmp/fleet-deploy.env"
+          rm -f "$tmp"
+
+      - name: Deploy stack
+        id: run_deploy
+        env:
+          SSH_USER: ${{ env.VPS_USER }}
+        run: |
+          set -euo pipefail
+          log_file=$(mktemp)
+          ssh "${VPS_USER}@${VPS_HOST}" 'set -euo pipefail; cd /opt/fleet && set -a && source /tmp/fleet-deploy.env && set +a && scripts/vps-deploy.sh' | tee "$log_file"
+          echo "log<<'EOF'" >> "$GITHUB_OUTPUT"
+          cat "$log_file" >> "$GITHUB_OUTPUT"
+          echo 'EOF' >> "$GITHUB_OUTPUT"
+
+      - name: API health probe
+        id: api_health
+        run: |
+          set -euo pipefail
+          if output=$(ssh "${VPS_USER}@${VPS_HOST}" "curl -fsS --max-time 10 http://127.0.0.1:3005/healthz"); then
+            echo "$output" > api-health.json
+            echo "status=pass" >> "$GITHUB_OUTPUT"
+          else
+            echo "status=fail" >> "$GITHUB_OUTPUT"
+            exit 1
+          fi
+
+      - name: UI health probe
+        id: ui_health
+        run: |
+          set -euo pipefail
+          if output=$(ssh "${VPS_USER}@${VPS_HOST}" "curl -fsS --max-time 10 http://127.0.0.1/"); then
+            echo "$output" > ui-health.html
+            echo "status=pass" >> "$GITHUB_OUTPUT"
+          else
+            echo "status=fail" >> "$GITHUB_OUTPUT"
+            exit 1
+          fi
+
+      - name: Acceptance verification
+        id: acceptance
+        run: |
+          set -euo pipefail
+          ssh "${VPS_USER}@${VPS_HOST}" 'bash -s' <<'EOS' | tee acceptance.log
+set -euo pipefail
+cd /opt/fleet
+set -a
+source /tmp/fleet-deploy.env
+set +a
+IFS=$' \n\t' read -r -a hosts <<<"${ACCEPTANCE_HOSTS}"
+if [ "${#hosts[@]}" -eq 0 ]; then
+  echo "No acceptance hosts configured" >&2
+  exit 1
+fi
+AUDIOCTL_TOKEN="${AUDIOCTL_TOKEN}" ICECAST_URL="${ICECAST_URL}" SSH_USER="${ACCEPTANCE_SSH_USER}" scripts/acceptance.sh "${hosts[@]}"
+EOS
+          echo "summary<<'EOF'" >> "$GITHUB_OUTPUT"
+          cat acceptance.log >> "$GITHUB_OUTPUT"
+          echo 'EOF' >> "$GITHUB_OUTPUT"
+
+      - name: Append summary
+        if: always()
+        env:
+          API_STATUS: ${{ steps.api_health.outputs.status || 'not-run' }}
+          UI_STATUS: ${{ steps.ui_health.outputs.status || 'not-run' }}
+          ACCEPTANCE_STATUS: ${{ steps.acceptance.outcome || 'not-run' }}
+        run: |
+          set -euo pipefail
+          {
+            echo '### Deployment Summary'
+            echo "* API image: ${{ needs.build-images.outputs.api_image }}"
+            echo "* UI image: ${{ needs.build-images.outputs.ui_image }}"
+            echo "* API health: ${API_STATUS}"
+            echo "* UI health: ${UI_STATUS}"
+            echo "* Acceptance step: ${ACCEPTANCE_STATUS}"
+          } >> "$GITHUB_STEP_SUMMARY"
+
+  notify:
+    name: Deployment notification
+    runs-on: ubuntu-latest
+    needs: [build-images, deploy]
+    if: always()
+    permissions:
+      contents: write
+    steps:
+      - name: Post deployment comment
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const marker = '<!-- fleet-deploy-report -->';
+            const status = '${{ needs.deploy.result }}';
+            const apiHealth = '${{ needs.deploy.outputs.api_health || 'unknown' }}';
+            const uiHealth = '${{ needs.deploy.outputs.ui_health || 'unknown' }}';
+            const acceptance = `${{ toJSON(needs.deploy.outputs.acceptance_log || '') }}`.replace(/^"|"$/g, '');
+            const success = status === 'success';
+            const header = success ? '✅ Deployment succeeded' : '❌ Deployment failed';
+            const lines = [
+              marker,
+              `${header} for \`${context.sha.slice(0, 7)}\``,
+              '',
+              `- API image: ${{ needs.build-images.outputs.api_image }}`,
+              `- UI image: ${{ needs.build-images.outputs.ui_image }}`,
+              `- API health: **${apiHealth}**`,
+              `- UI health: **${uiHealth}**`,
+            ];
+            if (acceptance) {
+              lines.push('', '```', acceptance, '```');
+            }
+            const body = lines.join('\n');
+            const {github, context} = require('@actions/github');
+            await github.rest.repos.createCommitComment({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              commit_sha: context.sha,
+              body,
+            });
+

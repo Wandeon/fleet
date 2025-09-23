@@ -1,0 +1,63 @@
+name: API Contract CI
+
+on:
+  push:
+    paths:
+      - 'apps/api/**'
+      - 'apps/api-mock/**'
+      - 'apps/ui/**'
+      - 'docs/flows/api-latency-failure.md'
+      - '.github/workflows/contract-ci.yml'
+      - 'package.json'
+      - 'package-lock.json'
+  pull_request:
+    paths:
+      - 'apps/api/**'
+      - 'apps/api-mock/**'
+      - 'apps/ui/**'
+      - 'docs/flows/api-latency-failure.md'
+      - '.github/workflows/contract-ci.yml'
+      - 'package.json'
+      - 'package-lock.json'
+
+jobs:
+  contract:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 18
+      - name: Install root tooling
+        run: npm install
+      - name: Install mock dependencies
+        run: npm install --prefix apps/api-mock
+      - name: Lint OpenAPI specification
+        run: npm run openapi:lint
+      - name: Ensure generated client is up to date
+        run: |
+          npm run openapi:generate
+          git diff --exit-code
+      - name: Probe mock server endpoints
+        shell: bash
+        run: |
+          set -euo pipefail
+          npm run mock &
+          MOCK_PID=$!
+          trap 'kill $MOCK_PID' EXIT
+          sleep 3
+
+          STATUS=$(curl -s -o /tmp/layout.json -w "%{http_code}" -H 'Authorization: Bearer demo' http://localhost:3015/api/fleet/layout)
+          test "$STATUS" -eq 200
+
+          STATUS=$(curl -s -o /tmp/state.json -w "%{http_code}" -H 'Authorization: Bearer demo' http://localhost:3015/api/fleet/state)
+          test "$STATUS" -eq 200
+
+          STATUS=$(curl -s -o /tmp/unauth.json -w "%{http_code}" http://localhost:3015/api/fleet/state)
+          test "$STATUS" -eq 401
+
+          STATUS=$(curl -s -o /tmp/timeout.json -w "%{http_code}" -H 'Authorization: Bearer demo' -H 'x-mock-simulate: timeout' http://localhost:3015/api/audio/pi-audio-01)
+          test "$STATUS" -eq 504
+
+          kill $MOCK_PID
+          trap - EXIT

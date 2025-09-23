@@ -1,0 +1,29 @@
+{
+  "items": [
+    {
+      "id": "zigbee-switch-01",
+      "displayName": "Lobby Lighting",
+      "type": "switch",
+      "state": "on",
+      "batteryPercent": null,
+      "lastSeen": "2024-03-28T09:04:12Z"
+    },
+    {
+      "id": "zigbee-sensor-09",
+      "displayName": "Conference Occupancy",
+      "type": "motion",
+      "state": "clear",
+      "batteryPercent": 78,
+      "lastSeen": "2024-03-28T09:03:58Z"
+    },
+    {
+      "id": "zigbee-bulb-03",
+      "displayName": "Patio Sconces",
+      "type": "light",
+      "state": "off",
+      "batteryPercent": null,
+      "lastSeen": "2024-03-28T08:59:44Z"
+    }
+  ],
+  "nextCursor": null
+}
