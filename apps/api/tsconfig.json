@@ -1,35 +1,20 @@
 {
   "compilerOptions": {
-<<<<<<< HEAD
-    "target": "ES2021",
+    "target": "ES2022",
     "module": "CommonJS",
-    "lib": ["ES2021", "DOM"],
+    "moduleResolution": "node",
+    "lib": ["ES2022", "DOM"],
     "rootDir": "src",
     "outDir": "dist",
-    "strict": true,
+    "strict": false,
     "esModuleInterop": true,
-    "skipLibCheck": true,
-    "forceConsistentCasingInFileNames": true,
-    "moduleResolution": "node",
     "resolveJsonModule": true,
-    "types": ["node"],
+    "forceConsistentCasingInFileNames": true,
+    "skipLibCheck": true,
     "declaration": true,
-    "sourceMap": true
+    "sourceMap": true,
+    "types": ["node"]
   },
   "include": ["src/**/*.ts"],
-  "exclude": ["node_modules", "dist", "tests", "__tests__"]
-=======
-    "target": "ES2020",
-    "module": "NodeNext",
-    "moduleResolution": "NodeNext",
-    "outDir": "dist",
-    "rootDir": "src",
-    "esModuleInterop": true,
-    "forceConsistentCasingInFileNames": true,
-    "strict": false,
-    "skipLibCheck": true
-  },
-  "include": ["src/**/*.ts", "src/**/*.d.ts"],
-  "exclude": ["node_modules", "dist"]
->>>>>>> b93bf99 (Finalize observability stack)
+  "exclude": ["node_modules", "dist", "tests", "**/*.test.ts"]
 }

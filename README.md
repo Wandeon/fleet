@@ -4,6 +4,8 @@ This repository is the authoritative source for managing a Raspberry Pi + VPS fl
 
 If you only read one file to understand and operate the system, read this README. It links to all other source files and runbooks where deeper detail is maintained.
 
+> **Note:** The root `package.json` is intentionally minimal and private; it exists to pin shared tooling (OpenAPI generation, acceptance helpers) without forcing workspace installs. Individual apps such as `apps/ui` and `apps/api` manage their own dependencies and build steps independently.
+
 ## Repository Structure
 
 - `baseline/docker-compose.yml:1` - services that run on every device (e.g., Netdata)

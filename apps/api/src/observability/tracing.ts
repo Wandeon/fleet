@@ -1,7 +1,7 @@
 import os from 'node:os';
 import { NodeSDK } from '@opentelemetry/sdk-node';
 import { getNodeAutoInstrumentations } from '@opentelemetry/auto-instrumentations-node';
-import { Resource } from '@opentelemetry/resources';
+import { resourceFromAttributes } from '@opentelemetry/resources';
 import { SemanticResourceAttributes } from '@opentelemetry/semantic-conventions';
 import { ConsoleSpanExporter } from '@opentelemetry/sdk-trace-base';
 
@@ -26,13 +26,15 @@ export async function startTracing() {
 
   const exporter = new ConsoleSpanExporter();
 
+  const resource = resourceFromAttributes({
+    [SemanticResourceAttributes.SERVICE_NAME]: serviceName,
+    [SemanticResourceAttributes.SERVICE_VERSION]: serviceVersion,
+    [SemanticResourceAttributes.SERVICE_NAMESPACE]: 'fleet',
+    [SemanticResourceAttributes.HOST_NAME]: process.env.LOG_HOST || os.hostname(),
+  });
+
   sdk = new NodeSDK({
-    resource: new Resource({
-      [SemanticResourceAttributes.SERVICE_NAME]: serviceName,
-      [SemanticResourceAttributes.SERVICE_VERSION]: serviceVersion,
-      [SemanticResourceAttributes.SERVICE_NAMESPACE]: 'fleet',
-      [SemanticResourceAttributes.HOST_NAME]: process.env.LOG_HOST || os.hostname(),
-    }),
+    resource,
     traceExporter: exporter,
     instrumentations: [getNodeAutoInstrumentations()],
   });
