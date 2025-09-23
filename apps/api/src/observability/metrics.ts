@@ -49,6 +49,39 @@ const circuitBreakerStateGauge = new Gauge({
   registers: [registry]
 });
 
+const deviceOnlineGauge = new Gauge({
+  name: 'device_online',
+  help: 'Device online status (1 = online, 0 = offline)',
+  labelNames: ['device_id'],
+  registers: [registry]
+});
+
+const sseConnectionsGauge = new Gauge({
+  name: 'sse_connections',
+  help: 'Number of active Server-Sent Events connections',
+  registers: [registry]
+});
+
+const jobsDurationHistogram = new Histogram({
+  name: 'jobs_duration_ms',
+  help: 'Duration histogram for job execution times',
+  labelNames: ['deviceId'],
+  buckets: [50, 100, 250, 500, 1000, 2000, 5000, 10000],
+  registers: [registry]
+});
+
+const jobsSuccessCounter = new Counter({
+  name: 'jobs_success_total',
+  help: 'Total number of successfully executed jobs',
+  registers: [registry]
+});
+
+const jobsFailCounter = new Counter({
+  name: 'jobs_fail_total',
+  help: 'Total number of failed jobs',
+  registers: [registry]
+});
+
 export function metricsMiddleware(req: Request, res: Response, next: NextFunction): void {
   const start = process.hrtime.bigint();
 
@@ -87,3 +120,15 @@ export function setCircuitBreakerState(deviceId: string, open: boolean): void {
 export function resetMetricsForTest(): void {
   registry.resetMetrics();
 }
+
+export const metrics = {
+  http_requests_total: httpRequestsTotal,
+  http_request_duration_ms: httpRequestDurationMs,
+  upstream_device_failures_total: upstreamDeviceFailuresTotal,
+  circuit_breaker_state: circuitBreakerStateGauge,
+  device_online: deviceOnlineGauge,
+  sse_connections: sseConnectionsGauge,
+  jobs_duration: jobsDurationHistogram,
+  jobs_success: jobsSuccessCounter,
+  jobs_fail: jobsFailCounter
+};

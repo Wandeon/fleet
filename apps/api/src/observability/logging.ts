@@ -49,10 +49,6 @@ export const log = pino({
 
 export interface RequestWithCorrelation extends Request {
   correlationId?: string;
-  route?: {
-    path?: string;
-  };
-  baseUrl?: string;
 }
 
 export const correlationIdMiddleware: RequestHandler = (req, res, next) => {
