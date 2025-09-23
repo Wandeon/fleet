@@ -1,0 +1,28 @@
+{
+  "entries": [
+    {
+      "id": "log-1",
+      "timestamp": "2025-01-12T12:20:01Z",
+      "message": "pi-audio-01 acknowledged volume change",
+      "severity": "info"
+    },
+    {
+      "id": "log-2",
+      "timestamp": "2025-01-12T12:18:35Z",
+      "message": "Operator muted lounge TV",
+      "severity": "info"
+    },
+    {
+      "id": "log-3",
+      "timestamp": "2025-01-12T11:57:12Z",
+      "message": "pi-audio-02 didn’t respond. Retry?",
+      "severity": "error"
+    },
+    {
+      "id": "log-4",
+      "timestamp": "2025-01-12T11:31:10Z",
+      "message": "Zigbee hub offline. Check power and network.",
+      "severity": "warning"
+    }
+  ]
+}
