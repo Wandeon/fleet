@@ -1,0 +1,9 @@
+{
+  "power": "on",
+  "input": "HDMI1",
+  "volume": 38,
+  "muted": false,
+  "previewImage": "https://dummyimage.com/640x360/1d2b46/ffffff&text=Video+Feed",
+  "availableInputs": ["HDMI1", "HDMI2", "Chromecast", "Pi Kiosk"],
+  "lastSignal": "2025-01-12T12:17:04Z"
+}
