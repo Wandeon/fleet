@@ -1,0 +1,56 @@
+name: Rollback deployment
+
+on:
+  workflow_dispatch:
+    inputs:
+      reason:
+        description: Reason for rollback
+        required: false
+
+permissions:
+  contents: read
+
+jobs:
+  rollback:
+    name: Run rollback on VPS
+    runs-on: ubuntu-latest
+    env:
+      VPS_HOST: ${{ secrets.VPS_HOST }}
+      VPS_USER: ${{ secrets.VPS_USER }}
+      VPS_SSH_KEY: ${{ secrets.VPS_SSH_KEY }}
+      ROLLBACK_REASON: ${{ github.event.inputs.reason }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Prepare SSH
+        run: |
+          set -euo pipefail
+          if [ -z "${VPS_SSH_KEY}" ] || [ -z "${VPS_HOST}" ] || [ -z "${VPS_USER}" ]; then
+            echo "VPS connection secrets missing" >&2
+            exit 1
+          fi
+          mkdir -p ~/.ssh
+          printf '%s\n' "${VPS_SSH_KEY}" > ~/.ssh/id_ed25519
+          chmod 600 ~/.ssh/id_ed25519
+          ssh-keyscan -H "${VPS_HOST}" >> ~/.ssh/known_hosts
+
+      - name: Execute rollback script
+        id: rollback
+        run: |
+          set -euo pipefail
+          ssh "${VPS_USER}@${VPS_HOST}" 'set -euo pipefail; cd /opt/fleet && scripts/vps-rollback.sh' | tee rollback.log
+          echo "log<<'EOF'" >> "$GITHUB_OUTPUT"
+          cat rollback.log >> "$GITHUB_OUTPUT"
+          echo 'EOF' >> "$GITHUB_OUTPUT"
+
+      - name: Summarize rollback
+        run: |
+          set -euo pipefail
+          {
+            echo '### Rollback Summary'
+            if [ -n "${ROLLBACK_REASON}" ]; then
+              echo "* Reason: ${ROLLBACK_REASON}"
+            fi
+            echo "* VPS host: ${VPS_HOST}"
+          } >> "$GITHUB_STEP_SUMMARY"

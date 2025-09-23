@@ -26,9 +26,10 @@ If you only read one file to understand and operate the system, read this README
 
 ## GitOps Model
 
-- The agent (`agent/role-agent.sh:1`) runs on each Pi as a systemd timer. It pulls `main`, decrypts role env (SOPS/age), builds a Docker Compose project combining `baseline/` with the mapped role, and brings containers up.
+- The agent (`agent/role-agent.sh:1`) runs on each Pi via the systemd timer in `agent/systemd/`. It pulls `main`, decrypts role env (SOPS/age), builds a Docker Compose project combining `baseline/` with the mapped role, and brings containers up.
 - Inventory drives behavior: `inventory/devices.yaml:1` maps the current hostname to a role.
 - Secrets: each role may include `.env.sops.enc` which the agent decrypts at runtime via `SOPS_AGE_KEY_FILE=/etc/fleet/age.key` on the device. Commit only encrypted files.
+- Health and rollbacks: every converge writes `/var/run/fleet/health.json`, `/var/run/fleet/commit.sha`, and plan history for rollback. See `docs/runbooks/agent.md:1` for installation, timers, exit codes, and troubleshooting.
 
 ## Quick Start
 
@@ -105,6 +106,30 @@ To add more devices, insert hostnames under `devices:` and set their roles.
 - Use `AUDIO_CONTROL_TOKEN` for the control API; include the Bearer header on protected routes (`/status`, `/play`, `/volume`, etc.). `/healthz` is intentionally unauthenticated so probes and Prometheus can reach it without credentials.
 - If you expose Icecast to the public internet, ensure strong source/admin passwords and consider rate limiting.
 
+## CI/CD & Automation
+
+- Pull requests run `.github/workflows/ci.yml`, which performs linting (ESLint/Prettier/ShellCheck), TypeScript type-checks, Vitest/Playwright/unit smoke tests with mocked acceptance devices, Spectral OpenAPI linting, and Lighthouse CI audits. Results are uploaded as artifacts (JUnit, coverage, Lighthouse) and annotated back onto the PR.
+- Merges to `main` trigger `.github/workflows/deploy-vps.yml` to build Docker images for the API and UI, push them to GHCR, `rsync` the repo to `/opt/fleet` on the VPS, invoke `scripts/vps-deploy.sh`, run health probes (`/api/healthz`, `/`), and execute `scripts/acceptance.sh` against the production Raspberry Pis/Icecast. A commit comment summarizes the deployment.
+- `.github/workflows/docs.yml` validates Markdown formatting and runbook presence on every `main` push and publishes the docs bundle as a build artifact.
+- Manual rollbacks are available via `.github/workflows/rollback.yml` (GitHub Actions **→ Rollback deployment → Run workflow**) or directly on the VPS with `scripts/vps-rollback.sh`.
+
+`scripts/vps-deploy.sh` maintains `/opt/fleet/.deploy/` state so it can roll back to the previous release automatically if smoke tests fail. The helper uses `docker compose pull`, `docker compose up -d --remove-orphans`, container health checks, and the existing `scripts/acceptance.sh` for smoke validation. `scripts/vps-rollback.sh` re-hydrates the last-known-good compose environment and re-runs acceptance before marking the rollback complete.
+
+### GitHub Actions secrets
+
+| Secret | Required | Purpose |
+| --- | :---: | --- |
+| `GHCR_PAT` | ✅ | Personal access token with `write:packages` to push images to `ghcr.io`. |
+| `VPS_HOST` | ✅ | Hostname or IP of the Debian VPS that hosts `/opt/fleet`. |
+| `VPS_USER` | ✅ | SSH user with permission to manage Docker on the VPS. |
+| `VPS_SSH_KEY` | ✅ | Private key for the SSH user (PEM/ed25519). |
+| `ACCEPTANCE_HOSTS` | ⛔ optional | Space-separated Raspberry Pi hostnames for post-deploy smoke tests (defaults to `pi-audio-01 pi-audio-02`). |
+| `ACCEPTANCE_SSH_USER` | ⛔ optional | SSH user for acceptance checks (defaults to `admin`). |
+| `ACCEPTANCE_ICECAST` | ⛔ optional | Icecast mount URL used during acceptance checks (defaults to `http://localhost:8000/mount`). |
+| `ACCEPTANCE_AUDIOCTL_TOKEN` | ⛔ optional | Bearer token for authenticated acceptance checks (omit if unauthenticated). |
+
+The deploy workflow writes an environment file to `/tmp/fleet-deploy.env` on the VPS containing the GHCR image tags and acceptance settings; it is consumed by both deploy and rollback scripts. The `.deploy/` directory is excluded from `rsync` so historical state survives subsequent releases.
+
 ## Operations Cheatsheet
 
 - Start Icecast on VPS:
@@ -115,7 +140,7 @@ To add more devices, insert hostnames under `devices:` and set their roles.
 - Assign role: edit `inventory/devices.yaml:1` and wait ~2 minutes for convergence.
 - Audio player control from VPS:
   - `AUDIOCTL_HOST=<pi-ts> AUDIOCTL_TOKEN=<tok> ./scripts/audioctl.sh status`
-  - `... set-url http://<vps>:8000/<mount>` / `... upload fallback.mp3` / `... play file` / `... volume 0.8`
+  - CLI matrix, retries, and examples live in `docs/runbooks/audio.md`.
 - Monitoring: create `vps/targets-audio.json` and restart Prometheus service from the compose stack.
 
 Tips:
@@ -124,7 +149,8 @@ Tips:
 - Control API health endpoint: `curl -fsS http://<pi>:8081/healthz` (container has an internal healthcheck too).
 - Env defaults suppress ICECAST warnings until you configure `STREAM_URL` (or `ICECAST_*`).
 - Acceptance check from VPS:
-  - `SSH_USER=admin AUDIOCTL_TOKEN=<tok> ICECAST_URL=http://<vps>:8000/<mount> ./scripts/acceptance.sh pi-audio-01 pi-audio-02`
+  - `SSH_USER=admin AUDIOCTL_TOKEN=<tok> ./scripts/acceptance.sh --icecast http://<vps>:8000/<mount> --play-both pi-audio-{01,02}`
+  - See `docs/acceptance-audio.md` for workflow details and exit codes.
 - Prefer Tailscale DNS names (e.g., `pi-audio-01.tailnet.ts.net`) instead of raw IPs when adding Prometheus/Blackbox targets; if an IP must be used, reserve it via Tailscale ACLs so it survives device re-authentication.
 
 ## Project Status & Next Steps

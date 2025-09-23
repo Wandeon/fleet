@@ -1,0 +1,29 @@
+{
+  "masterVolume": 128,
+  "nowPlaying": {
+    "track": "Soft Rain",
+    "artist": "Fleet Ops",
+    "startedAt": "2025-01-12T12:15:10Z",
+    "art": "https://dummyimage.com/120x120/0ea5e9/ffffff&text=PI"
+  },
+  "devices": [
+    {
+      "id": "pi-audio-01",
+      "name": "pi-audio-01",
+      "status": "online",
+      "nowPlaying": "Soft Rain",
+      "volume": 120,
+      "isPlaying": true,
+      "lastUpdated": "2025-01-12T12:19:30Z"
+    },
+    {
+      "id": "pi-audio-02",
+      "name": "pi-audio-02",
+      "status": "online",
+      "nowPlaying": "Soft Rain",
+      "volume": 132,
+      "isPlaying": true,
+      "lastUpdated": "2025-01-12T12:19:12Z"
+    }
+  ]
+}
