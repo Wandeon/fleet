@@ -1,0 +1,68 @@
+{
+  "items": [
+    {
+      "id": "pi-audio-01",
+      "displayName": "Lobby Speakers",
+      "online": true,
+      "playback": {
+        "state": "playing",
+        "source": "stream",
+        "trackTitle": "Ambient Lobby Stream",
+        "since": "2024-03-28T08:55:00Z"
+      },
+      "volume": {
+        "level": 0.85,
+        "locked": false
+      },
+      "lastSeen": "2024-03-28T09:05:00Z",
+      "capabilities": ["play", "stop", "volume", "upload"],
+      "config": {
+        "streamUrl": "http://stream.example.com/lobby",
+        "mode": "live",
+        "defaultSource": "stream"
+      }
+    },
+    {
+      "id": "pi-audio-02",
+      "displayName": "Patio Speakers",
+      "online": false,
+      "playback": {
+        "state": "error",
+        "source": "stream",
+        "errorMessage": "Device offline"
+      },
+      "volume": {
+        "level": 0.5,
+        "locked": true
+      },
+      "lastSeen": "2024-03-28T08:50:10Z",
+      "capabilities": ["play", "stop", "volume"],
+      "config": {
+        "streamUrl": "http://stream.example.com/patio",
+        "mode": "live",
+        "defaultSource": "stream"
+      }
+    },
+    {
+      "id": "pi-audio-03",
+      "displayName": "Conference Room",
+      "online": true,
+      "playback": {
+        "state": "idle",
+        "source": "stream"
+      },
+      "volume": {
+        "level": 0.65,
+        "locked": false
+      },
+      "lastSeen": "2024-03-28T09:01:17Z",
+      "capabilities": ["play", "stop", "volume", "configuration"],
+      "config": {
+        "streamUrl": "http://stream.example.com/conference",
+        "mode": "fallback",
+        "defaultSource": "file"
+      }
+    }
+  ],
+  "nextCursor": null
+}

@@ -1,0 +1,15 @@
+{
+  "name": "fleet-monorepo",
+  "private": true,
+  "scripts": {
+    "mock": "npm --prefix apps/api-mock run mock",
+    "mock:build": "npm --prefix apps/api-mock run build",
+    "openapi:lint": "spectral lint apps/api/openapi.yaml",
+    "openapi:generate": "openapi --input apps/api/openapi.yaml --output apps/ui/src/lib/api/gen --client fetch --useUnionTypes --indent 2"
+  },
+  "devDependencies": {
+    "@stoplight/spectral-cli": "^6.11.0",
+    "@stoplight/spectral-rulesets": "^1.22.0",
+    "openapi-typescript-codegen": "^0.23.0"
+  }
+}

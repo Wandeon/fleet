@@ -1,0 +1,11 @@
+{
+  "id": "tv-main-hall",
+  "displayName": "Main Hall TV",
+  "online": true,
+  "power": "on",
+  "input": "HDMI2",
+  "availableInputs": ["HDMI1", "HDMI2", "HDMI3"],
+  "volume": 18,
+  "mute": false,
+  "lastSeen": "2024-03-28T09:04:27Z"
+}

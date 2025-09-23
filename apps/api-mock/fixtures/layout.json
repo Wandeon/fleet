@@ -1,0 +1,33 @@
+{
+  "updatedAt": "2024-03-28T09:00:00Z",
+  "modules": [
+    {
+      "id": "audio",
+      "displayName": "Audio Players",
+      "enabled": true,
+      "description": "Controls for distributed audio zones.",
+      "capabilities": ["playback", "volume", "configuration"]
+    },
+    {
+      "id": "video",
+      "displayName": "TV Control",
+      "enabled": true,
+      "description": "CEC television controls for the main display.",
+      "capabilities": ["power", "input", "volume", "mute"]
+    },
+    {
+      "id": "zigbee",
+      "displayName": "Zigbee Lighting",
+      "enabled": true,
+      "description": "Scenes and switch control for Zigbee network.",
+      "capabilities": ["toggle", "scene"]
+    },
+    {
+      "id": "camera",
+      "displayName": "Cameras",
+      "enabled": true,
+      "description": "Summaries, events, and previews for cameras.",
+      "capabilities": ["live-preview", "events", "health"]
+    }
+  ]
+}
