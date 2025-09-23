@@ -1,7 +1,7 @@
 services:
   audio-player:
     build:
-      context: ../roles/audio-player/docker
+      context: ./docker
       dockerfile: audio-player.Dockerfile
     restart: unless-stopped
     devices:
@@ -17,6 +17,9 @@ services:
       - ICECAST_PORT=${ICECAST_PORT:-8000}
       - ICECAST_MOUNT=${ICECAST_MOUNT:-}
       - FALLBACK_FILE=${FALLBACK_FILE:-/data/fallback.mp3}
+      - LOG_SERVICE=audio-player
+      - LOG_ROLE=audio-player
+      - LOG_COMMIT=${FLEET_LOG_COMMIT:-unknown}
     volumes:
       - audio_data:/data
     healthcheck:
@@ -53,7 +56,7 @@ services:
 
   audio-control:
     build:
-      context: ../roles/audio-player/docker
+      context: ./docker
       dockerfile: audio-control.Dockerfile
     restart: unless-stopped
     ports:
@@ -68,6 +71,9 @@ services:
       - STREAM_URL=${STREAM_URL:-${ICECAST_SCHEME:-http}://${ICECAST_HOST}:${ICECAST_PORT:-8000}/${ICECAST_MOUNT}}
       - AUDIO_VOLUME=${AUDIO_VOLUME:-1.0}
       - AUDIO_OUTPUT_DEVICE=${AUDIO_OUTPUT_DEVICE:-plughw:0,0}
+      - LOG_SERVICE=audio-control
+      - LOG_ROLE=audio-player
+      - LOG_COMMIT=${FLEET_LOG_COMMIT:-unknown}
     volumes:
       - audio_data:/data
     healthcheck:
