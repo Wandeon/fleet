@@ -1,0 +1,7 @@
+{
+  "name": "fleet-root",
+  "private": true,
+  "scripts": {
+    "acceptance": "npm --prefix tests/acceptance run acceptance"
+  }
+}

@@ -1,0 +1,181 @@
+name: Nightly Acceptance QA
+
+on:
+  schedule:
+    - cron: '30 2 * * *'
+  workflow_dispatch:
+
+jobs:
+  acceptance:
+    name: Acceptance suite (staging)
+    runs-on: ubuntu-latest
+    env:
+      SSH_USER: ${{ secrets.STAGING_SSH_USER }}
+      AUDIOCTL_TOKEN: ${{ secrets.STAGING_AUDIOCTL_TOKEN }}
+      ICECAST_URL: ${{ secrets.STAGING_ICECAST_URL }}
+      ACCEPTANCE_AUDIO_ICECAST_URL: ${{ secrets.STAGING_ICECAST_URL }}
+      ACCEPTANCE_AUDIO_API: ${{ secrets.STAGING_API_URL }}
+      ACCEPTANCE_AUDIO_UI: ${{ secrets.STAGING_UI_URL }}
+      FLEET_API_BASE: ${{ secrets.STAGING_API_URL }}
+      FLEET_API_TOKEN: ${{ secrets.STAGING_API_TOKEN }}
+      FLEET_UI_BASE: ${{ secrets.STAGING_UI_URL }}
+      FLEET_UI_EXPECTED_TITLE: ${{ secrets.STAGING_UI_EXPECTED_TITLE }}
+      ACCEPTANCE_INSECURE: ${{ secrets.STAGING_ACCEPTANCE_INSECURE }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Configure SSH key
+        if: ${{ secrets.STAGING_SSH_KEY != '' }}
+        run: |
+          mkdir -p ~/.ssh
+          echo "${{ secrets.STAGING_SSH_KEY }}" | tr -d '\r' > ~/.ssh/id_ed25519
+          chmod 600 ~/.ssh/id_ed25519
+          cat <<'SSH' >> ~/.ssh/config
+          Host *
+            StrictHostKeyChecking no
+            UserKnownHostsFile=/dev/null
+          SSH
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Validate acceptance configuration
+        run: |
+          missing=()
+          for key in FLEET_API_BASE FLEET_UI_BASE SSH_USER; do
+            value=${!key:-}
+            if [[ -z "$value" ]]; then
+              missing+=("$key")
+            fi
+          done
+          if (( ${#missing[@]} )); then
+            echo "Missing required environment variables: ${missing[*]}" >&2
+            exit 1
+          fi
+
+      - name: Install acceptance dependencies
+        run: npm ci
+        working-directory: tests/acceptance
+
+      - name: Install Playwright browsers
+        run: npx playwright install --with-deps chromium
+        working-directory: tests/acceptance
+
+      - name: Run acceptance suite
+        run: npm run acceptance
+        continue-on-error: true
+
+      - name: Upload acceptance reports
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: nightly-acceptance-reports
+          path: |
+            reports/acceptance/
+
+      - name: Publish JUnit report
+        if: always()
+        uses: dorny/test-reporter@v1
+        with:
+          name: Nightly Acceptance
+          path: reports/acceptance/*.xml
+          reporter: junit
+          fail-on-error: false
+
+      - name: Summarize acceptance results
+        if: always()
+        id: summarize
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const fs = require('fs');
+            const path = require('path');
+            const summaryPath = path.join(process.cwd(), 'reports', 'acceptance', 'summary.json');
+            let summary = null;
+            if (fs.existsSync(summaryPath)) {
+              summary = JSON.parse(fs.readFileSync(summaryPath, 'utf8'));
+            }
+            const output = summary ? {
+              status: summary.status,
+              pass: summary.counts?.pass ?? 0,
+              warn: summary.counts?.warn ?? 0,
+              fail: summary.counts?.fail ?? 0,
+            } : null;
+            core.setOutput('summary', summary ? JSON.stringify(summary) : '');
+            core.setOutput('status', output ? output.status : 'unknown');
+            core.setOutput('pass', output ? output.pass : 0);
+            core.setOutput('warn', output ? output.warn : 0);
+            core.setOutput('fail', output ? output.fail : 0);
+            if (summary) {
+              await core.summary
+                .addHeading('Nightly acceptance summary')
+                .addTable([
+                  ['Status', 'Pass', 'Warn', 'Fail'],
+                  [summary.status.toUpperCase(), String(output.pass), String(output.warn), String(output.fail)],
+                ])
+                .write();
+            } else {
+              await core.summary.addHeading('Nightly acceptance summary').addRaw('No summary generated').write();
+            }
+
+      - name: Ensure summary present
+        if: ${{ steps.summarize.outputs.summary == '' }}
+        run: |
+          echo "Acceptance summary missing" >&2
+          exit 2
+
+      - name: Create issue on failure
+        if: ${{ steps.summarize.outputs.status == 'fail' }}
+        uses: actions/github-script@v7
+        with:
+          summary: ${{ steps.summarize.outputs.summary }}
+          script: |
+            const summaryInput = core.getInput('summary');
+            if (!summaryInput) {
+              return;
+            }
+            const data = JSON.parse(summaryInput);
+            const title = `Nightly acceptance failure (${new Date().toISOString()})`;
+            const body = [
+              'Nightly acceptance tests detected a failure.',
+              '',
+              `Status: **${data.status.toUpperCase()}**`,
+              `Pass: ${data.counts?.pass ?? 0} • Warn: ${data.counts?.warn ?? 0} • Fail: ${data.counts?.fail ?? 0}`,
+              '',
+              'Please review the attached reports artifact for details.',
+            ].join('\n');
+            const { data: issues } = await github.rest.issues.listForRepo({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              state: 'open',
+              labels: 'acceptance-failure'
+            });
+            if (issues.length > 0) {
+              await github.rest.issues.createComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: issues[0].number,
+                body,
+              });
+            } else {
+              await github.rest.issues.create({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                title,
+                body,
+                labels: ['acceptance-failure', 'nightly'],
+              });
+            }
+
+      - name: Fail on acceptance warnings
+        if: ${{ steps.summarize.outputs.status == 'warn' }}
+        run: |
+          echo "Nightly acceptance completed with warnings" >&2
+          exit 1
+
+      - name: Fail on acceptance errors
+        if: ${{ steps.summarize.outputs.status == 'fail' }}
+        run: |
+          echo "Nightly acceptance failed" >&2
+          exit 2
