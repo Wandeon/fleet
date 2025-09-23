@@ -49,3 +49,14 @@ jobs:
             --assert.assertions="total-byte-weight<=200000" \
             --assert.assertions="unused-css-rules<=50000"
 
+  agent-quality:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install shellcheck
+        run: sudo apt-get update && sudo apt-get install -y shellcheck
+      - name: Shellcheck agent scripts
+        run: shellcheck agent/*.sh agent/tests/*.sh agent/watchdog-health.sh
+      - name: Validate inventory
+        run: agent/validate-inventory.sh
+
