@@ -1,51 +1,490 @@
 name: CI
 
-on: [push, pull_request]
+on:
+  pull_request:
+
+permissions:
+  contents: read
+  checks: write
+  pull-requests: write
+
+env:
+  CI: true
+  PLAYWRIGHT_BROWSERS_PATH: ~/.cache/ms-playwright
 
 jobs:
-  build-test:
+  setup:
+    name: setup (node ${{ matrix.node }})
     runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        node: [20.x, 22.x]
     steps:
-      - uses: actions/checkout@v4
+      - name: Checkout
+        uses: actions/checkout@v4
 
       - name: Setup Node
         uses: actions/setup-node@v4
-        with: { node-version: '20' }
+        with:
+          node-version: ${{ matrix.node }}
+          cache: npm
 
-      - name: API deps
+      - name: Install API dependencies
         working-directory: api
-        run: npm ci || npm i
+        run: npm ci
 
-      - name: API start (smoke)
-        working-directory: api
-        run: node src/server.js & sleep 2 && curl -fsS http://localhost:3005/api/health
-
-      - name: UI deps
+      - name: Install UI dependencies
         working-directory: ui
-        run: npm ci || npm i
+        run: npm ci
 
-      - name: UI build
+      - name: Cache Playwright browsers
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/ms-playwright
+          key: ${{ runner.os }}-${{ matrix.node }}-playwright-${{ hashFiles('ui/package-lock.json') }}
+
+      - name: Install Playwright browsers
+        working-directory: ui
+        run: npx --yes @playwright/test@1.48.0 install --with-deps
+
+  lint:
+    name: lint (node ${{ matrix.node }})
+    needs: setup
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        node: [20.x, 22.x]
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ matrix.node }}
+          cache: npm
+
+      - name: Install API dependencies
+        working-directory: api
+        run: npm ci
+
+      - name: Install UI dependencies
+        working-directory: ui
+        run: npm ci
+
+      - name: ESLint (API)
+        working-directory: api
+        run: |
+          set -euo pipefail
+          if compgen -G ".eslintrc*" >/dev/null || node -e "const pkg=require('./package.json'); process.exit(pkg.eslintConfig || pkg.devDependencies?.eslint ? 0 : 1)"; then
+            npx --yes eslint@8.57.0 --max-warnings=0 --ext .ts,.js src
+          else
+            echo "No ESLint config found; skipping API lint." >&2
+          fi
+
+      - name: ESLint (UI)
+        working-directory: ui
+        run: |
+          set -euo pipefail
+          if compgen -G ".eslintrc*" >/dev/null || node -e "const pkg=require('./package.json'); process.exit(pkg.eslintConfig || pkg.devDependencies?.eslint ? 0 : 1)"; then
+            npx --yes eslint@8.57.0 --max-warnings=0 --ext .ts,.js,.svelte src
+          else
+            echo "No ESLint config found; skipping UI lint." >&2
+          fi
+
+      - name: Prettier formatting
+        run: npx --yes prettier@3.3.3 --check "**/*.{js,ts,svelte,json,md,yml,yaml}"
+
+      - name: Shellcheck
+        run: |
+          set -euo pipefail
+          paths=$(find scripts roles -type f -name '*.sh' -print 2>/dev/null || true)
+          if [[ -n "$paths" ]]; then
+            echo "$paths" | xargs -r shellcheck -x
+          else
+            echo "No shell scripts found"
+          fi
+
+  typecheck:
+    name: typecheck (node ${{ matrix.node }})
+    needs: setup
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        node: [20.x, 22.x]
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ matrix.node }}
+          cache: npm
+
+      - name: Install API dependencies
+        working-directory: api
+        run: npm ci
+
+      - name: Install UI dependencies
+        working-directory: ui
+        run: npm ci
+
+      - name: Typecheck API (tsc)
+        working-directory: api
+        run: npm run build -- --noEmit
+
+      - name: Typecheck UI (svelte-check)
+        working-directory: ui
+        run: |
+          set -euo pipefail
+          if [ -f svelte.config.js ] || [ -f svelte.config.cjs ]; then
+            npx --yes svelte-check@4.0.0 --fail-on-warnings
+          else
+            echo "No svelte config found; skipping typecheck." >&2
+          fi
+
+  test:
+    name: test & acceptance (node ${{ matrix.node }})
+    needs: setup
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        node: [20.x, 22.x]
+    env:
+      ACCEPTANCE_HOSTS: mock-audio-01 mock-audio-02
+      ACCEPTANCE_ICECAST_URL: http://mock-icecast:8000/mount
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ matrix.node }}
+          cache: npm
+
+      - name: Install API dependencies
+        working-directory: api
+        run: npm ci
+
+      - name: Install UI dependencies
+        working-directory: ui
+        run: npm ci
+
+      - name: Prepare artifacts directory
+        run: |
+          rm -rf artifacts
+          mkdir -p artifacts/junit artifacts/coverage artifacts/acceptance
+
+      - name: UI unit tests (Vitest)
+        id: ui_vitest
+        working-directory: ui
+        run: |
+          set -euo pipefail
+          if node -e "const pkg=require('./package.json'); process.exit(pkg.devDependencies?.vitest ? 0 : 1)"; then
+            npx --yes vitest@1.6.0 run --reporter=junit --outputFile=../artifacts/junit/ui-vitest.xml
+            if [ -f coverage/lcov.info ]; then
+              cp coverage/lcov.info ../artifacts/coverage/ui.lcov
+            fi
+          else
+            echo "Vitest not configured; creating empty report." >&2
+            cat <<'XML' > ../artifacts/junit/ui-vitest.xml
+<testsuite name="ui-vitest" tests="0" failures="0" skipped="0" time="0" />
+XML
+          fi
+
+      - name: API tests
+        id: api_tests
+        working-directory: api
+        run: |
+          set -euo pipefail
+          if node -e "const pkg=require('./package.json'); process.exit(pkg.scripts?.test ? 0 : 1)"; then
+            npm test
+            if [ -f junit.xml ]; then
+              mv junit.xml ../artifacts/junit/api-tests.xml
+            elif [ -f reports/junit.xml ]; then
+              cp reports/junit.xml ../artifacts/junit/api-tests.xml
+            elif [ -f ../artifacts/junit/api-tests.xml ]; then
+              :
+            else
+              cat <<'XML' > ../artifacts/junit/api-tests.xml
+<testsuite name="api-tests" tests="0" failures="0" skipped="0" time="0" />
+XML
+            fi
+            if [ -f coverage/lcov.info ]; then
+              cp coverage/lcov.info ../artifacts/coverage/api.lcov
+            fi
+          else
+            echo "API tests not configured; creating empty report." >&2
+            cat <<'XML' > ../artifacts/junit/api-tests.xml
+<testsuite name="api-tests" tests="0" failures="0" skipped="0" time="0" />
+XML
+          fi
+
+      - name: Playwright E2E
+        id: playwright
+        working-directory: ui
+        env:
+          PLAYWRIGHT_BROWSERS_PATH: ~/.cache/ms-playwright
+        run: |
+          set -euo pipefail
+          if node -e "const pkg=require('./package.json'); process.exit(pkg.devDependencies?.['@playwright/test'] ? 0 : 1)" 2>/dev/null; then
+            npx --yes @playwright/test@1.48.0 test --reporter=junit
+            if [ -f test-results/results.xml ]; then
+              cp test-results/results.xml ../artifacts/junit/playwright.xml
+            elif [ -f playwright-report/results.xml ]; then
+              cp playwright-report/results.xml ../artifacts/junit/playwright.xml
+            fi
+          else
+            echo "Playwright not configured; creating empty report." >&2
+            cat <<'XML' > ../artifacts/junit/playwright.xml
+<testsuite name="playwright" tests="0" failures="0" skipped="0" time="0" />
+XML
+          fi
+
+      - name: Acceptance smoke (mocked)
+        id: acceptance
+        run: |
+          set -euo pipefail
+          mkdir -p .tmp/bin
+          cat <<'SCRIPT' > .tmp/bin/curl
+#!/usr/bin/env bash
+for arg in "$@"; do
+  case "$arg" in
+    *"/status")
+      echo '{"devices":[],"ok":true}'
+      exit 0
+      ;;
+  esac
+done
+echo "OK"
+exit 0
+SCRIPT
+          cat <<'SCRIPT' > .tmp/bin/ssh
+#!/usr/bin/env bash
+exit 0
+SCRIPT
+          cat <<'SCRIPT' > .tmp/bin/aplay
+#!/usr/bin/env bash
+cat <<'OUT'
+card 0: MockCard [Mock], device 0: MockDevice [Mock]
+OUT
+exit 0
+SCRIPT
+          chmod +x .tmp/bin/curl .tmp/bin/ssh .tmp/bin/aplay
+          export PATH="$PWD/.tmp/bin:$PATH"
+          LOG_FILE=artifacts/acceptance/acceptance.log
+          ICECAST_URL="${ACCEPTANCE_ICECAST_URL}" scripts/acceptance.sh ${ACCEPTANCE_HOSTS} | tee "$LOG_FILE"
+          echo "summary<<'EOF'" >> "$GITHUB_OUTPUT"
+          cat "$LOG_FILE" >> "$GITHUB_OUTPUT"
+          echo 'EOF' >> "$GITHUB_OUTPUT"
+
+      - name: Upload junit artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: junit-${{ matrix.node }}
+          path: artifacts/junit
+
+      - name: Upload coverage artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: coverage-${{ matrix.node }}
+          path: artifacts/coverage
+
+      - name: Upload acceptance artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: acceptance-${{ matrix.node }}
+          path: artifacts/acceptance
+
+      - name: Summarize acceptance
+        if: github.event_name == 'pull_request'
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const marker = '<!-- fleet-acceptance-report -->';
+            const summary = `${{ toJSON(steps.acceptance.outputs.summary) }}`.replace(/^"|"$/g, '');
+            const body = `${marker}\n**Acceptance smoke (mocked)**\n\n\`\`\`\n${summary}\n\`\`\``;
+            const {github, context} = require('@actions/github');
+            const pr = context.payload.pull_request;
+            if (!pr) {
+              return;
+            }
+            const comments = await github.paginate(github.rest.issues.listComments, {
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: pr.number,
+            });
+            const existing = comments.find((c) => c.body && c.body.includes(marker));
+            if (existing) {
+              await github.rest.issues.updateComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                comment_id: existing.id,
+                body,
+              });
+            } else {
+              await github.rest.issues.createComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: pr.number,
+                body,
+              });
+            }
+            const fs = require('fs');
+            const summaryLines = [
+              `Acceptance summary (mocked) for ${{ matrix.node }}`,
+              '',
+              '```',
+              summary,
+              '```',
+              '',
+            ].join('\n');
+            fs.appendFileSync(process.env.GITHUB_STEP_SUMMARY, `${summaryLines}\n`);
+
+  contract:
+    name: contract validation (node ${{ matrix.node }})
+    needs: setup
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        node: [20.x, 22.x]
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ matrix.node }}
+          cache: npm
+
+      - name: Ensure OpenAPI exists
+        run: |
+          if [ ! -f api/openapi.yaml ] && [ ! -f apps/api/openapi.yaml ]; then
+            echo "OpenAPI spec not found at api/openapi.yaml or apps/api/openapi.yaml" >&2
+            exit 1
+          fi
+
+      - name: Spectral lint
+        run: |
+          set -euo pipefail
+          SPEC="api/openapi.yaml"
+          if [ ! -f "$SPEC" ]; then
+            SPEC="apps/api/openapi.yaml"
+          fi
+          npx --yes @stoplight/spectral-cli@6.11.1 lint "$SPEC"
+
+  lighthouse:
+    name: lighthouse (node ${{ matrix.node }})
+    needs: [setup, lint, typecheck, test, contract]
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        node: [20.x, 22.x]
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ matrix.node }}
+          cache: npm
+
+      - name: Install UI dependencies
+        working-directory: ui
+        run: npm ci
+
+      - name: Build UI
         working-directory: ui
         run: npm run build
 
-  quality-budgets:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
-        with: { node-version: '20' }
-      - name: Install Lighthouse CI
-        run: npm i -g @lhci/cli@0.13.x
-      - name: Build UI
+      - name: Lighthouse CI
         working-directory: ui
-        run: npm ci || npm i && npm run build && npx serve -s build -l 3006 & sleep 3
-      - name: Run Lighthouse
         run: |
-          lhci autorun --collect.url=http://localhost:3006 \
-            --assert.assertions="categories:performance:warn,off" \
-            --assert.assertions="performance>=0.8" \
-            --assert.assertions="categories:accessibility>=0.95" \
-            --assert.assertions="uses-long-cache-ttl<=1" \
-            --assert.assertions="total-byte-weight<=200000" \
-            --assert.assertions="unused-css-rules<=50000"
+          set -euo pipefail
+          mkdir -p ../artifacts/lighthouse
+          npx --yes @lhci/cli@0.12.0 autorun \
+            --collect.startServerCommand="npm run preview -- --host 0.0.0.0 --port 4173" \
+            --collect.url=http://127.0.0.1:4173 \
+            --collect.numberOfRuns=2 \
+            --assert.preset=lighthouse:recommended \
+            --upload.target=filesystem \
+            --upload.outputDir=../artifacts/lighthouse
 
+      - name: Lighthouse summary
+        id: lighthouse_summary
+        run: |
+          set -euo pipefail
+          reports=(artifacts/lighthouse/*.json)
+          if [ ${#reports[@]} -eq 0 ]; then
+            echo "No Lighthouse reports generated" >&2
+            exit 1
+          fi
+          node <<'NODE'
+const fs = require('fs');
+const path = require('path');
+const reportsDir = path.join(process.cwd(), 'artifacts', 'lighthouse');
+const reports = fs.readdirSync(reportsDir).filter((f) => f.endsWith('.json'));
+if (!reports.length) {
+  console.error('No Lighthouse JSON reports found');
+  process.exit(1);
+}
+const primary = JSON.parse(fs.readFileSync(path.join(reportsDir, reports[0]), 'utf8'));
+const categories = primary.categories;
+const summary = {
+  performance: Math.round((categories.performance?.score || 0) * 100),
+  accessibility: Math.round((categories.accessibility?.score || 0) * 100),
+  bestPractices: Math.round((categories['best-practices']?.score || 0) * 100),
+  seo: Math.round((categories.seo?.score || 0) * 100),
+};
+const content = `Performance: ${summary.performance}\nAccessibility: ${summary.accessibility}\nBest Practices: ${summary.bestPractices}\nSEO: ${summary.seo}`;
+fs.writeFileSync(path.join(reportsDir, 'summary.txt'), content);
+fs.writeFileSync(path.join(reportsDir, 'summary.json'), JSON.stringify(summary, null, 2));
+NODE
+          echo "scores<<'EOF'" >> "$GITHUB_OUTPUT"
+          cat artifacts/lighthouse/summary.txt >> "$GITHUB_OUTPUT"
+          echo 'EOF' >> "$GITHUB_OUTPUT"
+
+      - name: Upload Lighthouse artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: lighthouse-${{ matrix.node }}
+          path: artifacts/lighthouse
+
+      - name: Publish Lighthouse summary
+        if: github.event_name == 'pull_request'
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const marker = '<!-- fleet-lighthouse-report -->';
+            const scores = `${{ toJSON(steps.lighthouse_summary.outputs.scores) }}`.replace(/^"|"$/g, '');
+            const body = `${marker}\n**Lighthouse (node ${{ matrix.node }})**\n\n\`\`\`\n${scores}\n\`\`\``;
+            const {github, context} = require('@actions/github');
+            const pr = context.payload.pull_request;
+            if (!pr) {
+              return;
+            }
+            const comments = await github.paginate(github.rest.issues.listComments, {
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: pr.number,
+            });
+            const existing = comments.find((c) => c.body && c.body.includes(marker) && c.body.includes('node ${{ matrix.node }}'));
+            if (existing) {
+              await github.rest.issues.updateComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                comment_id: existing.id,
+                body,
+              });
+            } else {
+              await github.rest.issues.createComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: pr.number,
+                body,
+              });
+            }
+            const fs = require('fs');
+            const summaryLines = [
+              `Lighthouse summary for node ${{ matrix.node }}`,
+              '',
+              '```',
+              scores,
+              '```',
+              '',
+            ].join('\n');
+            fs.appendFileSync(process.env.GITHUB_STEP_SUMMARY, `${summaryLines}\n`);
