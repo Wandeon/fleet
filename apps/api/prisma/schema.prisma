@@ -11,8 +11,8 @@ model Device {
   id           String   @id
   name         String
   kind         String
-  address      Json
-  capabilities Json
+  address      String
+  capabilities String
   managed      Boolean  @default(true)
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt
@@ -28,7 +28,7 @@ model DeviceState {
   updatedAt  DateTime @updatedAt
   status     String
   lastSeen   DateTime?
-  state      Json
+  state      String
   device     Device   @relation(fields: [deviceId], references: [id])
 
   @@index([deviceId, updatedAt])
@@ -38,7 +38,7 @@ model DeviceEvent {
   id            String   @id @default(cuid())
   deviceId      String
   eventType     String
-  payload       Json
+  payload       String
   at            DateTime @default(now())
   origin        String
   correlationId String?
@@ -52,7 +52,7 @@ model Job {
   id         String   @id @default(cuid())
   deviceId   String
   command    String
-  payload    Json?
+  payload    String?
   status     String
   error      String?
   createdAt  DateTime @default(now())

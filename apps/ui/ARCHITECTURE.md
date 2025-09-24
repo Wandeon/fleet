@@ -32,6 +32,9 @@ mock data when `VITE_USE_MOCKS=1`.
 - `scripts/generate-openapi.mjs` writes types to `src/lib/api/generated` when `apps/api/openapi.yaml` exists. A placeholder is created
 otherwise to keep imports type-safe.
 - JSON fixtures in `src/lib/api/mocks` drive all modules. The mock loader clones data to avoid accidental mutation between tests.
+- Server-side requests proxy through `src/lib/server/proxy.ts`, which clones `Response` objects before logging error payloads so the
+  same body can be forwarded back to the browser. When adding new SSR hooks or endpoints, never call `.json()`/`.text()` on a
+  `Response` that you still need to return—clone it first or choose a single consumption path.
 
 ## Feature flagging & states
 

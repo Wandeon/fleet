@@ -1,0 +1,1 @@
+-- JSON columns were previously stored as TEXT in SQLite. No structural changes are required.
