@@ -6,6 +6,7 @@ services:
       - ../../vps/fleet.env
     ports:
       - "3005:3015"
+    network_mode: host
     environment:
       - NODE_ENV=production
       - API_PORT=3015
@@ -28,6 +29,7 @@ services:
     image: ${FLEET_WORKER_IMAGE:-ghcr.io/org/fleet-api:latest}
     env_file:
       - ../../vps/fleet.env
+    network_mode: host
     environment:
       - NODE_ENV=production
       - DATABASE_URL=file:/data/fleet.db
