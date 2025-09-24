@@ -37,7 +37,7 @@ services:
     volumes:
       - fleet-data:/data
       - ./config:/config:ro
-    command: [ "sh", "-c", "npx prisma generate && npm run worker" ]
+    command: [ "sh", "-c", "npm run db:generate && npm run worker" ]
     restart: unless-stopped
     depends_on:
       - fleet-api

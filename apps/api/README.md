@@ -43,6 +43,19 @@ The API listens on `HTTP_PORT` (default `3015`). Every request (except
 | `RATE_LIMIT_GLOBAL_MAX` | `600` | Global burst capacity |
 | `CORS_ALLOWED_ORIGINS` | `https://app.headspamartina.hr` | Allowed origins (comma separated) |
 
+### Running the worker
+
+The background worker shares this codebase. Generate the Prisma client artifacts
+before starting it locally so queue processing reflects the latest schema:
+
+```bash
+npm run db:generate
+npm run worker
+```
+
+Run `npm run db:migrate` to apply pending migrations when preparing a new
+environment.
+
 ### Data serialization
 
 - Prisma models store structured fields (`Device.address`, `Device.capabilities`, `DeviceState.state`, `DeviceEvent.payload`,
@@ -78,6 +91,8 @@ variable; otherwise `token` can embed the literal credential.
 | --- | --- |
 | `npm run dev` | Start the API with `tsx` watcher |
 | `npm run build` | Compile TypeScript to `dist/` |
+| `npm run db:generate` | Regenerate Prisma client artifacts |
+| `npm run db:migrate` | Apply migrations in deploy mode |
 | `npm run start` | Run the compiled server |
 | `npm run lint` | ESLint with type information |
 | `npm run typecheck` | `tsc --noEmit` |
