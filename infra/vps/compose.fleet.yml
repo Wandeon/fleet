@@ -17,6 +17,7 @@ services:
       - LOG_SERVICE=fleet-api
       - LOG_ROLE=control-plane
       - LOG_COMMIT=${FLEET_LOG_COMMIT:-unknown}
+      - PRISMA_QUERY_ENGINE_BINARY=/app/node_modules/.prisma/client/query-engine-linux-musl-arm64-openssl-3.0.x
     volumes:
       - fleet-data:/data
       - ./config:/config:ro
@@ -36,10 +37,13 @@ services:
       - LOG_SERVICE=fleet-worker
       - LOG_ROLE=control-plane
       - LOG_COMMIT=${FLEET_LOG_COMMIT:-unknown}
+      - PRISMA_QUERY_ENGINE_BINARY=/app/node_modules/.prisma/client/query-engine-linux-musl-arm64-openssl-3.0.x
     volumes:
       - fleet-data:/data
       - ./config:/config:ro
     command: [ "sh", "-c", "npm run db:generate && npm run worker" ]
+    healthcheck:
+      disable: true
     restart: unless-stopped
     depends_on:
       - fleet-api
