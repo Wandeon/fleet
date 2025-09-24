@@ -6,7 +6,8 @@ services:
       - ../../vps/fleet.env
     ports:
       - "3005:3015"
-    network_mode: host
+    networks:
+      - fleet-network
     environment:
       - NODE_ENV=production
       - API_PORT=3015
@@ -29,7 +30,8 @@ services:
     image: ${FLEET_WORKER_IMAGE:-ghcr.io/org/fleet-api:latest}
     env_file:
       - ../../vps/fleet.env
-    network_mode: host
+    networks:
+      - fleet-network
     environment:
       - NODE_ENV=production
       - DATABASE_URL=file:/data/fleet.db
@@ -56,6 +58,8 @@ services:
       - ../../vps/fleet.env
     ports:
       - "3006:3000"
+    networks:
+      - fleet-network
     command: ["node", "build"]
     environment:
       - NODE_ENV=production
@@ -72,6 +76,8 @@ services:
   caddy:
     image: caddy:2
     ports: ["80:80","443:443"]
+    networks:
+      - fleet-network
     volumes:
       - ./caddy.fleet.Caddyfile:/etc/caddy/Caddyfile:ro
       - caddy-data:/data
@@ -79,6 +85,13 @@ services:
     depends_on:
       - fleet-api
       - fleet-ui
+
+networks:
+  fleet-network:
+    driver: bridge
+    driver_opts:
+      com.docker.network.bridge.name: br-fleet
+    external: false
 
 volumes:
   fleet-data:
