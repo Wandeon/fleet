@@ -45,6 +45,8 @@ services:
   fleet-ui:
     build: ../../apps/ui
     image: ${FLEET_UI_IMAGE:-ghcr.io/org/fleet-ui:latest}
+    ports:
+      - "3006:3000"
     environment:
       - PUBLIC_API_BASE=/api
       - PUBLIC_API_BEARER=${API_BEARER}

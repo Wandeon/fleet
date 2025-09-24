@@ -17,6 +17,6 @@ ENV NODE_ENV=production
 ENV PORT=3000
 COPY package.json package-lock.json .npmrc ./
 COPY --from=deps /app/node_modules ./node_modules
-COPY --from=build /app/build ./build
+COPY --from=build /app/.svelte-kit/output ./build
 EXPOSE 3000
-CMD ["node", "build"]
+CMD ["node", "build/server/index.js"]
