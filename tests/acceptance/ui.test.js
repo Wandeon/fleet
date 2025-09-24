@@ -1,7 +1,7 @@
 import { test, expect } from '@playwright/test';
 
-const uiBase = process.env.FLEET_UI_BASE || 'http://localhost:4173';
-const expectedTitle = process.env.FLEET_UI_EXPECTED_TITLE || 'Head Spa Control';
+const uiBase = process.env.UI_BASE_URL || 'http://localhost:4173';
+const expectedTitle = process.env.UI_EXPECTED_TITLE || 'Head Spa Control';
 
 const mockHealth = () => ({
   overall: 'UP',

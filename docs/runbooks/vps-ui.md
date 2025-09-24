@@ -63,9 +63,9 @@ cp infra/vps/fleet.env.example infra/vps/fleet.env
 The Compose file injects this value into every service that needs it:
 
 - `fleet-api` receives `API_BEARER` and exposes `/api` on port 3005 behind Caddy.
-- `fleet-ui` receives `PUBLIC_API_BASE=/api` plus `PUBLIC_API_BEARER=${API_BEARER}` so the frontend automatically sends the same token when calling the API and when opening the SSE stream.
+- `fleet-ui` receives `API_BASE_URL=http://fleet-api:3015`, `VITE_API_BASE=/api`, and `API_BEARER=${API_BEARER}` so SSR and the proxy automatically attach the bearer when calling the API or opening the SSE stream.
 
-If you publish the UI behind another reverse proxy, adjust `PUBLIC_API_BASE` in `infra/vps/compose.fleet.yml` to the externally visible path (for example `/fleet/api`). Leave it pointing at `/api` when using the bundled Caddy config.
+If you publish the UI behind another reverse proxy, adjust `API_BASE_URL` in `infra/vps/compose.fleet.yml` to the externally visible path (for example `https://example.com/fleet/api`). Leave it pointing at the internal service URL when using the bundled Caddy config.
 
 ## 4. Verify the UI and connections
 

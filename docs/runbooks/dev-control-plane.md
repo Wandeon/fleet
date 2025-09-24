@@ -85,7 +85,7 @@ Update the worker loop so queued jobs with `kind === "operation"` are executed:
 ## 9. Troubleshooting quick hits
 
 - `operation_not_found`: registry lacks `capabilities.operations` or you forgot to reseed (`npm run seed:yaml`).
-- `unauthorized`: API enforces `API_BEARER`; ensure the UI sets `PUBLIC_API_BEARER`.
+- `unauthorized`: API enforces `API_BEARER`; ensure the UI container receives the same `API_BEARER` value so proxy requests include the header.
 - Device shows offline but responds to curl: check `base_url`/`health_path` in `inventory/device-interfaces.yaml`.
 - Empty logs panel: device missing Promtail config or `LOKI_ENDPOINT` in `/etc/fleet/agent.env`.
 - Stalled SSE: proxy stripped `text/event-stream` headers—fix Caddy/Nginx config so `Cache-Control: no-transform` survives.
