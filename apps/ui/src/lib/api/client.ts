@@ -91,9 +91,6 @@ export const configureApiClient = (options: ApiClientOptions = {}): void => {
   };
 };
 
-// Configure defaults immediately so the client works out of the box.
-configureApiClient();
-
 export const FleetApi = {
   getLayout: () => FleetService.getFleetLayout(),
   getState: () => FleetService.getFleetState(),
@@ -149,6 +146,53 @@ import { mockApi } from './mock';
 import type { AudioState, CameraState, LayoutData, LogsData, VideoState, ZigbeeState } from '$lib/types';
 import type { ConnectionProbe } from '$lib/types';
 
+const trimTrailingSlash = (value: string | null | undefined): string => {
+  if (!value) {
+    return '';
+  }
+  return value.replace(/\/$/, '');
+};
+
+const resolveServerEnv = (): NodeJS.ProcessEnv => {
+  if (browser) {
+    return {} as NodeJS.ProcessEnv;
+  }
+  return (globalThis.process?.env ?? {}) as NodeJS.ProcessEnv;
+};
+
+const resolveServerBase = (): string => {
+  const env = resolveServerEnv();
+  const base = (env.FLEET_API_BASE ?? env.API_BASE ?? '').trim();
+  return trimTrailingSlash(base);
+};
+
+const resolveServerAuth = (): string | null => {
+  if (browser) {
+    return null;
+  }
+  const env = resolveServerEnv();
+  const raw = (env.API_BEARER ?? env.FLEET_API_BEARER ?? '').trim();
+  if (!raw) {
+    return null;
+  }
+  return raw.startsWith('Bearer ') ? raw : `Bearer ${raw}`;
+};
+
+const DEFAULT_RELATIVE_BASE = trimTrailingSlash(import.meta.env.VITE_API_BASE ?? '/api');
+const USE_MOCKS = import.meta.env.VITE_USE_MOCKS === '1';
+const API_BASE = browser ? '/ui' : resolveServerBase() || DEFAULT_RELATIVE_BASE || '/api';
+
+configureApiClient({
+  baseUrl: API_BASE,
+  getAdditionalHeaders: async () => {
+    if (USE_MOCKS) {
+      return {};
+    }
+    const auth = resolveServerAuth();
+    return auth ? { Authorization: auth } : {};
+  },
+});
+
 export class UiApiError extends Error {
   status: number;
   detail: unknown;
@@ -168,9 +212,6 @@ interface RequestOptions extends RequestInit {
   fetch?: typeof fetch;
 }
 
-const API_BASE = import.meta.env.VITE_API_BASE ?? '/api';
-const TOKEN = import.meta.env.VITE_FLEET_API_TOKEN;
-const USE_MOCKS = import.meta.env.VITE_USE_MOCKS === '1';
 const RETRYABLE_STATUS = new Set([408, 429, 500, 502, 503, 504]);
 
 async function wait(ms: number) {
@@ -183,8 +224,11 @@ function createHeaders(existing?: HeadersInit): Headers {
   if (!headers.has('Content-Type') && existing && typeof existing === 'object') {
     // keep caller choice
   }
-  if (TOKEN) {
-    headers.set('Authorization', `Bearer ${TOKEN}`);
+  if (!headers.has('Authorization')) {
+    const auth = resolveServerAuth();
+    if (!USE_MOCKS && auth) {
+      headers.set('Authorization', auth);
+    }
   }
   return headers;
 }

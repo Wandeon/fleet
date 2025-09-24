@@ -55,7 +55,6 @@ The dev server runs on [http://localhost:5173](http://localhost:5173). The mock 
 | Name | Description | Default |
 | --- | --- | --- |
 | `VITE_API_BASE` | Base path for Fleet API requests during development | `/api` |
-| `VITE_FLEET_API_TOKEN` | Optional bearer token added to client requests | `CHANGEME` |
 | `VITE_USE_MOCKS` | Serve mock JSON (`"1"`) instead of calling the live API | `1` |
 
 Copy `.env.example` to `.env` to customise local settings before running `npm run dev`.
@@ -70,12 +69,8 @@ These values are injected by `infra/vps/compose.fleet.yml` and mirrored in `vps/
 | `PORT` | ✓ | Port exposed by the SvelteKit server | `3000` |
 | `ORIGIN` | ✓ | Public HTTPS origin served via Caddy | `https://app.headspamartina.hr` |
 | `FLEET_API_BASE` | ✓ | Internal API base URL for SSR fetches | `http://fleet-api:3015` |
-| `FLEET_API_BEARER` | ✓ | Server-only bearer token for SSR API calls | `replace-with-admin-token` |
-| `PUBLIC_API_URL` | ✓ | Browser-facing API URL routed through Caddy | `https://app.headspamartina.hr/api` |
-| `PUBLIC_API_BASE` | ✓ | Path segment used by the browser client | `/api` |
-| `PUBLIC_API_BEARER` | Optional | Public token exposed to the browser if required | `replace-with-public-token` |
-| `VITE_API_BASE` | ✓ | Compile-time base path for client requests | `/api` |
-| `VITE_FLEET_API_TOKEN` | Optional | Compile-time token bundled into the client | `replace-with-public-token` |
+| `API_BEARER` | ✓ | Server-only bearer token injected into proxy/SSR requests | `<redacted>` |
+| `VITE_API_BASE` | ✓ | Compile-time base path for SSR fallback requests | `/api` |
 | `VITE_USE_MOCKS` | ✓ | Set to `0` in production to enable live data | `0` |
 
 See `vps/fleet.env.example` for an up-to-date template of the production secrets/values required during deployment.
@@ -98,8 +93,8 @@ See `vps/fleet.env.example` for an up-to-date template of the production secrets
 ## Mock data & feature flags
 
 The UI consumes JSON fixtures located in `src/lib/api/mocks` when `VITE_USE_MOCKS=1`. Use the “Mock states” control in the top bar to
-simulate loading, empty, and error states per module. Toggle to live APIs by setting `VITE_USE_MOCKS=0` and providing a valid
-`VITE_FLEET_API_TOKEN` if required.
+simulate loading, empty, and error states per module. Toggle to live APIs by setting `VITE_USE_MOCKS=0`; browser requests will flow
+through the server-side `/ui` proxy which injects the required bearer token.
 
 ## Generating OpenAPI types
 

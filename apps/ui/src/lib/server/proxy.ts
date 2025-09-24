@@ -1,14 +1,35 @@
 import { error, json, type RequestEvent } from '@sveltejs/kit';
 
-const API_BASE = (process.env.FLEET_API_BASE ?? process.env.API_BASE ?? process.env.VITE_API_BASE ?? '').replace(/\/$/, '');
-const AUTH_TOKEN = process.env.FLEET_API_BEARER ?? process.env.VITE_FLEET_API_TOKEN ?? '';
+const API_BASE = (process.env.FLEET_API_BASE ?? process.env.API_BASE ?? '').replace(/\/$/, '');
+const AUTH_TOKEN = (process.env.API_BEARER ?? process.env.FLEET_API_BEARER ?? '').trim();
 const USE_MOCKS = (process.env.VITE_USE_MOCKS ?? '1') === '1';
+const LOG_LABEL = '[ui-proxy]';
 
 const FORWARDED_RESPONSE_HEADERS = new Set(['cache-control', 'etag', 'last-modified']);
 
 function resolveAuthorization(): string | null {
   if (!AUTH_TOKEN) return null;
   return AUTH_TOKEN.startsWith('Bearer ') ? AUTH_TOKEN : `Bearer ${AUTH_TOKEN}`;
+}
+
+function buildTarget(path: string): string {
+  if (!API_BASE) {
+    throw error(500, { message: 'Fleet API base URL not configured' });
+  }
+
+  if (API_BASE.startsWith('http://') || API_BASE.startsWith('https://')) {
+    return new URL(path, `${API_BASE}/`).toString();
+  }
+
+  return `${API_BASE}${path}`;
+}
+
+function logInfo(message: string, details: Record<string, unknown>) {
+  console.info(LOG_LABEL, message, details);
+}
+
+function logError(message: string, details: Record<string, unknown>) {
+  console.error(LOG_LABEL, message, details);
 }
 
 async function readErrorDetail(response: Response): Promise<unknown> {
@@ -40,18 +61,24 @@ export async function proxyFleetRequest(
   path: string,
   fallback: () => unknown,
 ): Promise<Response> {
+  const method = event.request.method ?? 'GET';
+  const targetPath = path.startsWith('/') ? path : `/${path}`;
+  const startedAt = Date.now();
+  const requestId = event.locals.requestId;
+
   if (USE_MOCKS) {
     const mock = fallback();
     const response = json(mock);
     response.headers.set('cache-control', 'no-store');
+    logInfo(`${method} ${targetPath} -> 200`, {
+      requestId,
+      source: 'mock',
+      durationMs: Date.now() - startedAt,
+    });
     return response;
   }
 
-  if (!API_BASE) {
-    throw error(500, { message: 'Fleet API base URL not configured' });
-  }
-
-  const target = new URL(path, API_BASE).toString();
+  const target = buildTarget(targetPath);
   const headers = new Headers({ Accept: 'application/json' });
   const auth = resolveAuthorization();
   if (auth) headers.set('Authorization', auth);
@@ -63,11 +90,20 @@ export async function proxyFleetRequest(
   try {
     upstream = await event.fetch(target, { method: 'GET', headers });
   } catch (err) {
-    throw error(502, { message: 'Upstream request failed', detail: String(err) });
+    const detail = err instanceof Error ? err.message : String(err);
+    logError(`${method} ${targetPath} -> upstream request failed`, {
+      requestId,
+      detail,
+    });
+    throw error(502, { message: 'Upstream request failed', detail });
   }
 
   if (!upstream.ok) {
     const detail = await readErrorDetail(upstream.clone());
+    logError(`${method} ${targetPath} -> ${upstream.status}`, {
+      requestId,
+      detail: detail ?? undefined,
+    });
     throw error(upstream.status, {
       message: 'Upstream request failed',
       detail: detail ?? undefined,
@@ -80,6 +116,10 @@ export async function proxyFleetRequest(
   if (!response.headers.has('cache-control')) {
     response.headers.set('cache-control', 'no-store');
   }
+  logInfo(`${method} ${targetPath} -> ${upstream.status}`, {
+    requestId,
+    durationMs: Date.now() - startedAt,
+    target,
+  });
   return response;
 }
-
