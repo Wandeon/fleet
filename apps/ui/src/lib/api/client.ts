@@ -149,13 +149,14 @@ import { mockApi } from './mock';
 import type { AudioState, CameraState, LayoutData, LogsData, VideoState, ZigbeeState } from '$lib/types';
 import type { ConnectionProbe } from '$lib/types';
 
-export class ApiError extends Error {
+// Custom ApiError for client-side usage (different signature than generated one)
+export class CustomApiError extends Error {
   status: number;
   detail: unknown;
 
   constructor(message: string, status: number, detail: unknown = undefined) {
     super(message);
-    this.name = 'ApiError';
+    this.name = 'CustomApiError';
     this.status = status;
     this.detail = detail;
   }
@@ -217,7 +218,7 @@ async function request<T>(path: string, options: RequestOptions = {}): Promise<T
       case '/logs':
         return mockApi.logs() as T;
       default:
-        throw new ApiError(`Mock endpoint ${path} not implemented`, 501);
+        throw new CustomApiError(`Mock endpoint ${path} not implemented`, 501);
     }
   }
 
@@ -246,10 +247,10 @@ async function request<T>(path: string, options: RequestOptions = {}): Promise<T
       detail = await response.text();
     }
 
-    throw new ApiError(response.statusText || 'Request failed', response.status, detail);
+    throw new CustomApiError(response.statusText || 'Request failed', response.status, detail);
   }
 
-  throw new ApiError('Max retries exceeded', 500);
+  throw new CustomApiError('Max retries exceeded', 500);
 }
 
 export const apiClient = {
