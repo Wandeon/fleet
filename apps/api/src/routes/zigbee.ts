@@ -4,6 +4,15 @@ import { deviceRegistry } from '../upstream/devices';
 
 const router = Router();
 
+router.get('/', (req, res) => {
+  res.locals.routePath = '/zigbee';
+  res.json({
+    message: 'Zigbee API endpoint',
+    status: 'active',
+    timestamp: new Date().toISOString()
+  });
+});
+
 router.get('/devices', (req, res) => {
   res.locals.routePath = '/zigbee/devices';
   const devices = deviceRegistry

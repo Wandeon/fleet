@@ -3,6 +3,15 @@ import { deviceRegistry } from '../upstream/devices';
 
 const router = Router();
 
+router.get('/', (req, res) => {
+  res.locals.routePath = '/camera';
+  res.json({
+    message: 'Camera API endpoint',
+    status: 'active',
+    timestamp: new Date().toISOString()
+  });
+});
+
 router.get('/summary', (req, res) => {
   res.locals.routePath = '/camera/summary';
   const cameras = deviceRegistry

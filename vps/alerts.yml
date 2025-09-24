@@ -1,0 +1,76 @@
+groups:
+  - name: fleet-core
+    rules:
+    - alert: FleetAPIDown
+      expr: up{job="fleet-api"} == 0
+      for: 1m
+      labels:
+        severity: critical
+        service: fleet-api
+      annotations:
+        summary: "Fleet API is down"
+        description: "Fleet API has been down for more than 1 minute"
+
+    - alert: FleetAPIHighErrorRate
+      expr: rate(http_requests_total{job="fleet-api",status=~"5.."}[5m]) > 0.1
+      for: 2m
+      labels:
+        severity: warning
+        service: fleet-api
+      annotations:
+        summary: "Fleet API high error rate"
+        description: "Fleet API error rate is {{ $value | humanizePercentage }} over the last 5 minutes"
+
+    - alert: FleetAPIHighLatency
+      expr: histogram_quantile(0.95, rate(http_request_duration_ms_bucket{job="fleet-api"}[5m])) > 5000
+      for: 5m
+      labels:
+        severity: warning
+        service: fleet-api
+      annotations:
+        summary: "Fleet API high latency"
+        description: "Fleet API 95th percentile latency is {{ $value }}ms"
+
+  - name: fleet-devices
+    rules:
+    - alert: DeviceOffline
+      expr: device_online{job="fleet-api"} == 0
+      for: 5m
+      labels:
+        severity: warning
+        service: device
+      annotations:
+        summary: "Device {{ $labels.device_id }} is offline"
+        description: "Device {{ $labels.device_id }} has been offline for more than 5 minutes"
+
+    - alert: CircuitBreakerOpen
+      expr: circuit_breaker_state{job="fleet-api"} == 1
+      for: 1m
+      labels:
+        severity: warning
+        service: device
+      annotations:
+        summary: "Circuit breaker open for device {{ $labels.device_id }}"
+        description: "Circuit breaker has been open for device {{ $labels.device_id }} for more than 1 minute"
+
+  - name: fleet-infrastructure
+    rules:
+    - alert: HighMemoryUsage
+      expr: process_resident_memory_bytes{job="fleet-api"} > 200 * 1024 * 1024
+      for: 10m
+      labels:
+        severity: warning
+        service: fleet-api
+      annotations:
+        summary: "Fleet API high memory usage"
+        description: "Fleet API memory usage is {{ $value | humanizeBytes }}"
+
+    - alert: EventLoopLagHigh
+      expr: nodejs_eventloop_lag_seconds{job="fleet-api"} > 0.1
+      for: 5m
+      labels:
+        severity: warning
+        service: fleet-api
+      annotations:
+        summary: "Fleet API event loop lag high"
+        description: "Fleet API event loop lag is {{ $value }}s"

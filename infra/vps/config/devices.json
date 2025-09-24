@@ -1,0 +1,56 @@
+{
+  "devices": [
+    {
+      "id": "pi-audio-01",
+      "name": "Audio Pi 01",
+      "role": "audio",
+      "module": "audio",
+      "baseUrl": "http://pi-audio-01:8081",
+      "tokenEnv": "AUDIO_PI_AUDIO_01_TOKEN",
+      "capabilities": ["playback", "volume", "routing"],
+      "metadata": {
+        "location": "Living Room",
+        "hardware": "Raspberry Pi 4"
+      }
+    },
+    {
+      "id": "pi-audio-02",
+      "name": "Audio Pi 02",
+      "role": "audio",
+      "module": "audio",
+      "baseUrl": "http://pi-audio-02:8081",
+      "tokenEnv": "AUDIO_PI_AUDIO_02_TOKEN",
+      "capabilities": ["playback", "volume", "routing"],
+      "metadata": {
+        "location": "Kitchen",
+        "hardware": "Raspberry Pi 4"
+      }
+    },
+    {
+      "id": "pi-video-01",
+      "name": "HDMI Pi 01",
+      "role": "video",
+      "module": "video",
+      "baseUrl": "http://pi-video-01:8081",
+      "tokenEnv": "HDMI_PI_VIDEO_01_TOKEN",
+      "capabilities": ["hdmi-cec", "display-control"],
+      "metadata": {
+        "location": "TV Wall",
+        "hardware": "Raspberry Pi 4"
+      }
+    },
+    {
+      "id": "pi-camera-01",
+      "name": "Camera Pi 01",
+      "role": "camera",
+      "module": "camera",
+      "baseUrl": "http://pi-camera-01:8081",
+      "tokenEnv": "CAMERA_PI_CAMERA_01_TOKEN",
+      "capabilities": ["recording", "streaming", "motion-detection"],
+      "metadata": {
+        "location": "Front Entrance",
+        "hardware": "Raspberry Pi 4 + Camera Module"
+      }
+    }
+  ]
+}
