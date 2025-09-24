@@ -23,8 +23,11 @@
   export let data: {
     version: string;
     envLabel: string;
-    layout: LayoutData;
+    layout: LayoutData | null;
+    layoutError: string | null;
+    stateError: string | null;
     connection: { status: 'online' | 'degraded' | 'offline'; latencyMs: number };
+    build: { commit: string; version: string };
     lastUpdated: string;
   };
 

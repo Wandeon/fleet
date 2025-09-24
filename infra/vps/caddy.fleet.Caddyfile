@@ -1,19 +1,23 @@
-log.beautyheadspabymartina.hr {
+app.headspamartina.hr {
   encode zstd gzip
-  tls you@example.com
 
-  @api path /api* /stream /metrics
-  reverse_proxy @api fleet-api:3005 {
-    header_up Authorization {>Authorization}
+  handle_path /api/* {
+    reverse_proxy fleet-api:3015
   }
-
-  route /stream {
-    reverse_proxy fleet-api:3005 {
-      transport http {
-        keepalive 10
-      }
+  handle /stream {
+    reverse_proxy fleet-api:3015 {
+      header_up Authorization {>Authorization}
+      flush_interval -1
+    }
+  }
+  handle /metrics {
+    reverse_proxy fleet-api:3015 {
+      header_up Authorization {>Authorization}
     }
   }
 
-  reverse_proxy fleet-ui:3000
+  # UI (everything else) - PRODUCTION UI
+  handle {
+    reverse_proxy fleet-ui:3000
+  }
 }
