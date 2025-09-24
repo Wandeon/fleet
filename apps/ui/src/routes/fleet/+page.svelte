@@ -1,7 +1,7 @@
 <script lang="ts">
   import type { PageData } from './$types';
   import { onMount } from 'svelte';
-  import { api } from '$lib/api/client';
+  import { apiClient as api } from '$lib/api/client';
 
 
   let fleetState: any = null;
@@ -10,7 +10,7 @@
 
   onMount(async () => {
     try {
-      const response = await api.get('/fleet/state');
+      const response = await api.fetchState();
       fleetState = response;
       error = null;
     } catch (err) {

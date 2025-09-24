@@ -1,6 +1,6 @@
 <script lang="ts">
   import { onMount } from 'svelte';
-  import { api } from '$lib/api/client';
+  import { apiClient as api } from '$lib/api/client';
 
   let fleetLayout: any = null;
   let error: string | null = null;
@@ -8,7 +8,7 @@
 
   onMount(async () => {
     try {
-      const response = await api.get('/fleet/layout');
+      const response = await api.fetchLayout();
       fleetLayout = response;
       error = null;
     } catch (err) {
