@@ -2,9 +2,11 @@
 
 FROM node:20-alpine AS base
 WORKDIR /app
+ENV PRISMA_CLI_BINARY_TARGETS="linux-musl-arm64-openssl-3.0.x"
 
 FROM base AS deps
 COPY package.json package-lock.json ./
+COPY prisma ./prisma
 RUN npm ci
 
 FROM deps AS build
@@ -14,10 +16,12 @@ RUN npm run build
 
 FROM node:20-alpine AS runner
 ENV NODE_ENV=production
+ENV PRISMA_CLI_BINARY_TARGETS="linux-musl-arm64-openssl-3.0.x"
 WORKDIR /app
 COPY package.json package-lock.json ./
 COPY prisma ./prisma
 RUN npm ci --omit=dev
+RUN rm -f node_modules/.prisma/client/query-engine-linux-musl-arm64-openssl-1.1.x
 RUN npm run db:generate
 COPY --from=build /app/dist ./dist
 COPY --from=build /app/openapi.local.yaml ./openapi.local.yaml
