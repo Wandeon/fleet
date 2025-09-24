@@ -25,6 +25,9 @@ SSH_USER=${SSH_USER:-admin}
 TOKEN=${AUDIOCTL_TOKEN:-}
 ICECAST_URL=${ICECAST_URL:-}
 PLAY_BOTH=0
+PI_VIDEO_HOST=${PI_VIDEO_HOST:-}
+PI_CAMERA_HOST=${PI_CAMERA_HOST:-}
+VPS_HOST=${VPS_HOST:-}
 
 HOSTS=()
 while [[ $# -gt 0 ]]; do
@@ -178,6 +181,48 @@ main() {
     audio_host_checks "$host"
     echo
   done
+
+  if [[ -n $PI_VIDEO_HOST ]]; then
+    local context="video-${PI_VIDEO_HOST}"
+    local url="http://${PI_VIDEO_HOST}:8082/healthz"
+    info "probing video host health: $url"
+    if curl -fsS -m 5 "$url" >/dev/null 2>&1; then
+      ok "video healthz endpoint (${PI_VIDEO_HOST}:8082)"
+      record_check "$context" "healthz" "PASS" "Video Pi health check successful"
+    else
+      warn "video health probe failed (${PI_VIDEO_HOST}:8082)"
+      record_check "$context" "healthz" "WARN" "Video Pi health check failed"
+    fi
+    echo
+  fi
+
+  if [[ -n $PI_CAMERA_HOST ]]; then
+    local context="camera-${PI_CAMERA_HOST}"
+    local url="http://${PI_CAMERA_HOST}:8083/healthz"
+    info "probing camera host health: $url"
+    if curl -fsS -m 5 "$url" >/dev/null 2>&1; then
+      ok "camera healthz endpoint (${PI_CAMERA_HOST}:8083)"
+      record_check "$context" "healthz" "PASS" "Camera Pi health check successful"
+    else
+      warn "camera health probe failed (${PI_CAMERA_HOST}:8083)"
+      record_check "$context" "healthz" "WARN" "Camera Pi health check failed"
+    fi
+    echo
+  fi
+
+  if [[ -n $VPS_HOST ]]; then
+    local context="zigbee-${VPS_HOST}"
+    local url="http://${VPS_HOST}:3006/ui/zigbee"
+    info "probing Zigbee UI route: $url"
+    if curl -fsS -m 5 "$url" >/dev/null 2>&1; then
+      ok "Zigbee UI accessible (${VPS_HOST}:3006)"
+      record_check "$context" "ui-zigbee" "PASS" "Zigbee UI responded successfully"
+    else
+      yellow "Zigbee UI not yet available (${VPS_HOST}:3006) — probe is informational"
+      record_check "$context" "ui-zigbee" "WARN" "Zigbee UI probe failed (non-blocking, informational only)"
+    fi
+    echo
+  fi
 
   if [[ -n $ICECAST_URL ]]; then
     info "checking Icecast stream: $ICECAST_URL"
