@@ -239,11 +239,13 @@ async function request<T>(path: string, options: RequestOptions = {}): Promise<T
       continue;
     }
 
+    // Clone response before reading body to prevent "Body has already been read" error
+    const responseClone = response.clone();
     let detail: unknown;
     try {
-      detail = await response.json();
+      detail = await responseClone.json();
     } catch {
-      detail = await response.text();
+      detail = await responseClone.text();
     }
 
     throw new UiApiError(response.statusText || 'Request failed', response.status, detail);

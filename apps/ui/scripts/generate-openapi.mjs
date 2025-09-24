@@ -2,6 +2,7 @@ import { access, mkdir, readFile, writeFile } from 'node:fs/promises';
 import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import openapiTS from 'openapi-typescript';
+import ts from 'typescript';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const projectRoot = resolve(__dirname, '..');
@@ -35,8 +36,16 @@ if (!(await exists(specPath))) {
 }
 
 const spec = await readFile(specPath, 'utf8');
-const output = await openapiTS(spec, { exportType: true });
+const astNodes = await openapiTS(spec);
 await mkdir(generatedDir, { recursive: true });
+
+// Convert AST nodes to TypeScript code
+const printer = ts.createPrinter();
+const sourceFile = ts.createSourceFile('generated.ts', '', ts.ScriptTarget.Latest);
+const output = Array.isArray(astNodes)
+  ? astNodes.map(node => printer.printNode(ts.EmitHint.Unspecified, node, sourceFile)).join('\n')
+  : String(astNodes);
+
 await writeFile(join(generatedDir, 'types.ts'), `${header}${output}`, 'utf8');
 const index = `${header}export type { paths, components, operations } from './types.js';\nexport const hasGeneratedClient = true as const;\n`;
 await writeFile(join(generatedDir, 'index.ts'), index, 'utf8');
