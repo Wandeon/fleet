@@ -82,12 +82,13 @@ export const configureApiClient = (options: ApiClientOptions = {}): void => {
     : undefined;
 
   OpenAPI.HEADERS = async () => {
-    const extra = (await getAdditionalHeaders?.()) ?? {};
+    const extra = ((await getAdditionalHeaders?.()) ?? {}) as Record<string, string>;
     const correlationId = correlationIdFactory?.();
-    return {
-      ...extra,
-      ...(correlationId ? { 'x-correlation-id': correlationId } : {}),
-    };
+    const headers: Record<string, string> = { ...extra };
+    if (correlationId) {
+      headers['x-correlation-id'] = correlationId;
+    }
+    return headers;
   };
 };
 
@@ -97,48 +98,45 @@ export const FleetApi = {
 };
 
 export const AudioApi = {
-  listDevices: (limit?: number, cursor?: string) => AudioService.getAudioDevices(limit, cursor),
-  getDevice: (id: string) => AudioService.getAudio(id),
-  play: (id: string, payload: Parameters<typeof AudioService.postAudioPlay>[1]) =>
-    AudioService.postAudioPlay(id, payload),
-  stop: (id: string) => AudioService.postAudioStop(id),
-  setVolume: (id: string, payload: Parameters<typeof AudioService.postAudioVolume>[1]) =>
-    AudioService.postAudioVolume(id, payload),
-  updateConfig: (id: string, payload: Parameters<typeof AudioService.putAudioConfig>[1]) =>
-    AudioService.putAudioConfig(id, payload),
+  listDevices: (limit?: number, cursor?: string) => AudioService.listAudioDevices(limit, cursor),
+  getDevice: (id: string) => AudioService.getAudioDevice(id),
+  play: (id: string, payload: Parameters<typeof AudioService.playAudioDevice>[1]) =>
+    AudioService.playAudioDevice(id, payload),
+  stop: (id: string) => AudioService.stopAudioDevice(id),
+  setVolume: (id: string, payload: Parameters<typeof AudioService.setAudioDeviceVolume>[1]) =>
+    AudioService.setAudioDeviceVolume(id, payload),
+  updateConfig: (id: string, payload: Parameters<typeof AudioService.updateAudioDeviceConfig>[1]) =>
+    AudioService.updateAudioDeviceConfig(id, payload),
 };
 
 export const VideoApi = {
-  getTv: () => VideoService.getVideoTv(),
-  setPower: (payload: Parameters<typeof VideoService.postVideoTvPower>[0]) =>
-    VideoService.postVideoTvPower(payload),
-  setInput: (payload: Parameters<typeof VideoService.postVideoTvInput>[0]) =>
-    VideoService.postVideoTvInput(payload),
-  setVolume: (payload: Parameters<typeof VideoService.postVideoTvVolume>[0]) =>
-    VideoService.postVideoTvVolume(payload),
-  setMute: (payload: Parameters<typeof VideoService.postVideoTvMute>[0]) =>
-    VideoService.postVideoTvMute(payload),
+  getTv: () => VideoService.getTvStatus(),
+  setPower: (payload: Parameters<typeof VideoService.setTvPower>[0]) =>
+    VideoService.setTvPower(payload),
+  setInput: (payload: Parameters<typeof VideoService.setTvInput>[0]) =>
+    VideoService.setTvInput(payload),
+  setVolume: (payload: Parameters<typeof VideoService.setTvVolume>[0]) =>
+    VideoService.setTvVolume(payload),
+  setMute: (payload: Parameters<typeof VideoService.setTvMute>[0]) =>
+    VideoService.setTvMute(payload),
 };
 
 export const ZigbeeApi = {
-  listDevices: (limit?: number, cursor?: string) => ZigbeeService.getZigbeeDevices(limit, cursor),
-  runAction: (id: string, payload: Parameters<typeof ZigbeeService.postZigbeeDevicesAction>[1]) =>
-    ZigbeeService.postZigbeeDevicesAction(id, payload),
+  listDevices: (limit?: number, cursor?: string) => ZigbeeService.listZigbeeDevices(limit, cursor),
+  runAction: (id: string, payload: Parameters<typeof ZigbeeService.runZigbeeDeviceAction>[1]) =>
+    ZigbeeService.runZigbeeDeviceAction(id, payload),
 };
 
 export const CameraApi = {
   getSummary: () => CameraService.getCameraSummary(),
-  getEvents: (
-    limit?: number,
-    cursor?: string,
-    since?: string,
-  ) => CameraService.getCameraEvents(limit, cursor, since),
+  getEvents: (limit?: number, cursor?: string, since?: string) =>
+    CameraService.listCameraEvents(limit, cursor, since),
   getPreview: (id: string) => CameraService.getCameraPreview(id),
 };
 
 export const HealthApi = {
   getSummary: () => HealthService.getHealthSummary(),
-  getRecentEvents: (limit?: number, cursor?: string) => HealthService.getEventsRecent(limit, cursor),
+  getRecentEvents: (limit?: number, cursor?: string) => HealthService.getRecentEvents(limit, cursor),
 };
 
 import { browser } from '$app/environment';
@@ -179,17 +177,21 @@ const resolveServerAuth = (): string | null => {
 };
 
 const DEFAULT_RELATIVE_BASE = trimTrailingSlash(import.meta.env.VITE_API_BASE ?? '/api');
-const USE_MOCKS = import.meta.env.VITE_USE_MOCKS === '1';
+export const USE_MOCKS = import.meta.env.VITE_USE_MOCKS === '1';
 const API_BASE = browser ? '/ui' : resolveServerBase() || DEFAULT_RELATIVE_BASE || '/api';
 
 configureApiClient({
   baseUrl: API_BASE,
   getAdditionalHeaders: async () => {
+    const headers: Record<string, string> = {};
     if (USE_MOCKS) {
-      return {};
+      return headers;
     }
     const auth = resolveServerAuth();
-    return auth ? { Authorization: auth } : {};
+    if (auth) {
+      headers.Authorization = auth;
+    }
+    return headers;
   },
 });
 
@@ -207,7 +209,7 @@ export class UiApiError extends Error {
 
 export type HttpMethod = 'GET' | 'POST' | 'PUT' | 'PATCH' | 'DELETE';
 
-interface RequestOptions extends RequestInit {
+export interface RequestOptions extends RequestInit {
   method?: HttpMethod;
   fetch?: typeof fetch;
 }
@@ -325,3 +327,7 @@ export const apiClient = {
 export type ApiClient = typeof apiClient;
 
 export type LoadFetch = typeof fetch;
+
+export { request as rawRequest };
+
+export const API_BASE_URL = API_BASE;

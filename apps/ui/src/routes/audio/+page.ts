@@ -1,11 +1,11 @@
 import type { PageLoad } from './$types';
-import { apiClient } from '$lib/api/client';
+import { getAudioOverview } from '$lib/api/audio-operations';
 
 export const load: PageLoad = async ({ fetch, depends }) => {
   depends('app:audio');
 
   try {
-    const audio = await apiClient.fetchAudio({ fetch });
+    const audio = await getAudioOverview({ fetch });
     return { audio, error: null };
   } catch (error) {
     const message = error instanceof Error ? error.message : 'Unable to load audio state';

@@ -4,222 +4,357 @@
   import Slider from '$lib/components/Slider.svelte';
   import EmptyState from '$lib/components/EmptyState.svelte';
   import Skeleton from '$lib/components/Skeleton.svelte';
-  import type { PanelState } from '$lib/stores/app';
-  import type { VideoState } from '$lib/types';
+  import StatusPill from '$lib/components/StatusPill.svelte';
   import { createEventDispatcher } from 'svelte';
+  import { goto, invalidate } from '$app/navigation';
+  import {
+    fetchRecordingTimeline,
+    generateLivePreviewUrl,
+    getVideoOverview,
+    setVideoInput,
+    setVideoMute,
+    setVideoPower,
+    setVideoVolume
+  } from '$lib/api/video-operations';
+  import { mockApi } from '$lib/api/mock';
+  import { USE_MOCKS } from '$lib/api/client';
+  import type { PanelState } from '$lib/stores/app';
+  import type { VideoRecordingSegment, VideoState } from '$lib/types';
 
   export let data: VideoState | null = null;
   export let state: PanelState = 'success';
-  export let onRetry: (() => void) | undefined;
+  export let variant: 'compact' | 'full' = 'full';
   export let title = 'Video';
+  export let onRetry: (() => void) | undefined;
 
   const dispatch = createEventDispatcher();
 
-  let isControlling = false;
-  let controlStatus = '';
+  const statusToPill = (state: VideoState) => {
+    if (state.power === 'off') return 'offline';
+    if (state.livePreview?.status === 'error') return 'error';
+    if (state.livePreview?.status === 'connecting') return 'warn';
+    return 'ok';
+  };
 
-  function retry() {
-    dispatch('retry');
+  let statusMessage: string | null = null;
+  let busy = false;
+  let liveUrl: string | null = null;
+  let liveLoading = false;
+  let timeline: VideoRecordingSegment[] = data?.recordings ?? [];
+  let selectedSegmentId: string | null = timeline[0]?.id ?? null;
+  let segmentPosition = 0;
+
+  $: timeline = data?.recordings ?? timeline;
+  $: selectedSegmentId = selectedSegmentId && timeline.every((item) => item.id !== selectedSegmentId)
+    ? timeline[0]?.id ?? null
+    : selectedSegmentId;
+  $: selectedSegment = timeline.find((item) => item.id === selectedSegmentId) ?? null;
+  $: segmentDuration = selectedSegment
+    ? Math.max(0, Math.round((new Date(selectedSegment.end).valueOf() - new Date(selectedSegment.start).valueOf()) / 1000))
+    : 0;
+
+  const broadcastRefresh = () => {
+    dispatch('refresh');
+    invalidate('app:video');
     onRetry?.();
-  }
+  };
 
-  async function controlPower(powerState: 'on' | 'off') {
-    if (!data || isControlling) return;
+  const showMessage = (message: string) => {
+    statusMessage = message;
+    setTimeout(() => {
+      if (statusMessage === message) statusMessage = null;
+    }, 4000);
+  };
 
-    isControlling = true;
-    controlStatus = `Turning ${powerState}...`;
-
+  const handlePower = async (power: 'on' | 'off') => {
+    if (!data || busy) return;
+    busy = true;
     try {
-      // Mock API call - replace with actual API endpoint
-      const response = await fetch('/api/video/power', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ state: powerState })
-      });
+      data = await setVideoPower(power);
+      showMessage(`Display ${power === 'on' ? 'powered on' : 'powered off'}`);
+    } catch (error) {
+      console.error('set power', error);
+      showMessage(error instanceof Error ? error.message : 'Power control failed');
+    } finally {
+      busy = false;
+      broadcastRefresh();
+    }
+  };
 
-      if (response.ok) {
-        data.power = powerState;
-        controlStatus = `Display ${powerState === 'on' ? 'turned on' : 'turned off'}`;
-      } else {
-        controlStatus = 'Power control failed';
+  const handleInput = async (inputId: string) => {
+    if (!data || busy) return;
+    busy = true;
+    try {
+      data = await setVideoInput(inputId);
+      showMessage(`Switched to ${inputId}`);
+    } catch (error) {
+      console.error('set input', error);
+      showMessage(error instanceof Error ? error.message : 'Input control failed');
+    } finally {
+      busy = false;
+      broadcastRefresh();
+    }
+  };
+
+  const handleVolume = async (value: number) => {
+    if (!data) return;
+    try {
+      data = await setVideoVolume(value);
+    } catch (error) {
+      console.error('set volume', error);
+      showMessage('Unable to set volume');
+    }
+  };
+
+  const handleMute = async () => {
+    if (!data) return;
+    const muted = !data.muted;
+    try {
+      data = await setVideoMute(muted);
+      showMessage(muted ? 'Muted output' : 'Unmuted output');
+    } catch (error) {
+      console.error('set mute', error);
+      showMessage('Unable to toggle mute');
+    }
+  };
+
+  const refreshRecordings = async () => {
+    try {
+      timeline = await fetchRecordingTimeline();
+      if (timeline.length && !selectedSegmentId) {
+        selectedSegmentId = timeline[0].id;
       }
     } catch (error) {
-      controlStatus = `Power control error: ${error instanceof Error ? error.message : 'Unknown error'}`;
+      console.error('fetch recordings', error);
+      showMessage('Unable to load recording timeline');
     }
+  };
 
-    setTimeout(() => {
-      isControlling = false;
-      controlStatus = '';
-      onRetry?.(); // Refresh data
-    }, 2000);
-  }
-
-  async function selectInput(input: string) {
-    if (!data || isControlling) return;
-
-    isControlling = true;
-    controlStatus = `Switching to ${input}...`;
-
+  const openLivePreview = async () => {
+    if (!data || liveLoading) return;
+    liveLoading = true;
     try {
-      // Mock API call - replace with actual API endpoint
-      const response = await fetch('/api/video/input', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ source: input })
-      });
-
-      if (response.ok) {
-        data.input = input;
-        controlStatus = `Input switched to ${input}`;
+      if (USE_MOCKS) {
+        const current = mockApi.video().livePreview;
+        liveUrl = current?.streamUrl ?? null;
       } else {
-        controlStatus = 'Input switch failed';
+        liveUrl = await generateLivePreviewUrl();
       }
+      showMessage('Live preview ready');
     } catch (error) {
-      controlStatus = `Input control error: ${error instanceof Error ? error.message : 'Unknown error'}`;
+      console.error('preview error', error);
+      showMessage(error instanceof Error ? error.message : 'Unable to start preview');
+    } finally {
+      liveLoading = false;
     }
+  };
 
-    setTimeout(() => {
-      isControlling = false;
-      controlStatus = '';
-      onRetry?.(); // Refresh data
-    }, 2000);
-  }
+  const playSegment = (segment: VideoRecordingSegment) => {
+    liveUrl = segment.url;
+    selectedSegmentId = segment.id;
+    segmentPosition = 0;
+    showMessage(`Playing recording ${segment.label ?? segment.id}`);
+  };
 
-  async function controlVolume(volume: number) {
-    if (!data || isControlling) return;
+  const handleSegmentScrub = (value: number) => {
+    segmentPosition = Math.max(0, Math.min(segmentDuration, Math.round(value)));
+  };
 
-    data.volume = volume;
-
-    // Mock API call - replace with actual API endpoint
+  const loadLatest = async () => {
     try {
-      await fetch('/api/video/volume', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ volume })
-      });
+      data = await getVideoOverview();
+      timeline = data.recordings;
+      selectedSegmentId = timeline[0]?.id ?? null;
+      showMessage('Video state refreshed');
     } catch (error) {
-      console.warn('Volume control error:', error);
+      console.error('refresh video', error);
+      showMessage('Unable to refresh video state');
+    } finally {
+      broadcastRefresh();
     }
-  }
+  };
 
-  async function toggleMute() {
-    if (!data || isControlling) return;
-
-    isControlling = true;
-    const newMuteState = !data.muted;
-    controlStatus = newMuteState ? 'Muting...' : 'Unmuting...';
-
-    try {
-      // Mock API call - replace with actual API endpoint
-      const response = await fetch('/api/video/mute', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ muted: newMuteState })
-      });
-
-      if (response.ok) {
-        data.muted = newMuteState;
-        controlStatus = newMuteState ? 'Muted' : 'Unmuted';
-      } else {
-        controlStatus = 'Mute control failed';
-      }
-    } catch (error) {
-      controlStatus = `Mute control error: ${error instanceof Error ? error.message : 'Unknown error'}`;
-    }
-
-    setTimeout(() => {
-      isControlling = false;
-      controlStatus = '';
-    }, 1500);
+  $: if (data?.livePreview && !liveUrl) {
+    liveUrl = data.livePreview.streamUrl;
   }
 </script>
 
-<Card title={title} subtitle="TV wall control">
+<Card title={title} subtitle={variant === 'compact' ? 'Live display health' : 'Display orchestration'}>
   {#if state === 'loading'}
     <div class="stack">
       <Skeleton variant="block" height="9rem" />
-      <Skeleton variant="line" />
       <Skeleton variant="line" />
     </div>
   {:else if state === 'error'}
     <div class="error-state" role="alert">
       <p>Video controller offline. Attempt to reconnect?</p>
-      <Button variant="primary" on:click={retry}>Retry</Button>
+      <Button variant="primary" on:click={loadLatest}>Retry</Button>
     </div>
-  {:else if state === 'empty'}
-    <EmptyState title="No displays discovered" description="Add a display or HDMI sink to manage video output.">
+  {:else if !data}
+    <EmptyState title="No video telemetry" description="Bring a display online to configure playback.">
       <svelte:fragment slot="icon">📺</svelte:fragment>
+      <svelte:fragment slot="action">
+        <Button variant="secondary" on:click={loadLatest}>Refresh</Button>
+      </svelte:fragment>
     </EmptyState>
-  {:else if data}
-    <div class="video-grid">
-      <div class="preview" role="img" aria-label="Video preview placeholder">
-        <img src={data.previewImage} alt="Video preview" loading="lazy" />
-        {#if controlStatus}
-          <div class="control-status">
-            <span class="status-text">{controlStatus}</span>
-          </div>
-        {/if}
+  {:else if variant === 'compact'}
+    <div class="compact">
+      <div class="preview-thumb">
+        <img src={data.livePreview?.thumbnailUrl ?? 'https://dummyimage.com/320x180/1d2b46/ffffff&text=Video'} alt="Video preview" />
+        <StatusPill status={statusToPill(data)} />
       </div>
-      <div class="controls">
-        <div class="power">
-          <Button
-            variant={data.power === 'on' ? 'primary' : 'secondary'}
-            disabled={isControlling}
-            on:click={() => controlPower('on')}
-            aria-pressed={data.power === 'on'}
-          >
-            {isControlling && controlStatus.includes('on') ? 'Turning On...' : 'Power On'}
-          </Button>
-          <Button
-            variant={data.power === 'off' ? 'primary' : 'secondary'}
-            disabled={isControlling}
-            on:click={() => controlPower('off')}
-            aria-pressed={data.power === 'off'}
-          >
-            {isControlling && controlStatus.includes('off') ? 'Turning Off...' : 'Power Off'}
-          </Button>
-        </div>
-        <div class="inputs">
-          <span class="input-label">Input Source:</span>
-          {#each data.availableInputs as input (input)}
-            <Button
-              variant={input === data.input ? 'primary' : 'ghost'}
-              disabled={isControlling}
-              on:click={() => selectInput(input)}
-              aria-pressed={input === data.input}
-            >
-              {input}
-            </Button>
-          {/each}
-        </div>
-        <Slider
-          label="Output volume"
-          min={0}
-          max={100}
-          value={data.volume}
-          unit="%"
-          on:change={(e) => controlVolume(e.detail)}
-        />
-        <Button
-          variant={data.muted ? 'primary' : 'ghost'}
-          disabled={isControlling}
-          on:click={toggleMute}
-          aria-pressed={data.muted}
-        >
-          {isControlling && controlStatus.includes('mut') ? controlStatus : (data.muted ? 'Unmute' : 'Mute')}
-        </Button>
-        <p class="meta">
-          Last signal: {new Date(data.lastSignal).toLocaleTimeString()}
-          {#if data.power === 'on'}
-            <span class="power-indicator on">● ON</span>
-          {:else}
-            <span class="power-indicator off">● OFF</span>
-          {/if}
-        </p>
+      <div class="compact-meta">
+        <span class="label">Input</span>
+        <strong>{data.input}</strong>
+        <span class="label">Last signal</span>
+        <strong>{new Date(data.lastSignal).toLocaleTimeString()}</strong>
+        <Button variant="ghost" on:click={() => goto('/video')}>Open controls</Button>
       </div>
     </div>
   {:else}
-    <EmptyState title="Video data missing" description="No telemetry received from video service." />
+    <div class="video-layout">
+      {#if statusMessage}
+        <div class="banner" role="status">{statusMessage}</div>
+      {/if}
+      <section class="live">
+        <header>
+          <h2>Live preview</h2>
+          <div class="actions">
+            <Button variant="ghost" on:click={loadLatest}>Refresh state</Button>
+            <Button variant="ghost" disabled={liveLoading} on:click={openLivePreview}>
+              {liveLoading ? 'Preparing…' : 'Start live preview'}
+            </Button>
+          </div>
+        </header>
+        <div class="live-body">
+          {#if liveUrl}
+            <video controls autoplay muted playsinline poster={data.livePreview?.thumbnailUrl} src={liveUrl}></video>
+          {:else}
+            <img src={data.livePreview?.thumbnailUrl ?? 'https://dummyimage.com/640x360/0f172a/ffffff&text=Preview'} alt="Video preview" />
+          {/if}
+          <div class="live-meta">
+            <div>
+              <span class="label">Input</span>
+              <strong>{data.input}</strong>
+            </div>
+            <div>
+              <span class="label">Latency</span>
+              <strong>{data.livePreview ? `${data.livePreview.latencyMs} ms` : '—'}</strong>
+            </div>
+            <div>
+              <span class="label">Signal</span>
+              <strong>{new Date(data.lastSignal).toLocaleTimeString()}</strong>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section class="controls">
+        <header>
+          <h2>Display controls</h2>
+        </header>
+        <div class="controls-grid">
+          <div class="power">
+            <Button variant={data.power === 'on' ? 'primary' : 'secondary'} disabled={busy} on:click={() => handlePower('on')}>
+              Power on
+            </Button>
+            <Button variant={data.power === 'off' ? 'primary' : 'secondary'} disabled={busy} on:click={() => handlePower('off')}>
+              Power off
+            </Button>
+          </div>
+          <div class="inputs" role="radiogroup" aria-label="Video input">
+            {#each data.availableInputs as input (input.id)}
+              <Button
+                variant={input.id === data.input ? 'primary' : 'ghost'}
+                disabled={busy}
+                on:click={() => handleInput(input.id)}
+                aria-pressed={input.id === data.input}
+              >
+                {input.label}
+              </Button>
+            {/each}
+          </div>
+          <Slider
+            label="Output volume"
+            min={0}
+            max={100}
+            value={data.volume}
+            unit="%"
+            on:change={(event) => handleVolume(event.detail)}
+          />
+          <Button variant={data.muted ? 'primary' : 'ghost'} on:click={handleMute}>
+            {data.muted ? 'Unmute' : 'Mute'}
+          </Button>
+        </div>
+      </section>
+
+      <section class="timeline">
+        <header>
+          <h2>Recording timeline</h2>
+          <div class="actions">
+            <Button variant="ghost" on:click={refreshRecordings}>Refresh recordings</Button>
+          </div>
+        </header>
+        {#if !timeline.length}
+          <p class="muted">No recording history for the selected display.</p>
+        {:else}
+          <div class="timeline-body">
+            <ul class="segments">
+              {#each timeline as segment}
+                <li class:selected={segment.id === selectedSegmentId}>
+                  <button type="button" on:click={() => playSegment(segment)}>
+                    <strong>{segment.label ?? segment.id}</strong>
+                    <span>{new Date(segment.start).toLocaleTimeString()} → {new Date(segment.end).toLocaleTimeString()}</span>
+                  </button>
+                </li>
+              {/each}
+            </ul>
+            {#if selectedSegment}
+              <div class="scrubber">
+                <div class="scrubber-header">
+                  <strong>{selectedSegment.label ?? selectedSegment.id}</strong>
+                  <span>{segmentDuration ? `${segmentPosition}s / ${segmentDuration}s` : '—'}</span>
+                </div>
+                <Slider
+                  label="Scrub recording"
+                  min={0}
+                  max={Math.max(segmentDuration, 1)}
+                  value={segmentPosition}
+                  step={1}
+                  displayValue={false}
+                  on:change={(event) => handleSegmentScrub(event.detail)}
+                />
+                <Button variant="ghost" on:click={() => playSegment(selectedSegment)}>Play segment</Button>
+              </div>
+            {/if}
+          </div>
+        {/if}
+      </section>
+
+      <section class="cec">
+        <header>
+          <h2>CEC devices</h2>
+        </header>
+        {#if !data.cecDevices.length}
+          <p class="muted">No downstream CEC devices reported.</p>
+        {:else}
+          <ul class="cec-list">
+            {#each data.cecDevices as device}
+              <li>
+                <div>
+                  <strong>{device.name}</strong>
+                  <span class="muted">{device.id}</span>
+                </div>
+                <div class="status">
+                  <StatusPill status={device.power === 'on' ? 'ok' : 'offline'} />
+                  <span>{device.input ?? '—'}</span>
+                </div>
+              </li>
+            {/each}
+          </ul>
+        {/if}
+      </section>
+    </div>
   {/if}
 </Card>
 
@@ -230,92 +365,193 @@
   }
 
   .error-state {
-    display: flex;
-    flex-direction: column;
+    display: grid;
     gap: var(--spacing-3);
   }
 
-  .video-grid {
-    display: grid;
+  .compact {
+    display: flex;
     gap: var(--spacing-4);
-    grid-template-columns: minmax(16rem, 2fr) minmax(0, 1.5fr);
+    align-items: center;
   }
 
-  .preview {
+  .preview-thumb {
     position: relative;
-    border-radius: var(--radius-lg);
+    width: 12rem;
+    border-radius: var(--radius-md);
     overflow: hidden;
     border: 1px solid rgba(148, 163, 184, 0.2);
-    background: rgba(11, 23, 45, 0.7);
   }
 
-  .preview img {
+  .preview-thumb img {
     display: block;
     width: 100%;
-    height: auto;
   }
 
-  .control-status {
+  .preview-thumb :global(.status-pill) {
     position: absolute;
-    top: var(--spacing-3);
-    left: var(--spacing-3);
-    right: var(--spacing-3);
-    background: rgba(0, 0, 0, 0.8);
-    color: white;
-    padding: var(--spacing-2) var(--spacing-3);
+    top: var(--spacing-2);
+    right: var(--spacing-2);
+  }
+
+  .compact-meta {
+    display: grid;
+    gap: 0.4rem;
+  }
+
+  .label {
+    display: block;
+    font-size: var(--font-size-xs);
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    color: var(--color-text-muted);
+  }
+
+  .video-layout {
+    display: grid;
+    gap: var(--spacing-4);
+  }
+
+  .banner {
+    padding: var(--spacing-3);
     border-radius: var(--radius-md);
-    text-align: center;
-  }
-
-  .status-text {
+    border: 1px solid rgba(34, 197, 94, 0.4);
+    background: rgba(34, 197, 94, 0.15);
     font-size: var(--font-size-sm);
-    font-weight: 500;
   }
 
-  .controls {
+  .live header,
+  .controls header,
+  .timeline header,
+  .cec header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+  }
+
+  .live-body {
     display: grid;
     gap: var(--spacing-3);
   }
 
-  .power,
+  video,
+  .live-body img {
+    width: 100%;
+    border-radius: var(--radius-lg);
+    border: 1px solid rgba(148, 163, 184, 0.2);
+    background: rgba(2, 6, 23, 0.8);
+  }
+
+  .live-meta {
+    display: flex;
+    gap: var(--spacing-4);
+    flex-wrap: wrap;
+  }
+
+  .controls-grid {
+    display: grid;
+    gap: var(--spacing-3);
+  }
+
+  .power {
+    display: flex;
+    gap: var(--spacing-2);
+  }
+
   .inputs {
     display: flex;
     flex-wrap: wrap;
     gap: var(--spacing-2);
-    align-items: center;
   }
 
-  .input-label {
-    font-size: var(--font-size-sm);
-    font-weight: 500;
-    color: var(--color-text);
-    margin-right: var(--spacing-2);
+  .timeline-body {
+    display: grid;
+    gap: var(--spacing-3);
+    grid-template-columns: minmax(16rem, 1fr) minmax(0, 1.2fr);
   }
 
-  .meta {
+  .segments {
+    list-style: none;
     margin: 0;
-    font-size: var(--font-size-xs);
-    color: var(--color-text-muted);
+    padding: 0;
+    border: 1px solid rgba(148, 163, 184, 0.15);
+    border-radius: var(--radius-md);
+    max-height: 16rem;
+    overflow-y: auto;
+  }
+
+  .segments li {
+    border-bottom: 1px solid rgba(148, 163, 184, 0.1);
+  }
+
+  .segments li:last-child {
+    border-bottom: none;
+  }
+
+  .segments li button {
+    width: 100%;
+    text-align: left;
+    background: none;
+    border: none;
+    color: inherit;
+    padding: var(--spacing-3);
+    display: grid;
+    gap: 0.35rem;
+    cursor: pointer;
+  }
+
+  .segments li.selected button,
+  .segments li button:hover {
+    background: rgba(56, 189, 248, 0.12);
+  }
+
+  .scrubber {
+    display: grid;
+    gap: var(--spacing-2);
+    padding: var(--spacing-3);
+    border: 1px solid rgba(148, 163, 184, 0.15);
+    border-radius: var(--radius-md);
+    background: rgba(12, 21, 41, 0.55);
+  }
+
+  .scrubber-header {
     display: flex;
+    justify-content: space-between;
+    font-size: var(--font-size-sm);
+  }
+
+  .cec-list {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    display: grid;
+    gap: var(--spacing-2);
+  }
+
+  .cec-list li {
+    display: flex;
+    justify-content: space-between;
     align-items: center;
     gap: var(--spacing-3);
+    border: 1px solid rgba(148, 163, 184, 0.15);
+    border-radius: var(--radius-md);
+    padding: var(--spacing-3);
+    background: rgba(12, 21, 41, 0.55);
   }
 
-  .power-indicator {
-    font-weight: 600;
-    font-size: var(--font-size-xs);
+  .cec-list .status {
+    display: flex;
+    align-items: center;
+    gap: var(--spacing-2);
   }
 
-  .power-indicator.on {
-    color: var(--color-green-500);
+  .muted {
+    color: var(--color-text-muted);
+    font-size: var(--font-size-sm);
   }
 
-  .power-indicator.off {
-    color: var(--color-red-500);
-  }
-
-  @media (max-width: 900px) {
-    .video-grid {
+  @media (max-width: 960px) {
+    .timeline-body {
       grid-template-columns: 1fr;
     }
   }

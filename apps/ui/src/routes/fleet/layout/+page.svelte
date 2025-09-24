@@ -6,7 +6,7 @@
   let error: string | null = null;
   let loading = true;
 
-  onMount(async () => {
+  const loadLayout = async () => {
     try {
       const response = await api.fetchLayout();
       fleetLayout = response;
@@ -17,12 +17,14 @@
     } finally {
       loading = false;
     }
-  });
+  };
 
-  function retry() {
+  onMount(loadLayout);
+
+  async function retry() {
     loading = true;
     error = null;
-    onMount();
+    await loadLayout();
   }
 </script>
 

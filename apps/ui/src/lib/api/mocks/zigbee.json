@@ -5,7 +5,7 @@
       "name": "East Door",
       "type": "Door Sensor",
       "state": "closed",
-      "lastSeen": "2025-01-12T12:18:01Z",
+      "lastSeen": "2025-09-24T16:08:01Z",
       "battery": 78
     },
     {
@@ -13,7 +13,7 @@
       "name": "Lounge Lights",
       "type": "Dimmer",
       "state": "active",
-      "lastSeen": "2025-01-12T12:19:11Z",
+      "lastSeen": "2025-09-24T16:09:11Z",
       "battery": 96
     },
     {
@@ -21,7 +21,7 @@
       "name": "West Blinds",
       "type": "Blind Controller",
       "state": "open",
-      "lastSeen": "2025-01-12T12:16:44Z",
+      "lastSeen": "2025-09-24T16:06:44Z",
       "battery": 54
     }
   ],
@@ -42,5 +42,9 @@
       "description": "Dim lobby lights and close blinds"
     }
   ],
-  "hubStatus": "online"
+  "hubStatus": "online",
+  "pairing": {
+    "active": false,
+    "discovered": []
+  }
 }

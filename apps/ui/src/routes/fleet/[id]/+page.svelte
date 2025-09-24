@@ -60,6 +60,12 @@
       default: return 'var(--color-gray-500)';
     }
   }
+
+  const statusToLevel = (status: string) => {
+    if (status === 'online') return 'ok';
+    if (status === 'error') return 'error';
+    return 'offline';
+  };
 </script>
 
 <svelte:head>
@@ -78,7 +84,7 @@
       <div class="device-info">
         <h1>{device.name}</h1>
         <div class="device-meta">
-          <StatusPill status={device.status} />
+          <StatusPill status={statusToLevel(device.status)} />
           <span class="device-id">{device.id}</span>
           <span class="device-role">{device.role}</span>
         </div>

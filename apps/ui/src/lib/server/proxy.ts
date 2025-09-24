@@ -107,19 +107,17 @@ export async function proxyFleetRequest(
       requestId,
       detail,
     });
-    throw error(502, { message: 'Upstream request failed', detail });
+    throw error(502, `Upstream request failed: ${detail}`);
   }
 
   if (!upstream.ok) {
     const detail = await readErrorDetail(upstream.clone());
+    const detailMessage = typeof detail === 'string' ? detail : detail != null ? JSON.stringify(detail) : undefined;
     logError(`${method} ${targetPath} -> ${upstream.status}`, {
       requestId,
-      detail: detail ?? undefined,
+      detail: detailMessage,
     });
-    throw error(upstream.status, {
-      message: 'Upstream request failed',
-      detail: detail ?? undefined,
-    });
+    throw error(upstream.status, detailMessage ?? 'Upstream request failed');
   }
 
   let response: Response;

@@ -8,7 +8,7 @@
   let error: string | null = null;
   let loading = true;
 
-  onMount(async () => {
+  const loadState = async () => {
     try {
       const response = await api.fetchState();
       fleetState = response;
@@ -19,12 +19,14 @@
     } finally {
       loading = false;
     }
-  });
+  };
 
-  function retry() {
+  onMount(loadState);
+
+  async function retry() {
     loading = true;
     error = null;
-    onMount();
+    await loadState();
   }
 </script>
 
