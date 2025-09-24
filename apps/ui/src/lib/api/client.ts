@@ -190,12 +190,12 @@ function createHeaders(existing?: HeadersInit): Headers {
 }
 
 async function handleResponse<T>(response: Response): Promise<T> {
-  const contentType = response.headers.get('content-type');
-  if (!contentType || !contentType.includes('application/json')) {
+  try {
+    const body = await response.json();
+    return body as T;
+  } catch {
     return undefined as T;
   }
-  const body = await response.json();
-  return body as T;
 }
 
 async function request<T>(path: string, options: RequestOptions = {}): Promise<T> {
@@ -281,4 +281,3 @@ export const apiClient = {
 export type ApiClient = typeof apiClient;
 
 export type LoadFetch = typeof fetch;
-

@@ -19,7 +19,7 @@ services:
     image: grafana/grafana:latest
     restart: unless-stopped
     ports:
-      - "3000:3000"
+      - "3001:3000"
     # Credentials are provided via monitoring.env
     env_file:
       - ./monitoring.env

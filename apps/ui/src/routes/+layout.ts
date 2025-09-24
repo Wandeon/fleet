@@ -7,17 +7,32 @@ export const load: LayoutLoad = async ({ fetch, depends }) => {
 
   const envLabel = import.meta.env.MODE === 'development' ? 'Dev' : 'Prod';
 
-  const [layout, state] = await Promise.all([
-    apiClient.fetchLayout({ fetch }),
-    apiClient.fetchState({ fetch })
+  const toResult = async <T>(promise: Promise<T>) => {
+    try {
+      const value = await promise;
+      return { value, error: null as null };
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'Request failed';
+      return { value: null as T | null, error: message };
+    }
+  };
+
+  const [layoutResult, stateResult] = await Promise.all([
+    toResult(apiClient.fetchLayout({ fetch })),
+    toResult(apiClient.fetchState({ fetch }))
   ]);
+
+  const layout = layoutResult.value;
+  const state = stateResult.value;
 
   return {
     version,
     envLabel,
     layout,
-    connection: state.connection,
-    build: state.build,
-    lastUpdated: layout.health.updatedAt
+    layoutError: layoutResult.error,
+    stateError: stateResult.error,
+    connection: state?.connection ?? { status: 'offline', latencyMs: 0 },
+    build: state?.build ?? { commit: 'unknown', version: 'unknown' },
+    lastUpdated: layout?.health?.updatedAt ?? new Date().toISOString()
   };
 };

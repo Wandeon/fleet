@@ -2,12 +2,13 @@ services:
   fleet-api:
     build: ../../apps/api
     image: ${FLEET_API_IMAGE:-ghcr.io/org/fleet-api:latest}
+    env_file:
+      - ../../vps/fleet.env
     ports:
       - "3005:3015"
     environment:
       - NODE_ENV=production
       - API_PORT=3015
-      - API_BEARER=${API_BEARER}
       - DATABASE_URL=file:/data/fleet.db
       - SSE_HEARTBEAT_MS=15000
       - POLL_INTERVAL_MS=5000
@@ -25,11 +26,12 @@ services:
   fleet-worker:
     build: ../../apps/api
     image: ${FLEET_WORKER_IMAGE:-ghcr.io/org/fleet-api:latest}
+    env_file:
+      - ../../vps/fleet.env
     environment:
       - NODE_ENV=production
       - DATABASE_URL=file:/data/fleet.db
       - POLL_INTERVAL_MS=5000
-      - API_BEARER=${API_BEARER}
       - DEVICE_REGISTRY_PATH=/config/device-interfaces.yaml
       - LOG_SERVICE=fleet-worker
       - LOG_ROLE=control-plane
@@ -45,12 +47,24 @@ services:
   fleet-ui:
     build: ../../apps/ui
     image: ${FLEET_UI_IMAGE:-ghcr.io/org/fleet-ui:latest}
+    env_file:
+      - ../../vps/fleet.env
     ports:
       - "3006:3000"
+    command: ["node", "build"]
     environment:
+      - NODE_ENV=production
+      - PORT=3000
+      - HOST=0.0.0.0
+      - ORIGIN=https://app.headspamartina.hr
+      - FLEET_API_BASE=http://fleet-api:3015
+      - VITE_API_BASE=/api
+      - VITE_USE_MOCKS=0
+      - PUBLIC_API_URL=https://app.headspamartina.hr/api
       - PUBLIC_API_BASE=/api
-      - PUBLIC_API_BEARER=${API_BEARER}
     restart: unless-stopped
+    depends_on:
+      - fleet-api
 
   caddy:
     image: caddy:2
