@@ -46,7 +46,7 @@ router.get('/displays', (req, res) => {
 router.get('/displays/:id/status', (req, res) => {
   res.locals.routePath = '/video/displays/:id/status';
   const { id } = req.params;
-  const device = deviceRegistry.getById(id);
+  const device = deviceRegistry.getDevice(id);
 
   if (!device || (device.module !== 'video' && !device.role.includes('video'))) {
     return res.status(404).json({

@@ -26,7 +26,7 @@ router.get('/', (req, res) => {
 router.get('/devices/:id/status', (req, res) => {
   res.locals.routePath = '/zigbee/devices/:id/status';
   const { id } = req.params;
-  const device = deviceRegistry.getById(id);
+  const device = deviceRegistry.getDevice(id);
 
   if (!device || (device.module !== 'zigbee' && !device.role.includes('zigbee'))) {
     return res.status(404).json({

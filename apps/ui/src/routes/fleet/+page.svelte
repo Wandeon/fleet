@@ -3,7 +3,6 @@
   import { onMount } from 'svelte';
   import { api } from '$lib/api/client';
 
-  export let data: PageData;
 
   let fleetState: any = null;
   let error: string | null = null;

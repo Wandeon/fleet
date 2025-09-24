@@ -46,7 +46,7 @@ router.get('/streams', (req, res) => {
 router.get('/streams/:id/status', (req, res) => {
   res.locals.routePath = '/camera/streams/:id/status';
   const { id } = req.params;
-  const device = deviceRegistry.getById(id);
+  const device = deviceRegistry.getDevice(id);
 
   if (!device || (device.module !== 'camera' && !device.role.includes('camera'))) {
     return res.status(404).json({
