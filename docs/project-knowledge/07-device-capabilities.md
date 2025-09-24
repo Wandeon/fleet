@@ -1,0 +1,19 @@
+# Device Capabilities Matrix
+
+This matrix mirrors `docs/ux/device-capabilities-matrix.md` and adds operational notes for engineering. Use it when evaluating feature parity or planning firmware rollouts.
+
+| Device Type | Supported Media / Streams | Control Surface | Sync & Pairing | Operational Notes |
+| --- | --- | --- | --- | --- |
+| Audio Pi (v3) | Files: MP3/AAC/FLAC ≤96 kHz; Streams: RTP, audio-only HLS | `/play`, `/stop`, `/volume`, `/config`, `/upload`, hardware mixer via `/hwvolume` | PTP clock sync; `/sync/nudge` endpoint planned; QR provisioning + token handshake | Production default. Ensure HiFiBerry overlay enabled and Prometheus monitors `audio_stream_up`, `audio_fallback_active`.【F:docs/ux/device-capabilities-matrix.md†L5-L16】【F:roles/audio-player/README.md†L1-L40】 |
+| Audio Pi (legacy v2) | MP3/AAC, RTP only | Master volume only; limited config | NTP sync, manual drift correction; PIN pairing | Avoid for new installs—no fallback upload loop and limited sync accuracy.【F:docs/ux/device-capabilities-matrix.md†L5-L16】 |
+| Video Node | MP4 (H.264), MKV (H.265); Streams: RTSP/WebRTC | `/tv/power`, `/tv/input`, `/tv/volume`, `/tv/mute`; future `/play` for HDMI media | Syncs to media timeline (~±250 ms); management portal registration | Requires HDMI-CEC device index + ALSA path. Zigbee stack co-resides—monitor MQTT credentials and ConBee serial path.【F:docs/ux/device-capabilities-matrix.md†L9-L17】【F:roles/hdmi-media/README.md†L1-L78】 |
+| AI Camera | MP4 clip export, RTSP live, WebRTC preview | `/status`, `/probe`, MediaMTX RTSP/HLS | Event timestamp sync; auto-enrol via secure boot | Keep `/dev/video0` + `/dev/vchiq` exposed; adjust `CAMERA_*` env values for bitrate, AWB, exposure. Monitor `camera_stream_online`.【F:docs/ux/device-capabilities-matrix.md†L9-L18】【F:roles/camera/README.md†L1-L40】 |
+| Zigbee Hub | Config bundles (JSON) | MQTT bridge + Zigbee2MQTT UI | Coordinator heartbeat sync; button + console approval | Provide stable serial path (`/dev/serial/by-id/...`) and rotate MQTT credentials via `/etc/fleet/agent.env`.【F:docs/ux/device-capabilities-matrix.md†L12-L18】【F:roles/hdmi-media/README.md†L43-L108】 |
+| Zigbee Sensor | Firmware blobs | Controlled via hub automations | Inherits hub clock; Touchlink + approval | Enforce battery >40% for updates; keep `ZIGBEE_PERMIT_JOIN` time-boxed.【F:docs/ux/device-capabilities-matrix.md†L12-L18】 |
+| Fleet Gateway | Config packages, firmware | MQTT + HTTPS orchestration | Sync with central scheduler | Implemented on VPS control plane; refer to API worker jobs for command dispatch semantics.【F:docs/ux/device-capabilities-matrix.md†L13-L18】【F:apps/api/src/workers/executor.ts†L1-L55】 |
+
+## Usage guidance
+
+- When adding new modules, extend both this table and `docs/ux/device-capabilities-matrix.md` to keep UX/engineering views aligned. 
+- Capabilities should map to API endpoints described in [04-api-surface](./04-api-surface.md) and UI actions documented in [05-ui-structure](./05-ui-structure.md). 
+- Sync expectations feed into incident runbooks—see [09-audio-operations](./09-audio-operations.md) for drift handling, [12-zigbee-operations](./12-zigbee-operations.md) for pairing policies, and [11-camera-operations](./11-camera-operations.md) for detection/event pipelines.

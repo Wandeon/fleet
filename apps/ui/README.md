@@ -68,7 +68,7 @@ These values are injected by `infra/vps/compose.fleet.yml` and mirrored in `vps/
 | `HOST` | ✓ | Interface the Node adapter binds to | `0.0.0.0` |
 | `PORT` | ✓ | Port exposed by the SvelteKit server | `3000` |
 | `ORIGIN` | ✓ | Public HTTPS origin served via Caddy | `https://app.headspamartina.hr` |
-| `FLEET_API_BASE` | ✓ | Internal API base URL for SSR fetches | `http://fleet-api:3015` |
+| `API_BASE_URL` | ✓ | Internal API base URL for SSR/proxy fetches | `http://fleet-api:3015` |
 | `API_BEARER` | ✓ | Server-only bearer token injected into proxy/SSR requests | `<redacted>` |
 | `VITE_API_BASE` | ✓ | Compile-time base path for SSR fallback requests | `/api` |
 | `VITE_USE_MOCKS` | ✓ | Set to `0` in production to enable live data | `0` |

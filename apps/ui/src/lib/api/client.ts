@@ -160,7 +160,7 @@ const resolveServerEnv = (): NodeJS.ProcessEnv => {
 
 const resolveServerBase = (): string => {
   const env = resolveServerEnv();
-  const base = (env.FLEET_API_BASE ?? env.API_BASE ?? '').trim();
+  const base = (env.API_BASE_URL ?? '').trim();
   return trimTrailingSlash(base);
 };
 
@@ -169,7 +169,7 @@ const resolveServerAuth = (): string | null => {
     return null;
   }
   const env = resolveServerEnv();
-  const raw = (env.API_BEARER ?? env.FLEET_API_BEARER ?? '').trim();
+  const raw = (env.API_BEARER ?? '').trim();
   if (!raw) {
     return null;
   }

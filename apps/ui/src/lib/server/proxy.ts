@@ -1,11 +1,20 @@
 import { error, json, type RequestEvent } from '@sveltejs/kit';
 
-const API_BASE = (process.env.FLEET_API_BASE ?? process.env.API_BASE ?? '').replace(/\/$/, '');
-const AUTH_TOKEN = (process.env.API_BEARER ?? process.env.FLEET_API_BEARER ?? '').trim();
+const API_BASE = (process.env.API_BASE_URL ?? '/api').replace(/\/$/, '');
+const AUTH_TOKEN = (process.env.API_BEARER ?? '').trim();
 const USE_MOCKS = (process.env.VITE_USE_MOCKS ?? '1') === '1';
 const LOG_LABEL = '[ui-proxy]';
 
-const FORWARDED_RESPONSE_HEADERS = new Set(['cache-control', 'etag', 'last-modified']);
+const BASE_RESPONSE_HEADERS = new Set(['cache-control', 'etag', 'last-modified']);
+
+interface ProxyOptions {
+  /** When true the request will bypass mock fallbacks even if mocks are enabled. */
+  forceLive?: boolean;
+  /** When true the proxy will stream the upstream body without JSON parsing. */
+  stream?: boolean;
+  /** Additional response headers to forward from the upstream response. */
+  forwardHeaders?: string[];
+}
 
 function resolveAuthorization(): string | null {
   if (!AUTH_TOKEN) return null;
@@ -48,9 +57,10 @@ async function readErrorDetail(response: Response): Promise<unknown> {
   return null;
 }
 
-function copyAllowedHeaders(source: Headers, target: Headers) {
+function copyAllowedHeaders(source: Headers, target: Headers, extra: string[] = []) {
+  const allowed = new Set([...BASE_RESPONSE_HEADERS, ...extra.map((header) => header.toLowerCase())]);
   for (const [key, value] of source.entries()) {
-    if (FORWARDED_RESPONSE_HEADERS.has(key.toLowerCase())) {
+    if (allowed.has(key.toLowerCase())) {
       target.set(key, value);
     }
   }
@@ -60,13 +70,15 @@ export async function proxyFleetRequest(
   event: RequestEvent,
   path: string,
   fallback: () => unknown,
+  options: ProxyOptions = {},
 ): Promise<Response> {
   const method = event.request.method ?? 'GET';
   const targetPath = path.startsWith('/') ? path : `/${path}`;
   const startedAt = Date.now();
   const requestId = event.locals.requestId;
+  const usingMocks = USE_MOCKS && !options.forceLive;
 
-  if (USE_MOCKS) {
+  if (usingMocks) {
     const mock = fallback();
     const response = json(mock);
     response.headers.set('cache-control', 'no-store');
@@ -108,11 +120,20 @@ export async function proxyFleetRequest(
     throw error(upstream.status, detailMessage ?? 'Upstream request failed');
   }
 
-  const payload = await upstream.json();
-  const response = json(payload, { status: upstream.status });
-  copyAllowedHeaders(upstream.headers, response.headers);
-  if (!response.headers.has('cache-control')) {
-    response.headers.set('cache-control', 'no-store');
+  let response: Response;
+  if (options.stream) {
+    response = new Response(upstream.body, {
+      status: upstream.status,
+      headers: new Headers(),
+    });
+    copyAllowedHeaders(upstream.headers, response.headers, [...(options.forwardHeaders ?? []), 'content-type']);
+  } else {
+    const payload = await upstream.json();
+    response = json(payload, { status: upstream.status });
+    copyAllowedHeaders(upstream.headers, response.headers, options.forwardHeaders);
+    if (!response.headers.has('cache-control')) {
+      response.headers.set('cache-control', 'no-store');
+    }
   }
   logInfo(`${method} ${targetPath} -> ${upstream.status}`, {
     requestId,

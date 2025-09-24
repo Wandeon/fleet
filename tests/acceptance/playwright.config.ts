@@ -13,7 +13,7 @@ export default defineConfig({
   testMatch: /.*\.test\.js$/,
   timeout: 60000,
   expect: {
-    timeout: Number(process.env.FLEET_ACCEPTANCE_EXPECT_TIMEOUT || 15000),
+    timeout: Number(process.env.ACCEPTANCE_EXPECT_TIMEOUT || 15000),
   },
   fullyParallel: false,
   forbidOnly: !!process.env.CI,
@@ -25,8 +25,8 @@ export default defineConfig({
     ['json', { outputFile: path.join(reportsDir, 'playwright-summary.json') }],
   ],
   use: {
-    baseURL: process.env.FLEET_UI_BASE || 'http://localhost:4173',
-    ignoreHTTPSErrors: process.env.FLEET_ACCEPTANCE_INSECURE === '1',
+    baseURL: process.env.UI_BASE_URL || 'http://localhost:4173',
+    ignoreHTTPSErrors: process.env.ACCEPTANCE_INSECURE === '1',
     actionTimeout: 15000,
   },
   outputDir: path.join(reportsDir, 'playwright-artifacts'),

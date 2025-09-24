@@ -42,16 +42,16 @@ This briefing walks a new frontend or full-stack developer through the moving pa
 - **Reverse proxy.** The `fleet-ui` and `fleet-api` containers are published through Caddy at `log.beautyheadspabymartina.hr`, forwarding `/api`, `/metrics`, and `/stream` to port 3005 and everything else to the SvelteKit Node adapter on port 3000.【F:infra/vps/compose.fleet.yml†L1-L48】【F:infra/vps/caddy.fleet.Caddyfile†L1-L19】
 
 ## 5. SvelteKit UI overview
-- **Global SSE connection.** `+layout.svelte` opens an `EventSource` to `/stream` on mount, updating the `deviceStates` and `jobs` stores in `lib/stores/deviceStates.ts`. The helper in `lib/api.ts` injects `PUBLIC_API_BASE`/`PUBLIC_API_BEARER` and attaches the bearer token to the SSE query string when required.【F:ui/src/routes/+layout.svelte†L1-L39】【F:ui/src/lib/stores/deviceStates.ts†L1-L18】【F:ui/src/lib/api.ts†L1-L56】
-- **Operations page status.** `/operations` currently filters for `kind === 'video'` devices and drives only the TV power/input endpoints, persisting selection and last source in `localStorage`. Audio and camera operations from the registry are ignored until new API routes exist.【F:ui/src/routes/operations/+page.svelte†L1-L232】
-- **Logs console.** `LogConsole.svelte` polls `/api/logs` every 5 seconds by default, renders source chips, severity badges, pause/clear/download controls, and supports multiline expansion; no extra polishing is required—the component is already feature-complete.【F:ui/src/lib/components/LogConsole.svelte†L1-L323】
+- **Global SSE connection.** `+layout.svelte` opens an `EventSource` to `/stream` on mount, updating the `deviceStates` and `jobs` stores in `lib/stores/deviceStates.ts`. The `$lib/api/client.ts` helper reads `API_BASE_URL`/`API_BEARER` and attaches the bearer token to the SSE query string when required.【F:apps/ui/src/routes/+layout.svelte†L1-L39】【F:apps/ui/src/lib/stores/deviceStates.ts†L1-L18】【F:apps/ui/src/lib/api/client.ts†L150-L216】
+- **Operations page status.** `/operations` currently filters for `kind === 'video'` devices and drives only the TV power/input endpoints, persisting selection and last source in `localStorage`. Audio and camera operations from the registry are ignored until new API routes exist.【F:apps/ui/src/routes/operations/+page.svelte†L1-L232】
+- **Logs console.** `LogConsole.svelte` polls `/api/logs` every 5 seconds by default, renders source chips, severity badges, pause/clear/download controls, and supports multiline expansion; no extra polishing is required—the component is already feature-complete.【F:apps/ui/src/lib/components/LogConsole.svelte†L1-L323】
 
 ## 6. Development workflow
 - **API:**
   1. `cd api && npm install`
   2. `npm run migrate` → `npm run generate` → `npm run seed:yaml`
   3. `npm run dev` (embedded poller + worker). For a separate worker process run `npm run build` then `npm run worker` in another shell.【F:api/package.json†L9-L17】
-- **UI:** `cd ui && npm install && npm run dev -- --host` serves on port 3006; Vite is configured to use that port so Caddy/Nginx configs remain valid.【F:ui/vite.config.ts†L1-L3】 Set `PUBLIC_API_BASE`/`PUBLIC_API_BEARER` in `.env` to match your API.
+- **UI:** `cd apps/ui && npm install && npm run dev -- --host` serves on port 3006; Vite is configured to use that port so Caddy/Nginx configs remain valid.【F:apps/ui/vite.config.ts†L1-L3】 Set `API_BASE_URL`/`API_BEARER` in `.env` to match your API and adjust `VITE_API_BASE` if the reverse proxy exposes a different path.【F:apps/ui/.env.example†L1-L4】【F:apps/ui/src/lib/server/proxy.ts†L1-L102】
 - **Registry checks:** After editing `inventory/device-interfaces.yaml` or Prometheus target files, run `node scripts/validate-device-registry.mjs` and re-run the API seed script.【F:scripts/validate-device-registry.mjs†L18-L102】【F:api/src/scripts/seed-from-yaml.ts†L6-L126】
 - **Device smoke test:** Use `scripts/acceptance.sh` with `SSH_USER`, `AUDIOCTL_TOKEN`, and optional `ICECAST_URL` to verify `/healthz`, `/status`, ALSA devices, and stream reachability for audio Pis.【F:scripts/acceptance.sh†L1-L77】
 
@@ -62,7 +62,7 @@ This briefing walks a new frontend or full-stack developer through the moving pa
 
 ## 8. Current gaps & priorities for UI/API work
 1. **Audio & camera command proxies.** The Express router exposes only video TV endpoints; create `/api/audio/...` and `/api/camera/...` routes (plus worker branches) that honor the operation definitions in the registry.【F:api/src/http/routes.ts†L93-L106】【F:api/src/workers/executor.ts†L7-L54】
-2. **Operations grid generalization.** `/operations` ignores non-video devices. Adapt it to render audio sliders/buttons and camera probes using the seeded `capabilities.operations` data once the backend exposes matching endpoints.【F:ui/src/routes/operations/+page.svelte†L41-L188】
+2. **Operations grid generalization.** `/operations` ignores non-video devices. Adapt it to render audio sliders/buttons and camera probes using the seeded `capabilities.operations` data once the backend exposes matching endpoints.【F:apps/ui/src/routes/operations/+page.svelte†L41-L188】
 3. **API README refresh.** Documentation still references `npm run seed:devices` and endpoints that are not implemented; update it after adding real routes so new contributors do not rely on stale instructions.【F:api/README.md†L5-L98】【F:api/package.json†L9-L17】
 4. **Token management.** Ensure the deployment environment provides all bearer tokens referenced by `token_env` keys (`AUDIO_*`, `HDMI_*`, `CAMERA_*`) before enabling new proxies; without them, poller and job requests will fail.【F:inventory/device-interfaces.yaml†L14-L260】【F:api/src/scripts/seed-from-yaml.ts†L52-L125】
 
@@ -112,7 +112,7 @@ The operations team supplied the following notes after reviewing the live Svelte
 
 ### Environment & configuration notes
 
-- `.env` in the `ui/` directory is empty by default; the only documented toggle is `VITE_ENABLE_LOGS=true` to expose the log streaming console. Reverse proxies must continue to forward `/api/*` to the backend to reuse the hardcoded relative fetch paths.
+- `.env` in the `apps/ui/` directory is empty by default; the only documented toggle is `VITE_ENABLE_LOGS=true` to expose the log streaming console. Reverse proxies must continue to forward `/api/*` to the backend to reuse the hardcoded relative fetch paths.【F:apps/ui/README.md†L57-L96】
 - No environment-specific hacks are present—deployments rely on consistent reverse-proxy behavior for CORS and cookie handling.
 
 ### Error handling & operator feedback

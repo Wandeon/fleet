@@ -26,6 +26,7 @@
     layout: LayoutData | null;
     layoutError: string | null;
     stateError: string | null;
+    healthError: string | null;
     connection: { status: 'online' | 'degraded' | 'offline'; latencyMs: number };
     build: { commit: string; version: string };
     lastUpdated: string;
