@@ -1,13 +1,14 @@
 import { prisma } from '../lib/db.js';
 import { bus } from '../http/sse.js';
 import { metrics } from '../observability/metrics.js';
+import { parseJsonOr, stringifyJson } from '../lib/json.js';
 
 export async function upsertDeviceState(deviceId: string, patch: Record<string, unknown>) {
   const existing = await prisma.deviceState.findFirst({
     where: { deviceId },
     orderBy: { updatedAt: 'desc' },
   });
-  const state = existing?.state ?? {};
+  const state = parseJsonOr<Record<string, unknown>>(existing?.state, {});
   const { lastSeen, ...rest } = patch;
   const merged = { ...state, ...rest } as Record<string, unknown>;
 
@@ -36,10 +37,14 @@ export async function upsertDeviceState(deviceId: string, patch: Record<string, 
       deviceId,
       status,
       lastSeen: lastSeenDate,
-      state: merged,
+      state: stringifyJson(merged),
     },
   });
-  bus.emit('state', { type: 'state', data: { deviceId, state: saved } });
+  const serialized = {
+    ...saved,
+    state: merged,
+  };
+  bus.emit('state', { type: 'state', data: { deviceId, state: serialized } });
   metrics.device_online.set({ device_id: deviceId }, saved.status === 'online' ? 1 : 0);
-  return saved;
+  return serialized;
 }

@@ -149,14 +149,13 @@ import { mockApi } from './mock';
 import type { AudioState, CameraState, LayoutData, LogsData, VideoState, ZigbeeState } from '$lib/types';
 import type { ConnectionProbe } from '$lib/types';
 
-// Custom ApiError for client-side usage (different signature than generated one)
-export class CustomApiError extends Error {
+export class UiApiError extends Error {
   status: number;
   detail: unknown;
 
   constructor(message: string, status: number, detail: unknown = undefined) {
     super(message);
-    this.name = 'CustomApiError';
+    this.name = 'UiApiError';
     this.status = status;
     this.detail = detail;
   }
@@ -203,9 +202,9 @@ async function request<T>(path: string, options: RequestOptions = {}): Promise<T
   if (USE_MOCKS) {
     await wait(browser ? 200 : 20);
     switch (path) {
-      case '/layout':
+      case '/fleet/layout':
         return mockApi.layout() as T;
-      case '/state':
+      case '/fleet/state':
         return mockApi.state() as T;
       case '/audio':
         return mockApi.audio() as T;
@@ -218,7 +217,7 @@ async function request<T>(path: string, options: RequestOptions = {}): Promise<T
       case '/logs':
         return mockApi.logs() as T;
       default:
-        throw new CustomApiError(`Mock endpoint ${path} not implemented`, 501);
+        throw new UiApiError(`Mock endpoint ${path} not implemented`, 501);
     }
   }
 
@@ -247,18 +246,18 @@ async function request<T>(path: string, options: RequestOptions = {}): Promise<T
       detail = await response.text();
     }
 
-    throw new CustomApiError(response.statusText || 'Request failed', response.status, detail);
+    throw new UiApiError(response.statusText || 'Request failed', response.status, detail);
   }
 
-  throw new CustomApiError('Max retries exceeded', 500);
+  throw new UiApiError('Max retries exceeded', 500);
 }
 
 export const apiClient = {
   async fetchLayout(options?: RequestOptions): Promise<LayoutData> {
-    return request<LayoutData>('/layout', options);
+    return request<LayoutData>('/fleet/layout', options);
   },
   async fetchState(options?: RequestOptions): Promise<{ connection: ConnectionProbe; build: { commit: string; version: string } }> {
-    return request('/state', options);
+    return request('/fleet/state', options);
   },
   async fetchAudio(options?: RequestOptions): Promise<AudioState> {
     return request('/audio', options);

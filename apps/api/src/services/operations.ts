@@ -3,6 +3,7 @@ import { prisma } from '../lib/db.js';
 import { joinDeviceUrl, normalizeAddress, resolveBearerToken } from '../lib/device-address.js';
 import { log } from '../observability/logging.js';
 import { metrics } from '../observability/metrics.js';
+import { parseJsonOr, stringifyJson } from '../lib/json.js';
 
 type RawOperation = {
   id?: unknown;
@@ -77,13 +78,13 @@ export async function executeOperation(
     throw new OperationError(404, `Device ${deviceId} not found`);
   }
 
-  const address = normalizeAddress(device.address);
+  const address = normalizeAddress(parseJsonOr<Record<string, unknown>>(device.address, {}));
   const baseUrl = address.baseUrl;
   if (!baseUrl) {
     throw new OperationError(400, `Device ${deviceId} is missing a base URL`);
   }
 
-  const capabilities = (device.capabilities ?? {}) as Record<string, unknown>;
+  const capabilities = parseJsonOr<Record<string, unknown>>(device.capabilities, {});
   const operations = normalizeOperations((capabilities as any).operations);
   const operation = operations.find((entry) => coerceString(entry.id) === operationId);
   if (!operation) {
@@ -127,7 +128,7 @@ export async function executeOperation(
     data: {
       deviceId,
       eventType: 'operation.request',
-      payload: { operationId, method, path, body: attemptPayload },
+      payload: stringifyJson({ operationId, method, path, body: attemptPayload }),
       origin: 'api',
     },
   });
@@ -149,11 +150,11 @@ export async function executeOperation(
       data: {
         deviceId,
         eventType: 'operation.response',
-        payload: {
+        payload: stringifyJson({
           operationId,
           status: result.status,
           ok: result.ok,
-        },
+        }),
         origin: 'device',
       },
     });
@@ -168,12 +169,12 @@ export async function executeOperation(
         data: {
           deviceId,
           eventType: 'operation.error',
-          payload: {
+          payload: stringifyJson({
             operationId,
             status,
             message: error.message,
             data,
-          },
+          }),
           origin: 'device',
         },
       });
@@ -189,10 +190,10 @@ export async function executeOperation(
       data: {
         deviceId,
         eventType: 'operation.error',
-        payload: {
+        payload: stringifyJson({
           operationId,
           message,
-        },
+        }),
         origin: 'device',
       },
     });

@@ -1,0 +1,18 @@
+Prisma schema loaded from prisma/schema.prisma
+Datasource "db": SQLite database "fleet.db" at "file:./data/fleet.db"
+
+SQLite database fleet.db created at file:./data/fleet.db
+
+Applying migration `20240919_initial`
+Applying migration `20241107_text_columns`
+
+The following migration(s) have been applied:
+
+migrations/
+  └─ 20240919_initial/
+    └─ migration.sql
+  └─ 20241107_text_columns/
+    └─ migration.sql
+Prisma Migrate created the following migration without applying it 20250924102944_text_columns
+
+You can now edit it and apply it by running npx prisma migrate dev.

@@ -1,4 +1,5 @@
 process.env.NODE_ENV = 'test';
+process.env.DATABASE_URL = process.env.DATABASE_URL ?? 'file:./test.db';
 process.env.API_BEARER = process.env.API_BEARER ?? 'test-token';
 process.env.TIMEOUT_MS = '200';
 process.env.RETRY_MAX = '1';

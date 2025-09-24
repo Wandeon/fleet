@@ -43,6 +43,12 @@ The API listens on `HTTP_PORT` (default `3015`). Every request (except
 | `RATE_LIMIT_GLOBAL_MAX` | `600` | Global burst capacity |
 | `CORS_ALLOWED_ORIGINS` | `https://app.headspamartina.hr` | Allowed origins (comma separated) |
 
+### Data serialization
+
+- Prisma models store structured fields (`Device.address`, `Device.capabilities`, `DeviceState.state`, `DeviceEvent.payload`,
+  `Job.payload`) as `TEXT` to stay compatible with SQLite. Use the helpers in `src/lib/json.ts` (`stringifyJson`, `parseJson`,
+  `parseJsonOr`) whenever reading from or writing to these columns so application code continues to work with plain objects.
+
 ### Device registry format
 
 `DEVICE_REGISTRY_JSON` accepts the following structure:

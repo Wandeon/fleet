@@ -6,6 +6,46 @@ import { sseHandler } from './sse.js';
 import { fetchLogs } from '../services/logs.js';
 import { log } from '../observability/logging.js';
 import { executeOperation, OperationError } from '../services/operations.js';
+import { parseJson, parseJsonOr } from '../lib/json.js';
+
+type DeviceRecord = Awaited<ReturnType<typeof prisma.device.findMany>>[number];
+type DeviceStateRecord = Awaited<ReturnType<typeof prisma.deviceState.findMany>>[number];
+type DeviceEventRecord = Awaited<ReturnType<typeof prisma.deviceEvent.findMany>>[number];
+type JobRecord = Awaited<ReturnType<typeof prisma.job.findMany>>[number];
+
+function serializeDevice(device: DeviceRecord) {
+  return {
+    ...device,
+    address: parseJsonOr<Record<string, unknown>>(device.address, {}),
+    capabilities: parseJsonOr<Record<string, unknown>>(device.capabilities, {}),
+  };
+}
+
+function serializeStateRecord(state: DeviceStateRecord) {
+  return {
+    ...state,
+    state: parseJsonOr<Record<string, unknown>>(state.state, {}),
+  };
+}
+
+function serializeState(state: DeviceStateRecord | null) {
+  return state ? serializeStateRecord(state) : null;
+}
+
+function serializeEvent(event: DeviceEventRecord) {
+  return {
+    ...event,
+    payload: parseJsonOr<Record<string, unknown>>(event.payload, {}),
+  };
+}
+
+function serializeJob(job: JobRecord | null) {
+  if (!job) return null;
+  return {
+    ...job,
+    payload: parseJson(job.payload),
+  };
+}
 
 export const router = express.Router();
 router.use(express.json());
@@ -116,7 +156,7 @@ router.get('/health', async (_req, res) => {
 
 router.get('/devices', async (_req, res) => {
   const devices = await prisma.device.findMany();
-  res.json({ devices });
+  res.json({ devices: devices.map(serializeDevice) });
 });
 
 router.get('/devices/:id', async (req, res) => {
@@ -125,12 +165,12 @@ router.get('/devices/:id', async (req, res) => {
     res.status(404).json({ error: 'device not found' });
     return;
   }
-  res.json({ device });
+  res.json({ device: serializeDevice(device) });
 });
 
 router.get('/device_states', async (_req, res) => {
   const states = await prisma.deviceState.findMany({ orderBy: { updatedAt: 'desc' } });
-  res.json({ states });
+  res.json({ states: states.map((state) => serializeStateRecord(state)) });
 });
 
 router.get('/devices/:id/state', async (req, res) => {
@@ -138,7 +178,7 @@ router.get('/devices/:id/state', async (req, res) => {
     where: { deviceId: req.params.id },
     orderBy: { updatedAt: 'desc' },
   });
-  res.json({ state });
+  res.json({ state: serializeState(state) });
 });
 
 router.get('/device_events', async (req, res) => {
@@ -150,7 +190,7 @@ router.get('/device_events', async (req, res) => {
     },
     orderBy: { at: 'asc' },
   });
-  res.json({ events });
+  res.json({ events: events.map(serializeEvent) });
 });
 
 router.post('/video/devices/:id/tv/power_on', async (req, res) => {
@@ -170,7 +210,7 @@ router.post('/video/devices/:id/tv/input', async (req, res) => {
 
 router.get('/jobs/:id', async (req, res) => {
   const job = await prisma.job.findUnique({ where: { id: req.params.id } });
-  res.json({ job });
+  res.json({ job: serializeJob(job) });
 });
 
 router.post('/operations/:deviceId/:operationId', async (req, res) => {

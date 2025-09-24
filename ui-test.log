@@ -1,0 +1,12 @@
+
+> fleet-ui@0.1.0 test:ui
+> playwright test --project=chromium
+
+
+Running 3 tests using 3 workers
+
+  ✓  2 [chromium] › tests/e2e/smoke.spec.ts:13:3 › Dashboard smoke › uses mocked data by default (5.6s)
+  ✓  3 [chromium] › tests/e2e/ssr.spec.ts:4:3 › SSR safeguards › home page renders without internal error banner and fleet state endpoint is healthy (5.6s)
+  ✓  1 [chromium] › tests/e2e/smoke.spec.ts:4:3 › Dashboard smoke › renders core modules (5.7s)
+
+  3 passed (11.2s)

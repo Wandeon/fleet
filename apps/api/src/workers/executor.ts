@@ -3,6 +3,7 @@ import { prisma } from '../lib/db.js';
 import { updateJob } from '../services/jobs.js';
 import { metrics } from '../observability/metrics.js';
 import { joinDeviceUrl, normalizeAddress, resolveBearerToken } from '../lib/device-address.js';
+import { parseJsonOr } from '../lib/json.js';
 
 export async function runPendingJobsOnce() {
   const jobs = await prisma.job.findMany({
@@ -21,7 +22,7 @@ export async function runPendingJobsOnce() {
       const device = await prisma.device.findUnique({ where: { id: job.deviceId } });
       if (!device) throw new Error('device not found');
 
-      const address = normalizeAddress(device.address);
+      const address = normalizeAddress(parseJsonOr<Record<string, unknown>>(device.address, {}));
       const baseUrl = address.baseUrl;
       if (!baseUrl) throw new Error('device missing baseUrl');
 
@@ -35,7 +36,8 @@ export async function runPendingJobsOnce() {
       } else if (job.command === 'tv.power_off') {
         await post('/tv/power_off');
       } else if (job.command === 'tv.input') {
-        await post('/tv/input', job.payload);
+        const payload = parseJsonOr<Record<string, unknown>>(job.payload, {});
+        await post('/tv/input', payload);
       } else {
         throw new Error(`unsupported command ${job.command}`);
       }

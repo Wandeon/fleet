@@ -1,17 +1,18 @@
 import { prisma } from '../lib/db.js';
 import { log } from '../observability/logging.js';
 import { bus } from '../http/sse.js';
+import { stringifyJson } from '../lib/json.js';
 
 export async function enqueueJob(deviceId: string, command: string, payload: any) {
   const job = await prisma.$transaction(async (tx) => {
     const created = await tx.job.create({
-      data: { deviceId, command, payload, status: 'pending', error: null },
+      data: { deviceId, command, payload: stringifyJson(payload), status: 'pending', error: null },
     });
     await tx.deviceEvent.create({
       data: {
         deviceId,
         eventType: 'command.accepted',
-        payload: { command, payload },
+        payload: stringifyJson({ command, payload }),
         origin: 'api',
         correlationId: created.id,
       },
@@ -55,7 +56,7 @@ export async function updateJob(
       data: {
         deviceId: fresh.deviceId,
         eventType: `command.${status}`,
-        payload: { command: fresh.command, error },
+        payload: stringifyJson({ command: fresh.command, error }),
         origin: 'worker',
         correlationId: fresh.id,
       },

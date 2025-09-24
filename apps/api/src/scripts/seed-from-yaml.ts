@@ -2,6 +2,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import yaml from 'js-yaml';
 import { prisma } from '../lib/db.js';
+import { stringifyJson } from '../lib/json.js';
 
 const defaultFiles = [
   path.resolve(process.cwd(), 'config/device-interfaces.yaml'),
@@ -106,16 +107,16 @@ function buildCapabilities(device: InventoryDevice) {
       update: {
         name: device.name,
         kind: device.kind || 'unknown',
-        address: selectAddress(device),
-        capabilities: buildCapabilities(device),
+        address: stringifyJson(selectAddress(device)),
+        capabilities: stringifyJson(buildCapabilities(device)),
         managed: device.managed ?? true,
       },
       create: {
         id: device.id,
         name: device.name,
         kind: device.kind || 'unknown',
-        address: selectAddress(device),
-        capabilities: buildCapabilities(device),
+        address: stringifyJson(selectAddress(device)),
+        capabilities: stringifyJson(buildCapabilities(device)),
         managed: device.managed ?? true,
       },
     });

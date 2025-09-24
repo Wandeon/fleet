@@ -9,6 +9,7 @@ import {
   resolveHealthPaths,
   resolveStatusPath,
 } from '../lib/device-address.js';
+import { parseJsonOr } from '../lib/json.js';
 
 type HealthResult = {
   ok: boolean;
@@ -105,7 +106,7 @@ export async function pollOnce() {
   const devices = await prisma.device.findMany({ where: { managed: true } });
   await Promise.all(
     devices.map(async (device) => {
-      const address = normalizeAddress(device.address);
+      const address = normalizeAddress(parseJsonOr<Record<string, unknown>>(device.address, {}));
       const baseUrl = address.baseUrl;
       if (!baseUrl) return;
 
