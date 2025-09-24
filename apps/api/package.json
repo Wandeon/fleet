@@ -12,6 +12,7 @@
     "dev": "tsx watch src/index.ts",
     "build": "tsc -p tsconfig.json",
     "start": "node dist/index.js",
+    "worker": "node dist/workers/index.js",
     "lint": "eslint \"src/**/*.{ts,tsx}\" --max-warnings=0",
     "typecheck": "tsc --noEmit -p tsconfig.json",
     "test": "vitest run",
