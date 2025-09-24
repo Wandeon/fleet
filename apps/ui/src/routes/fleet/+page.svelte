@@ -65,7 +65,10 @@
         {#if fleetState.audio?.devices && fleetState.audio.devices.length > 0}
           <div class="space-y-2">
             {#each fleetState.audio.devices as device}
-              <div class="flex items-center justify-between p-3 border rounded">
+              <a
+                href="/fleet/{device.id}"
+                class="flex items-center justify-between p-3 border rounded hover:bg-gray-50 transition-colors"
+              >
                 <div>
                   <span class="font-medium">{device.name}</span>
                   <span class="text-sm text-gray-500 ml-2">({device.id})</span>
@@ -79,8 +82,9 @@
                   }`}>
                     {device.online ? 'Online' : 'Offline'}
                   </span>
+                  <span class="text-gray-400">›</span>
                 </div>
-              </div>
+              </a>
             {/each}
           </div>
         {:else}
