@@ -11,6 +11,27 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Ensure UX docs updated when UI changes
+        if: github.event_name == 'pull_request'
+        shell: bash
+        run: |
+          BASE_SHA="${{ github.event.pull_request.base.sha }}"
+          UI_CHANGED=$(git diff --name-only "$BASE_SHA" HEAD -- 'ui/**' 'apps/**/ui/**' 'apps/**/components/**')
+          if [ -n "$UI_CHANGED" ]; then
+            if [ ! -d docs/ux ]; then
+              echo "docs/ux directory is required when UI changes are made."
+              exit 1
+            fi
+            DOC_CHANGED=$(git diff --name-only "$BASE_SHA" HEAD -- 'docs/ux/**')
+            if [ -z "$DOC_CHANGED" ]; then
+              echo "UI changes detected without corresponding updates in docs/ux."
+              echo "Please update Operator Jobs, IA, or acceptance criteria before merging."
+              exit 1
+            fi
+          fi
 
       - name: Validate Compose files
         run: |
