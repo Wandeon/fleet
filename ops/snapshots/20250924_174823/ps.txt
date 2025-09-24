@@ -1,9 +1,0 @@
-vps-fleet-ui-1	ghcr.io/org/fleet-ui:latest	Up 10 minutes	0.0.0.0:3006->3000/tcp, [::]:3006->3000/tcp
-vps-fleet-worker-1	ghcr.io/org/fleet-api:latest	Up 2 hours	3015/tcp
-vps-fleet-api-1	ghcr.io/org/fleet-api:latest	Up 2 hours (healthy)	0.0.0.0:3005->3015/tcp, [::]:3005->3015/tcp
-vps-grafana-1	grafana/grafana:latest	Up 5 hours	0.0.0.0:3001->3000/tcp, [::]:3001->3000/tcp
-vps-prometheus-1	prom/prometheus:latest	Up 5 hours	0.0.0.0:9090->9090/tcp, [::]:9090->9090/tcp
-vps-alertmanager-1	prom/alertmanager:latest	Up 5 hours	0.0.0.0:9093->9093/tcp, [::]:9093->9093/tcp
-vps-loki-1	grafana/loki:2.9.1	Up 5 hours	0.0.0.0:3100->3100/tcp, [::]:3100->3100/tcp
-vps-blackbox-1	prom/blackbox-exporter:latest	Up 5 hours	0.0.0.0:9115->9115/tcp, [::]:9115->9115/tcp
-vps-caddy-1	caddy:2	Up 5 hours	0.0.0.0:80->80/tcp, [::]:80->80/tcp, 0.0.0.0:443->443/tcp, [::]:443->443/tcp, 443/udp, 2019/tcp

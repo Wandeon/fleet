@@ -1,7 +1,7 @@
 import { test, expect } from '@playwright/test';
 
-const apiBase = (process.env.FLEET_API_BASE || 'http://localhost:3000/api').replace(/\/$/, '');
-const apiToken = process.env.FLEET_API_TOKEN || process.env.ACCEPTANCE_API_TOKEN || '';
+const apiBase = (process.env.API_BASE_URL || 'http://localhost:3000/api').replace(/\/$/, '');
+const apiToken = process.env.API_BEARER || process.env.ACCEPTANCE_API_TOKEN || '';
 const apiHeaders = apiToken ? { Authorization: `Bearer ${apiToken}` } : {};
 
 async function requestJson(request, url) {

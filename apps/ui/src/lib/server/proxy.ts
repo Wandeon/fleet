@@ -1,7 +1,7 @@
 import { error, json, type RequestEvent } from '@sveltejs/kit';
 
-const API_BASE = (process.env.FLEET_API_BASE ?? process.env.API_BASE ?? '').replace(/\/$/, '');
-const AUTH_TOKEN = (process.env.API_BEARER ?? process.env.FLEET_API_BEARER ?? '').trim();
+const API_BASE = (process.env.API_BASE_URL ?? '/api').replace(/\/$/, '');
+const AUTH_TOKEN = (process.env.API_BEARER ?? '').trim();
 const USE_MOCKS = (process.env.VITE_USE_MOCKS ?? '1') === '1';
 const LOG_LABEL = '[ui-proxy]';
 
