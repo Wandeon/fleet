@@ -1,0 +1,305 @@
+{
+  "route": {
+    "slug": "settings",
+    "path": "/settings"
+  },
+  "url": "https://app.headspamartina.hr/settings",
+  "timestamp": "2025-09-24T17:43:40.004Z",
+  "title": "Head Spa Control – Error",
+  "headings": {
+    "h1": [
+      "Head Spa Control",
+      "Something went wrong"
+    ],
+    "h2": [
+      "Recent errors",
+      "Event feed"
+    ]
+  },
+  "forms": [],
+  "controls": [
+    {
+      "tag": "A",
+      "type": null,
+      "text": "📊\nDashboard",
+      "placeholder": null,
+      "href": "/",
+      "role": null,
+      "ariaLabel": null,
+      "disabled": false,
+      "boundingClientRect": {
+        "x": 16,
+        "y": 104,
+        "width": 144,
+        "height": 42
+      }
+    },
+    {
+      "tag": "A",
+      "type": null,
+      "text": "🎚️\nAudio",
+      "placeholder": null,
+      "href": "/audio",
+      "role": null,
+      "ariaLabel": null,
+      "disabled": false,
+      "boundingClientRect": {
+        "x": 168,
+        "y": 104,
+        "width": 102.671875,
+        "height": 42
+      }
+    },
+    {
+      "tag": "A",
+      "type": null,
+      "text": "📺\nVideo",
+      "placeholder": null,
+      "href": "/video",
+      "role": null,
+      "ariaLabel": null,
+      "disabled": false,
+      "boundingClientRect": {
+        "x": 278.671875,
+        "y": 104,
+        "width": 102.015625,
+        "height": 42
+      }
+    },
+    {
+      "tag": "A",
+      "type": null,
+      "text": "🕸️\nZigbee",
+      "placeholder": null,
+      "href": "/zigbee",
+      "role": null,
+      "ariaLabel": null,
+      "disabled": false,
+      "boundingClientRect": {
+        "x": 388.6875,
+        "y": 104,
+        "width": 112.59375,
+        "height": 42
+      }
+    },
+    {
+      "tag": "A",
+      "type": null,
+      "text": "🎥\nCamera",
+      "placeholder": null,
+      "href": "/camera",
+      "role": null,
+      "ariaLabel": null,
+      "disabled": false,
+      "boundingClientRect": {
+        "x": 509.28125,
+        "y": 104,
+        "width": 119.984375,
+        "height": 42
+      }
+    },
+    {
+      "tag": "A",
+      "type": null,
+      "text": "🩺\nHealth",
+      "placeholder": null,
+      "href": "/health",
+      "role": null,
+      "ariaLabel": null,
+      "disabled": false,
+      "boundingClientRect": {
+        "x": 637.265625,
+        "y": 104,
+        "width": 109.734375,
+        "height": 42
+      }
+    },
+    {
+      "tag": "A",
+      "type": null,
+      "text": "📜\nLogs",
+      "placeholder": null,
+      "href": "/logs",
+      "role": null,
+      "ariaLabel": null,
+      "disabled": false,
+      "boundingClientRect": {
+        "x": 755,
+        "y": 104,
+        "width": 94.109375,
+        "height": 42
+      }
+    }
+  ],
+  "network": [
+    {
+      "url": "https://app.headspamartina.hr/settings",
+      "status": 404,
+      "statusText": "",
+      "method": "GET",
+      "resourceType": "document"
+    },
+    {
+      "url": "https://app.headspamartina.hr/_app/immutable/assets/Card.DrZ8er1I.css",
+      "status": 200,
+      "statusText": "",
+      "method": "GET",
+      "resourceType": "stylesheet"
+    },
+    {
+      "url": "https://app.headspamartina.hr/_app/immutable/assets/StatusPill.C9yRgqRs.css",
+      "status": 200,
+      "statusText": "",
+      "method": "GET",
+      "resourceType": "stylesheet"
+    },
+    {
+      "url": "https://app.headspamartina.hr/_app/immutable/assets/Skeleton.DWjkQmSz.css",
+      "status": 200,
+      "statusText": "",
+      "method": "GET",
+      "resourceType": "stylesheet"
+    },
+    {
+      "url": "https://app.headspamartina.hr/_app/immutable/assets/0.BfE0O1MO.css",
+      "status": 200,
+      "statusText": "",
+      "method": "GET",
+      "resourceType": "stylesheet"
+    },
+    {
+      "url": "https://app.headspamartina.hr/_app/immutable/assets/1.CbwBaxwy.css",
+      "status": 200,
+      "statusText": "",
+      "method": "GET",
+      "resourceType": "stylesheet"
+    },
+    {
+      "url": "https://app.headspamartina.hr/_app/immutable/entry/start.DGzbgN4m.js",
+      "status": 200,
+      "statusText": "",
+      "method": "GET",
+      "resourceType": "script"
+    },
+    {
+      "url": "https://app.headspamartina.hr/_app/immutable/chunks/CYaCgkjN.js",
+      "status": 200,
+      "statusText": "",
+      "method": "GET",
+      "resourceType": "script"
+    },
+    {
+      "url": "https://app.headspamartina.hr/_app/immutable/chunks/DGYPAtpy.js",
+      "status": 200,
+      "statusText": "",
+      "method": "GET",
+      "resourceType": "script"
+    },
+    {
+      "url": "https://app.headspamartina.hr/_app/immutable/entry/app.etbgyw_T.js",
+      "status": 200,
+      "statusText": "",
+      "method": "GET",
+      "resourceType": "script"
+    },
+    {
+      "url": "https://app.headspamartina.hr/_app/immutable/chunks/CW2jGxh4.js",
+      "status": 200,
+      "statusText": "",
+      "method": "GET",
+      "resourceType": "script"
+    },
+    {
+      "url": "https://app.headspamartina.hr/_app/immutable/chunks/yUXstLy6.js",
+      "status": 200,
+      "statusText": "",
+      "method": "GET",
+      "resourceType": "script"
+    },
+    {
+      "url": "https://app.headspamartina.hr/_app/immutable/chunks/DIUy8lb2.js",
+      "status": 200,
+      "statusText": "",
+      "method": "GET",
+      "resourceType": "script"
+    },
+    {
+      "url": "https://app.headspamartina.hr/_app/immutable/chunks/duDthQdE.js",
+      "status": 200,
+      "statusText": "",
+      "method": "GET",
+      "resourceType": "script"
+    },
+    {
+      "url": "https://app.headspamartina.hr/_app/immutable/chunks/CVaYKKzy.js",
+      "status": 200,
+      "statusText": "",
+      "method": "GET",
+      "resourceType": "script"
+    },
+    {
+      "url": "https://app.headspamartina.hr/_app/immutable/chunks/DP5uXH8N.js",
+      "status": 200,
+      "statusText": "",
+      "method": "GET",
+      "resourceType": "script"
+    },
+    {
+      "url": "https://app.headspamartina.hr/_app/immutable/chunks/DsTDGETJ.js",
+      "status": 200,
+      "statusText": "",
+      "method": "GET",
+      "resourceType": "script"
+    },
+    {
+      "url": "https://app.headspamartina.hr/_app/immutable/nodes/1.BB4N7zDq.js",
+      "status": 200,
+      "statusText": "",
+      "method": "GET",
+      "resourceType": "script"
+    },
+    {
+      "url": "https://app.headspamartina.hr/_app/immutable/chunks/fUjv1zGx.js",
+      "status": 200,
+      "statusText": "",
+      "method": "GET",
+      "resourceType": "script"
+    },
+    {
+      "url": "https://app.headspamartina.hr/_app/immutable/chunks/BsV4wf84.js",
+      "status": 200,
+      "statusText": "",
+      "method": "GET",
+      "resourceType": "script"
+    },
+    {
+      "url": "https://app.headspamartina.hr/_app/immutable/nodes/0.ojfhnWx6.js",
+      "status": 200,
+      "statusText": "",
+      "method": "GET",
+      "resourceType": "script"
+    },
+    {
+      "url": "https://app.headspamartina.hr/ui/fleet/layout",
+      "status": 200,
+      "statusText": "",
+      "method": "GET",
+      "resourceType": "fetch"
+    },
+    {
+      "url": "https://app.headspamartina.hr/ui/fleet/state",
+      "status": 200,
+      "statusText": "",
+      "method": "GET",
+      "resourceType": "fetch"
+    }
+  ],
+  "console": [
+    {
+      "type": "error",
+      "text": "Failed to load resource: the server responded with a status of 404 ()"
+    }
+  ],
+  "pageErrors": [],
+  "bodyText": "Head Spa Control\nv1758727480756\nPROD\nOffline\n0 ms\nLast updated: 07:43:36 PM\n📊\nDashboard\n🎚️\nAudio\n📺\nVideo\n🕸️\nZigbee\n🎥\nCamera\n🩺\nHealth\n📜\nLogs\nSomething went wrong\n\nWe couldn't load the requested page. Try refreshing or navigate back to the dashboard.\n\nIf the issue persists, share the request ID from the response headers with the ops team.\n\nRecent errors\n\nInvestigate anomalies fast\n\nAll clear.\n\nEvent feed\n\nLatest operator activity"
+}

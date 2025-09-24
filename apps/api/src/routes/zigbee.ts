@@ -6,9 +6,40 @@ const router = Router();
 
 router.get('/', (req, res) => {
   res.locals.routePath = '/zigbee';
+  const devices = deviceRegistry
+    .list()
+    .filter((device) => device.module === 'zigbee' || device.role.includes('zigbee'));
   res.json({
     message: 'Zigbee API endpoint',
     status: 'active',
+    timestamp: new Date().toISOString(),
+    total: devices.length,
+    online: 0,
+    devices: devices.map(device => ({
+      id: device.id,
+      name: device.name,
+      status: 'offline'
+    }))
+  });
+});
+
+router.get('/devices/:id/status', (req, res) => {
+  res.locals.routePath = '/zigbee/devices/:id/status';
+  const { id } = req.params;
+  const device = deviceRegistry.getById(id);
+
+  if (!device || (device.module !== 'zigbee' && !device.role.includes('zigbee'))) {
+    return res.status(404).json({
+      error: 'Zigbee device not found',
+      id
+    });
+  }
+
+  res.json({
+    id: device.id,
+    name: device.name,
+    status: 'offline',
+    reason: 'Zigbee communication not implemented',
     timestamp: new Date().toISOString()
   });
 });

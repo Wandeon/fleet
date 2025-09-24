@@ -1,0 +1,589 @@
+{
+  "route": {
+    "slug": "dashboard",
+    "path": "/"
+  },
+  "url": "https://app.headspamartina.hr/",
+  "timestamp": "2025-09-24T17:33:12.558Z",
+  "title": "",
+  "headings": {
+    "h1": [
+      "Head Spa Control"
+    ],
+    "h2": [
+      "Audio",
+      "Video",
+      "Zigbee",
+      "Camera",
+      "Recent errors",
+      "Event feed"
+    ]
+  },
+  "forms": [],
+  "controls": [
+    {
+      "tag": "A",
+      "type": null,
+      "text": "📊\nDashboard",
+      "placeholder": null,
+      "href": "/",
+      "role": null,
+      "ariaLabel": null,
+      "disabled": false,
+      "boundingClientRect": {
+        "x": 16,
+        "y": 104,
+        "width": 144,
+        "height": 42
+      }
+    },
+    {
+      "tag": "A",
+      "type": null,
+      "text": "🎚️\nAudio",
+      "placeholder": null,
+      "href": "/audio",
+      "role": null,
+      "ariaLabel": null,
+      "disabled": false,
+      "boundingClientRect": {
+        "x": 168,
+        "y": 104,
+        "width": 102.671875,
+        "height": 42
+      }
+    },
+    {
+      "tag": "A",
+      "type": null,
+      "text": "📺\nVideo",
+      "placeholder": null,
+      "href": "/video",
+      "role": null,
+      "ariaLabel": null,
+      "disabled": false,
+      "boundingClientRect": {
+        "x": 278.671875,
+        "y": 104,
+        "width": 102.015625,
+        "height": 42
+      }
+    },
+    {
+      "tag": "A",
+      "type": null,
+      "text": "🕸️\nZigbee",
+      "placeholder": null,
+      "href": "/zigbee",
+      "role": null,
+      "ariaLabel": null,
+      "disabled": false,
+      "boundingClientRect": {
+        "x": 388.6875,
+        "y": 104,
+        "width": 112.59375,
+        "height": 42
+      }
+    },
+    {
+      "tag": "A",
+      "type": null,
+      "text": "🎥\nCamera",
+      "placeholder": null,
+      "href": "/camera",
+      "role": null,
+      "ariaLabel": null,
+      "disabled": false,
+      "boundingClientRect": {
+        "x": 509.28125,
+        "y": 104,
+        "width": 119.984375,
+        "height": 42
+      }
+    },
+    {
+      "tag": "A",
+      "type": null,
+      "text": "🩺\nHealth",
+      "placeholder": null,
+      "href": "/health",
+      "role": null,
+      "ariaLabel": null,
+      "disabled": false,
+      "boundingClientRect": {
+        "x": 637.265625,
+        "y": 104,
+        "width": 109.734375,
+        "height": 42
+      }
+    },
+    {
+      "tag": "A",
+      "type": null,
+      "text": "📜\nLogs",
+      "placeholder": null,
+      "href": "/logs",
+      "role": null,
+      "ariaLabel": null,
+      "disabled": false,
+      "boundingClientRect": {
+        "x": 755,
+        "y": 104,
+        "width": 94.109375,
+        "height": 42
+      }
+    },
+    {
+      "tag": "BUTTON",
+      "type": "button",
+      "text": "Play on both",
+      "placeholder": null,
+      "href": null,
+      "role": null,
+      "ariaLabel": null,
+      "disabled": false,
+      "boundingClientRect": {
+        "x": 33,
+        "y": 247.59375,
+        "width": 134.515625,
+        "height": 40
+      }
+    },
+    {
+      "tag": "BUTTON",
+      "type": "button",
+      "text": "Pause",
+      "placeholder": null,
+      "href": null,
+      "role": null,
+      "ariaLabel": null,
+      "disabled": false,
+      "boundingClientRect": {
+        "x": 175.515625,
+        "y": 247.59375,
+        "width": 81.828125,
+        "height": 40
+      }
+    },
+    {
+      "tag": "INPUT",
+      "type": "range",
+      "text": "",
+      "placeholder": null,
+      "href": null,
+      "role": null,
+      "ariaLabel": null,
+      "disabled": false,
+      "boundingClientRect": {
+        "x": 35,
+        "y": 330.59375,
+        "width": 842,
+        "height": 9.59375
+      }
+    },
+    {
+      "tag": "BUTTON",
+      "type": "button",
+      "text": "Upload",
+      "placeholder": null,
+      "href": null,
+      "role": null,
+      "ariaLabel": null,
+      "disabled": false,
+      "boundingClientRect": {
+        "x": 0,
+        "y": 0,
+        "width": 0,
+        "height": 0
+      }
+    },
+    {
+      "tag": "BUTTON",
+      "type": "button",
+      "text": "Replace fallback",
+      "placeholder": null,
+      "href": null,
+      "role": null,
+      "ariaLabel": null,
+      "disabled": false,
+      "boundingClientRect": {
+        "x": 0,
+        "y": 0,
+        "width": 0,
+        "height": 0
+      }
+    },
+    {
+      "tag": "BUTTON",
+      "type": "button",
+      "text": "Power On",
+      "placeholder": null,
+      "href": null,
+      "role": null,
+      "ariaLabel": null,
+      "disabled": false,
+      "boundingClientRect": {
+        "x": 523.28125,
+        "y": 512.78125,
+        "width": 111.078125,
+        "height": 40
+      }
+    },
+    {
+      "tag": "BUTTON",
+      "type": "button",
+      "text": "Power Off",
+      "placeholder": null,
+      "href": null,
+      "role": null,
+      "ariaLabel": null,
+      "disabled": false,
+      "boundingClientRect": {
+        "x": 642.359375,
+        "y": 512.78125,
+        "width": 113.4375,
+        "height": 40
+      }
+    },
+    {
+      "tag": "INPUT",
+      "type": "range",
+      "text": "",
+      "placeholder": null,
+      "href": null,
+      "role": null,
+      "ariaLabel": null,
+      "disabled": false,
+      "boundingClientRect": {
+        "x": 525.28125,
+        "y": 607.78125,
+        "width": 351.71875,
+        "height": 9.59375
+      }
+    },
+    {
+      "tag": "BUTTON",
+      "type": "button",
+      "text": "Mute",
+      "placeholder": null,
+      "href": null,
+      "role": null,
+      "ariaLabel": null,
+      "disabled": false,
+      "boundingClientRect": {
+        "x": 523.28125,
+        "y": 631.375,
+        "width": 355.71875,
+        "height": 40
+      }
+    },
+    {
+      "tag": "BUTTON",
+      "type": "button",
+      "text": "View log",
+      "placeholder": null,
+      "href": null,
+      "role": null,
+      "ariaLabel": null,
+      "disabled": false,
+      "boundingClientRect": {
+        "x": 582.5625,
+        "y": 1033.5625,
+        "width": 296.4375,
+        "height": 40
+      }
+    }
+  ],
+  "network": [
+    {
+      "url": "https://app.headspamartina.hr/",
+      "status": 200,
+      "statusText": "",
+      "method": "GET",
+      "resourceType": "document"
+    },
+    {
+      "url": "https://app.headspamartina.hr/_app/immutable/assets/Card.DrZ8er1I.css",
+      "status": 200,
+      "statusText": "",
+      "method": "GET",
+      "resourceType": "stylesheet"
+    },
+    {
+      "url": "https://app.headspamartina.hr/_app/immutable/assets/VideoModule.BDvkL1tR.css",
+      "status": 200,
+      "statusText": "",
+      "method": "GET",
+      "resourceType": "stylesheet"
+    },
+    {
+      "url": "https://app.headspamartina.hr/_app/immutable/chunks/CYaCgkjN.js",
+      "status": 200,
+      "statusText": "",
+      "method": "GET",
+      "resourceType": "script"
+    },
+    {
+      "url": "https://app.headspamartina.hr/_app/immutable/assets/2.DW8OYAKF.css",
+      "status": 200,
+      "statusText": "",
+      "method": "GET",
+      "resourceType": "stylesheet"
+    },
+    {
+      "url": "https://app.headspamartina.hr/_app/immutable/assets/AudioModule.nn7uEXGN.css",
+      "status": 200,
+      "statusText": "",
+      "method": "GET",
+      "resourceType": "stylesheet"
+    },
+    {
+      "url": "https://app.headspamartina.hr/_app/immutable/assets/EmptyState.CApmeZ3D.css",
+      "status": 200,
+      "statusText": "",
+      "method": "GET",
+      "resourceType": "stylesheet"
+    },
+    {
+      "url": "https://app.headspamartina.hr/_app/immutable/assets/CameraModule.BfLXINDC.css",
+      "status": 200,
+      "statusText": "",
+      "method": "GET",
+      "resourceType": "stylesheet"
+    },
+    {
+      "url": "https://app.headspamartina.hr/_app/immutable/chunks/BsV4wf84.js",
+      "status": 200,
+      "statusText": "",
+      "method": "GET",
+      "resourceType": "script"
+    },
+    {
+      "url": "https://app.headspamartina.hr/_app/immutable/assets/Skeleton.DWjkQmSz.css",
+      "status": 200,
+      "statusText": "",
+      "method": "GET",
+      "resourceType": "stylesheet"
+    },
+    {
+      "url": "https://app.headspamartina.hr/_app/immutable/chunks/fUjv1zGx.js",
+      "status": 200,
+      "statusText": "",
+      "method": "GET",
+      "resourceType": "script"
+    },
+    {
+      "url": "https://app.headspamartina.hr/_app/immutable/assets/Slider.DQZivzEj.css",
+      "status": 200,
+      "statusText": "",
+      "method": "GET",
+      "resourceType": "stylesheet"
+    },
+    {
+      "url": "https://app.headspamartina.hr/_app/immutable/assets/ZigbeeModule.CUUiXaY6.css",
+      "status": 200,
+      "statusText": "",
+      "method": "GET",
+      "resourceType": "stylesheet"
+    },
+    {
+      "url": "https://app.headspamartina.hr/_app/immutable/entry/start.DGzbgN4m.js",
+      "status": 200,
+      "statusText": "",
+      "method": "GET",
+      "resourceType": "script"
+    },
+    {
+      "url": "https://app.headspamartina.hr/_app/immutable/chunks/DGYPAtpy.js",
+      "status": 200,
+      "statusText": "",
+      "method": "GET",
+      "resourceType": "script"
+    },
+    {
+      "url": "https://app.headspamartina.hr/_app/immutable/assets/StatusPill.C9yRgqRs.css",
+      "status": 200,
+      "statusText": "",
+      "method": "GET",
+      "resourceType": "stylesheet"
+    },
+    {
+      "url": "https://app.headspamartina.hr/_app/immutable/assets/0.BfE0O1MO.css",
+      "status": 200,
+      "statusText": "",
+      "method": "GET",
+      "resourceType": "stylesheet"
+    },
+    {
+      "url": "https://app.headspamartina.hr/_app/immutable/entry/app.etbgyw_T.js",
+      "status": 200,
+      "statusText": "",
+      "method": "GET",
+      "resourceType": "script"
+    },
+    {
+      "url": "https://app.headspamartina.hr/_app/immutable/chunks/yUXstLy6.js",
+      "status": 200,
+      "statusText": "",
+      "method": "GET",
+      "resourceType": "script"
+    },
+    {
+      "url": "https://app.headspamartina.hr/_app/immutable/chunks/duDthQdE.js",
+      "status": 200,
+      "statusText": "",
+      "method": "GET",
+      "resourceType": "script"
+    },
+    {
+      "url": "https://app.headspamartina.hr/_app/immutable/chunks/CW2jGxh4.js",
+      "status": 200,
+      "statusText": "",
+      "method": "GET",
+      "resourceType": "script"
+    },
+    {
+      "url": "https://app.headspamartina.hr/_app/immutable/chunks/DIUy8lb2.js",
+      "status": 200,
+      "statusText": "",
+      "method": "GET",
+      "resourceType": "script"
+    },
+    {
+      "url": "https://app.headspamartina.hr/_app/immutable/chunks/DP5uXH8N.js",
+      "status": 200,
+      "statusText": "",
+      "method": "GET",
+      "resourceType": "script"
+    },
+    {
+      "url": "https://app.headspamartina.hr/_app/immutable/chunks/DaQ4DGuR.js",
+      "status": 200,
+      "statusText": "",
+      "method": "GET",
+      "resourceType": "script"
+    },
+    {
+      "url": "https://app.headspamartina.hr/_app/immutable/nodes/0.ojfhnWx6.js",
+      "status": 200,
+      "statusText": "",
+      "method": "GET",
+      "resourceType": "script"
+    },
+    {
+      "url": "https://app.headspamartina.hr/_app/immutable/chunks/DsTDGETJ.js",
+      "status": 200,
+      "statusText": "",
+      "method": "GET",
+      "resourceType": "script"
+    },
+    {
+      "url": "https://app.headspamartina.hr/_app/immutable/chunks/BQ6zkPsi.js",
+      "status": 200,
+      "statusText": "",
+      "method": "GET",
+      "resourceType": "script"
+    },
+    {
+      "url": "https://app.headspamartina.hr/_app/immutable/chunks/C9ofPdE6.js",
+      "status": 200,
+      "statusText": "",
+      "method": "GET",
+      "resourceType": "script"
+    },
+    {
+      "url": "https://app.headspamartina.hr/_app/immutable/chunks/DFEpZOi-.js",
+      "status": 200,
+      "statusText": "",
+      "method": "GET",
+      "resourceType": "script"
+    },
+    {
+      "url": "https://app.headspamartina.hr/_app/immutable/chunks/CVaYKKzy.js",
+      "status": 200,
+      "statusText": "",
+      "method": "GET",
+      "resourceType": "script"
+    },
+    {
+      "url": "https://app.headspamartina.hr/_app/immutable/chunks/DSup4eP2.js",
+      "status": 200,
+      "statusText": "",
+      "method": "GET",
+      "resourceType": "script"
+    },
+    {
+      "url": "https://app.headspamartina.hr/_app/immutable/chunks/ClXag6P7.js",
+      "status": 200,
+      "statusText": "",
+      "method": "GET",
+      "resourceType": "script"
+    },
+    {
+      "url": "https://app.headspamartina.hr/_app/immutable/nodes/2.BpOi5HH4.js",
+      "status": 200,
+      "statusText": "",
+      "method": "GET",
+      "resourceType": "script"
+    },
+    {
+      "url": "https://app.headspamartina.hr/_app/immutable/assets/1.CbwBaxwy.css",
+      "status": 200,
+      "statusText": "",
+      "method": "GET",
+      "resourceType": "stylesheet"
+    },
+    {
+      "url": "https://app.headspamartina.hr/_app/immutable/nodes/1.BB4N7zDq.js",
+      "status": 200,
+      "statusText": "",
+      "method": "GET",
+      "resourceType": "script"
+    },
+    {
+      "url": "https://app.headspamartina.hr/ui/fleet/layout",
+      "status": 200,
+      "statusText": "",
+      "method": "GET",
+      "resourceType": "fetch"
+    },
+    {
+      "url": "https://app.headspamartina.hr/ui/fleet/state",
+      "status": 200,
+      "statusText": "",
+      "method": "GET",
+      "resourceType": "fetch"
+    },
+    {
+      "url": "https://app.headspamartina.hr/ui/audio",
+      "status": 200,
+      "statusText": "",
+      "method": "GET",
+      "resourceType": "fetch"
+    },
+    {
+      "url": "https://app.headspamartina.hr/ui/video",
+      "status": 200,
+      "statusText": "",
+      "method": "GET",
+      "resourceType": "fetch"
+    },
+    {
+      "url": "https://app.headspamartina.hr/ui/camera",
+      "status": 200,
+      "statusText": "",
+      "method": "GET",
+      "resourceType": "fetch"
+    },
+    {
+      "url": "https://app.headspamartina.hr/ui/zigbee",
+      "status": 200,
+      "statusText": "",
+      "method": "GET",
+      "resourceType": "fetch"
+    }
+  ],
+  "console": [],
+  "pageErrors": [],
+  "bodyText": "Head Spa Control\nv1758727480756\nPROD\nOffline\n0 ms\nLast updated: 07:33:08 PM\n📊\nDashboard\n🎚️\nAudio\n📺\nVideo\n🕸️\nZigbee\n🎥\nCamera\n🩺\nHealth\n📜\nLogs\nAudio\n\nDual Pi audio routing\n\nPlay on both\nPause\nMaster volume\n0%\n\nIdle · Queue a track to begin.\n\nVideo\n\nTV wall control\n\nPower On\nPower Off\nOutput volume\n0\nMute\n\nLast signal: Invalid Date\n\nZigbee\n\nMesh network status\n\nName\tType\tState\tLast seen\nCamera\n\nMotion insights\n\nLast motion: None\n\nView log\nRecent errors\n\nInvestigate anomalies fast\n\nAll clear.\n\nEvent feed\n\nLatest operator activity"
+}

@@ -24,13 +24,35 @@ const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 50 
 
 router.get('/', (req, res) => {
   res.locals.routePath = '/audio';
+  const devices = deviceRegistry.listByRole('audio');
   res.json({
     message: 'Audio API endpoint',
     status: 'active',
     timestamp: new Date().toISOString(),
-    total: 0,
+    total: devices.length,
     online: 0,
-    devices: []
+    devices: devices.map(device => ({
+      id: device.id,
+      name: device.name,
+      status: 'offline'
+    }))
+  });
+});
+
+router.get('/devices', (req, res) => {
+  res.locals.routePath = '/audio/devices';
+  const devices = deviceRegistry.listByRole('audio');
+  res.json({
+    devices: devices.map(device => ({
+      id: device.id,
+      name: device.name,
+      role: device.role,
+      module: device.module,
+      capabilities: device.capabilities,
+      status: 'offline'
+    })),
+    total: devices.length,
+    timestamp: new Date().toISOString()
   });
 });
 
