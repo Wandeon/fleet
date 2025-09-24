@@ -7,7 +7,16 @@
   import type { StatusLevel } from '$lib/components/types';
   import type { PanelState } from '$lib/stores/app';
   import type { ZigbeeState } from '$lib/types';
-  import { createEventDispatcher } from 'svelte';
+  import { createEventDispatcher, onDestroy } from 'svelte';
+  import { invalidate } from '$app/navigation';
+  import {
+    confirmPairing,
+    getZigbeeOverview,
+    pollDiscoveredDevices,
+    runZigbeeAction,
+    startPairing as startPairingSession,
+    stopPairing as stopPairingSession
+  } from '$lib/api/zigbee-operations';
 
   export let data: ZigbeeState | null = null;
   export let state: PanelState = 'success';
@@ -22,10 +31,26 @@
   let discoveredDevices: Array<{ id: string; name: string; type: string; signal: number }> = [];
   let pairingTimeLeft = 0;
   let pairingTimer: ReturnType<typeof setInterval> | null = null;
+  let discoveryTimer: ReturnType<typeof setInterval> | null = null;
 
-  function retry() {
-    dispatch('retry');
+  const refresh = async () => {
+    try {
+      const state = await getZigbeeOverview();
+      data = state;
+    } catch (error) {
+      console.error('zigbee refresh failed', error);
+    }
+  };
+
+  const broadcastRefresh = () => {
+    dispatch('refresh');
+    invalidate('app:zigbee');
     onRetry?.();
+  };
+
+  async function retry() {
+    await refresh();
+    broadcastRefresh();
   }
 
   const formatStateLabel = (state: ZigbeeState['devices'][number]['state']) =>
@@ -37,127 +62,97 @@
     return 'offline';
   };
 
-  async function startPairing() {
-    if (isPairing) return;
-
-    showPairingModal = true;
-    isPairing = true;
-    pairingStatus = 'Starting pairing mode...';
-    discoveredDevices = [];
-    pairingTimeLeft = 60;
-
-    try {
-      const response = await fetch('/api/zigbee/pair', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ enable: true })
-      });
-
-      if (response.ok) {
-        pairingStatus = 'Pairing mode active. Press the pairing button on your device.';
-        startPairingTimer();
-        startDeviceDiscovery();
-      } else {
-        const error = await response.json();
-        pairingStatus = `Pairing failed: ${error.error || 'Unknown error'}`;
-        isPairing = false;
-      }
-    } catch (error) {
-      pairingStatus = `Connection error: ${error instanceof Error ? error.message : 'Unknown error'}`;
-      isPairing = false;
-    }
-  }
-
-  function startPairingTimer() {
-    pairingTimer = setInterval(() => {
-      pairingTimeLeft--;
-      if (pairingTimeLeft <= 0) {
-        stopPairing();
-      }
-    }, 1000);
-  }
-
-  async function stopPairing() {
+  const clearTimers = () => {
     if (pairingTimer) {
       clearInterval(pairingTimer);
       pairingTimer = null;
     }
-
-    if (isPairing) {
-      try {
-        await fetch('/api/zigbee/pair', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ enable: false })
-        });
-      } catch (error) {
-        console.error('Error stopping pairing:', error);
-      }
+    if (discoveryTimer) {
+      clearInterval(discoveryTimer);
+      discoveryTimer = null;
     }
+  };
 
-    isPairing = false;
-    pairingTimeLeft = 0;
-    pairingStatus = discoveredDevices.length > 0
-      ? `Found ${discoveredDevices.length} device(s)`
-      : 'No devices found';
-  }
+  const startPairingTimer = (expiresAt?: string) => {
+    clearTimers();
+    const expiry = expiresAt ? new Date(expiresAt).valueOf() : Date.now() + 60_000;
+    pairingTimer = setInterval(() => {
+      const remaining = Math.max(0, Math.round((expiry - Date.now()) / 1000));
+      pairingTimeLeft = remaining;
+      if (remaining <= 0) {
+        void stopPairing();
+      }
+    }, 1000);
+  };
 
-  async function startDeviceDiscovery() {
-    const discoveryInterval = setInterval(async () => {
+  const startDiscovery = () => {
+    if (discoveryTimer) clearInterval(discoveryTimer);
+    discoveryTimer = setInterval(async () => {
       if (!isPairing) {
-        clearInterval(discoveryInterval);
+        clearInterval(discoveryTimer!);
+        discoveryTimer = null;
         return;
       }
-
-      try {
-        const response = await fetch('/api/zigbee/discover');
-        if (response.ok) {
-          const newDevices = await response.json();
-          if (newDevices.devices && newDevices.devices.length > discoveredDevices.length) {
-            discoveredDevices = newDevices.devices;
-            pairingStatus = `Found ${discoveredDevices.length} device(s)...`;
-          }
-        }
-      } catch (error) {
-        console.error('Discovery error:', error);
+      const pairing = await pollDiscoveredDevices();
+      if (pairing?.discovered) {
+        discoveredDevices = pairing.discovered;
+        pairingStatus = discoveredDevices.length
+          ? `Found ${discoveredDevices.length} device(s)...`
+          : 'Listening for devices';
       }
     }, 2000);
+  };
+
+  async function startPairing() {
+    if (isPairing) return;
+    showPairingModal = true;
+    isPairing = true;
+    pairingStatus = 'Pairing mode active. Press the pairing button on your device.';
+    discoveredDevices = [];
+    pairingTimeLeft = 60;
+
+    const session = await startPairingSession(60);
+    pairingTimeLeft = 60;
+    startPairingTimer(session?.expiresAt);
+    startDiscovery();
+  }
+
+  async function stopPairing() {
+    clearTimers();
+    await stopPairingSession();
+    isPairing = false;
+    pairingTimeLeft = 0;
+    pairingStatus = discoveredDevices.length ? `Found ${discoveredDevices.length} device(s)` : 'No devices found';
   }
 
   async function pairDevice(deviceId: string) {
-    try {
-      const response = await fetch('/api/zigbee/pair/confirm', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ deviceId })
-      });
-
-      if (response.ok) {
-        const result = await response.json();
-        pairingStatus = `Successfully paired ${result.name}!`;
-        discoveredDevices = discoveredDevices.filter(d => d.id !== deviceId);
-
-        setTimeout(() => {
-          closePairingModal();
-          dispatch('refresh');
-        }, 2000);
-      } else {
-        const error = await response.json();
-        pairingStatus = `Pairing failed: ${error.error || 'Unknown error'}`;
-      }
-    } catch (error) {
-      pairingStatus = `Connection error: ${error instanceof Error ? error.message : 'Unknown error'}`;
-    }
+    pairingStatus = 'Confirming device...';
+    const state = await confirmPairing(deviceId);
+    data = state;
+    discoveredDevices = [];
+    pairingStatus = 'Device paired successfully.';
+    clearTimers();
+    isPairing = false;
+    broadcastRefresh();
   }
 
   function closePairingModal() {
-    if (isPairing) {
-      stopPairing();
-    }
+    clearTimers();
     showPairingModal = false;
     discoveredDevices = [];
     pairingStatus = '';
+    isPairing = false;
   }
+
+  const triggerQuickAction = async (actionId: string) => {
+    if (!data) return;
+    for (const device of data.devices) {
+      data = await runZigbeeAction(device.id, actionId);
+    }
+    broadcastRefresh();
+  };
+
+  onDestroy(() => clearTimers());
 </script>
 
 <Card title={title} subtitle="Mesh network status">
@@ -182,7 +177,9 @@
           {isPairing ? 'Pairing...' : 'Pair Device'}
         </Button>
         {#each data.quickActions as action (action.id)}
-          <Button variant="secondary">{action.label}</Button>
+          <Button variant="secondary" on:click={() => triggerQuickAction(action.id)}>
+            {action.label}
+          </Button>
         {/each}
       </div>
       <div class="table-wrapper">
@@ -216,8 +213,14 @@
 </Card>
 
 {#if showPairingModal}
-  <div class="modal-backdrop" on:click|self={closePairingModal}>
-    <div class="modal">
+  <div
+    class="modal-backdrop"
+    role="presentation"
+    tabindex="-1"
+    on:click|self={closePairingModal}
+    on:keydown={(event) => event.key === 'Escape' && closePairingModal()}
+  >
+    <div class="modal" role="dialog" aria-modal="true" aria-label="Pair Zigbee Device">
       <div class="modal-header">
         <h3>Pair Zigbee Device</h3>
         <button type="button" class="close-btn" on:click={closePairingModal}>&times;</button>

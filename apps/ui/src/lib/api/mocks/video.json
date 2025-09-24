@@ -1,9 +1,41 @@
 {
   "power": "on",
   "input": "HDMI1",
+  "availableInputs": [
+    { "id": "HDMI1", "label": "HDMI 1 - Media Player", "kind": "hdmi" },
+    { "id": "HDMI2", "label": "HDMI 2 - Camera", "kind": "hdmi" },
+    { "id": "Chromecast", "label": "Chromecast", "kind": "cast" },
+    { "id": "Pi Kiosk", "label": "Kiosk App", "kind": "app" }
+  ],
+  "livePreview": {
+    "deviceId": "tv-main-hall",
+    "streamUrl": "https://example-cdn.local/live/main-hall.m3u8",
+    "thumbnailUrl": "https://dummyimage.com/640x360/1d2b46/ffffff&text=Main+Hall+Live",
+    "startedAt": "2025-09-24T16:12:00Z",
+    "latencyMs": 420,
+    "status": "ready"
+  },
+  "recordings": [
+    {
+      "id": "segment-001",
+      "start": "2025-09-24T14:00:00Z",
+      "end": "2025-09-24T14:15:00Z",
+      "label": "Lobby open",
+      "url": "https://example-cdn.local/recordings/segment-001.m3u8"
+    },
+    {
+      "id": "segment-002",
+      "start": "2025-09-24T14:15:00Z",
+      "end": "2025-09-24T14:30:00Z",
+      "label": "Guest presentation",
+      "url": "https://example-cdn.local/recordings/segment-002.m3u8"
+    }
+  ],
   "volume": 38,
   "muted": false,
-  "previewImage": "https://dummyimage.com/640x360/1d2b46/ffffff&text=Video+Feed",
-  "availableInputs": ["HDMI1", "HDMI2", "Chromecast", "Pi Kiosk"],
-  "lastSignal": "2025-01-12T12:17:04Z"
+  "lastSignal": "2025-09-24T16:10:15Z",
+  "cecDevices": [
+    { "id": "tv-main-hall", "name": "Main Hall Display", "power": "on", "input": "HDMI1" },
+    { "id": "avr-lobby", "name": "Lobby Receiver", "power": "on", "input": "HDMI2" }
+  ]
 }

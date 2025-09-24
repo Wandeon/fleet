@@ -6,12 +6,14 @@ export const load: PageLoad = async ({ params, parent }) => {
   const deviceId = params.id;
 
   // Mock device data based on ID - in real implementation, this would fetch from API
+  const status: 'online' | 'offline' | 'error' = deviceId === 'pi-audio-01' ? 'online' : 'offline';
+
   const mockDevice = {
     id: deviceId,
     name: deviceId === 'pi-audio-01' ? 'Audio Pi 01' : `Device ${deviceId}`,
     role: deviceId === 'pi-audio-01' ? 'audio' : 'unknown',
     module: deviceId === 'pi-audio-01' ? 'audio' : 'unknown',
-    status: 'offline' as const,
+    status,
     lastSeen: new Date(Date.now() - 15 * 60 * 1000).toISOString(), // 15 minutes ago
     ipAddress: deviceId === 'pi-audio-01' ? '100.127.65.25' : '192.168.1.100',
     capabilities: deviceId === 'pi-audio-01' ? ['playbook', 'volume', 'routing'] : [],

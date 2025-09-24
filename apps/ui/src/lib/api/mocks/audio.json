@@ -1,29 +1,131 @@
 {
-  "masterVolume": 128,
-  "nowPlaying": {
-    "track": "Soft Rain",
-    "artist": "Fleet Ops",
-    "startedAt": "2025-01-12T12:15:10Z",
-    "art": "https://dummyimage.com/120x120/0ea5e9/ffffff&text=PI"
-  },
+  "masterVolume": 120,
   "devices": [
     {
       "id": "pi-audio-01",
-      "name": "pi-audio-01",
+      "name": "Lobby Speakers",
       "status": "online",
-      "nowPlaying": "Soft Rain",
-      "volume": 120,
-      "isPlaying": true,
-      "lastUpdated": "2025-01-12T12:19:30Z"
+      "group": "lobby",
+      "volumePercent": 72,
+      "capabilities": ["play", "pause", "seek", "volume", "playlist", "sync"],
+      "playback": {
+        "state": "playing",
+        "trackId": "track-soft-rain",
+        "trackTitle": "Soft Rain",
+        "playlistId": "pl-lobby-open",
+        "positionSeconds": 64,
+        "durationSeconds": 214,
+        "startedAt": "2025-09-24T16:04:00Z",
+        "syncGroup": "lobby"
+      },
+      "lastUpdated": "2025-09-24T16:05:30Z"
     },
     {
       "id": "pi-audio-02",
-      "name": "pi-audio-02",
+      "name": "Cafe Speakers",
       "status": "online",
-      "nowPlaying": "Soft Rain",
-      "volume": 132,
-      "isPlaying": true,
-      "lastUpdated": "2025-01-12T12:19:12Z"
+      "group": "cafe",
+      "volumePercent": 68,
+      "capabilities": ["play", "pause", "seek", "volume", "playlist"],
+      "playback": {
+        "state": "paused",
+        "trackId": "track-city-skyline",
+        "trackTitle": "City Skyline",
+        "playlistId": null,
+        "positionSeconds": 138,
+        "durationSeconds": 312,
+        "startedAt": "2025-09-24T15:59:10Z",
+        "syncGroup": null
+      },
+      "lastUpdated": "2025-09-24T16:05:00Z"
+    },
+    {
+      "id": "pi-audio-03",
+      "name": "Spa Speakers",
+      "status": "offline",
+      "group": "spa",
+      "volumePercent": 55,
+      "capabilities": ["play", "volume"],
+      "playback": {
+        "state": "idle",
+        "trackId": null,
+        "trackTitle": null,
+        "playlistId": null,
+        "positionSeconds": 0,
+        "durationSeconds": 0,
+        "startedAt": null,
+        "syncGroup": null
+      },
+      "lastUpdated": "2025-09-24T08:12:00Z"
+    }
+  ],
+  "library": [
+    {
+      "id": "track-soft-rain",
+      "title": "Soft Rain",
+      "artist": "Fleet Ops",
+      "durationSeconds": 214,
+      "format": "mp3",
+      "sizeBytes": 5242880,
+      "tags": ["ambient", "morning"],
+      "uploadedAt": "2025-09-20T09:00:00Z"
+    },
+    {
+      "id": "track-city-skyline",
+      "title": "City Skyline",
+      "artist": "Fleet Ops",
+      "durationSeconds": 312,
+      "format": "flac",
+      "sizeBytes": 7340032,
+      "tags": ["evening", "lobby"],
+      "uploadedAt": "2025-09-21T11:15:00Z"
+    },
+    {
+      "id": "track-forest-light",
+      "title": "Forest Light",
+      "artist": "Fleet Ops",
+      "durationSeconds": 286,
+      "format": "aac",
+      "sizeBytes": 6815744,
+      "tags": ["spa", "relax"],
+      "uploadedAt": "2025-09-22T07:42:00Z"
+    }
+  ],
+  "playlists": [
+    {
+      "id": "pl-lobby-open",
+      "name": "Lobby Opening Loop",
+      "description": "Soft start for morning crew",
+      "loop": true,
+      "syncMode": "synced",
+      "createdAt": "2025-09-10T08:00:00Z",
+      "updatedAt": "2025-09-24T15:55:00Z",
+      "tracks": [
+        { "trackId": "track-soft-rain", "order": 1 },
+        { "trackId": "track-city-skyline", "order": 2 }
+      ]
+    },
+    {
+      "id": "pl-spa-reset",
+      "name": "Spa Reset",
+      "description": "Gentle ambient tracks",
+      "loop": false,
+      "syncMode": "independent",
+      "createdAt": "2025-09-12T10:30:00Z",
+      "updatedAt": "2025-09-22T07:45:00Z",
+      "tracks": [
+        { "trackId": "track-forest-light", "order": 1 }
+      ]
+    }
+  ],
+  "sessions": [
+    {
+      "id": "session-lobby-1",
+      "playlistId": "pl-lobby-open",
+      "deviceIds": ["pi-audio-01"],
+      "syncMode": "synced",
+      "state": "playing",
+      "startedAt": "2025-09-24T16:04:00Z"
     }
   ]
 }

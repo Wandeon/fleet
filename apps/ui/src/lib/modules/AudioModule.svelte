@@ -5,10 +5,30 @@
   import DeviceTile from '$lib/components/DeviceTile.svelte';
   import EmptyState from '$lib/components/EmptyState.svelte';
   import Skeleton from '$lib/components/Skeleton.svelte';
-  import { useMocks } from '$lib/stores/app';
-  import type { PanelState } from '$lib/stores/app';
-  import type { AudioDevice, AudioState } from '$lib/types';
+  import StatusPill from '$lib/components/StatusPill.svelte';
   import { createEventDispatcher } from 'svelte';
+  import { goto, invalidate } from '$app/navigation';
+  import {
+    createPlaylist,
+    deletePlaylist,
+    pauseDevice,
+    playOnDevices,
+    resumeDevice,
+    seekDevice,
+    setDeviceVolume,
+    setMasterVolume,
+    stopDevice,
+    updatePlaylist,
+    uploadTrack
+  } from '$lib/api/audio-operations';
+  import type { PanelState } from '$lib/stores/app';
+import type {
+    AudioDeviceSnapshot,
+    AudioPlaylist,
+    AudioPlaylistTrack,
+    AudioState,
+    AudioSyncMode
+  } from '$lib/types';
 
   export let data: AudioState | null = null;
   export let state: PanelState = 'success';
@@ -17,243 +37,850 @@
   export let onRetry: (() => void) | undefined;
 
   const dispatch = createEventDispatcher();
-  $: usingMocks = $useMocks;
 
-  let uploadProgress = 0;
-  let isUploading = false;
-  let uploadStatus = '';
-  let showUploadModal = false;
-  let fileInput: HTMLInputElement;
+  const formatDuration = (seconds: number) => {
+    if (!Number.isFinite(seconds)) return '0:00';
+    const total = Math.max(0, Math.round(seconds));
+    const mins = Math.floor(total / 60);
+    const secs = total % 60;
+    return `${mins}:${secs.toString().padStart(2, '0')}`;
+  };
 
-  function formatVolume(value: number) {
-    return `${Math.round(value)}%`;
-  }
+  const formatRelative = (iso: string | null) => {
+    if (!iso) return '—';
+    const value = new Date(iso).valueOf();
+    const now = Date.now();
+    const diff = Math.max(0, now - value);
+    const mins = Math.round(diff / 60000);
+    if (mins < 1) return 'just now';
+    if (mins < 60) return `${mins}m ago`;
+    const hours = Math.round(mins / 60);
+    if (hours < 24) return `${hours}h ago`;
+    const days = Math.round(hours / 24);
+    return `${days}d ago`;
+  };
 
-  function retry() {
-    dispatch('retry');
-    onRetry?.();
-  }
-
-  function deviceStatus(device: AudioDevice) {
+  const computeStatus = (device: AudioDeviceSnapshot) => {
     if (device.status === 'error') return 'error';
     if (device.status === 'offline') return 'offline';
+    if (device.playback.state === 'buffering') return 'warn';
     return 'ok';
-  }
+  };
 
-  function openUploadDialog() {
-    showUploadModal = true;
-  }
+  let selectedDevices = new Set<string>();
+  let playbackMode: 'single' | 'perDevice' | 'playlist' = 'single';
+  let selectedTrackId: string | null = null;
+  let selectedPlaylistId: string | null = null;
+  let syncMode: AudioSyncMode = 'synced';
+  let resumePlayback = false;
+  let loopPlayback = false;
+  let startAtSeconds = 0;
+  let playbackError = '';
+  let playbackBusy = false;
+  let banner: { type: 'success' | 'error'; message: string } | null = null;
 
-  function closeUploadModal() {
-    showUploadModal = false;
-    uploadStatus = '';
-    uploadProgress = 0;
-  }
+  let deviceAssignments: Record<string, string | null> = {};
+  $: assignmentList = Array.from(selectedDevices).map((deviceId) => ({
+    deviceId,
+    trackId: deviceAssignments[deviceId] ?? null
+  }));
 
-  function triggerFileInput() {
-    fileInput.click();
-  }
+  $: library = data?.library ?? [];
+  $: playlists = data?.playlists ?? [];
+  $: devices = data?.devices ?? [];
 
-  async function handleFileUpload(event: Event) {
-    const target = event.target as HTMLInputElement;
-    const file = target.files?.[0];
+  let uploadModalOpen = false;
+  let uploadFile: File | null = null;
+  let uploadTitle = '';
+  let uploadArtist = '';
+  let uploadTags = '';
+  let uploadError = '';
+  let uploadBusy = false;
 
-    if (!file) return;
+  let playlistModalOpen = false;
+  let playlistEditingId: string | null = null;
+  let playlistName = '';
+  let playlistDescription = '';
+  let playlistLoop = true;
+  let playlistSyncMode: AudioSyncMode = 'synced';
+  let playlistTrackSelections: Record<string, boolean> = {};
+  let playlistBusy = false;
+  let playlistError = '';
 
-    // Validate file type
-    const allowedTypes = ['audio/mpeg', 'audio/wav', 'audio/mp3', 'audio/ogg'];
-    if (!allowedTypes.includes(file.type)) {
-      uploadStatus = 'Error: Please select an audio file (MP3, WAV, OGG)';
+  const resetBanner = () => {
+    banner = null;
+  };
+
+  const broadcastRefresh = () => {
+    dispatch('refresh');
+    invalidate('app:audio');
+    onRetry?.();
+  };
+
+  const toggleDeviceSelection = (deviceId: string) => {
+    const next = new Set(selectedDevices);
+    if (next.has(deviceId)) {
+      next.delete(deviceId);
+    } else {
+      next.add(deviceId);
+    }
+    selectedDevices = next;
+  };
+
+  const ensureAssignmentsForSelection = () => {
+    const next: Record<string, string | null> = {};
+    for (const deviceId of selectedDevices) {
+      next[deviceId] = deviceAssignments[deviceId] ?? null;
+    }
+    deviceAssignments = next;
+  };
+
+  $: ensureAssignmentsForSelection();
+
+  const updateState = (next: AudioState) => {
+    data = next;
+    broadcastRefresh();
+  };
+
+  const updateDevice = (snapshot: AudioDeviceSnapshot) => {
+    if (!data) return;
+    data = {
+      ...data,
+      devices: data.devices.map((item) => (item.id === snapshot.id ? snapshot : item))
+    };
+  };
+
+  const showSuccess = (message: string) => {
+    banner = { type: 'success', message };
+    setTimeout(() => {
+      if (banner?.message === message) banner = null;
+    }, 4000);
+  };
+
+  const showError = (message: string) => {
+    banner = { type: 'error', message };
+  };
+
+  const validatePlayback = () => {
+    playbackError = '';
+    if (!selectedDevices.size) {
+      playbackError = 'Select at least one device to start playback.';
+      return false;
+    }
+
+    if (playbackMode === 'single' && !selectedTrackId) {
+      playbackError = 'Choose a track to play on the selected devices.';
+      return false;
+    }
+
+    if (playbackMode === 'perDevice') {
+      const missing = assignmentList.filter((assignment) => !assignment.trackId);
+      if (missing.length) {
+        playbackError = 'Assign a track for every selected device.';
+        return false;
+      }
+    }
+
+    if (playbackMode === 'playlist' && !selectedPlaylistId) {
+      playbackError = 'Select a playlist to deploy to the devices.';
+      return false;
+    }
+
+    return true;
+  };
+
+  const handlePlayback = async () => {
+    if (!data || playbackBusy) return;
+    if (!validatePlayback()) return;
+
+    playbackBusy = true;
+    try {
+      const state = await playOnDevices({
+        deviceIds: Array.from(selectedDevices),
+        trackId: playbackMode === 'single' ? selectedTrackId : null,
+        playlistId: playbackMode === 'playlist' ? selectedPlaylistId : null,
+        assignments: playbackMode === 'perDevice' ? assignmentList.map(({ deviceId, trackId }) => ({ deviceId, trackId: trackId! })) : undefined,
+        syncMode,
+        resume: resumePlayback,
+        loop: loopPlayback,
+        startAtSeconds
+      });
+      updateState(state);
+      showSuccess('Playback started');
+    } catch (error) {
+      console.error('playback error', error);
+      showError(error instanceof Error ? error.message : 'Failed to start playback');
+    } finally {
+      playbackBusy = false;
+    }
+  };
+
+  const handleDeviceToggle = async (device: AudioDeviceSnapshot) => {
+    if (!data) return;
+    try {
+      const updated =
+        device.playback.state === 'playing' ? await pauseDevice(device.id) : await resumeDevice(device.id);
+      updateDevice(updated);
+    } catch (error) {
+      console.error('toggle playback', error);
+      showError('Unable to toggle playback');
+    }
+  };
+
+  const handleDeviceStop = async (device: AudioDeviceSnapshot) => {
+    try {
+      const updated = await stopDevice(device.id);
+      updateDevice(updated);
+    } catch (error) {
+      console.error('stop device', error);
+      showError('Unable to stop device');
+    }
+  };
+
+  const handleVolume = async (device: AudioDeviceSnapshot, value: number) => {
+    try {
+      const updated = await setDeviceVolume(device.id, value);
+      updateDevice(updated);
+    } catch (error) {
+      console.error('volume error', error);
+      showError('Unable to adjust volume');
+    }
+  };
+
+  const handleSeek = async (device: AudioDeviceSnapshot, value: number) => {
+    try {
+      const updated = await seekDevice(device.id, value);
+      updateDevice(updated);
+    } catch (error) {
+      console.error('seek error', error);
+      showError('Unable to seek');
+    }
+  };
+
+  const handleMasterVolume = async (value: number) => {
+    try {
+      const state = await setMasterVolume(value);
+      updateState(state);
+      showSuccess('Updated master gain');
+    } catch (error) {
+      console.error('master volume', error);
+      showError('Unable to update master volume');
+    }
+  };
+
+  const openUploadModal = () => {
+    uploadModalOpen = true;
+    uploadFile = null;
+    uploadTitle = '';
+    uploadArtist = '';
+    uploadTags = '';
+    uploadError = '';
+  };
+
+  const handleUpload = async () => {
+    if (!data || uploadBusy) return;
+    uploadError = '';
+
+    if (!uploadFile) {
+      uploadError = 'Select an audio file to upload.';
       return;
     }
 
-    // Validate file size (max 50MB)
-    const maxSize = 50 * 1024 * 1024;
-    if (file.size > maxSize) {
-      uploadStatus = 'Error: File too large (max 50MB)';
+    const title = uploadTitle.trim() || uploadFile.name.replace(/\.[^.]+$/, '');
+
+    uploadBusy = true;
+    try {
+      const track = await uploadTrack({
+        file: uploadFile,
+        title,
+        artist: uploadArtist.trim() || undefined,
+        tags: uploadTags.split(',').map((tag) => tag.trim()).filter(Boolean)
+      });
+      data = {
+        ...data,
+        library: [...data.library, track]
+      };
+      showSuccess(`Uploaded ${track.title}`);
+      uploadModalOpen = false;
+      broadcastRefresh();
+    } catch (error) {
+      console.error('upload error', error);
+      uploadError = error instanceof Error ? error.message : 'Upload failed';
+    } finally {
+      uploadBusy = false;
+    }
+  };
+
+  const openPlaylistModal = (playlist?: AudioPlaylist) => {
+    playlistModalOpen = true;
+    playlistError = '';
+    playlistBusy = false;
+    if (playlist) {
+      playlistEditingId = playlist.id;
+      playlistName = playlist.name;
+      playlistDescription = playlist.description ?? '';
+      playlistLoop = playlist.loop;
+      playlistSyncMode = playlist.syncMode;
+      const selection: Record<string, boolean> = {};
+      playlist.tracks.forEach((track) => {
+        selection[track.trackId] = true;
+      });
+      playlistTrackSelections = selection;
+    } else {
+      playlistEditingId = null;
+      playlistName = '';
+      playlistDescription = '';
+      playlistLoop = true;
+      playlistSyncMode = 'synced';
+      playlistTrackSelections = {};
+    }
+  };
+
+  const handlePlaylistSubmit = async () => {
+    if (!data || playlistBusy) return;
+    const tracks: AudioPlaylistTrack[] = library
+      .filter((track) => playlistTrackSelections[track.id])
+      .map((track, idx) => ({ trackId: track.id, order: idx + 1 }));
+
+    if (!playlistName.trim()) {
+      playlistError = 'Name your playlist to continue.';
       return;
     }
 
-    isUploading = true;
-    uploadStatus = 'Uploading...';
-    uploadProgress = 0;
+    if (!tracks.length) {
+      playlistError = 'Select at least one track.';
+      return;
+    }
+
+    playlistBusy = true;
 
     try {
-      const formData = new FormData();
-      formData.append('audio', file);
-
-      // Simulate upload progress for now - in real implementation this would be actual upload
-      const uploadInterval = setInterval(() => {
-        uploadProgress += 10;
-        if (uploadProgress >= 90) {
-          clearInterval(uploadInterval);
-        }
-      }, 200);
-
-      // Mock API call - replace with actual API endpoint
-      await new Promise(resolve => setTimeout(resolve, 2000));
-
-      clearInterval(uploadInterval);
-      uploadProgress = 100;
-      uploadStatus = 'Upload complete! File ready for playbook.';
-
-      setTimeout(() => {
-        isUploading = false;
-        closeUploadModal();
-        // Refresh audio data
-        onRetry?.();
-      }, 1500);
-
+      if (playlistEditingId) {
+        const updated = await updatePlaylist(playlistEditingId, {
+          name: playlistName.trim(),
+          description: playlistDescription.trim() || null,
+          loop: playlistLoop,
+          syncMode: playlistSyncMode,
+          tracks
+        });
+        data = {
+          ...data,
+          playlists: data.playlists.map((playlist) => (playlist.id === updated.id ? updated : playlist))
+        };
+        showSuccess(`Updated playlist “${updated.name}”`);
+      } else {
+        const created = await createPlaylist({
+          name: playlistName.trim(),
+          description: playlistDescription.trim() || null,
+          loop: playlistLoop,
+          syncMode: playlistSyncMode,
+          tracks
+        });
+        data = {
+          ...data,
+          playlists: [...data.playlists, created]
+        };
+        showSuccess(`Playlist “${created.name}” created`);
+      }
+      playlistModalOpen = false;
+      broadcastRefresh();
     } catch (error) {
-      clearInterval(uploadInterval);
-      isUploading = false;
-      uploadStatus = `Upload failed: ${error instanceof Error ? error.message : 'Unknown error'}`;
+      console.error('playlist error', error);
+      playlistError = error instanceof Error ? error.message : 'Unable to save playlist';
+    } finally {
+      playlistBusy = false;
     }
-  }
+  };
+
+  const handleDeletePlaylist = async (playlist: AudioPlaylist) => {
+    if (!data) return;
+    if (!confirm(`Delete playlist “${playlist.name}”?`)) return;
+    try {
+      await deletePlaylist(playlist.id);
+      data = {
+        ...data,
+        playlists: data.playlists.filter((item) => item.id !== playlist.id)
+      };
+      showSuccess('Playlist removed');
+      broadcastRefresh();
+    } catch (error) {
+      console.error('delete playlist', error);
+      showError('Unable to delete playlist');
+    }
+  };
+
+  const handlePlayPlaylist = async (playlist: AudioPlaylist) => {
+    selectedPlaylistId = playlist.id;
+    playbackMode = 'playlist';
+    await handlePlayback();
+  };
+
+  const createAssignmentChangeHandler = (deviceId: string) => (event: Event) => {
+    const value = (event.target as HTMLSelectElement).value || null;
+    deviceAssignments = { ...deviceAssignments, [deviceId]: value };
+  };
 </script>
 
-<Card title={title} subtitle="Dual Pi audio routing">
+<Card title={title} subtitle={variant === 'compact' ? 'Fleet-wide audio health' : 'Distributed audio orchestration'}>
   {#if state === 'loading'}
-    <div class="stack">
-      <Skeleton variant="line" />
+    <div class="loading">
       <Skeleton variant="block" height="7rem" />
-      <div class="device-skeletons">
-        <Skeleton variant="block" height="6rem" />
-        <Skeleton variant="block" height="6rem" />
-      </div>
+      <Skeleton variant="block" height="14rem" />
     </div>
   {:else if state === 'error'}
     <div class="error-state" role="alert">
-      <p>Audio subsystem unreachable. pi-audio-02 didn’t respond. Retry?</p>
-      <Button variant="primary" on:click={retry}>Retry</Button>
+      <p>Audio subsystem unreachable. Retry fetching telemetry?</p>
+      <Button variant="primary" on:click={() => onRetry?.()}>Retry</Button>
     </div>
-  {:else if state === 'empty'}
-    <EmptyState title="No audio devices discovered" description="Bring a Pi online to start playback.">
+  {:else if !data || data.devices.length === 0}
+    <EmptyState title="No audio devices discovered" description="Bring a player online or pair a Pi to begin.">
       <svelte:fragment slot="icon">🔈</svelte:fragment>
       <svelte:fragment slot="action">
-        <Button variant="secondary" disabled={usingMocks}>Scan again</Button>
+        <Button variant="secondary" on:click={() => onRetry?.()}>Refresh</Button>
       </svelte:fragment>
     </EmptyState>
-  {:else if data}
-    <div class={`audio-grid ${variant}`}>
-      <section class="controls">
-        <div class="actions">
-          <Button variant="primary">Play on both</Button>
-          <Button variant="secondary">Pause</Button>
+  {:else if variant === 'compact'}
+    <div class="compact-overview">
+      <div class="overview-row">
+        <div class="metric">
+          <span>Master volume</span>
+          <strong>{Math.round(data.masterVolume)}%</strong>
         </div>
-        <Slider label="Master volume" min={0} max={200} value={data.masterVolume} unit="%" />
-        {#if data.nowPlaying}
-          <div class="now-playing">
-            {#if data.nowPlaying.art}
-              <img src={data.nowPlaying.art} alt="Album art" width="72" height="72" />
-            {/if}
-            <div>
-              <span class="label">Now playing</span>
-              <strong>{data.nowPlaying.track}</strong>
-              <span class="artist">{data.nowPlaying.artist}</span>
-            </div>
-          </div>
-        {:else}
-          <p class="idle">Idle · Queue a track to begin.</p>
-        {/if}
-      </section>
-      <section class="devices">
-        {#each data.devices as device (device.id)}
-          <DeviceTile title={device.name} subtitle={device.nowPlaying ?? 'Idle'} status={deviceStatus(device)}>
-            <div class="device-actions">
-              <Button variant="ghost" aria-label={`Previous track on ${device.name}`}>⏮</Button>
-              <Button variant="ghost" aria-label={`Play or pause ${device.name}`} aria-pressed={device.isPlaying}>
-                {device.isPlaying ? '⏸' : '▶️'}
-              </Button>
-              <Button variant="ghost" aria-label={`Next track on ${device.name}`}>⏭</Button>
-            </div>
-            <div class="device-volume">
-              <Slider
-                label="Volume"
-                min={0}
-                max={200}
-                value={device.volume}
-                unit="%"
-                displayValue={true}
-              />
-              <span class="volume-value">{formatVolume(device.volume)}</span>
-            </div>
-            <svelte:fragment slot="actions">
-              <time class="timestamp">Updated {new Date(device.lastUpdated).toLocaleTimeString()}</time>
-            </svelte:fragment>
-          </DeviceTile>
+        <div class="metric">
+          <span>Online devices</span>
+          <strong>
+            {data.devices.filter((device) => device.status === 'online').length}/{data.devices.length}
+          </strong>
+        </div>
+        <div class="metric">
+          <span>Active playlists</span>
+          <strong>{data.sessions.length}</strong>
+        </div>
+      </div>
+      <ul class="compact-list">
+        {#each data.devices.slice(0, 3) as device}
+          <li>
+            <StatusPill status={computeStatus(device)} />
+            <span class="device-name">{device.name}</span>
+            <span class="device-extra">
+              {#if device.playback.state === 'playing'}
+                ▶ {device.playback.trackTitle ?? 'Unknown track'} ({formatDuration(device.playback.positionSeconds)})
+              {:else if device.playback.state === 'paused'}
+                ❚❚ {device.playback.trackTitle ?? 'Paused'}
+              {:else}
+                Idle
+              {/if}
+            </span>
+          </li>
         {/each}
-      </section>
-      <section class="file-actions">
-        <h3>File actions</h3>
-        <div class="buttons">
-          <Button disabled={usingMocks || isUploading} on:click={openUploadDialog}>
-            {isUploading ? 'Uploading...' : 'Upload Audio'}
-          </Button>
-          <Button variant="secondary" disabled={usingMocks}>Replace fallback</Button>
+      </ul>
+      <Button variant="ghost" on:click={() => goto('/audio')}>Open audio control</Button>
+    </div>
+  {:else}
+    <div class="audio-layout">
+      {#if banner}
+        <div class={`banner ${banner.type}`} role="status">
+          <span>{banner.message}</span>
+          <button type="button" on:click={resetBanner} aria-label="Dismiss message">×</button>
         </div>
-        {#if usingMocks}
-          <p class="hint">Connect to the live API to enable file management.</p>
+      {/if}
+
+      <section class="master">
+        <div>
+          <h2>Master mix</h2>
+          <p>Set headroom and monitor fleet playback status.</p>
+        </div>
+        <div class="master-controls">
+          <Slider
+            label="Master volume"
+            min={0}
+            max={200}
+            value={data.masterVolume}
+            unit="%"
+            on:change={(event) => handleMasterVolume(event.detail)}
+          />
+          <div class="master-summary">
+            <span>{data.library.length} tracks</span>
+            <span>{data.playlists.length} playlists</span>
+            <span>{data.sessions.length} active sessions</span>
+          </div>
+        </div>
+      </section>
+
+      <section class="device-grid">
+        <header>
+          <h2>Devices</h2>
+          <p>Select endpoints for playback orchestration.</p>
+        </header>
+        <div class="grid">
+          {#each data.devices as device}
+            <DeviceTile
+              title={device.name}
+              subtitle={device.playback.trackTitle ?? 'Idle'}
+              status={computeStatus(device)}
+              busy={playbackBusy}
+            >
+              <div class="device-controls">
+                <div class="device-meta">
+                  <span class={`state state-${device.playback.state}`}>
+                    {device.playback.state === 'playing'
+                      ? 'Playing'
+                      : device.playback.state === 'paused'
+                      ? 'Paused'
+                      : device.playback.state === 'buffering'
+                      ? 'Buffering'
+                      : device.playback.state === 'error'
+                      ? 'Error'
+                      : 'Idle'}
+                  </span>
+                  <span class="position">
+                    {formatDuration(device.playback.positionSeconds)} / {formatDuration(device.playback.durationSeconds)}
+                  </span>
+                  <span class="updated">{formatRelative(device.lastUpdated)}</span>
+                </div>
+                <div class="device-actions">
+                  <Button variant="ghost" size="sm" on:click={() => toggleDeviceSelection(device.id)} aria-pressed={selectedDevices.has(device.id)}>
+                    {selectedDevices.has(device.id) ? 'Selected' : 'Select'}
+                  </Button>
+                  <Button variant="primary" size="sm" on:click={() => handleDeviceToggle(device)}>
+                    {device.playback.state === 'playing' ? 'Pause' : 'Play'}
+                  </Button>
+                  <Button variant="ghost" size="sm" on:click={() => handleDeviceStop(device)}>
+                    Stop
+                  </Button>
+                </div>
+                <div class="device-sliders">
+                  <Slider
+                    label="Volume"
+                    min={0}
+                    max={200}
+                    value={device.volumePercent}
+                    unit="%"
+                    on:change={(event) => handleVolume(device, event.detail)}
+                  />
+                  <Slider
+                    label="Seek"
+                    min={0}
+                    max={Math.max(device.playback.durationSeconds, device.playback.positionSeconds + 1)}
+                    value={device.playback.positionSeconds}
+                    step={1}
+                    on:change={(event) => handleSeek(device, event.detail)}
+                    displayValue={false}
+                  />
+                </div>
+              </div>
+              <svelte:fragment slot="actions">
+                {#if device.playback.playlistId}
+                  <span class="pill">Playlist · {device.playback.playlistId}</span>
+                {/if}
+                {#if device.playback.syncGroup}
+                  <span class="pill">Sync · {device.playback.syncGroup}</span>
+                {/if}
+              </svelte:fragment>
+            </DeviceTile>
+          {/each}
+        </div>
+      </section>
+
+      <section class="orchestrator">
+        <header>
+          <h2>Orchestrate playback</h2>
+          <p>Deploy tracks or playlists across selected devices.</p>
+        </header>
+        <div class="orchestrator-body">
+          <div class="mode-toggle" role="group" aria-label="Playback mode">
+            <Button
+              variant={playbackMode === 'single' ? 'primary' : 'ghost'}
+              on:click={() => (playbackMode = 'single')}
+            >
+              Single track
+            </Button>
+            <Button
+              variant={playbackMode === 'perDevice' ? 'primary' : 'ghost'}
+              on:click={() => (playbackMode = 'perDevice')}
+            >
+              Per device
+            </Button>
+            <Button
+              variant={playbackMode === 'playlist' ? 'primary' : 'ghost'}
+              on:click={() => (playbackMode = 'playlist')}
+            >
+              Playlist
+            </Button>
+          </div>
+          {#if playbackMode === 'single'}
+            <div class="mode-content">
+              <label>
+                <span>Track</span>
+                <select bind:value={selectedTrackId}>
+                  <option value="">Select a track</option>
+                  {#each library as track}
+                    <option value={track.id}>{track.title}</option>
+                  {/each}
+                </select>
+              </label>
+            </div>
+          {:else if playbackMode === 'perDevice'}
+            <div class="mode-content per-device">
+              {#if !selectedDevices.size}
+                <p>Select devices first to assign tracks.</p>
+              {:else}
+                {#each assignmentList as assignment}
+                  <label>
+                    <span>{devices.find((item) => item.id === assignment.deviceId)?.name ?? assignment.deviceId}</span>
+                    <select value={assignment.trackId ?? ''} on:change={createAssignmentChangeHandler(assignment.deviceId)}>
+                      <option value="">Choose track</option>
+                      {#each library as track}
+                        <option value={track.id}>{track.title}</option>
+                      {/each}
+                    </select>
+                  </label>
+                {/each}
+              {/if}
+            </div>
+          {:else}
+            <div class="mode-content">
+              <label>
+                <span>Playlist</span>
+                <select bind:value={selectedPlaylistId}>
+                  <option value="">Select a playlist</option>
+                  {#each playlists as playlist}
+                    <option value={playlist.id}>{playlist.name}</option>
+                  {/each}
+                </select>
+              </label>
+            </div>
+          {/if}
+          <div class="mode-options">
+            <label class="checkbox">
+              <input type="checkbox" bind:checked={resumePlayback} />
+              <span>Resume where tracks left off</span>
+            </label>
+            <label class="checkbox">
+              <input type="checkbox" bind:checked={loopPlayback} />
+              <span>Loop playback</span>
+            </label>
+            <label>
+              <span>Sync mode</span>
+              <select bind:value={syncMode}>
+                <option value="synced">Synced</option>
+                <option value="grouped">Grouped</option>
+                <option value="independent">Independent</option>
+              </select>
+            </label>
+            <label>
+              <span>Start at (seconds)</span>
+              <input type="number" min="0" bind:value={startAtSeconds} />
+            </label>
+          </div>
+          {#if playbackError}
+            <p class="form-error" role="alert">{playbackError}</p>
+          {/if}
+          <div class="orchestrator-actions">
+            <Button variant="secondary" on:click={() => (selectedDevices = new Set())}>Clear selection</Button>
+            <Button variant="primary" disabled={playbackBusy} on:click={handlePlayback}>
+              {playbackBusy ? 'Starting…' : 'Start playback'}
+            </Button>
+          </div>
+        </div>
+      </section>
+
+      <section class="library">
+        <header>
+          <h2>Library</h2>
+          <div class="actions">
+            <Button variant="ghost" on:click={openUploadModal}>Upload track</Button>
+          </div>
+        </header>
+        <table>
+          <thead>
+            <tr>
+              <th scope="col">Title</th>
+              <th scope="col">Artist</th>
+              <th scope="col">Duration</th>
+              <th scope="col">Tags</th>
+              <th scope="col">Actions</th>
+            </tr>
+          </thead>
+          <tbody>
+            {#each library as track}
+              <tr>
+                <th scope="row">{track.title}</th>
+                <td>{track.artist ?? '—'}</td>
+                <td>{formatDuration(track.durationSeconds)}</td>
+                <td>{track.tags?.join(', ') ?? '—'}</td>
+                <td class="library-actions">
+                  <Button variant="ghost" size="sm" on:click={() => {
+                    selectedTrackId = track.id;
+                    playbackMode = 'single';
+                    handlePlayback();
+                  }}>
+                    Play on selected
+                  </Button>
+                </td>
+              </tr>
+            {/each}
+          </tbody>
+        </table>
+      </section>
+
+      <section class="playlists">
+        <header>
+          <h2>Playlists</h2>
+          <div class="actions">
+            <Button variant="ghost" on:click={() => openPlaylistModal()}>New playlist</Button>
+          </div>
+        </header>
+        {#if !playlists.length}
+          <p class="muted">No playlists yet. Create one from the library above.</p>
         {:else}
-          <p class="hint">Upload audio files for playbook scheduling and fallback content.</p>
+          <ul class="playlist-list">
+            {#each playlists as playlist}
+              <li>
+                <div class="playlist-meta">
+                  <div>
+                    <strong>{playlist.name}</strong>
+                    <span>{playlist.description ?? 'No description'}</span>
+                  </div>
+                  <div class="tags">
+                    <span class="pill">{playlist.tracks.length} tracks</span>
+                    <span class="pill">{playlist.syncMode}</span>
+                    {#if playlist.loop}
+                      <span class="pill">Loop</span>
+                    {/if}
+                  </div>
+                </div>
+                <div class="playlist-actions">
+                  <Button variant="ghost" size="sm" on:click={() => handlePlayPlaylist(playlist)}>
+                    Play on selected
+                  </Button>
+                  <Button variant="ghost" size="sm" on:click={() => openPlaylistModal(playlist)}>
+                    Edit
+                  </Button>
+                  <Button variant="ghost" size="sm" on:click={() => handleDeletePlaylist(playlist)}>
+                    Delete
+                  </Button>
+                </div>
+              </li>
+            {/each}
+          </ul>
         {/if}
       </section>
     </div>
-  {:else}
-    <EmptyState title="Audio state unavailable" description="No data received from audio service." />
+  {/if}
+
+  {#if uploadModalOpen}
+    <div class="modal" role="dialog" aria-modal="true" aria-label="Upload audio track">
+      <div class="modal-content">
+        <header>
+          <h3>Upload audio</h3>
+          <button type="button" on:click={() => (uploadModalOpen = false)} aria-label="Close">×</button>
+        </header>
+        <div class="modal-body">
+          <label>
+            <span>Audio file</span>
+            <input type="file" accept="audio/*" on:change={(event) => {
+              const target = event.target as HTMLInputElement;
+              uploadFile = target.files?.[0] ?? null;
+            }} />
+          </label>
+          <label>
+            <span>Title</span>
+            <input type="text" bind:value={uploadTitle} placeholder="Track title" />
+          </label>
+          <label>
+            <span>Artist</span>
+            <input type="text" bind:value={uploadArtist} placeholder="Artist" />
+          </label>
+          <label>
+            <span>Tags (comma separated)</span>
+            <input type="text" bind:value={uploadTags} placeholder="ambient, lobby" />
+          </label>
+          {#if uploadError}
+            <p class="form-error" role="alert">{uploadError}</p>
+          {/if}
+        </div>
+        <footer>
+          <Button variant="ghost" on:click={() => (uploadModalOpen = false)}>Cancel</Button>
+          <Button variant="primary" disabled={uploadBusy} on:click={handleUpload}>
+            {uploadBusy ? 'Uploading…' : 'Upload'}
+          </Button>
+        </footer>
+      </div>
+    </div>
+  {/if}
+
+  {#if playlistModalOpen}
+    <div class="modal" role="dialog" aria-modal="true" aria-label={playlistEditingId ? 'Edit playlist' : 'Create playlist'}>
+      <div class="modal-content wide">
+        <header>
+          <h3>{playlistEditingId ? 'Edit playlist' : 'New playlist'}</h3>
+          <button type="button" on:click={() => (playlistModalOpen = false)} aria-label="Close">×</button>
+        </header>
+        <div class="modal-body playlist-form">
+          <label>
+            <span>Name</span>
+            <input type="text" bind:value={playlistName} placeholder="Playlist name" />
+          </label>
+          <label>
+            <span>Description</span>
+            <textarea rows="3" bind:value={playlistDescription} placeholder="Optional notes"></textarea>
+          </label>
+          <label>
+            <span>Sync mode</span>
+            <select bind:value={playlistSyncMode}>
+              <option value="synced">Synced</option>
+              <option value="grouped">Grouped</option>
+              <option value="independent">Independent</option>
+            </select>
+          </label>
+          <label class="checkbox">
+            <input type="checkbox" bind:checked={playlistLoop} />
+            <span>Loop playlist</span>
+          </label>
+          <div class="track-selection">
+            <h4>Select tracks</h4>
+            <div class="track-grid">
+              {#each library as track}
+                <label class="track-option">
+                  <input
+                    type="checkbox"
+                    checked={playlistTrackSelections[track.id] ?? false}
+                    on:change={(event) => {
+                      const target = event.target as HTMLInputElement;
+                      playlistTrackSelections = {
+                        ...playlistTrackSelections,
+                        [track.id]: target.checked
+                      };
+                    }}
+                  />
+                  <div>
+                    <strong>{track.title}</strong>
+                    <span>{track.artist ?? '—'} · {formatDuration(track.durationSeconds)}</span>
+                  </div>
+                </label>
+              {/each}
+            </div>
+          </div>
+          {#if playlistError}
+            <p class="form-error" role="alert">{playlistError}</p>
+          {/if}
+        </div>
+        <footer>
+          <Button variant="ghost" on:click={() => (playlistModalOpen = false)}>Cancel</Button>
+          <Button variant="primary" disabled={playlistBusy} on:click={handlePlaylistSubmit}>
+            {playlistBusy ? 'Saving…' : playlistEditingId ? 'Save changes' : 'Create playlist'}
+          </Button>
+        </footer>
+      </div>
+    </div>
   {/if}
 </Card>
 
-<!-- Upload Modal -->
-{#if showUploadModal}
-  <div class="modal-overlay" on:click={closeUploadModal} role="dialog" aria-modal="true">
-    <div class="modal-content" on:click|stopPropagation>
-      <header class="modal-header">
-        <h2>Upload Audio File</h2>
-        <button class="close-button" on:click={closeUploadModal} aria-label="Close">✕</button>
-      </header>
-
-      <div class="modal-body">
-        {#if !isUploading}
-          <div class="upload-area">
-            <div class="upload-icon">🎵</div>
-            <p>Choose an audio file to upload</p>
-            <p class="file-info">Supported formats: MP3, WAV, OGG (max 50MB)</p>
-            <Button variant="primary" on:click={triggerFileInput}>Select File</Button>
-          </div>
-        {:else}
-          <div class="upload-progress">
-            <div class="progress-bar">
-              <div class="progress-fill" style="width: {uploadProgress}%"></div>
-            </div>
-            <p class="upload-status">{uploadStatus}</p>
-            <p class="progress-text">{uploadProgress}%</p>
-          </div>
-        {/if}
-      </div>
-    </div>
-  </div>
-{/if}
-
-<!-- Hidden file input -->
-<input
-  type="file"
-  accept="audio/*"
-  bind:this={fileInput}
-  on:change={handleFileUpload}
-  style="display: none"
->
-
 <style>
-  .stack {
+  .loading {
     display: grid;
-    gap: var(--spacing-3);
-  }
-
-  .device-skeletons {
-    display: grid;
-    gap: var(--spacing-3);
-    grid-template-columns: repeat(auto-fit, minmax(12rem, 1fr));
+    gap: var(--spacing-4);
   }
 
   .error-state {
@@ -262,220 +889,405 @@
     gap: var(--spacing-3);
   }
 
-  .audio-grid {
+  .compact-overview {
     display: grid;
     gap: var(--spacing-4);
   }
 
-  .audio-grid.compact .file-actions {
-    display: none;
-  }
-
-  .controls {
+  .overview-row {
     display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(9rem, 1fr));
     gap: var(--spacing-3);
-    align-items: center;
   }
 
-  .actions {
-    display: flex;
-    flex-wrap: wrap;
+  .metric {
+    border: 1px solid rgba(148, 163, 184, 0.12);
+    border-radius: var(--radius-md);
+    padding: var(--spacing-3);
+    background: rgba(12, 21, 41, 0.6);
+  }
+
+  .metric span {
+    display: block;
+    font-size: var(--font-size-xs);
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    color: var(--color-text-muted);
+  }
+
+  .metric strong {
+    display: block;
+    margin-top: 0.4rem;
+    font-size: var(--font-size-xl);
+  }
+
+  .compact-list {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    display: grid;
     gap: var(--spacing-2);
   }
 
-  .now-playing {
+  .compact-list li {
     display: grid;
-    grid-template-columns: auto 1fr;
+    grid-template-columns: auto 1fr auto;
     gap: var(--spacing-3);
+    align-items: center;
+    border: 1px solid rgba(148, 163, 184, 0.12);
+    border-radius: var(--radius-sm);
+    padding: var(--spacing-2) var(--spacing-3);
+  }
+
+  .device-name {
+    font-weight: 600;
+  }
+
+  .device-extra {
+    font-size: var(--font-size-sm);
+    color: var(--color-text-muted);
+  }
+
+  .audio-layout {
+    display: grid;
+    gap: var(--spacing-5);
+  }
+
+  .banner {
+    display: flex;
+    justify-content: space-between;
     align-items: center;
     padding: var(--spacing-3);
     border-radius: var(--radius-md);
     border: 1px solid rgba(148, 163, 184, 0.2);
-    background: rgba(12, 21, 41, 0.7);
   }
 
-  .now-playing img {
-    border-radius: var(--radius-md);
-    box-shadow: var(--shadow-sm);
+  .banner.success {
+    background: rgba(34, 197, 94, 0.12);
+    border-color: rgba(34, 197, 94, 0.4);
   }
 
-  .now-playing .label {
-    font-size: var(--font-size-xs);
-    text-transform: uppercase;
-    color: var(--color-text-muted);
-    letter-spacing: 0.08em;
+  .banner.error {
+    background: rgba(248, 113, 113, 0.12);
+    border-color: rgba(248, 113, 113, 0.4);
   }
 
-  .now-playing strong {
-    display: block;
-    font-size: var(--font-size-lg);
+  .banner button {
+    background: none;
+    border: none;
+    color: inherit;
+    font-size: 1.1rem;
+    cursor: pointer;
   }
 
-  .now-playing .artist {
-    color: var(--color-text-muted);
+  .master {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: space-between;
+    gap: var(--spacing-4);
+    align-items: center;
+  }
+
+  .master-controls {
+    display: grid;
+    gap: var(--spacing-3);
+    min-width: min(24rem, 100%);
+  }
+
+  .master-summary {
+    display: flex;
+    gap: var(--spacing-3);
     font-size: var(--font-size-sm);
-  }
-
-  .idle {
-    margin: 0;
     color: var(--color-text-muted);
   }
 
-  .devices {
+  .device-grid header,
+  .orchestrator header,
+  .library header,
+  .playlists header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: var(--spacing-3);
+  }
+
+  .device-grid .grid {
     display: grid;
     gap: var(--spacing-3);
     grid-template-columns: repeat(auto-fit, minmax(18rem, 1fr));
   }
 
+  .device-controls {
+    display: grid;
+    gap: var(--spacing-3);
+    width: 100%;
+  }
+
+  .device-meta {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--spacing-2);
+    align-items: center;
+    font-size: var(--font-size-sm);
+  }
+
+  .state {
+    padding: 0.25rem 0.6rem;
+    border-radius: 999px;
+    font-weight: 600;
+    font-size: var(--font-size-xs);
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+  }
+
+  .state-playing { background: rgba(34, 197, 94, 0.15); color: rgb(34, 197, 94); }
+  .state-paused { background: rgba(250, 204, 21, 0.15); color: rgb(250, 204, 21); }
+  .state-buffering { background: rgba(251, 191, 36, 0.15); color: rgb(251, 191, 36); }
+  .state-error { background: rgba(248, 113, 113, 0.15); color: rgb(248, 113, 113); }
+  .state-idle { background: rgba(148, 163, 184, 0.15); color: rgba(148, 163, 184, 0.9); }
+
+  .position {
+    color: var(--color-text-muted);
+    font-size: var(--font-size-xs);
+  }
+
+  .updated {
+    color: var(--color-text-muted);
+    font-size: var(--font-size-xs);
+  }
+
   .device-actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--spacing-2);
+  }
+
+  .device-sliders {
+    display: grid;
+    gap: var(--spacing-3);
+  }
+
+  .pill {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.3rem;
+    padding: 0.25rem 0.6rem;
+    border-radius: 999px;
+    font-size: var(--font-size-xs);
+    background: rgba(148, 163, 184, 0.12);
+  }
+
+  .orchestrator-body {
+    border: 1px solid rgba(148, 163, 184, 0.15);
+    border-radius: var(--radius-md);
+    padding: var(--spacing-4);
+    display: grid;
+    gap: var(--spacing-3);
+    background: rgba(12, 21, 41, 0.55);
+  }
+
+  .mode-toggle {
+    display: inline-flex;
+    gap: var(--spacing-2);
+    flex-wrap: wrap;
+  }
+
+  .mode-content {
+    display: grid;
+    gap: var(--spacing-3);
+  }
+
+  .mode-content label {
+    display: grid;
+    gap: 0.5rem;
+  }
+
+  .mode-content select,
+  .playlist-form select,
+  .playlist-form textarea,
+  .playlist-form input[type='text'],
+  .mode-options input[type='number'] {
+    background: rgba(15, 23, 42, 0.75);
+    border: 1px solid rgba(148, 163, 184, 0.25);
+    border-radius: var(--radius-sm);
+    padding: 0.45rem 0.6rem;
+    color: var(--color-text);
+  }
+
+  .mode-options {
+    display: grid;
+    gap: var(--spacing-2);
+    grid-template-columns: repeat(auto-fit, minmax(12rem, 1fr));
+    align-items: end;
+  }
+
+  .checkbox {
+    display: flex;
+    align-items: center;
+    gap: 0.6rem;
+    font-size: var(--font-size-sm);
+  }
+
+  .form-error {
+    color: var(--color-red-400);
+  }
+
+  .orchestrator-actions {
+    display: flex;
+    justify-content: flex-end;
+    gap: var(--spacing-2);
+  }
+
+  .library table {
+    width: 100%;
+    border-collapse: collapse;
+    border: 1px solid rgba(148, 163, 184, 0.12);
+  }
+
+  .library th,
+  .library td {
+    padding: 0.75rem;
+    text-align: left;
+  }
+
+  .library tbody tr:nth-child(even) {
+    background: rgba(148, 163, 184, 0.05);
+  }
+
+  .library-actions {
     display: flex;
     gap: var(--spacing-2);
   }
 
-  .device-volume {
+  .playlist-list {
+    list-style: none;
+    margin: 0;
+    padding: 0;
     display: grid;
-    gap: 0.35rem;
+    gap: var(--spacing-3);
   }
 
-  .volume-value {
-    font-size: var(--font-size-xs);
-    color: var(--color-text-muted);
+  .playlist-list li {
+    border: 1px solid rgba(148, 163, 184, 0.15);
+    border-radius: var(--radius-md);
+    padding: var(--spacing-3);
+    background: rgba(12, 21, 41, 0.55);
+    display: flex;
+    justify-content: space-between;
+    gap: var(--spacing-3);
+    flex-wrap: wrap;
   }
 
-  .timestamp {
-    font-size: var(--font-size-xs);
-    color: var(--color-text-muted);
-  }
-
-  .file-actions {
+  .playlist-meta {
     display: grid;
+    gap: 0.3rem;
+  }
+
+  .playlist-meta span {
+    color: var(--color-text-muted);
+    font-size: var(--font-size-sm);
+  }
+
+  .playlist-actions {
+    display: flex;
+    flex-wrap: wrap;
     gap: var(--spacing-2);
   }
 
-  .file-actions h3 {
-    margin: 0;
-    font-size: var(--font-size-md);
-  }
-
-  .file-actions .buttons {
+  .tags {
     display: flex;
     gap: var(--spacing-2);
     flex-wrap: wrap;
   }
 
-  .hint {
-    margin: 0;
-    font-size: var(--font-size-xs);
-    color: var(--color-text-muted);
-  }
-
-  /* Modal styles */
-  .modal-overlay {
+  .modal {
     position: fixed;
     top: 0;
     left: 0;
     right: 0;
     bottom: 0;
-    background: rgba(0, 0, 0, 0.75);
-    display: flex;
-    align-items: center;
-    justify-content: center;
+    background: rgba(2, 6, 23, 0.8);
+    display: grid;
+    place-items: center;
+    padding: var(--spacing-6);
     z-index: 1000;
   }
 
   .modal-content {
-    background: var(--color-background);
+    background: var(--color-bg-primary);
     border-radius: var(--radius-lg);
-    box-shadow: var(--shadow-xl);
-    width: 90%;
-    max-width: 28rem;
+    border: 1px solid rgba(148, 163, 184, 0.2);
+    width: min(32rem, 100%);
+    display: grid;
+    grid-template-rows: auto 1fr auto;
     max-height: 90vh;
-    overflow: auto;
   }
 
-  .modal-header {
+  .modal-content.wide {
+    width: min(46rem, 100%);
+  }
+
+  .modal-content header,
+  .modal-content footer {
+    padding: var(--spacing-4);
     display: flex;
     justify-content: space-between;
     align-items: center;
-    padding: var(--spacing-4);
-    border-bottom: 1px solid rgba(148, 163, 184, 0.1);
+    gap: var(--spacing-3);
   }
 
-  .modal-header h2 {
-    margin: 0;
-    font-size: var(--font-size-lg);
-  }
-
-  .close-button {
+  .modal-content header button {
     background: none;
     border: none;
-    font-size: var(--font-size-lg);
+    color: inherit;
+    font-size: 1.2rem;
     cursor: pointer;
-    color: var(--color-text-muted);
-    padding: var(--spacing-1);
-    border-radius: var(--radius-sm);
-    transition: background 0.2s ease;
-  }
-
-  .close-button:hover {
-    background: rgba(148, 163, 184, 0.1);
   }
 
   .modal-body {
     padding: var(--spacing-4);
+    display: grid;
+    gap: var(--spacing-3);
+    overflow-y: auto;
   }
 
-  .upload-area {
-    text-align: center;
-    padding: var(--spacing-6) var(--spacing-4);
-    border: 2px dashed rgba(148, 163, 184, 0.3);
-    border-radius: var(--radius-md);
-    background: rgba(11, 23, 45, 0.2);
+  .playlist-form textarea {
+    resize: vertical;
   }
 
-  .upload-icon {
-    font-size: 3rem;
-    margin-bottom: var(--spacing-3);
+  .track-selection {
+    display: grid;
+    gap: var(--spacing-3);
   }
 
-  .upload-area p {
-    margin: var(--spacing-2) 0;
+  .track-grid {
+    display: grid;
+    gap: var(--spacing-2);
+    max-height: 18rem;
+    overflow-y: auto;
   }
 
-  .file-info {
+  .track-option {
+    display: grid;
+    grid-template-columns: auto 1fr;
+    gap: var(--spacing-2);
+    align-items: center;
+    padding: var(--spacing-2);
+    border-radius: var(--radius-sm);
+    background: rgba(12, 21, 41, 0.5);
+  }
+
+  .track-option strong {
+    display: block;
+  }
+
+  .muted {
     color: var(--color-text-muted);
-    font-size: var(--font-size-sm);
   }
 
-  .upload-progress {
-    text-align: center;
-    padding: var(--spacing-4);
-  }
-
-  .progress-bar {
-    width: 100%;
-    height: 0.5rem;
-    background: rgba(148, 163, 184, 0.2);
-    border-radius: var(--radius-full);
-    overflow: hidden;
-    margin-bottom: var(--spacing-3);
-  }
-
-  .progress-fill {
-    height: 100%;
-    background: var(--color-brand);
-    transition: width 0.3s ease;
-    border-radius: var(--radius-full);
-  }
-
-  .upload-status {
-    margin: var(--spacing-2) 0;
-    font-weight: 500;
-  }
-
-  .progress-text {
-    margin: 0;
-    color: var(--color-text-muted);
-    font-size: var(--font-size-sm);
+  @media (max-width: 900px) {
+    .device-grid .grid {
+      grid-template-columns: 1fr;
+    }
   }
 </style>
