@@ -11,6 +11,12 @@ permissions:
 env:
   CI: true
   PLAYWRIGHT_BROWSERS_PATH: ~/.cache/ms-playwright
+  # Ensure mocked API flows and Prisma use a consistent configuration in CI.
+  API_BEARER: ${{ secrets.CI_API_BEARER || 'ci-test-bearer' }}
+  DATABASE_URL: file:./data/fleet-ci.db
+  VITE_USE_MOCKS: '1'
+  PRISMA_CLIENT_ENGINE_TYPE: binary
+  PRISMA_CLI_QUERY_ENGINE_TYPE: binary
 
 jobs:
   lint:

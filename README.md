@@ -110,7 +110,7 @@ To add more devices, insert hostnames under `devices:` and set their roles.
 
 ## CI/CD & Automation
 
-- Pull requests run `.github/workflows/ci.yml`, which performs linting (ESLint/Prettier/ShellCheck), TypeScript type-checks, Vitest/Playwright/unit smoke tests with mocked acceptance devices, Spectral OpenAPI linting, and Lighthouse CI audits. Results are uploaded as artifacts (JUnit, coverage, Lighthouse) and annotated back onto the PR.
+- Pull requests run `.github/workflows/ci.yml`, which performs linting (ESLint/Prettier/ShellCheck), TypeScript type-checks, Vitest/Playwright/unit smoke tests with mocked acceptance devices, Spectral OpenAPI linting, and Lighthouse CI audits. Results are uploaded as artifacts (JUnit, coverage, Lighthouse) and annotated back onto the PR. The workflow now pins `API_BEARER`, `DATABASE_URL=file:./data/fleet-ci.db`, and `VITE_USE_MOCKS=1` so Prisma, the API, and the UI all run in a hermetic mocked mode without depending on production secrets; override `CI_API_BEARER` in repository secrets if you need a different token.
 - Merges to `main` trigger `.github/workflows/deploy-vps.yml` to build Docker images for the API and UI, push them to GHCR, `rsync` the repo to `/opt/fleet` on the VPS, invoke `scripts/vps-deploy.sh`, run health probes (`/api/healthz`, `/`), and execute `scripts/acceptance.sh` against the production Raspberry Pis/Icecast. A commit comment summarizes the deployment.
 - `.github/workflows/docs.yml` validates Markdown formatting and runbook presence on every `main` push and publishes the docs bundle as a build artifact.
 - Manual rollbacks are available via `.github/workflows/rollback.yml` (GitHub Actions **→ Rollback deployment → Run workflow**) or directly on the VPS with `scripts/vps-rollback.sh`.
