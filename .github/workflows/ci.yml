@@ -145,6 +145,8 @@ jobs:
     env:
       ACCEPTANCE_HOSTS: mock-audio-01 mock-audio-02
       ACCEPTANCE_ICECAST_URL: http://mock-icecast:8000/mount
+      DATABASE_URL: file:./data/fleet-ci.db
+      PRISMA_ENGINES_CHECKSUM_IGNORE_MISSING: 1
     steps:
       - uses: actions/checkout@v4
 
@@ -173,7 +175,7 @@ jobs:
 
       - name: Install Playwright browsers
         working-directory: apps/ui
-        run: npx playwright install --with-deps
+        run: npx playwright install --with-deps chromium
 
       - name: Prepare artifacts directory
         run: |
@@ -196,6 +198,14 @@ jobs:
 <testsuite name="ui-vitest" tests="0" failures="0" skipped="0" time="0" />
 XML
           fi
+
+      - name: Prisma generate
+        working-directory: apps/api
+        run: npx prisma generate
+
+      - name: Prisma validate
+        working-directory: apps/api
+        run: npx prisma validate
 
       - name: API tests
         id: api_tests
