@@ -340,9 +340,33 @@ export const setDeviceVolume = async (
     return mockApi.audioSetVolume(deviceId, volumePercent);
   }
 
-  await AudioApi.setVolume(deviceId, {
-    volume: Math.max(0, Math.min(2, volumePercent / 100))
-  });
+  const fetchImpl = ensureFetch(options.fetch);
+
+  try {
+    await rawRequest(`/audio/devices/${deviceId}/volume`, {
+      method: 'POST',
+      headers: jsonHeaders,
+      body: JSON.stringify({ volumePercent }),
+      fetch: fetchImpl as RequestOptions['fetch']
+    });
+  } catch (error) {
+    console.warn('TODO(backlog): implement /audio/devices/{id}/volume endpoint', error);
+    await AudioApi.setVolume(deviceId, {
+      volume: Math.max(0, Math.min(2, volumePercent / 100))
+    });
+    return mapDeviceFromApi(await AudioApi.getDevice(deviceId));
+  }
+
+  try {
+    const device = await rawRequest<AudioDeviceStatus>(`/audio/devices/${deviceId}`, {
+      fetch: fetchImpl as RequestOptions['fetch']
+    });
+    if (device) {
+      return mapDeviceFromApi(device);
+    }
+  } catch (error) {
+    console.warn('TODO(backlog): implement /audio/devices/{id} endpoint', error);
+  }
 
   return mapDeviceFromApi(await AudioApi.getDevice(deviceId));
 };
