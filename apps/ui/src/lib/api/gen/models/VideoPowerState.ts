@@ -2,7 +2,4 @@
 /* tslint:disable */
 /* eslint-disable */
 
-export type ZigbeeActionRequest = {
-  actionId: string;
-};
-
+export type VideoPowerState = 'on' | 'off';
