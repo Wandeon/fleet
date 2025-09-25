@@ -10,7 +10,7 @@ export type AudioPlaybackState = {
   /**
    * Active audio source.
    */
-  source: 'stream' | 'file';
+  source?: 'stream' | 'file';
   trackTitle?: string | null;
   since?: string | null;
   errorMessage?: string | null;

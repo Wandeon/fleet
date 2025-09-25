@@ -21,8 +21,8 @@ export class HealthService {
       method: 'GET',
       url: '/health/summary',
       errors: {
-        401: `Authentication credentials missing or invalid.`,
-        403: `Authenticated user lacks required scope.`,
+        401: `Authentication failed or credentials missing.`,
+        403: `Authenticated user does not have permission to access the resource.`,
         429: `Request rate limit exceeded.`,
         500: `Unexpected server error occurred.`,
       },
@@ -49,8 +49,8 @@ export class HealthService {
         'cursor': cursor,
       },
       errors: {
-        401: `Authentication credentials missing or invalid.`,
-        403: `Authenticated user lacks required scope.`,
+        401: `Authentication failed or credentials missing.`,
+        403: `Authenticated user does not have permission to access the resource.`,
         429: `Request rate limit exceeded.`,
         500: `Unexpected server error occurred.`,
       },

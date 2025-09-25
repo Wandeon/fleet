@@ -123,8 +123,8 @@ export const VideoApi = {
 
 export const ZigbeeApi = {
   listDevices: (limit?: number, cursor?: string) => ZigbeeService.listZigbeeDevices(limit, cursor),
-  runAction: (id: string, payload: Parameters<typeof ZigbeeService.runZigbeeDeviceAction>[1]) =>
-    ZigbeeService.runZigbeeDeviceAction(id, payload),
+  runAction: (id: string, payload: Parameters<typeof ZigbeeService.runZigbeeAction>[1]) =>
+    ZigbeeService.runZigbeeAction(id, payload),
 };
 
 export const CameraApi = {

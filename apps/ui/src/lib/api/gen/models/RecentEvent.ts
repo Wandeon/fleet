@@ -8,6 +8,6 @@ export type RecentEvent = {
   title: string;
   severity: 'info' | 'warning' | 'critical';
   timestamp: string;
-  correlationId?: string | null;
+  summary?: string | null;
 };
 
