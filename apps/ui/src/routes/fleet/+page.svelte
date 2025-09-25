@@ -1,21 +1,51 @@
 <script lang="ts">
+  import Button from '$lib/components/Button.svelte';
   import Card from '$lib/components/Card.svelte';
+  import StatusPill from '$lib/components/StatusPill.svelte';
+  import Skeleton from '$lib/components/Skeleton.svelte';
   import EmptyState from '$lib/components/EmptyState.svelte';
-  import { resolve } from '$app/paths';
   import type { PageData } from './$types';
+  import type { FleetDeviceSummary, FleetOverview } from '$lib/types';
+  import { getFleetOverview } from '$lib/api/fleet-operations';
 
   export let data: PageData;
 
-  const statusCopy: Record<'online' | 'offline' | 'error', string> = {
-    online: 'Online',
-    offline: 'Offline',
-    error: 'Error'
+  let overview: FleetOverview | null = data.overview ?? null;
+  let error: string | null = data.error ?? null;
+  let loading = false;
+  let filterModule = 'all';
+  let filterStatus: 'all' | 'online' | 'offline' | 'error' | 'degraded' = 'all';
+
+  const refresh = async () => {
+    loading = true;
+    try {
+      overview = await getFleetOverview({ fetch });
+      error = null;
+    } catch (err) {
+      error = err instanceof Error ? err.message : 'Unable to refresh overview';
+    } finally {
+      loading = false;
+    }
   };
 
-  const statusClass: Record<'online' | 'offline' | 'error', string> = {
-    online: 'online',
-    offline: 'offline',
-    error: 'error'
+  const filteredDevices = () => {
+    if (!overview) return [] as FleetDeviceSummary[];
+    return overview.devices.filter((device) => {
+      const moduleMatch = filterModule === 'all' || device.module === filterModule;
+      const statusMatch =
+        filterStatus === 'all' ||
+        (filterStatus === 'error' && device.status === 'error') ||
+        (filterStatus === 'offline' && device.status === 'offline') ||
+        (filterStatus === 'online' && device.status === 'online') ||
+        (filterStatus === 'degraded' && device.status === 'error');
+      return moduleMatch && statusMatch;
+    });
+  };
+
+  const statusToPill = (status: FleetDeviceSummary['status']): 'ok' | 'warn' | 'error' => {
+    if (status === 'online') return 'ok';
+    if (status === 'error') return 'error';
+    return 'warn';
   };
 </script>
 
@@ -23,173 +53,234 @@
   <title>Fleet Overview</title>
 </svelte:head>
 
-<div class="fleet-page">
-  <header class="page-header">
+<div class="fleet">
+  <div class="header">
     <div>
-      <h1>Fleet</h1>
-      <p>Monitor device inventory and drill into per-device diagnostics.</p>
+      <h1>Fleet overview</h1>
+      <p>Device health, module coverage, and quick navigation</p>
     </div>
-    <span class="timestamp">Updated {new Date(data.fleet.updatedAt).toLocaleString()}</span>
-  </header>
+    <Button variant="ghost" on:click={refresh} disabled={loading}>Refresh</Button>
+  </div>
 
-  {#if data.error}
-    <div class="alert" role="alert">
-      <strong>Unable to refresh fleet state.</strong>
-      <span>{data.error}</span>
+  {#if loading && !overview}
+    <div class="loading">
+      <Skeleton variant="block" height="8rem" />
+      <Skeleton variant="block" height="12rem" />
     </div>
-  {/if}
-
-  <div class="summary-grid">
-    <Card title="Devices" subtitle="Audio agents connected to Fleet">
-      <div class="summary">
-        <div>
-          <span class="summary-value">{data.fleet.online} / {data.fleet.total}</span>
-          <span class="summary-label">Online</span>
+  {:else if error && !overview}
+    <EmptyState title="Unable to load fleet" description={error}>
+      <svelte:fragment slot="actions">
+        <Button variant="primary" on:click={refresh}>Retry</Button>
+      </svelte:fragment>
+    </EmptyState>
+  {:else if overview}
+    <div class="summary-grid">
+      <Card title="Totals" subtitle={`Last updated ${new Date(overview.updatedAt).toLocaleString()}`}>
+        <div class="totals">
+          <div>
+            <span class="label">Devices</span>
+            <strong>{overview.totals.devices}</strong>
+          </div>
+          <div>
+            <span class="label">Online</span>
+            <strong class="ok">{overview.totals.online}</strong>
+          </div>
+          <div>
+            <span class="label">Offline</span>
+            <strong class="error">{overview.totals.offline}</strong>
+          </div>
+          <div>
+            <span class="label">Degraded</span>
+            <strong class="warn">{overview.totals.degraded}</strong>
+          </div>
         </div>
-        <div>
-          <span class="summary-value">{data.fleet.total - data.fleet.online}</span>
-          <span class="summary-label">Offline</span>
-        </div>
-      </div>
-    </Card>
+      </Card>
 
-    <Card title="Modules" subtitle="Inventory registered with Fleet">
-      {#if data.layout?.modules?.length}
+      <Card title="Modules" subtitle="Coverage by role">
         <ul class="modules">
-          {#each data.layout.modules as module (module.module)}
+          {#each overview.modules as module}
             <li>
-              <strong>{module.module}</strong>
-              <span>{Array.isArray(module.devices) ? module.devices.length : 0} devices</span>
+              <span class="name">{module.label}</span>
+              <span class="counts">
+                <span class="ok">{module.online} online</span>
+                <span class="warn">{module.degraded} degraded</span>
+                <span class="error">{module.offline} offline</span>
+              </span>
+              <button class:active={filterModule === module.id} on:click={() => filterModule = filterModule === module.id ? 'all' : module.id}>
+                {filterModule === module.id ? 'Clear filter' : 'Filter'}
+              </button>
             </li>
           {/each}
         </ul>
+      </Card>
+    </div>
+
+    <Card title="Devices" subtitle="Select a device for detailed actions">
+      <div class="device-toolbar">
+        <label>
+          <span>Status</span>
+          <select bind:value={filterStatus}>
+            <option value="all">All</option>
+            <option value="online">Online</option>
+            <option value="offline">Offline</option>
+            <option value="error">Error</option>
+            <option value="degraded">Degraded</option>
+          </select>
+        </label>
+      </div>
+      {#if !filteredDevices().length}
+        <p class="muted">No devices match the selected filters.</p>
       {:else}
-        <p class="muted">No modules registered.</p>
+        <div class="device-grid">
+          {#each filteredDevices() as device (device.id)}
+            <a class="device-card" href={`/fleet/${device.id}`}>
+              <div class="device-header">
+                <h3>{device.name}</h3>
+                <StatusPill status={statusToPill(device.status)} label={device.status} />
+              </div>
+              <dl>
+                <div>
+                  <dt>Module</dt>
+                  <dd>{device.module}</dd>
+                </div>
+                <div>
+                  <dt>Location</dt>
+                  <dd>{device.location ?? 'Unknown'}</dd>
+                </div>
+                <div>
+                  <dt>Last seen</dt>
+                  <dd>{new Date(device.lastSeen).toLocaleString()}</dd>
+                </div>
+                <div>
+                  <dt>Version</dt>
+                  <dd>{device.version}</dd>
+                </div>
+              </dl>
+            </a>
+          {/each}
+        </div>
       {/if}
     </Card>
-  </div>
-
-  {#if data.fleet.devices.length > 0}
-    <section aria-label="Fleet devices" class="device-section">
-      <div class="device-grid">
-        {#each data.fleet.devices as device (device.id)}
-          <a class="device-card" href={resolve('/fleet/[id]', { id: device.id })}>
-            <div class="device-header">
-              <div>
-                <h2>{device.name}</h2>
-                <span class="device-id">{device.id}</span>
-              </div>
-              <span class={`status ${statusClass[device.status]}`}>{statusCopy[device.status]}</span>
-            </div>
-            <div class="device-meta">
-              <span class="chip">{device.module}</span>
-              <span class="chip secondary">{device.role}</span>
-            </div>
-            {#if device.detail}
-              <p class="device-detail">{device.detail}</p>
-            {/if}
-          </a>
-        {/each}
-      </div>
-    </section>
-  {:else}
-    <EmptyState title="No devices discovered" description="Add devices to the fleet to view status information." />
   {/if}
 </div>
 
 <style>
-  .fleet-page {
+  .fleet {
     display: flex;
     flex-direction: column;
-    gap: var(--spacing-5);
+    gap: var(--spacing-6);
   }
 
-  .page-header {
+  .header {
     display: flex;
-    align-items: flex-start;
     justify-content: space-between;
-    gap: var(--spacing-4);
+    align-items: center;
   }
 
-  .page-header h1 {
-    margin: 0 0 var(--spacing-2);
-    font-size: var(--font-size-2xl);
+  .header h1 {
+    margin: 0;
   }
 
-  .page-header p {
+  .header p {
     margin: 0;
     color: var(--color-text-muted);
   }
 
-  .timestamp {
-    font-size: var(--font-size-xs);
-    color: var(--color-text-muted);
-    white-space: nowrap;
-  }
-
-  .alert {
-    padding: var(--spacing-3);
-    border-radius: var(--radius-md);
-    background: rgba(248, 113, 113, 0.12);
-    border: 1px solid rgba(248, 113, 113, 0.35);
-    display: flex;
-    flex-direction: column;
-    gap: var(--spacing-2);
+  .loading {
+    display: grid;
+    gap: var(--spacing-4);
   }
 
   .summary-grid {
     display: grid;
+    gap: var(--spacing-6);
+    grid-template-columns: minmax(0, 1.25fr) minmax(0, 1fr);
+  }
+
+  .totals {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(8rem, 1fr));
     gap: var(--spacing-4);
-    grid-template-columns: repeat(auto-fit, minmax(18rem, 1fr));
   }
 
-  .summary {
-    display: flex;
-    gap: var(--spacing-4);
-  }
-
-  .summary-value {
-    display: block;
-    font-size: var(--font-size-2xl);
-    font-weight: 600;
-  }
-
-  .summary-label {
+  .totals .label {
     font-size: var(--font-size-xs);
     color: var(--color-text-muted);
     text-transform: uppercase;
-    letter-spacing: 0.08em;
+  }
+
+  .totals strong {
+    display: block;
+    font-size: var(--font-size-xl);
+  }
+
+  .totals .ok {
+    color: var(--color-emerald-300);
+  }
+
+  .totals .warn {
+    color: var(--color-yellow-300);
+  }
+
+  .totals .error {
+    color: var(--color-red-300);
   }
 
   .modules {
+    list-style: none;
     margin: 0;
     padding: 0;
-    list-style: none;
     display: grid;
-    gap: var(--spacing-2);
+    gap: var(--spacing-3);
   }
 
   .modules li {
     display: flex;
     justify-content: space-between;
-    font-size: var(--font-size-sm);
-    color: var(--color-text);
-  }
-
-  .modules li span {
-    color: var(--color-text-muted);
-  }
-
-  .muted {
-    margin: 0;
-    color: var(--color-text-muted);
-    font-size: var(--font-size-sm);
-  }
-
-  .device-section {
-    display: flex;
-    flex-direction: column;
+    align-items: center;
+    background: rgba(15, 23, 42, 0.35);
+    border-radius: var(--radius-md);
+    padding: var(--spacing-3);
+    border: 1px solid rgba(148, 163, 184, 0.15);
     gap: var(--spacing-3);
+  }
+
+  .modules .name {
+    font-weight: 600;
+  }
+
+  .modules .counts {
+    display: flex;
+    gap: var(--spacing-3);
+    font-size: var(--font-size-xs);
+  }
+
+  .modules button {
+    border: 1px solid rgba(148, 163, 184, 0.3);
+    background: transparent;
+    border-radius: var(--radius-md);
+    padding: var(--spacing-2) var(--spacing-3);
+    color: var(--color-text);
+    cursor: pointer;
+  }
+
+  .modules button.active {
+    border-color: var(--color-brand);
+    background: rgba(59, 130, 246, 0.18);
+  }
+
+  .device-toolbar {
+    display: flex;
+    justify-content: flex-end;
+    margin-bottom: var(--spacing-3);
+  }
+
+  select {
+    padding: var(--spacing-2) var(--spacing-3);
+    border-radius: var(--radius-md);
+    border: 1px solid rgba(148, 163, 184, 0.3);
+    background: rgba(11, 23, 45, 0.4);
+    color: var(--color-text);
   }
 
   .device-grid {
@@ -199,98 +290,56 @@
   }
 
   .device-card {
+    text-decoration: none;
     display: grid;
     gap: var(--spacing-3);
-    padding: var(--spacing-4);
-    border-radius: var(--radius-lg);
     border: 1px solid rgba(148, 163, 184, 0.15);
-    background: rgba(11, 23, 45, 0.35);
-    text-decoration: none;
+    border-radius: var(--radius-lg);
+    padding: var(--spacing-4);
+    background: rgba(15, 23, 42, 0.35);
     color: inherit;
-    transition: transform var(--transition-fast), border-color var(--transition-fast);
+    transition: border-color 0.2s ease, transform 0.2s ease;
   }
 
   .device-card:hover {
+    border-color: var(--color-brand);
     transform: translateY(-2px);
-    border-color: rgba(148, 163, 184, 0.35);
   }
 
   .device-header {
     display: flex;
     justify-content: space-between;
-    gap: var(--spacing-3);
-    align-items: flex-start;
+    align-items: center;
   }
 
-  .device-header h2 {
+  .device-header h3 {
     margin: 0;
-    font-size: var(--font-size-lg);
   }
 
-  .device-id {
+  dl {
+    margin: 0;
+    display: grid;
+    gap: var(--spacing-2);
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  dt {
     font-size: var(--font-size-xs);
     color: var(--color-text-muted);
-    display: block;
   }
 
-  .status {
-    padding: 0.25rem 0.6rem;
-    border-radius: 999px;
-    font-size: var(--font-size-xs);
-    text-transform: uppercase;
-    letter-spacing: 0.08em;
-  }
-
-  .status.online {
-    background: rgba(34, 197, 94, 0.15);
-    color: rgb(134, 239, 172);
-  }
-
-  .status.offline {
-    background: rgba(248, 113, 113, 0.15);
-    color: rgb(248, 113, 113);
-  }
-
-  .status.error {
-    background: rgba(249, 115, 22, 0.15);
-    color: rgb(249, 115, 22);
-  }
-
-  .device-meta {
-    display: flex;
-    gap: var(--spacing-2);
-    flex-wrap: wrap;
-  }
-
-  .chip {
-    padding: 0.25rem 0.75rem;
-    border-radius: 999px;
-    font-size: var(--font-size-xs);
-    text-transform: uppercase;
-    letter-spacing: 0.08em;
-    background: rgba(96, 165, 250, 0.18);
-    color: rgb(96, 165, 250);
-  }
-
-  .chip.secondary {
-    background: rgba(148, 163, 184, 0.16);
-    color: rgba(226, 232, 240, 0.85);
-  }
-
-  .device-detail {
+  dd {
     margin: 0;
     font-size: var(--font-size-sm);
+  }
+
+  .muted {
     color: var(--color-text-muted);
   }
 
-  @media (max-width: 768px) {
-    .page-header {
-      flex-direction: column;
-      align-items: flex-start;
-    }
-
-    .timestamp {
-      white-space: normal;
+  @media (max-width: 900px) {
+    .summary-grid {
+      grid-template-columns: 1fr;
     }
   }
 </style>

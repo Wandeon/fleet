@@ -1,78 +1,90 @@
 {
+  "sources": [
+    { "id": "all", "label": "All Devices", "kind": "group", "description": "Combined fleet log stream" },
+    { "id": "pi-audio-01", "label": "Audio Pi 01", "kind": "device", "module": "audio", "deviceId": "pi-audio-01" },
+    { "id": "pi-audio-02", "label": "Audio Pi 02", "kind": "device", "module": "audio", "deviceId": "pi-audio-02" },
+    { "id": "pi-video-01", "label": "Video Pi 01", "kind": "device", "module": "video", "deviceId": "pi-video-01" },
+    { "id": "control-plane", "label": "Control Plane", "kind": "service", "module": "system" }
+  ],
   "entries": [
     {
-      "id": "log-001",
-      "ts": "2025-01-12T12:20:01Z",
+      "id": "log-entrance-01",
+      "timestamp": "2025-09-25T01:55:12Z",
+      "ts": "2025-09-25T01:55:12Z",
+      "severity": "info",
       "level": "info",
+      "message": "pi-audio-01 acknowledged volume change",
       "msg": "pi-audio-01 acknowledged volume change",
+      "source": "pi-audio-01",
       "service": "audio-agent",
       "host": "pi-audio-01",
-      "correlationId": "corr-audio-1001",
-      "context": {
-        "deviceId": "pi-audio-01",
-        "module": "audio",
-        "action": "volume",
-        "value": 68
-      }
+      "module": "audio",
+      "deviceId": "pi-audio-01",
+      "correlationId": "req-8c12",
+      "context": { "volume": 56, "previous": 42 }
     },
     {
-      "id": "log-002",
-      "ts": "2025-01-12T12:18:35Z",
+      "id": "log-entrance-02",
+      "timestamp": "2025-09-25T01:53:02Z",
+      "ts": "2025-09-25T01:53:02Z",
+      "severity": "warning",
+      "level": "warn",
+      "message": "Network jitter detected on pi-audio-02 (145 ms)",
+      "msg": "Network jitter detected on pi-audio-02 (145 ms)",
+      "source": "pi-audio-02",
+      "service": "audio-agent",
+      "host": "pi-audio-02",
+      "module": "audio",
+      "deviceId": "pi-audio-02",
+      "correlationId": "req-8bf0",
+      "context": { "latencyMs": 145 }
+    },
+    {
+      "id": "log-video-01",
+      "timestamp": "2025-09-25T01:50:34Z",
+      "ts": "2025-09-25T01:50:34Z",
+      "severity": "info",
       "level": "info",
+      "message": "Operator muted lounge TV",
       "msg": "Operator muted lounge TV",
+      "source": "pi-video-01",
       "service": "video-control",
       "host": "pi-video-01",
-      "correlationId": "corr-video-2402",
-      "context": {
-        "deviceId": "pi-video-01",
-        "module": "video",
-        "operation": "mute",
-        "initiator": "operator"
-      }
+      "module": "video",
+      "deviceId": "pi-video-01",
+      "context": { "muted": true }
     },
     {
-      "id": "log-003",
-      "ts": "2025-01-12T11:57:12Z",
+      "id": "log-audio-error-01",
+      "timestamp": "2025-09-25T01:48:01Z",
+      "ts": "2025-09-25T01:48:01Z",
+      "severity": "error",
       "level": "error",
-      "msg": "Upstream timeout reaching pi-audio-02",
+      "message": "pi-audio-02 timed out waiting for playlist sync",
+      "msg": "pi-audio-02 timed out waiting for playlist sync",
+      "source": "pi-audio-02",
       "service": "fleet-api",
       "host": "fleet-vps",
-      "correlationId": "corr-api-7734",
-      "context": {
-        "deviceId": "pi-audio-02",
-        "module": "audio",
-        "status": "timeout",
-        "durationMs": 3100
-      }
+      "module": "audio",
+      "deviceId": "pi-audio-02",
+      "correlationId": "req-8bd1",
+      "context": { "playlistId": "pl-evening" }
     },
     {
-      "id": "log-004",
-      "ts": "2025-01-12T11:31:10Z",
-      "level": "warn",
-      "msg": "Zigbee hub offline. Check power and network.",
-      "service": "zigbee-coordinator",
-      "host": "pi-zigbee-01",
-      "correlationId": "corr-zigbee-0912",
-      "context": {
-        "module": "zigbee",
-        "deviceId": "pi-zigbee-01",
-        "attempt": 2
-      }
-    },
-    {
-      "id": "log-005",
-      "ts": "2025-01-12T11:21:04Z",
+      "id": "log-control-01",
+      "timestamp": "2025-09-25T01:45:10Z",
+      "ts": "2025-09-25T01:45:10Z",
+      "severity": "debug",
       "level": "debug",
-      "msg": "Camera heartbeat acknowledged",
-      "service": "camera-bridge",
-      "host": "pi-camera-01",
-      "correlationId": "corr-camera-4581",
-      "context": {
-        "module": "camera",
-        "deviceId": "pi-camera-01",
-        "status": "heartbeat"
-      }
+      "message": "Scheduler enqueued firmware rollout batch",
+      "msg": "Scheduler enqueued firmware rollout batch",
+      "source": "control-plane",
+      "service": "control-plane",
+      "host": "fleet-vps",
+      "module": "system",
+      "context": { "batchSize": 3, "cohort": "audio" }
     }
   ],
+  "lastUpdated": "2025-09-25T01:58:45Z",
   "cursor": null
 }

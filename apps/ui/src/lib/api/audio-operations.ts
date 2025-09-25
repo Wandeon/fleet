@@ -377,13 +377,6 @@ export const setDeviceVolume = async (
   }
 };
 
-  if (latest) {
-    return mapDeviceFromApi(latest);
-  }
-
-  return mapDeviceFromApi(await AudioApi.getDevice(deviceId));
-};
-
 export const setMasterVolume = async (
   masterPercent: number,
   options: { fetch?: typeof fetch } = {}

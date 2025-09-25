@@ -1,7 +1,33 @@
 import { browser } from '$app/environment';
-import { mockApi } from './mock';
-import { rawRequest, USE_MOCKS, type RequestOptions } from './client';
-import type { LogEntry, LogsSnapshot, LogLevel } from '$lib/types';
+import { API_BASE_URL, rawRequest, USE_MOCKS, UiApiError, type RequestOptions } from '$lib/api/client';
+import { mockApi } from '$lib/api/mock';
+import type {
+  LogEntry,
+  LogLevel,
+  LogSeverity,
+  LogsFilterState,
+  LogsSnapshot
+} from '$lib/types';
+
+export interface LogQueryOptions extends Partial<LogsFilterState> {
+  limit?: number;
+  cursor?: string | null;
+  fetch?: typeof fetch;
+}
+
+export interface LogExportOptions extends LogQueryOptions {
+  format?: 'json' | 'text';
+}
+
+export interface LogStreamOptions {
+  filters: Partial<LogsFilterState>;
+  onEvent: (entry: LogEntry) => void;
+  onError?: (error: Error) => void;
+}
+
+export interface LogStreamSubscription {
+  stop: () => void;
+}
 
 export interface FetchLogsOptions {
   level?: LogLevel;
@@ -23,284 +49,229 @@ export interface LogsStream {
   readonly paused: boolean;
 }
 
-const DEFAULT_LEVEL: LogLevel = 'info';
-const MAX_LIMIT = 500;
-
 const ensureFetch = (fetchImpl?: typeof fetch) => fetchImpl ?? fetch;
 
-const normaliseLevel = (level?: string | null): LogLevel => {
-  if (!level) return DEFAULT_LEVEL;
-  const lower = level.toLowerCase();
-  switch (lower) {
-    case 'trace':
-    case 'debug':
-    case 'info':
-    case 'warn':
-    case 'warning':
+const severityToApi = (severity: LogSeverity): string => {
+  switch (severity) {
+    case 'critical':
+      return 'critical';
     case 'error':
-    case 'fatal':
-      return lower === 'warning' ? 'warn' : (lower as LogLevel);
+      return 'error';
+    case 'warning':
+      return 'warn';
+    case 'debug':
+      return 'debug';
     default:
-      return DEFAULT_LEVEL;
+      return 'info';
   }
 };
 
-const normaliseEntry = (entry: unknown, index: number): LogEntry | null => {
-  if (!entry || typeof entry !== 'object') {
-    return null;
+const levelToSeverity = (level: LogLevel): LogSeverity => {
+  switch (level) {
+    case 'fatal':
+    case 'error':
+      return 'error';
+    case 'warn':
+      return 'warning';
+    case 'debug':
+      return 'debug';
+    case 'trace':
+      return 'debug';
+    default:
+      return 'info';
+  }
+};
+
+const normaliseEntry = (entry: LogEntry): LogEntry => {
+  if (entry.timestamp) {
+    return entry;
   }
 
-  const candidate = entry as Record<string, unknown>;
-  const ts = typeof candidate.ts === 'string'
-    ? candidate.ts
-    : typeof candidate.timestamp === 'string'
-      ? candidate.timestamp
-      : null;
-
-  if (!ts) {
-    return null;
-  }
-
-  const service = typeof candidate.service === 'string'
-    ? candidate.service
-    : typeof candidate.module === 'string'
-      ? candidate.module
-      : typeof candidate.source === 'string'
-        ? candidate.source
-        : 'fleet-api';
-
-  const host = typeof candidate.host === 'string'
-    ? candidate.host
-    : typeof candidate.hostname === 'string'
-      ? candidate.hostname
-      : typeof candidate.node === 'string'
-        ? candidate.node
-        : service;
-
-  const msg = typeof candidate.msg === 'string'
-    ? candidate.msg
-    : typeof candidate.message === 'string'
-      ? candidate.message
-      : JSON.stringify(candidate);
-
-  const level = normaliseLevel((candidate.level as string | null) ?? null);
-
-  const correlationId = typeof candidate.correlationId === 'string'
-    ? candidate.correlationId
-    : typeof candidate.correlation_id === 'string'
-      ? candidate.correlation_id
-      : typeof candidate.requestId === 'string'
-        ? candidate.requestId
-        : null;
-
-  const idSource = typeof candidate.id === 'string'
-    ? candidate.id
-    : typeof candidate.uid === 'string'
-      ? candidate.uid
-      : `${ts}-${service}-${index}`;
-
-  const context = typeof candidate === 'object' ? { ...candidate } : undefined;
+  const timestamp = entry.ts ?? new Date().toISOString();
+  const severity
+    = entry.severity
+    ?? (entry.level ? levelToSeverity(entry.level) : 'info');
+  const message = entry.message ?? entry.msg ?? 'Log entry';
+  const source = entry.source ?? entry.service ?? 'fleet-service';
 
   return {
-    id: idSource,
-    ts,
-    level,
-    msg,
-    service,
-    host,
-    correlationId,
-    context,
-  } satisfies LogEntry;
+    ...entry,
+    timestamp,
+    severity,
+    message,
+    source
+  };
 };
 
-const fromRawResponse = (payload: unknown): LogsSnapshot => {
-  if (payload && typeof payload === 'object') {
-    const source = payload as Record<string, unknown>;
-    const entriesCandidate = Array.isArray(source.entries)
-      ? source.entries
-      : Array.isArray(source.logs)
-        ? source.logs
-        : Array.isArray(source.items)
-          ? source.items
-          : [];
-
-    const cursor = typeof source.cursor === 'string'
-      ? source.cursor
-      : typeof source.nextCursor === 'string'
-        ? source.nextCursor
-        : null;
-
-    const entries: LogEntry[] = entriesCandidate
-      .map((item, index) => normaliseEntry(item, index))
-      .filter((item): item is LogEntry => item !== null);
-
-    return { entries, cursor } satisfies LogsSnapshot;
-  }
-
-  return { entries: [], cursor: null } satisfies LogsSnapshot;
-};
-
-const buildQuery = (options: FetchLogsOptions): string => {
+const buildQuery = (options: LogQueryOptions): URLSearchParams => {
   const params = new URLSearchParams();
-  if (options.level) params.set('level', options.level);
-  if (options.limit) params.set('limit', String(Math.min(options.limit, MAX_LIMIT)));
-  if (options.cursor) params.set('cursor', options.cursor);
-  const query = params.toString();
-  return query ? `?${query}` : '';
+  if (options.sourceId && options.sourceId !== 'all') {
+    params.set('source', options.sourceId);
+  }
+  if (options.severity && options.severity !== 'all') {
+    params.set('level', severityToApi(options.severity as LogSeverity));
+  }
+  if (options.search) {
+    params.set('q', options.search);
+  }
+  if (options.limit) {
+    params.set('limit', String(Math.max(1, options.limit)));
+  }
+  if (options.cursor) {
+    params.set('cursor', options.cursor);
+  }
+  return params;
 };
 
-export const fetchLogsSnapshot = async (options: FetchLogsOptions = {}): Promise<LogsSnapshot> => {
+export const fetchLogSnapshot = async (options: LogQueryOptions = {}): Promise<LogsSnapshot> => {
   if (USE_MOCKS) {
-    const data = mockApi.logs();
-    return fromRawResponse(data);
+    return mockApi.logsSnapshot(options);
   }
 
   const fetchImpl = ensureFetch(options.fetch);
-  const query = buildQuery(options);
-  const response = await rawRequest<unknown>(`/logs${query}`, {
-    fetch: fetchImpl as RequestOptions['fetch'],
+  const params = buildQuery(options);
+  const result = await rawRequest<{
+    entries: LogEntry[];
+    sources?: LogsSnapshot['sources'];
+    cursor?: string | null;
+    lastUpdated?: string;
+  }>(`/logs?${params.toString()}`, {
+    method: 'GET',
+    fetch: fetchImpl as RequestOptions['fetch']
   });
-  return fromRawResponse(response);
+
+  return {
+    entries: (result?.entries ?? []).map(normaliseEntry),
+    sources: result?.sources ?? [],
+    cursor: result?.cursor ?? null,
+    lastUpdated: result?.lastUpdated ?? new Date().toISOString()
+  } satisfies LogsSnapshot;
 };
 
-class EventSourceStream implements LogsStream {
-  #listeners = new Set<(entry: LogEntry) => void>();
-  #source: EventSource | null;
-  #paused = false;
-  #options: LogsStreamOptions;
+export const fetchLogsSnapshot = async (options: FetchLogsOptions = {}): Promise<LogsSnapshot> => {
+  const mapped: LogQueryOptions = {
+    fetch: options.fetch,
+    limit: options.limit,
+    cursor: options.cursor
+  };
 
-  constructor(url: string, options: LogsStreamOptions = {}) {
-    this.#options = options;
-    this.#source = new EventSource(url);
-    this.#source.addEventListener('message', (event) => {
-      if (this.#paused) return;
-      try {
-        const parsed = JSON.parse((event as MessageEvent).data);
-        const entry = normaliseEntry(parsed, Date.now());
-        if (entry) {
-          for (const listener of this.#listeners) {
-            listener(entry);
-          }
-        }
-      } catch (error) {
-        options.onError?.(error instanceof Error ? error : new Error(String(error)));
-      }
+  if (options.level) {
+    mapped.severity = levelToSeverity(options.level);
+  }
+
+  return fetchLogSnapshot(mapped);
+};
+
+export const exportLogs = async (options: LogExportOptions = {}): Promise<Blob> => {
+  const snapshot = await fetchLogSnapshot(options);
+  const format = options.format ?? 'json';
+  if (format === 'text') {
+    const lines = snapshot.entries.map((entry) => {
+      const context = entry.context ? ` ${JSON.stringify(entry.context)}` : '';
+      return `[${entry.timestamp}] ${entry.severity?.toUpperCase() ?? 'INFO'} ${entry.source}: ${entry.message}${context}`;
     });
-    this.#source.addEventListener('error', () => {
-      options.onError?.(new Error('Log stream connection failed'));
-    });
+    return new Blob([lines.join('\n')], { type: 'text/plain' });
+  }
+  return new Blob([JSON.stringify(snapshot, null, 2)], { type: 'application/json' });
+};
+
+export const subscribeToLogStream = (options: LogStreamOptions): LogStreamSubscription => {
+  if (USE_MOCKS || !browser) {
+    const stop = mockApi.logsStream(options.filters, (entry) => options.onEvent(normaliseEntry(entry)));
+    return { stop };
   }
 
-  subscribe(handler: (entry: LogEntry) => void): () => void {
-    this.#listeners.add(handler);
-    return () => {
-      this.#listeners.delete(handler);
-    };
-  }
+  const params = buildQuery(options.filters);
+  const url = `${API_BASE_URL}/logs/stream?${params.toString()}`;
+  const eventSource = new EventSource(url, { withCredentials: false });
 
-  pause(): void {
-    this.#paused = true;
-  }
-
-  resume(): void {
-    this.#paused = false;
-  }
-
-  close(): void {
-    this.#source?.close();
-    this.#listeners.clear();
-  }
-
-  get paused(): boolean {
-    return this.#paused;
-  }
-}
-
-class MockLogsStream implements LogsStream {
-  #listeners = new Set<(entry: LogEntry) => void>();
-  #timer: ReturnType<typeof setInterval> | null = null;
-  #paused = false;
-  #entries: LogEntry[];
-  #pointer = 0;
-
-  constructor(entries: LogEntry[], level: LogLevel = DEFAULT_LEVEL) {
-    this.#entries = entries
-      .filter((entry) => filterByLevel(entry, level))
-      .sort((a, b) => a.ts.localeCompare(b.ts));
-    this.resume();
-  }
-
-  subscribe(handler: (entry: LogEntry) => void): () => void {
-    this.#listeners.add(handler);
-    return () => this.#listeners.delete(handler);
-  }
-
-  pause(): void {
-    if (this.#timer) {
-      clearInterval(this.#timer);
-      this.#timer = null;
+  const handleMessage = (event: MessageEvent) => {
+    if (!event.data) return;
+    try {
+      const payload = JSON.parse(event.data) as LogEntry;
+      options.onEvent(normaliseEntry(payload));
+    } catch (error) {
+      console.warn('Failed to parse log stream payload', error);
     }
-    this.#paused = true;
-  }
+  };
 
-  resume(): void {
-    if (this.#timer || this.#entries.length === 0) {
-      this.#paused = false;
-      return;
+  const handleError = (event: Event) => {
+    eventSource.close();
+    const error = new UiApiError('Log stream disconnected', 502, event);
+    options.onError?.(error);
+  };
+
+  eventSource.addEventListener('message', handleMessage);
+  eventSource.addEventListener('error', handleError);
+
+  return {
+    stop: () => {
+      eventSource.removeEventListener('message', handleMessage);
+      eventSource.removeEventListener('error', handleError);
+      eventSource.close();
     }
-    this.#paused = false;
-    this.#timer = setInterval(() => {
-      if (this.#paused || this.#entries.length === 0) {
-        return;
-      }
-      const template = this.#entries[this.#pointer % this.#entries.length];
-      this.#pointer += 1;
-      const offset = this.#pointer;
-      const emitted: LogEntry = {
-        ...template,
-        id: `${template.id}-mock-${offset}`,
-        ts: new Date(Date.parse(template.ts) + offset * 1000).toISOString(),
-      };
-      for (const listener of this.#listeners) {
-        listener(emitted);
-      }
-    }, 1200);
-  }
-
-  close(): void {
-    if (this.#timer) {
-      clearInterval(this.#timer);
-    }
-    this.#timer = null;
-    this.#listeners.clear();
-  }
-
-  get paused(): boolean {
-    return this.#paused;
-  }
-}
-
-const filterByLevel = (entry: LogEntry, level: LogLevel): boolean => {
-  const priority = new Map<LogLevel, number>([
-    ['trace', 0],
-    ['debug', 1],
-    ['info', 2],
-    ['warn', 3],
-    ['error', 4],
-    ['fatal', 5],
-  ]);
-  const target = priority.get(level) ?? priority.get(DEFAULT_LEVEL)!;
-  return (priority.get(entry.level) ?? target) >= target;
+  };
 };
 
 export const createLogsStream = (options: LogsStreamOptions = {}): LogsStream | null => {
-  const level = options.level ?? DEFAULT_LEVEL;
-  if (USE_MOCKS || !browser) {
-    const snapshot = fromRawResponse(mockApi.logs());
-    return new MockLogsStream(snapshot.entries, level);
+  if (!browser && !USE_MOCKS) {
+    return null;
   }
 
-  const params = new URLSearchParams({ level });
-  const url = `/ui/logs/stream?${params.toString()}`;
-  return new EventSourceStream(url, options);
+  const listeners = new Set<(entry: LogEntry) => void>();
+  let paused = false;
+  let subscription: LogStreamSubscription | null = null;
+
+  const filters: Partial<LogsFilterState> = {};
+  if (options.level) {
+    filters.severity = levelToSeverity(options.level);
+  }
+
+  const emit = (entry: LogEntry) => {
+    if (paused) return;
+    for (const listener of listeners) {
+      listener(entry);
+    }
+  };
+
+  const start = () => {
+    subscription?.stop();
+    subscription = subscribeToLogStream({
+      filters,
+      onEvent: emit,
+      onError: (error) => options.onError?.(error)
+    });
+  };
+
+  if (browser || USE_MOCKS) {
+    start();
+  }
+
+  return {
+    subscribe(handler: (entry: LogEntry) => void) {
+      listeners.add(handler);
+      return () => {
+        listeners.delete(handler);
+      };
+    },
+    pause() {
+      paused = true;
+    },
+    resume() {
+      const wasPaused = paused;
+      paused = false;
+      if (wasPaused && !subscription) {
+        start();
+      }
+    },
+    close() {
+      paused = true;
+      subscription?.stop();
+      subscription = null;
+      listeners.clear();
+    },
+    get paused() {
+      return paused;
+    }
+  };
 };

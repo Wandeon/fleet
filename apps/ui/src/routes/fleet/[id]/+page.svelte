@@ -1,164 +1,233 @@
 <script lang="ts">
-  import type { PageData } from './$types';
+  import Button from '$lib/components/Button.svelte';
   import Card from '$lib/components/Card.svelte';
-  import { resolve } from '$app/paths';
+  import StatusPill from '$lib/components/StatusPill.svelte';
+  import Skeleton from '$lib/components/Skeleton.svelte';
+  import EmptyState from '$lib/components/EmptyState.svelte';
+  import type { PageData } from './$types';
+  import type { FleetDeviceAction, FleetDeviceDetail, FleetDeviceMetric } from '$lib/types';
+  import { getFleetDeviceDetail, triggerDeviceAction } from '$lib/api/fleet-operations';
 
   export let data: PageData;
 
-  const logsBase = resolve('/logs');
-  $: logsHref = `${logsBase}?level=debug&search=${encodeURIComponent(data.device.id)}`;
+  let detail: FleetDeviceDetail | null = data.device ?? null;
+  let loading = false;
+  let actionLoading = new Set<string>();
+  let error: string | null = null;
 
-
-  const statusClass: Record<'online' | 'offline' | 'error', string> = {
-    online: 'online',
-    offline: 'offline',
-    error: 'error'
-  };
-
-  const levelClass: Record<'trace' | 'debug' | 'info' | 'warn' | 'error' | 'fatal', string> = {
-    trace: 'debug',
-    debug: 'debug',
-    info: 'info',
-    warn: 'warn',
-    error: 'error',
-    fatal: 'error'
-  };
-
-  const statusLabel: Record<'online' | 'offline' | 'error', string> = {
-    online: 'Online',
-    offline: 'Offline',
-    error: 'Error'
-  };
-
-  const formatTimestamp = (iso: string | null | undefined): string => {
-    if (!iso) return 'Unknown';
+  const refresh = async () => {
+    if (!detail) return;
+    loading = true;
     try {
-      return new Date(iso).toLocaleString();
-    } catch {
-      return iso;
+      detail = await getFleetDeviceDetail(detail.summary.id, { fetch });
+      error = null;
+    } catch (err) {
+      error = err instanceof Error ? err.message : 'Unable to refresh device';
+    } finally {
+      loading = false;
     }
+  };
+
+  const runAction = async (action: FleetDeviceAction) => {
+    if (!detail || actionLoading.has(action.id)) return;
+    actionLoading.add(action.id);
+    try {
+      detail = await triggerDeviceAction(detail.summary.id, action.id, { fetch });
+      error = null;
+    } catch (err) {
+      error = err instanceof Error ? err.message : `Unable to execute ${action.label}`;
+    } finally {
+      actionLoading.delete(action.id);
+    }
+  };
+
+  const formatMetric = (metric: FleetDeviceMetric) =>
+    metric.unit ? `${metric.value}${metric.unit}` : metric.value;
+
+  const statusToPill = () => {
+    if (!detail) return 'warn';
+    if (detail.summary.status === 'online') return 'ok';
+    if (detail.summary.status === 'error') return 'error';
+    return 'warn';
   };
 </script>
 
 <svelte:head>
-  <title>{data.device.name} - Device Details</title>
+  <title>{detail ? `${detail.summary.name} – Fleet Device` : 'Fleet Device'}</title>
 </svelte:head>
 
-<div class="device-page">
-  <nav class="breadcrumb" aria-label="Breadcrumb">
-    <a href={resolve('/fleet')}>Fleet</a>
-    <span aria-hidden="true">›</span>
-    <span>{data.device.name}</span>
-  </nav>
-
-  <header class="page-header">
-    <div>
-      <h1>{data.device.name}</h1>
-      <p>{data.device.id}</p>
+{#if !detail && error}
+  <EmptyState title="Device unavailable" description={error}>
+    <svelte:fragment slot="actions">
+      <Button variant="primary" on:click={refresh}>Retry</Button>
+    </svelte:fragment>
+  </EmptyState>
+{:else if !detail}
+  <div class="loading">
+    <Skeleton variant="block" height="16rem" />
+    <Skeleton variant="block" height="12rem" />
+  </div>
+{:else}
+  <div class="device">
+    <div class="breadcrumb">
+      <a href="/fleet">Fleet</a>
+      <span>›</span>
+      <span>{detail.summary.name}</span>
     </div>
-    <span class={`status ${statusClass[data.device.status]}`}>{statusLabel[data.device.status]}</span>
-  </header>
 
-  <div class="grid">
-    <section class="primary">
-      <Card title="Device status" subtitle="Operational metrics and capabilities">
-        <dl class="meta">
+    <div class="header">
+      <div>
+        <h1>{detail.summary.name}</h1>
+        <p>{detail.summary.role} · {detail.summary.module}</p>
+      </div>
+      <div class="header-actions">
+        <StatusPill status={statusToPill()} label={detail.summary.status} />
+        <Button variant="ghost" on:click={refresh} disabled={loading}>Refresh</Button>
+      </div>
+    </div>
+
+    {#if error}
+      <p class="error" role="alert">{error}</p>
+    {/if}
+
+    <div class="grid">
+      <Card title="Summary" subtitle="Current device state">
+        <dl class="summary">
           <div>
-            <dt>Module</dt>
-            <dd>{data.device.module}</dd>
+            <dt>Device ID</dt>
+            <dd>{detail.summary.id}</dd>
           </div>
           <div>
-            <dt>Role</dt>
-            <dd>{data.device.role}</dd>
+            <dt>Location</dt>
+            <dd>{detail.summary.location ?? 'Unknown'}</dd>
+          </div>
+          <div>
+            <dt>Groups</dt>
+            <dd>{detail.summary.groups.join(', ') || '—'}</dd>
           </div>
           <div>
             <dt>Last seen</dt>
-            <dd>{formatTimestamp(data.device.lastSeen)}</dd>
+            <dd>{new Date(detail.summary.lastSeen).toLocaleString()}</dd>
           </div>
           <div>
-            <dt>State</dt>
-            <dd>{data.device.status === 'online' ? 'Connected' : data.device.reason ?? 'Offline'}</dd>
+            <dt>IP address</dt>
+            <dd>{detail.summary.ipAddress}</dd>
+          </div>
+          <div>
+            <dt>Version</dt>
+            <dd>{detail.summary.version}</dd>
           </div>
         </dl>
-
-        {#if data.device.capabilities.length}
-          <div class="capabilities">
-            {#each data.device.capabilities as capability (capability)}
-              <span class="chip">{capability}</span>
-            {/each}
-          </div>
-        {/if}
-
-        {#if data.device.playback}
-          <div class="playback">
-            <h2>Playback</h2>
-            <dl>
-              <div>
-                <dt>State</dt>
-                <dd>{data.device.playback.state}</dd>
-              </div>
-              <div>
-                <dt>Track</dt>
-                <dd>{data.device.playback.trackTitle ?? '—'}</dd>
-              </div>
-              <div>
-                <dt>Elapsed</dt>
-                <dd>{data.device.playback.positionSeconds}s</dd>
-              </div>
-            </dl>
-          </div>
-        {/if}
       </Card>
 
-      <Card title="Recent logs" subtitle="Last 10 entries for this device">
-        {#if data.logs.length === 0}
-          <p class="muted">No log entries captured for this device yet.</p>
+      <Card title="Metrics" subtitle="Live telemetry">
+        {#if !detail.metrics.length}
+          <p class="muted">No telemetry available.</p>
         {:else}
-          <ul class="log-list">
-            {#each data.logs as entry (entry.id + entry.ts)}
-              <li class={`log ${levelClass[entry.level]}`}>
-                <div class="log-header">
-                  <span class="level">{entry.level.toUpperCase()}</span>
-                  <time datetime={entry.ts}>{formatTimestamp(entry.ts)}</time>
-                </div>
-                <p>{entry.msg}</p>
-                <div class="log-meta">
-                  <span>{entry.service}</span>
-                  <span>{entry.host}</span>
-                  {#if entry.correlationId}
-                    <span class="correlation">{entry.correlationId}</span>
-                  {/if}
-                </div>
+          <ul class="metrics">
+            {#each detail.metrics as metric (metric.id)}
+              <li class={`status-${metric.status}`}>
+                <span class="label">{metric.label}</span>
+                <strong>{formatMetric(metric)}</strong>
+                {#if metric.description}
+                  <span class="hint">{metric.description}</span>
+                {/if}
               </li>
             {/each}
           </ul>
         {/if}
-        <!-- eslint-disable-next-line svelte/no-navigation-without-resolve -->
-        <a class="logs-link" href={logsHref}>
-          Open in log explorer →
-        </a>
       </Card>
-    </section>
 
-    <aside class="secondary">
-      <Card title="Troubleshooting" subtitle="Live actions coming soon">
-        <p class="muted">Command execution from the control plane is gated behind backend safeguards. Use SSH or the worker queue to dispatch restarts until API endpoints are available.</p>
+      <Card title="Alerts" subtitle="Outstanding issues">
+        {#if !detail.alerts.length}
+          <p class="muted">No active alerts.</p>
+        {:else}
+          <ul class="alerts">
+            {#each detail.alerts as alert (alert.id)}
+              <li class={`severity-${alert.severity}`}>
+                <div>
+                  <strong>{alert.message}</strong>
+                  <span>{new Date(alert.createdAt).toLocaleString()}</span>
+                </div>
+                <span>{alert.acknowledged ? 'Acknowledged' : 'New'}</span>
+              </li>
+            {/each}
+          </ul>
+        {/if}
       </Card>
-    </aside>
+
+      <Card title="Recent logs" subtitle="Latest activity">
+        {#if !detail.logs.length}
+          <p class="muted">No device-level logs recorded.</p>
+        {:else}
+          <ul class="logs">
+            {#each detail.logs.slice(0, 8) as log (log.id)}
+              <li>
+                <time datetime={log.timestamp}>{new Date(log.timestamp).toLocaleTimeString()}</time>
+                <span class={`severity-${log.severity}`}>{log.severity}</span>
+                <p>{log.message}</p>
+              </li>
+            {/each}
+          </ul>
+          <a class="link" href={`/logs?source=${detail.summary.id}`}>Open in logs console →</a>
+        {/if}
+      </Card>
+
+      <Card title="Actions" subtitle="Control plane operations">
+        {#if !detail.actions.length}
+          <p class="muted">No actions available for this device.</p>
+        {:else}
+          <div class="actions">
+            {#each detail.actions as action (action.id)}
+              <Button
+                variant={action.group === 'maintenance' ? 'secondary' : 'ghost'}
+                class="action-button"
+                on:click={() => runAction(action)}
+                disabled={actionLoading.has(action.id)}
+              >
+                {actionLoading.has(action.id) ? 'Running…' : action.label}
+              </Button>
+            {/each}
+          </div>
+        {/if}
+      </Card>
+
+      <Card title="Connections" subtitle="Downstream dependencies">
+        {#if !detail.connections.length}
+          <p class="muted">No connection telemetry available.</p>
+        {:else}
+          <ul class="connections">
+            {#each detail.connections as connection (connection.name)}
+              <li class={`status-${connection.status}`}>
+                <div>
+                  <strong>{connection.name}</strong>
+                  <span>{connection.status}</span>
+                </div>
+                <time datetime={connection.lastChecked}>Updated {new Date(connection.lastChecked).toLocaleTimeString()}</time>
+              </li>
+            {/each}
+          </ul>
+        {/if}
+      </Card>
+    </div>
   </div>
-</div>
+{/if}
 
 <style>
-  .device-page {
+  .loading {
+    display: grid;
+    gap: var(--spacing-4);
+  }
+
+  .device {
     display: flex;
     flex-direction: column;
-    gap: var(--spacing-5);
+    gap: var(--spacing-4);
   }
 
   .breadcrumb {
     display: flex;
     gap: var(--spacing-2);
-    align-items: center;
     font-size: var(--font-size-sm);
     color: var(--color-text-muted);
   }
@@ -172,127 +241,52 @@
     text-decoration: underline;
   }
 
-  .page-header {
+  .header {
     display: flex;
     justify-content: space-between;
-    align-items: flex-start;
-    gap: var(--spacing-4);
+    align-items: center;
   }
 
-  .page-header h1 {
+  .header h1 {
     margin: 0;
-    font-size: var(--font-size-2xl);
   }
 
-  .page-header p {
+  .header p {
     margin: 0;
     color: var(--color-text-muted);
   }
 
-  .status {
-    padding: 0.35rem 0.75rem;
-    border-radius: 999px;
-    font-size: var(--font-size-xs);
-    text-transform: uppercase;
-    letter-spacing: 0.08em;
-  }
-
-  .status.online {
-    background: rgba(34, 197, 94, 0.15);
-    color: rgb(134, 239, 172);
-  }
-
-  .status.offline {
-    background: rgba(248, 113, 113, 0.15);
-    color: rgb(248, 113, 113);
-  }
-
-  .status.error {
-    background: rgba(249, 115, 22, 0.15);
-    color: rgb(249, 115, 22);
+  .header-actions {
+    display: flex;
+    gap: var(--spacing-3);
+    align-items: center;
   }
 
   .grid {
     display: grid;
     gap: var(--spacing-4);
-    grid-template-columns: minmax(0, 2fr) minmax(0, 1fr);
   }
 
-  .primary,
-  .secondary {
+  .summary {
     display: grid;
-    gap: var(--spacing-4);
-  }
-
-  .meta {
-    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(12rem, 1fr));
     gap: var(--spacing-3);
-    grid-template-columns: repeat(auto-fit, minmax(10rem, 1fr));
-    margin: 0;
   }
 
-  .meta dt {
+  dt {
     font-size: var(--font-size-xs);
     color: var(--color-text-muted);
-    text-transform: uppercase;
-    letter-spacing: 0.08em;
   }
 
-  .meta dd {
+  dd {
     margin: 0;
     font-size: var(--font-size-sm);
   }
 
-  .capabilities {
-    display: flex;
-    flex-wrap: wrap;
-    gap: var(--spacing-2);
-    margin-top: var(--spacing-3);
-  }
-
-  .chip {
-    padding: 0.2rem 0.65rem;
-    border-radius: 999px;
-    font-size: var(--font-size-xs);
-    text-transform: uppercase;
-    letter-spacing: 0.08em;
-    background: rgba(96, 165, 250, 0.18);
-    color: rgb(96, 165, 250);
-  }
-
-  .playback {
-    margin-top: var(--spacing-4);
-    border-top: 1px solid rgba(148, 163, 184, 0.15);
-    padding-top: var(--spacing-3);
-  }
-
-  .playback h2 {
-    margin: 0 0 var(--spacing-2);
-    font-size: var(--font-size-sm);
-    text-transform: uppercase;
-    letter-spacing: 0.08em;
-    color: var(--color-text-muted);
-  }
-
-  .playback dl {
-    display: grid;
-    gap: var(--spacing-2);
-    grid-template-columns: repeat(auto-fit, minmax(8rem, 1fr));
-    margin: 0;
-  }
-
-  .playback dt {
-    font-size: var(--font-size-xs);
-    color: var(--color-text-muted);
-    text-transform: uppercase;
-  }
-
-  .playback dd {
-    margin: 0;
-    font-size: var(--font-size-sm);
-  }
-
-  .log-list {
+  .metrics,
+  .alerts,
+  .logs,
+  .connections {
     list-style: none;
     margin: 0;
     padding: 0;
@@ -300,92 +294,103 @@
     gap: var(--spacing-3);
   }
 
-  .log {
-    padding: var(--spacing-3);
+  .metrics li,
+  .alerts li,
+  .logs li,
+  .connections li {
+    border: 1px solid rgba(148, 163, 184, 0.15);
     border-radius: var(--radius-md);
-    border: 1px solid rgba(148, 163, 184, 0.12);
-    background: rgba(11, 23, 45, 0.35);
-    display: grid;
-    gap: var(--spacing-2);
+    padding: var(--spacing-3);
+    background: rgba(15, 23, 42, 0.35);
   }
 
-  .log.debug {
-    border-color: rgba(94, 234, 212, 0.2);
+  .metrics li strong {
+    font-size: var(--font-size-lg);
   }
 
-  .log.info {
-    border-color: rgba(96, 165, 250, 0.2);
+  .metrics li .hint {
+    display: block;
+    font-size: var(--font-size-xs);
+    color: var(--color-text-muted);
   }
 
-  .log.warn {
-    border-color: rgba(250, 204, 21, 0.25);
+  .metrics li.status-error {
+    border-color: rgba(239, 68, 68, 0.4);
   }
 
-  .log.error {
-    border-color: rgba(248, 113, 113, 0.25);
+  .metrics li.status-warn {
+    border-color: rgba(245, 158, 11, 0.4);
   }
 
-  .log-header {
+  .alerts li {
     display: flex;
     justify-content: space-between;
-    gap: var(--spacing-3);
-    flex-wrap: wrap;
+    align-items: center;
   }
 
-  .log-header .level {
-    font-size: var(--font-size-xs);
-    font-weight: 600;
-    letter-spacing: 0.08em;
-  }
-
-  .log-header time {
+  .alerts li span {
     font-size: var(--font-size-xs);
     color: var(--color-text-muted);
   }
 
-  .log p {
-    margin: 0;
-    font-size: var(--font-size-sm);
+  .logs li {
+    display: grid;
+    gap: 0.4rem;
   }
 
-  .log-meta {
-    display: flex;
-    gap: var(--spacing-3);
-    flex-wrap: wrap;
+  .logs time {
     font-size: var(--font-size-xs);
     color: var(--color-text-muted);
   }
 
-  .correlation {
-    font-family: 'JetBrains Mono', Menlo, Consolas, monospace;
+  .logs .severity-error {
+    color: var(--color-red-300);
   }
 
-  .logs-link {
+  .logs .severity-warning {
+    color: var(--color-yellow-300);
+  }
+
+  .link {
     display: inline-block;
     margin-top: var(--spacing-3);
-    font-size: var(--font-size-sm);
     color: var(--color-brand);
     text-decoration: none;
   }
 
-  .logs-link:hover {
+  .link:hover {
     text-decoration: underline;
   }
 
-  .muted {
-    margin: 0;
-    color: var(--color-text-muted);
-    font-size: var(--font-size-sm);
+  .actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--spacing-3);
   }
 
-  @media (max-width: 900px) {
-    .grid {
-      grid-template-columns: 1fr;
-    }
+  .connections li {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+  }
 
-    .page-header {
+  .connections li.status-error {
+    border-color: rgba(239, 68, 68, 0.35);
+  }
+
+  .connections li.status-pending {
+    border-color: rgba(245, 158, 11, 0.35);
+  }
+
+  .error {
+    color: var(--color-red-300);
+  }
+
+  @media (max-width: 768px) {
+    .header {
       flex-direction: column;
       align-items: flex-start;
+      gap: var(--spacing-3);
     }
   }
 </style>

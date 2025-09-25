@@ -1,0 +1,118 @@
+{
+  "summary": {
+    "id": "pi-audio-01",
+    "name": "Audio Pi 01",
+    "role": "lobby",
+    "module": "audio",
+    "status": "online",
+    "location": "Lobby",
+    "lastSeen": "2025-09-25T01:56:20Z",
+    "uptime": "3d 11h",
+    "ipAddress": "100.127.65.25",
+    "version": "1.18.4",
+    "groups": ["lobby", "audio"],
+    "tags": ["zone:lobby", "rack:r1"],
+    "capabilities": ["playback", "sync", "metrics"]
+  },
+  "metrics": [
+    {
+      "id": "cpu",
+      "label": "CPU",
+      "value": "32",
+      "unit": "%",
+      "status": "ok",
+      "trend": "steady",
+      "updatedAt": "2025-09-25T01:56:00Z"
+    },
+    {
+      "id": "memory",
+      "label": "Memory",
+      "value": "61",
+      "unit": "%",
+      "status": "warn",
+      "trend": "up",
+      "updatedAt": "2025-09-25T01:55:12Z",
+      "description": "Playback service caching playlist"
+    },
+    {
+      "id": "latency",
+      "label": "Network Latency",
+      "value": "42",
+      "unit": "ms",
+      "status": "ok",
+      "trend": "down",
+      "updatedAt": "2025-09-25T01:55:45Z"
+    }
+  ],
+  "alerts": [
+    {
+      "id": "alert-01",
+      "message": "Firmware update staged, awaiting maintenance window",
+      "severity": "info",
+      "createdAt": "2025-09-24T17:05:00Z",
+      "acknowledged": true
+    }
+  ],
+  "logs": [
+    {
+      "id": "device-log-01",
+      "timestamp": "2025-09-25T01:55:12Z",
+      "severity": "info",
+      "message": "Playback started (playlist pl-evening)",
+      "source": "pi-audio-01",
+      "module": "audio",
+      "deviceId": "pi-audio-01",
+      "correlationId": "req-pl-evening",
+      "context": { "playlistId": "pl-evening", "deviceIds": ["pi-audio-01"] }
+    },
+    {
+      "id": "device-log-02",
+      "timestamp": "2025-09-25T01:48:12Z",
+      "severity": "warning",
+      "message": "Detected drift 120ms vs master",
+      "source": "pi-audio-01",
+      "module": "audio",
+      "deviceId": "pi-audio-01",
+      "correlationId": "drift-20250925",
+      "context": { "driftMs": 120 }
+    }
+  ],
+  "actions": [
+    {
+      "id": "restart-audio",
+      "label": "Restart Audio Service",
+      "description": "Restarts the audio agent without rebooting the host",
+      "group": "audio",
+      "method": "POST",
+      "endpoint": "/devices/pi-audio-01/actions/restart-audio",
+      "requiresConfirmation": true
+    },
+    {
+      "id": "sync-reset",
+      "label": "Force Sync Reset",
+      "group": "audio",
+      "method": "POST",
+      "endpoint": "/devices/pi-audio-01/actions/sync-reset"
+    },
+    {
+      "id": "reboot",
+      "label": "Reboot Device",
+      "group": "maintenance",
+      "method": "POST",
+      "endpoint": "/devices/pi-audio-01/actions/reboot",
+      "requiresConfirmation": true
+    }
+  ],
+  "connections": [
+    {
+      "name": "VPN Tunnel",
+      "status": "connected",
+      "lastChecked": "2025-09-25T01:56:30Z"
+    },
+    {
+      "name": "Spotify Proxy",
+      "status": "pending",
+      "lastChecked": "2025-09-25T01:53:11Z"
+    }
+  ]
+}

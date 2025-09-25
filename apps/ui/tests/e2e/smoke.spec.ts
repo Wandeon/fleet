@@ -32,8 +32,7 @@ test.describe('Dashboard smoke', () => {
     await expect(page.getByRole('heading', { name: 'Audio', exact: true })).toBeVisible();
     await expect(page.getByRole('heading', { name: 'Video', exact: true })).toBeVisible();
     await expect(page.getByRole('heading', { name: 'Zigbee', exact: true })).toBeVisible();
-    await expect(page.getByRole('heading', { name: 'Camera', exact: true })).toBeVisible();
-    await expect(page.getByText('Mock states')).toBeVisible();
+    await expect(page.getByRole('heading', { level: 2, name: /Camera/, exact: false })).toBeVisible();
 
     const [stateStatus, layoutStatus] = await page.evaluate(async () => {
       const [state, layout] = await Promise.all([

@@ -461,7 +461,7 @@ import type {
   {:else if !data || data.devices.length === 0}
     <EmptyState title="No audio devices discovered" description="Bring a player online or pair a Pi to begin.">
       <svelte:fragment slot="icon">🔈</svelte:fragment>
-      <svelte:fragment slot="action">
+      <svelte:fragment slot="actions">
         <Button variant="secondary" on:click={() => onRetry?.()}>Refresh</Button>
       </svelte:fragment>
     </EmptyState>

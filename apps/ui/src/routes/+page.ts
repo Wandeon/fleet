@@ -4,7 +4,6 @@ import { getAudioOverview } from '$lib/api/audio-operations';
 import { loadCameraState } from '$lib/api/camera-operations';
 import { featureFlags } from '$lib/config/features';
 
-
 interface ModuleResult<T> {
   data: T | null;
   error: string | null;
@@ -22,6 +21,7 @@ async function toResult<T>(promise: Promise<T>): Promise<ModuleResult<T>> {
 
 export const load: PageLoad = async ({ fetch, depends }) => {
   depends('app:dashboard');
+
   const audioPromise = toResult(getAudioOverview({ fetch }));
   const videoPromise = featureFlags.video
     ? toResult(apiClient.fetchVideo({ fetch }))

@@ -1,47 +1,135 @@
 {
+  "activeCameraId": "cam-entry-01",
+  "devices": [
+    {
+      "id": "cam-entry-01",
+      "name": "Entrance Cam",
+      "status": "online",
+      "location": "Lobby",
+      "streamUrl": "https://cdn.example.invalid/streams/entrance.m3u8",
+      "stillUrl": "https://dummyimage.com/640x360/0b172d/ffffff&text=Lobby+Entrance",
+      "lastHeartbeat": "2025-09-25T01:58:00Z",
+      "capabilities": ["live-preview", "recording", "ai-detection"]
+    },
+    {
+      "id": "cam-treatment-02",
+      "name": "Treatment Room 2",
+      "status": "online",
+      "location": "Treatment Wing",
+      "streamUrl": "https://cdn.example.invalid/streams/treatment2.m3u8",
+      "stillUrl": "https://dummyimage.com/640x360/16213a/ffffff&text=Treatment+Room+2",
+      "lastHeartbeat": "2025-09-25T01:56:45Z",
+      "capabilities": ["live-preview", "recording"]
+    },
+    {
+      "id": "cam-storage-01",
+      "name": "Storage",
+      "status": "offline",
+      "location": "Back of House",
+      "streamUrl": null,
+      "stillUrl": "https://dummyimage.com/640x360/1a2535/ffffff&text=Storage",
+      "lastHeartbeat": "2025-09-25T00:12:16Z",
+      "capabilities": ["ai-detection"]
+    }
+  ],
+  "events": [
+    {
+      "id": "cam-evt-entrance-01",
+      "cameraId": "cam-entry-01",
+      "timestamp": "2025-09-25T01:54:18Z",
+      "description": "Motion detected at spa entrance",
+      "severity": "warning",
+      "clipUrl": "https://cdn.example.invalid/clips/entrance-20250925T015418Z.mp4",
+      "snapshotUrl": "https://dummyimage.com/320x180/0b172d/ffffff&text=Entrance+Motion",
+      "acknowledged": false,
+      "detections": [{ "id": "det-1", "label": "Person", "confidence": 0.88 }],
+      "tags": ["motion", "person"]
+    },
+    {
+      "id": "cam-evt-treatment-02",
+      "cameraId": "cam-treatment-02",
+      "timestamp": "2025-09-25T01:40:03Z",
+      "description": "Treatment room door opened",
+      "severity": "info",
+      "clipUrl": "https://cdn.example.invalid/clips/treatment-20250925T014003Z.mp4",
+      "snapshotUrl": "https://dummyimage.com/320x180/16213a/ffffff&text=Door+Opened",
+      "acknowledged": true,
+      "detections": [{ "id": "det-2", "label": "Door", "confidence": 0.76 }],
+      "tags": ["door"]
+    },
+    {
+      "id": "cam-evt-storage-01",
+      "cameraId": "cam-storage-01",
+      "timestamp": "2025-09-24T23:18:42Z",
+      "description": "Camera offline - no heartbeat",
+      "severity": "alert",
+      "clipUrl": null,
+      "snapshotUrl": null,
+      "acknowledged": false,
+      "tags": ["offline"]
+    }
+  ],
+  "clips": [
+    {
+      "id": "clip-entrance-0154",
+      "cameraId": "cam-entry-01",
+      "start": "2025-09-25T01:54:12Z",
+      "end": "2025-09-25T01:54:42Z",
+      "url": "https://cdn.example.invalid/clips/entrance-20250925T0154Z.mp4",
+      "thumbnailUrl": "https://dummyimage.com/240x135/0f233c/ffffff&text=Entrance+Clip",
+      "label": "Entrance motion"
+    },
+    {
+      "id": "clip-treatment-0140",
+      "cameraId": "cam-treatment-02",
+      "start": "2025-09-25T01:39:40Z",
+      "end": "2025-09-25T01:40:20Z",
+      "url": "https://cdn.example.invalid/clips/treatment-20250925T0139Z.mp4",
+      "thumbnailUrl": "https://dummyimage.com/240x135/16213a/ffffff&text=Treatment+Clip",
+      "label": "Door cycle"
+    }
+  ],
+  "overview": {
+    "previewImage": "https://dummyimage.com/640x360/0b172d/ffffff&text=Live+Preview",
+    "streamUrl": "https://cdn.example.invalid/streams/entrance.m3u8",
+    "lastMotion": "2025-09-25T01:54:18Z",
+    "health": "online",
+    "updatedAt": "2025-09-25T01:58:30Z"
+  },
   "summary": {
-    "status": "offline",
-    "updatedAt": "2025-01-12T12:21:08Z",
-    "reason": "MediaMTX pipeline not integrated in the dev stack",
+    "status": "degraded",
+    "updatedAt": "2025-09-25T01:58:30Z",
+    "reason": "Storage camera offline",
     "cameras": [
       {
-        "id": "pi-camera-01",
-        "name": "Entrance Camera",
-        "status": "offline",
-        "lastSeen": null,
-        "reason": "Camera bridge disabled until MediaMTX is deployed"
+        "id": "cam-entry-01",
+        "name": "Entrance Cam",
+        "status": "online",
+        "lastSeen": "2025-09-25T01:58:00Z",
+        "reason": null
       },
       {
-        "id": "pi-camera-02",
-        "name": "Studio Camera",
-        "status": "degraded",
-        "lastSeen": "2025-01-12T11:59:42Z",
-        "reason": "Waiting on upstream RTSP health"
+        "id": "cam-treatment-02",
+        "name": "Treatment Room 2",
+        "status": "online",
+        "lastSeen": "2025-09-25T01:56:45Z",
+        "reason": null
+      },
+      {
+        "id": "cam-storage-01",
+        "name": "Storage",
+        "status": "offline",
+        "lastSeen": "2025-09-25T00:12:16Z",
+        "reason": "Awaiting device replacement"
       }
     ]
   },
   "preview": {
-    "cameraId": "pi-camera-01",
-    "status": "unavailable",
-    "posterUrl": "https://dummyimage.com/640x360/0b172d/ffffff&text=Camera+offline",
-    "streamUrl": null,
-    "reason": "MediaMTX not integrated",
-    "updatedAt": "2025-01-12T12:21:08Z"
-  },
-  "events": [
-    {
-      "id": "cam-evt-1",
-      "ts": "2025-01-12T12:11:08Z",
-      "message": "Camera watchdog triggered offline placeholder",
-      "severity": "warn",
-      "cameraId": "pi-camera-01"
-    },
-    {
-      "id": "cam-evt-2",
-      "ts": "2025-01-12T11:59:42Z",
-      "message": "No camera events yet. Connect MediaMTX to enable live telemetry.",
-      "severity": "info",
-      "cameraId": "pi-camera-02"
-    }
-  ]
+    "cameraId": "cam-entry-01",
+    "status": "ready",
+    "posterUrl": "https://dummyimage.com/640x360/0b172d/ffffff&text=Live+Preview",
+    "streamUrl": "https://cdn.example.invalid/streams/entrance.m3u8",
+    "reason": null,
+    "updatedAt": "2025-09-25T01:58:30Z"
+  }
 }
