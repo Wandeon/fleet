@@ -1,6 +1,6 @@
 import { mkdir, writeFile } from 'node:fs/promises';
 import { randomUUID } from 'node:crypto';
-import { resolve } from 'node:path';
+import { basename, resolve } from 'node:path';
 import { prisma } from '../lib/db.js';
 import { deviceRegistry } from '../upstream/devices.js';
 
@@ -85,7 +85,8 @@ export async function listLibraryTracks(): Promise<LibraryTrack[]> {
 export async function createLibraryTrack(input: LibraryTrackInput) {
   await ensureStorageDir();
   const id = randomUUID();
-  const storagePath = resolve(AUDIO_STORAGE_DIR, `${id}-${input.filename}`);
+  const sanitizedFilename = basename(input.filename).replace(/\0/g, '') || 'upload';
+  const storagePath = resolve(AUDIO_STORAGE_DIR, `${id}-${sanitizedFilename}`);
   await writeFile(storagePath, input.buffer);
 
   const record = await prisma.audioTrack.create({
