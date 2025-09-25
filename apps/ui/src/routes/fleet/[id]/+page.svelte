@@ -1,268 +1,225 @@
 <script lang="ts">
-  import type { PageData } from './$types';
+  import Button from '$lib/components/Button.svelte';
   import Card from '$lib/components/Card.svelte';
   import StatusPill from '$lib/components/StatusPill.svelte';
+  import Skeleton from '$lib/components/Skeleton.svelte';
+  import EmptyState from '$lib/components/EmptyState.svelte';
+  import type { PageData } from './$types';
+  import type { FleetDeviceAction, FleetDeviceDetail, FleetDeviceMetric } from '$lib/types';
+  import { getFleetDeviceDetail, triggerDeviceAction } from '$lib/api/fleet-operations';
 
   export let data: PageData;
-  const { device } = data;
 
-  let actionStatus = '';
+  let detail: FleetDeviceDetail | null = data.device ?? null;
+  let loading = false;
+  let actionLoading = new Set<string>();
+  let error: string | null = null;
 
-  async function performAction(action: string) {
-    actionStatus = `${action}...`;
-
-    // Mock action - in real implementation, this would call the API
-    await new Promise(resolve => setTimeout(resolve, 2000));
-
-    actionStatus = `${action} completed`;
-    setTimeout(() => {
-      actionStatus = '';
-    }, 3000);
-  }
-
-  function downloadLogs() {
-    // Mock log download - in real implementation, this would fetch and download logs
-    const logData = device.logs.map(log =>
-      `[${log.timestamp}] ${log.level.toUpperCase()}: ${log.message}`
-    ).join('\n');
-
-    const blob = new Blob([logData], { type: 'text/plain' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = `${device.id}-logs.txt`;
-    document.body.appendChild(a);
-    a.click();
-    document.body.removeChild(a);
-    URL.revokeObjectURL(url);
-  }
-
-  function formatTimestamp(isoString: string): string {
-    const date = new Date(isoString);
-    const now = new Date();
-    const diffMs = now.getTime() - date.getTime();
-    const diffMins = Math.floor(diffMs / (1000 * 60));
-
-    if (diffMins < 60) {
-      return `${diffMins}m ago`;
-    } else if (diffMins < 1440) {
-      return `${Math.floor(diffMins / 60)}h ago`;
-    } else {
-      return `${Math.floor(diffMins / 1440)}d ago`;
+  const refresh = async () => {
+    if (!detail) return;
+    loading = true;
+    try {
+      detail = await getFleetDeviceDetail(detail.summary.id, { fetch });
+      error = null;
+    } catch (err) {
+      error = err instanceof Error ? err.message : 'Unable to refresh device';
+    } finally {
+      loading = false;
     }
-  }
+  };
 
-  function getLogLevelColor(level: string): string {
-    switch (level) {
-      case 'error': return 'var(--color-red-500)';
-      case 'warn': return 'var(--color-yellow-500)';
-      case 'info': return 'var(--color-blue-500)';
-      default: return 'var(--color-gray-500)';
+  const runAction = async (action: FleetDeviceAction) => {
+    if (!detail || actionLoading.has(action.id)) return;
+    actionLoading.add(action.id);
+    try {
+      detail = await triggerDeviceAction(detail.summary.id, action.id, { fetch });
+      error = null;
+    } catch (err) {
+      error = err instanceof Error ? err.message : `Unable to execute ${action.label}`;
+    } finally {
+      actionLoading.delete(action.id);
     }
-  }
+  };
 
-  const statusToLevel = (status: string) => {
-    if (status === 'online') return 'ok';
-    if (status === 'error') return 'error';
-    return 'offline';
+  const formatMetric = (metric: FleetDeviceMetric) =>
+    metric.unit ? `${metric.value}${metric.unit}` : metric.value;
+
+  const statusToPill = () => {
+    if (!detail) return 'warn';
+    if (detail.summary.status === 'online') return 'ok';
+    if (detail.summary.status === 'error') return 'error';
+    return 'warn';
   };
 </script>
 
 <svelte:head>
-  <title>{device.name} - Device Details</title>
+  <title>{detail ? `${detail.summary.name} – Fleet Device` : 'Fleet Device'}</title>
 </svelte:head>
 
-<div class="device-detail">
-  <div class="header">
+{#if !detail && error}
+  <EmptyState title="Device unavailable" description={error}>
+    <svelte:fragment slot="actions">
+      <Button variant="primary" on:click={refresh}>Retry</Button>
+    </svelte:fragment>
+  </EmptyState>
+{:else if !detail}
+  <div class="loading">
+    <Skeleton variant="block" height="16rem" />
+    <Skeleton variant="block" height="12rem" />
+  </div>
+{:else}
+  <div class="device">
     <div class="breadcrumb">
       <a href="/fleet">Fleet</a>
-      <span class="separator">›</span>
-      <span class="current">{device.name}</span>
+      <span>›</span>
+      <span>{detail.summary.name}</span>
     </div>
 
-    <div class="device-header">
-      <div class="device-info">
-        <h1>{device.name}</h1>
-        <div class="device-meta">
-          <StatusPill status={statusToLevel(device.status)} />
-          <span class="device-id">{device.id}</span>
-          <span class="device-role">{device.role}</span>
-        </div>
+    <div class="header">
+      <div>
+        <h1>{detail.summary.name}</h1>
+        <p>{detail.summary.role} · {detail.summary.module}</p>
       </div>
-
-      <div class="actions">
-        {#if actionStatus}
-          <div class="action-status">
-            {actionStatus}
-          </div>
-        {/if}
-
-        <button
-          class="btn primary"
-          on:click={() => performAction('Restart')}
-          disabled={actionStatus !== ''}
-        >
-          Restart Device
-        </button>
-
-        <button
-          class="btn secondary"
-          on:click={() => performAction('Resync')}
-          disabled={actionStatus !== ''}
-        >
-          Resync
-        </button>
-
-        <button
-          class="btn secondary"
-          on:click={downloadLogs}
-        >
-          Download Logs
-        </button>
+      <div class="header-actions">
+        <StatusPill status={statusToPill()} label={detail.summary.status} />
+        <Button variant="ghost" on:click={refresh} disabled={loading}>Refresh</Button>
       </div>
     </div>
-  </div>
 
-  <div class="content-grid">
-    <div class="main-content">
-      <Card title="Device Status" subtitle="Current operational status and metrics">
-        <div class="status-grid">
-          <div class="status-item">
-            <strong>Connection</strong>
-            <span class={device.status === 'online' ? 'status-online' : 'status-offline'}>
-              {device.status === 'online' ? 'Connected' : 'Disconnected'}
-            </span>
-          </div>
+    {#if error}
+      <p class="error" role="alert">{error}</p>
+    {/if}
 
-          <div class="status-item">
-            <strong>Last Seen</strong>
-            <span>{formatTimestamp(device.lastSeen)}</span>
+    <div class="grid">
+      <Card title="Summary" subtitle="Current device state">
+        <dl class="summary">
+          <div>
+            <dt>Device ID</dt>
+            <dd>{detail.summary.id}</dd>
           </div>
-
-          <div class="status-item">
-            <strong>IP Address</strong>
-            <span>{device.ipAddress}</span>
+          <div>
+            <dt>Location</dt>
+            <dd>{detail.summary.location ?? 'Unknown'}</dd>
           </div>
-
-          <div class="status-item">
-            <strong>Uptime</strong>
-            <span>{device.uptime}</span>
+          <div>
+            <dt>Groups</dt>
+            <dd>{detail.summary.groups.join(', ') || '—'}</dd>
           </div>
-
-          <div class="status-item">
-            <strong>Version</strong>
-            <span>{device.version}</span>
+          <div>
+            <dt>Last seen</dt>
+            <dd>{new Date(detail.summary.lastSeen).toLocaleString()}</dd>
           </div>
-
-          <div class="status-item">
-            <strong>Module</strong>
-            <span class="module-badge">{device.module}</span>
+          <div>
+            <dt>IP address</dt>
+            <dd>{detail.summary.ipAddress}</dd>
           </div>
-        </div>
+          <div>
+            <dt>Version</dt>
+            <dd>{detail.summary.version}</dd>
+          </div>
+        </dl>
       </Card>
 
-      {#if device.capabilities.length > 0}
-        <Card title="Capabilities" subtitle="Available device functionality">
-          <div class="capabilities">
-            {#each device.capabilities as capability}
-              <span class="capability-badge">{capability}</span>
+      <Card title="Metrics" subtitle="Live telemetry">
+        {#if !detail.metrics.length}
+          <p class="muted">No telemetry available.</p>
+        {:else}
+          <ul class="metrics">
+            {#each detail.metrics as metric (metric.id)}
+              <li class={`status-${metric.status}`}>
+                <span class="label">{metric.label}</span>
+                <strong>{formatMetric(metric)}</strong>
+                {#if metric.description}
+                  <span class="hint">{metric.description}</span>
+                {/if}
+              </li>
+            {/each}
+          </ul>
+        {/if}
+      </Card>
+
+      <Card title="Alerts" subtitle="Outstanding issues">
+        {#if !detail.alerts.length}
+          <p class="muted">No active alerts.</p>
+        {:else}
+          <ul class="alerts">
+            {#each detail.alerts as alert (alert.id)}
+              <li class={`severity-${alert.severity}`}>
+                <div>
+                  <strong>{alert.message}</strong>
+                  <span>{new Date(alert.createdAt).toLocaleString()}</span>
+                </div>
+                <span>{alert.acknowledged ? 'Acknowledged' : 'New'}</span>
+              </li>
+            {/each}
+          </ul>
+        {/if}
+      </Card>
+
+      <Card title="Recent logs" subtitle="Latest activity">
+        {#if !detail.logs.length}
+          <p class="muted">No device-level logs recorded.</p>
+        {:else}
+          <ul class="logs">
+            {#each detail.logs.slice(0, 8) as log (log.id)}
+              <li>
+                <time datetime={log.timestamp}>{new Date(log.timestamp).toLocaleTimeString()}</time>
+                <span class={`severity-${log.severity}`}>{log.severity}</span>
+                <p>{log.message}</p>
+              </li>
+            {/each}
+          </ul>
+          <a class="link" href={`/logs?source=${detail.summary.id}`}>Open in logs console →</a>
+        {/if}
+      </Card>
+
+      <Card title="Actions" subtitle="Control plane operations">
+        {#if !detail.actions.length}
+          <p class="muted">No actions available for this device.</p>
+        {:else}
+          <div class="actions">
+            {#each detail.actions as action (action.id)}
+              <Button
+                variant={action.group === 'maintenance' ? 'secondary' : 'ghost'}
+                class="action-button"
+                on:click={() => runAction(action)}
+                disabled={actionLoading.has(action.id)}
+              >
+                {actionLoading.has(action.id) ? 'Running…' : action.label}
+              </Button>
             {/each}
           </div>
-        </Card>
-      {/if}
-
-      <Card title="Recent Logs" subtitle="Latest device activity and events">
-        <div class="logs">
-          {#each device.logs as log}
-            <div class="log-entry">
-              <div class="log-meta">
-                <span
-                  class="log-level"
-                  style="color: {getLogLevelColor(log.level)}"
-                >
-                  {log.level.toUpperCase()}
-                </span>
-                <span class="log-timestamp">{formatTimestamp(log.timestamp)}</span>
-              </div>
-              <div class="log-message">{log.message}</div>
-            </div>
-          {/each}
-        </div>
-      </Card>
-    </div>
-
-    <div class="sidebar">
-      <Card title="Quick Actions" subtitle="Common device operations">
-        <div class="quick-actions">
-          <button
-            class="action-btn"
-            on:click={() => performAction('Health Check')}
-            disabled={actionStatus !== ''}
-          >
-            🩺 Health Check
-          </button>
-
-          <button
-            class="action-btn"
-            on:click={() => performAction('Update')}
-            disabled={actionStatus !== ''}
-          >
-            🔄 Update Firmware
-          </button>
-
-          <button
-            class="action-btn"
-            on:click={() => performAction('Reset Config')}
-            disabled={actionStatus !== ''}
-          >
-            ⚙️ Reset Config
-          </button>
-
-          <button
-            class="action-btn"
-            on:click={() => performAction('Factory Reset')}
-            disabled={actionStatus !== ''}
-          >
-            🏭 Factory Reset
-          </button>
-        </div>
+        {/if}
       </Card>
 
-      <Card title="Device Information" subtitle="Hardware and configuration details">
-        <div class="device-details">
-          <div class="detail-item">
-            <strong>Hardware</strong>
-            <span>Raspberry Pi 4</span>
-          </div>
-
-          <div class="detail-item">
-            <strong>Location</strong>
-            <span>Living Room</span>
-          </div>
-
-          <div class="detail-item">
-            <strong>Network</strong>
-            <span>Tailscale VPN</span>
-          </div>
-
-          <div class="detail-item">
-            <strong>Added</strong>
-            <span>2025-09-20</span>
-          </div>
-        </div>
+      <Card title="Connections" subtitle="Downstream dependencies">
+        {#if !detail.connections.length}
+          <p class="muted">No connection telemetry available.</p>
+        {:else}
+          <ul class="connections">
+            {#each detail.connections as connection (connection.name)}
+              <li class={`status-${connection.status}`}>
+                <div>
+                  <strong>{connection.name}</strong>
+                  <span>{connection.status}</span>
+                </div>
+                <time datetime={connection.lastChecked}>Updated {new Date(connection.lastChecked).toLocaleTimeString()}</time>
+              </li>
+            {/each}
+          </ul>
+        {/if}
       </Card>
     </div>
   </div>
-</div>
+{/if}
 
 <style>
-  .device-detail {
-    display: flex;
-    flex-direction: column;
-    gap: var(--spacing-6);
+  .loading {
+    display: grid;
+    gap: var(--spacing-4);
   }
 
-  .header {
+  .device {
     display: flex;
     flex-direction: column;
     gap: var(--spacing-4);
@@ -270,7 +227,6 @@
 
   .breadcrumb {
     display: flex;
-    align-items: center;
     gap: var(--spacing-2);
     font-size: var(--font-size-sm);
     color: var(--color-text-muted);
@@ -285,282 +241,156 @@
     text-decoration: underline;
   }
 
-  .separator {
+  .header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+  }
+
+  .header h1 {
+    margin: 0;
+  }
+
+  .header p {
+    margin: 0;
     color: var(--color-text-muted);
   }
 
-  .current {
-    color: var(--color-text);
-    font-weight: 500;
+  .header-actions {
+    display: flex;
+    gap: var(--spacing-3);
+    align-items: center;
   }
 
-  .device-header {
-    display: flex;
-    justify-content: space-between;
-    align-items: flex-start;
+  .grid {
+    display: grid;
     gap: var(--spacing-4);
   }
 
-  .device-info h1 {
-    margin: 0 0 var(--spacing-2);
-    font-size: var(--font-size-2xl);
-  }
-
-  .device-meta {
-    display: flex;
-    align-items: center;
+  .summary {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(12rem, 1fr));
     gap: var(--spacing-3);
-    flex-wrap: wrap;
   }
 
-  .device-id {
-    font-family: 'Courier New', monospace;
-    background: rgba(148, 163, 184, 0.1);
-    padding: var(--spacing-1) var(--spacing-2);
-    border-radius: var(--radius-sm);
+  dt {
+    font-size: var(--font-size-xs);
+    color: var(--color-text-muted);
+  }
+
+  dd {
+    margin: 0;
     font-size: var(--font-size-sm);
   }
 
-  .device-role {
-    background: var(--color-brand);
-    color: white;
-    padding: var(--spacing-1) var(--spacing-2);
-    border-radius: var(--radius-sm);
-    font-size: var(--font-size-sm);
-    text-transform: capitalize;
+  .metrics,
+  .alerts,
+  .logs,
+  .connections {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    display: grid;
+    gap: var(--spacing-3);
+  }
+
+  .metrics li,
+  .alerts li,
+  .logs li,
+  .connections li {
+    border: 1px solid rgba(148, 163, 184, 0.15);
+    border-radius: var(--radius-md);
+    padding: var(--spacing-3);
+    background: rgba(15, 23, 42, 0.35);
+  }
+
+  .metrics li strong {
+    font-size: var(--font-size-lg);
+  }
+
+  .metrics li .hint {
+    display: block;
+    font-size: var(--font-size-xs);
+    color: var(--color-text-muted);
+  }
+
+  .metrics li.status-error {
+    border-color: rgba(239, 68, 68, 0.4);
+  }
+
+  .metrics li.status-warn {
+    border-color: rgba(245, 158, 11, 0.4);
+  }
+
+  .alerts li {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+  }
+
+  .alerts li span {
+    font-size: var(--font-size-xs);
+    color: var(--color-text-muted);
+  }
+
+  .logs li {
+    display: grid;
+    gap: 0.4rem;
+  }
+
+  .logs time {
+    font-size: var(--font-size-xs);
+    color: var(--color-text-muted);
+  }
+
+  .logs .severity-error {
+    color: var(--color-red-300);
+  }
+
+  .logs .severity-warning {
+    color: var(--color-yellow-300);
+  }
+
+  .link {
+    display: inline-block;
+    margin-top: var(--spacing-3);
+    color: var(--color-brand);
+    text-decoration: none;
+  }
+
+  .link:hover {
+    text-decoration: underline;
   }
 
   .actions {
     display: flex;
-    align-items: center;
-    gap: var(--spacing-3);
     flex-wrap: wrap;
-  }
-
-  .action-status {
-    padding: var(--spacing-2) var(--spacing-3);
-    background: rgba(59, 130, 246, 0.1);
-    border: 1px solid rgba(59, 130, 246, 0.3);
-    border-radius: var(--radius-md);
-    color: rgb(59, 130, 246);
-    font-size: var(--font-size-sm);
-  }
-
-  .btn {
-    padding: var(--spacing-2) var(--spacing-4);
-    border-radius: var(--radius-md);
-    font-size: var(--font-size-sm);
-    font-weight: 500;
-    cursor: pointer;
-    transition: all 0.2s ease;
-    border: 1px solid transparent;
-  }
-
-  .btn:disabled {
-    opacity: 0.6;
-    cursor: not-allowed;
-  }
-
-  .btn.primary {
-    background: var(--color-brand);
-    color: white;
-  }
-
-  .btn.primary:hover:not(:disabled) {
-    background: rgb(37, 99, 235);
-  }
-
-  .btn.secondary {
-    background: rgba(148, 163, 184, 0.1);
-    color: var(--color-text);
-    border-color: rgba(148, 163, 184, 0.3);
-  }
-
-  .btn.secondary:hover:not(:disabled) {
-    background: rgba(148, 163, 184, 0.2);
-  }
-
-  .content-grid {
-    display: grid;
-    gap: var(--spacing-6);
-    grid-template-columns: 1fr;
-  }
-
-  @media (min-width: 64rem) {
-    .content-grid {
-      grid-template-columns: 2fr 1fr;
-    }
-  }
-
-  .main-content {
-    display: flex;
-    flex-direction: column;
-    gap: var(--spacing-6);
-  }
-
-  .sidebar {
-    display: flex;
-    flex-direction: column;
-    gap: var(--spacing-6);
-  }
-
-  .status-grid {
-    display: grid;
-    gap: var(--spacing-4);
-    grid-template-columns: repeat(auto-fit, minmax(12rem, 1fr));
-  }
-
-  .status-item {
-    display: flex;
-    flex-direction: column;
-    gap: var(--spacing-1);
-  }
-
-  .status-item strong {
-    font-size: var(--font-size-sm);
-    color: var(--color-text-muted);
-    text-transform: uppercase;
-    letter-spacing: 0.05em;
-  }
-
-  .status-item span {
-    font-size: var(--font-size-sm);
-    color: var(--color-text);
-  }
-
-  .status-online {
-    color: var(--color-green-500) !important;
-  }
-
-  .status-offline {
-    color: var(--color-red-500) !important;
-  }
-
-  .module-badge {
-    background: rgba(147, 51, 234, 0.1);
-    color: rgb(147, 51, 234);
-    padding: var(--spacing-1) var(--spacing-2);
-    border-radius: var(--radius-sm);
-    font-size: var(--font-size-xs);
-    text-transform: uppercase;
-  }
-
-  .capabilities {
-    display: flex;
-    flex-wrap: wrap;
-    gap: var(--spacing-2);
-  }
-
-  .capability-badge {
-    background: rgba(34, 197, 94, 0.1);
-    color: rgb(34, 197, 94);
-    padding: var(--spacing-2) var(--spacing-3);
-    border-radius: var(--radius-md);
-    font-size: var(--font-size-sm);
-  }
-
-  .logs {
-    display: flex;
-    flex-direction: column;
     gap: var(--spacing-3);
   }
 
-  .log-entry {
-    display: flex;
-    flex-direction: column;
-    gap: var(--spacing-1);
-    padding: var(--spacing-3);
-    border: 1px solid rgba(148, 163, 184, 0.1);
-    border-radius: var(--radius-md);
-    background: rgba(11, 23, 45, 0.2);
-  }
-
-  .log-meta {
-    display: flex;
-    align-items: center;
-    gap: var(--spacing-3);
-  }
-
-  .log-level {
-    font-size: var(--font-size-xs);
-    font-weight: 600;
-    text-transform: uppercase;
-    letter-spacing: 0.1em;
-  }
-
-  .log-timestamp {
-    font-size: var(--font-size-xs);
-    color: var(--color-text-muted);
-  }
-
-  .log-message {
-    font-size: var(--font-size-sm);
-    color: var(--color-text);
-  }
-
-  .quick-actions {
-    display: flex;
-    flex-direction: column;
-    gap: var(--spacing-2);
-  }
-
-  .action-btn {
-    padding: var(--spacing-3);
-    text-align: left;
-    background: rgba(148, 163, 184, 0.05);
-    border: 1px solid rgba(148, 163, 184, 0.2);
-    border-radius: var(--radius-md);
-    color: var(--color-text);
-    cursor: pointer;
-    transition: all 0.2s ease;
-    font-size: var(--font-size-sm);
-  }
-
-  .action-btn:hover:not(:disabled) {
-    background: rgba(148, 163, 184, 0.1);
-  }
-
-  .action-btn:disabled {
-    opacity: 0.6;
-    cursor: not-allowed;
-  }
-
-  .device-details {
-    display: flex;
-    flex-direction: column;
-    gap: var(--spacing-3);
-  }
-
-  .detail-item {
+  .connections li {
     display: flex;
     justify-content: space-between;
     align-items: center;
-    padding: var(--spacing-2) 0;
-    border-bottom: 1px solid rgba(148, 163, 184, 0.1);
   }
 
-  .detail-item:last-child {
-    border-bottom: none;
+  .connections li.status-error {
+    border-color: rgba(239, 68, 68, 0.35);
   }
 
-  .detail-item strong {
-    font-size: var(--font-size-sm);
-    color: var(--color-text-muted);
+  .connections li.status-pending {
+    border-color: rgba(245, 158, 11, 0.35);
   }
 
-  .detail-item span {
-    font-size: var(--font-size-sm);
-    color: var(--color-text);
+  .error {
+    color: var(--color-red-300);
   }
 
-  @media (max-width: 48rem) {
-    .device-header {
+  @media (max-width: 768px) {
+    .header {
       flex-direction: column;
-      align-items: stretch;
-    }
-
-    .actions {
-      justify-content: flex-start;
+      align-items: flex-start;
+      gap: var(--spacing-3);
     }
   }
 </style>

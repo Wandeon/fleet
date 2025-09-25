@@ -1,0 +1,78 @@
+{
+  "totals": {
+    "devices": 8,
+    "online": 6,
+    "offline": 1,
+    "degraded": 1
+  },
+  "modules": [
+    { "id": "audio", "label": "Audio", "online": 3, "offline": 0, "degraded": 1 },
+    { "id": "video", "label": "Video", "online": 1, "offline": 0, "degraded": 0 },
+    { "id": "zigbee", "label": "Zigbee", "online": 1, "offline": 1, "degraded": 0 },
+    { "id": "camera", "label": "Cameras", "online": 1, "offline": 0, "degraded": 0 },
+    { "id": "system", "label": "System", "online": 0, "offline": 0, "degraded": 0 }
+  ],
+  "devices": [
+    {
+      "id": "pi-audio-01",
+      "name": "Audio Pi 01",
+      "role": "lobby",
+      "module": "audio",
+      "status": "online",
+      "location": "Lobby",
+      "lastSeen": "2025-09-25T01:56:20Z",
+      "uptime": "3d 11h",
+      "ipAddress": "100.127.65.25",
+      "version": "1.18.4",
+      "groups": ["lobby", "audio"],
+      "tags": ["zone:lobby", "rack:r1"],
+      "capabilities": ["playback", "sync", "metrics"]
+    },
+    {
+      "id": "pi-audio-02",
+      "name": "Audio Pi 02",
+      "role": "treatment",
+      "module": "audio",
+      "status": "error",
+      "location": "Treatment Room",
+      "lastSeen": "2025-09-25T01:52:02Z",
+      "uptime": "2d 02h",
+      "ipAddress": "100.127.65.26",
+      "version": "1.18.4",
+      "groups": ["treatment", "audio"],
+      "tags": ["zone:treatment"],
+      "capabilities": ["playback", "sync"]
+    },
+    {
+      "id": "pi-video-01",
+      "name": "Video Pi 01",
+      "role": "main-display",
+      "module": "video",
+      "status": "online",
+      "location": "Reception",
+      "lastSeen": "2025-09-25T01:55:48Z",
+      "uptime": "5d 04h",
+      "ipAddress": "100.127.65.50",
+      "version": "2.3.1",
+      "groups": ["display", "video"],
+      "tags": ["zone:lobby"],
+      "capabilities": ["cec", "stream"]
+    },
+    {
+      "id": "pi-zigbee-01",
+      "name": "Zigbee Hub",
+      "role": "lighting",
+      "module": "zigbee",
+      "status": "offline",
+      "location": "Control Closet",
+      "lastSeen": "2025-09-24T23:18:00Z",
+      "uptime": "--",
+      "ipAddress": "100.127.65.61",
+      "version": "0.28.4",
+      "groups": ["lighting"],
+      "tags": ["hub"],
+      "capabilities": ["pairing", "metrics"]
+    }
+  ],
+  "updatedAt": "2025-09-25T01:58:30Z"
+}

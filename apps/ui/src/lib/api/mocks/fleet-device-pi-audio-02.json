@@ -1,0 +1,97 @@
+{
+  "summary": {
+    "id": "pi-audio-02",
+    "name": "Audio Pi 02",
+    "role": "treatment",
+    "module": "audio",
+    "status": "error",
+    "location": "Treatment Room",
+    "lastSeen": "2025-09-25T01:52:02Z",
+    "uptime": "2d 02h",
+    "ipAddress": "100.127.65.26",
+    "version": "1.18.4",
+    "groups": ["treatment", "audio"],
+    "tags": ["zone:treatment"],
+    "capabilities": ["playback", "sync"]
+  },
+  "metrics": [
+    {
+      "id": "cpu",
+      "label": "CPU",
+      "value": "71",
+      "unit": "%",
+      "status": "warn",
+      "trend": "up",
+      "updatedAt": "2025-09-25T01:51:45Z"
+    },
+    {
+      "id": "latency",
+      "label": "Network Latency",
+      "value": "145",
+      "unit": "ms",
+      "status": "error",
+      "trend": "up",
+      "updatedAt": "2025-09-25T01:51:50Z"
+    }
+  ],
+  "alerts": [
+    {
+      "id": "alert-02",
+      "message": "Playlist sync timeout",
+      "severity": "error",
+      "createdAt": "2025-09-25T01:48:00Z",
+      "acknowledged": false
+    }
+  ],
+  "logs": [
+    {
+      "id": "device-log-03",
+      "timestamp": "2025-09-25T01:48:01Z",
+      "severity": "error",
+      "message": "Timed out waiting for playlist sync",
+      "source": "pi-audio-02",
+      "module": "audio",
+      "deviceId": "pi-audio-02",
+      "correlationId": "req-8bd1",
+      "context": { "playlistId": "pl-evening", "timeoutSeconds": 30 }
+    },
+    {
+      "id": "device-log-04",
+      "timestamp": "2025-09-25T01:43:41Z",
+      "severity": "warning",
+      "message": "Latency jitter 140 ms",
+      "source": "pi-audio-02",
+      "module": "audio",
+      "deviceId": "pi-audio-02"
+    }
+  ],
+  "actions": [
+    {
+      "id": "resync",
+      "label": "Retry Playlist Sync",
+      "group": "audio",
+      "method": "POST",
+      "endpoint": "/devices/pi-audio-02/actions/retry-sync"
+    },
+    {
+      "id": "reboot",
+      "label": "Reboot Device",
+      "group": "maintenance",
+      "method": "POST",
+      "endpoint": "/devices/pi-audio-02/actions/reboot",
+      "requiresConfirmation": true
+    }
+  ],
+  "connections": [
+    {
+      "name": "VPN Tunnel",
+      "status": "connected",
+      "lastChecked": "2025-09-25T01:52:30Z"
+    },
+    {
+      "name": "Spotify Proxy",
+      "status": "error",
+      "lastChecked": "2025-09-25T01:50:01Z"
+    }
+  ]
+}

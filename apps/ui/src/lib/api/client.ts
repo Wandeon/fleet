@@ -261,7 +261,7 @@ async function request<T>(path: string, options: RequestOptions = {}): Promise<T
       case '/camera':
         return mockApi.camera() as T;
       case '/logs':
-        return mockApi.logs() as T;
+        return mockApi.logsSnapshot() as T;
       default:
         throw new UiApiError(`Mock endpoint ${path} not implemented`, 501);
     }

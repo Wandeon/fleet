@@ -1,28 +1,64 @@
 {
+  "sources": [
+    { "id": "all", "label": "All Devices", "kind": "group", "description": "Combined fleet log stream" },
+    { "id": "pi-audio-01", "label": "Audio Pi 01", "kind": "device", "module": "audio", "deviceId": "pi-audio-01" },
+    { "id": "pi-audio-02", "label": "Audio Pi 02", "kind": "device", "module": "audio", "deviceId": "pi-audio-02" },
+    { "id": "pi-video-01", "label": "Video Pi 01", "kind": "device", "module": "video", "deviceId": "pi-video-01" },
+    { "id": "control-plane", "label": "Control Plane", "kind": "service", "module": "system" }
+  ],
   "entries": [
     {
-      "id": "log-1",
-      "timestamp": "2025-01-12T12:20:01Z",
+      "id": "log-entrance-01",
+      "timestamp": "2025-09-25T01:55:12Z",
+      "severity": "info",
       "message": "pi-audio-01 acknowledged volume change",
-      "severity": "info"
+      "source": "pi-audio-01",
+      "module": "audio",
+      "deviceId": "pi-audio-01",
+      "correlationId": "req-8c12",
+      "context": { "volume": 56, "previous": 42 }
     },
     {
-      "id": "log-2",
-      "timestamp": "2025-01-12T12:18:35Z",
+      "id": "log-entrance-02",
+      "timestamp": "2025-09-25T01:53:02Z",
+      "severity": "warning",
+      "message": "Network jitter detected on pi-audio-02 (145 ms)",
+      "source": "pi-audio-02",
+      "module": "audio",
+      "deviceId": "pi-audio-02",
+      "correlationId": "req-8bf0",
+      "context": { "latencyMs": 145 }
+    },
+    {
+      "id": "log-video-01",
+      "timestamp": "2025-09-25T01:50:34Z",
+      "severity": "info",
       "message": "Operator muted lounge TV",
-      "severity": "info"
+      "source": "pi-video-01",
+      "module": "video",
+      "deviceId": "pi-video-01",
+      "context": { "muted": true }
     },
     {
-      "id": "log-3",
-      "timestamp": "2025-01-12T11:57:12Z",
-      "message": "pi-audio-02 didn’t respond. Retry?",
-      "severity": "error"
+      "id": "log-audio-error-01",
+      "timestamp": "2025-09-25T01:48:01Z",
+      "severity": "error",
+      "message": "pi-audio-02 timed out waiting for playlist sync",
+      "source": "pi-audio-02",
+      "module": "audio",
+      "deviceId": "pi-audio-02",
+      "correlationId": "req-8bd1",
+      "context": { "playlistId": "pl-evening" }
     },
     {
-      "id": "log-4",
-      "timestamp": "2025-01-12T11:31:10Z",
-      "message": "Zigbee hub offline. Check power and network.",
-      "severity": "warning"
+      "id": "log-control-01",
+      "timestamp": "2025-09-25T01:45:10Z",
+      "severity": "debug",
+      "message": "Scheduler enqueued firmware rollout batch",
+      "source": "control-plane",
+      "module": "system",
+      "context": { "batchSize": 3, "cohort": "audio" }
     }
-  ]
+  ],
+  "lastUpdated": "2025-09-25T01:58:45Z"
 }

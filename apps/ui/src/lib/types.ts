@@ -150,17 +150,237 @@ export interface ZigbeeState {
   };
 }
 
+export type LogSeverity = 'debug' | 'info' | 'warning' | 'error' | 'critical';
+
+export interface CameraEventDetection {
+  id: string;
+  label: string;
+  confidence: number;
+  boundingBox?: { x: number; y: number; width: number; height: number };
+}
+
+export type CameraEventSeverity = 'info' | 'warning' | 'alert' | 'error';
+
 export interface CameraEvent {
   id: string;
+  cameraId: string;
   timestamp: string;
   description: string;
-  severity: 'info' | 'warning' | 'error';
+  severity: CameraEventSeverity;
+  clipUrl?: string | null;
+  snapshotUrl?: string | null;
+  acknowledged?: boolean;
+  detections?: CameraEventDetection[];
+  tags?: string[];
+}
+
+export interface CameraDevice {
+  id: string;
+  name: string;
+  status: DeviceStatus;
+  location?: string | null;
+  streamUrl?: string | null;
+  stillUrl?: string | null;
+  lastHeartbeat: string;
+  capabilities: string[];
+}
+
+export interface CameraClip {
+  id: string;
+  cameraId: string;
+  start: string;
+  end: string;
+  url: string;
+  thumbnailUrl?: string | null;
+  label?: string | null;
 }
 
 export interface CameraState {
-  previewImage: string;
-  lastMotion: string | null;
+  activeCameraId: string | null;
+  devices: CameraDevice[];
   events: CameraEvent[];
+  clips: CameraClip[];
+  overview: {
+    previewImage: string | null;
+    streamUrl: string | null;
+    lastMotion: string | null;
+    health: DeviceStatus;
+    updatedAt: string | null;
+  };
+}
+
+export interface LogEntry {
+  id: string;
+  timestamp: string;
+  severity: LogSeverity;
+  message: string;
+  source: string;
+  module?: string | null;
+  deviceId?: string | null;
+  correlationId?: string | null;
+  context?: Record<string, unknown> | null;
+}
+
+export interface LogSource {
+  id: string;
+  label: string;
+  description?: string;
+  kind: 'device' | 'service' | 'system';
+  module?: string | null;
+  deviceId?: string | null;
+  active?: boolean;
+}
+
+export interface LogsSnapshot {
+  entries: LogEntry[];
+  sources: LogSource[];
+  lastUpdated: string;
+  cursor?: string | null;
+}
+
+export interface LogsFilterState {
+  sourceId: string;
+  severity: LogSeverity | 'all';
+  search: string;
+}
+
+export interface ApiAccessSettings {
+  bearerTokenMasked: string | null;
+  lastRotatedAt: string | null;
+  expiresAt?: string | null;
+  allowedOrigins: string[];
+  webhookUrl?: string | null;
+}
+
+export interface ProxySettings {
+  baseUrl: string;
+  timeoutMs: number;
+  health: 'online' | 'degraded' | 'offline';
+  latencyMs: number;
+  errorRate: number;
+}
+
+export interface PairingDiscoveryCandidate {
+  id: string;
+  name: string;
+  capability: string;
+  signal: number;
+  discoveredAt: string;
+}
+
+export interface PairingHistoryEntry {
+  id: string;
+  completedAt: string;
+  deviceId: string;
+  status: 'success' | 'error';
+  note?: string | null;
+}
+
+export interface PairingStatus {
+  active: boolean;
+  method: 'manual' | 'qr' | 'auto';
+  expiresAt: string | null;
+  discovered: PairingDiscoveryCandidate[];
+  history: PairingHistoryEntry[];
+}
+
+export interface OperatorRole {
+  id: string;
+  name: string;
+  description: string;
+  permissions: string[];
+  assignable: boolean;
+}
+
+export interface OperatorAccount {
+  id: string;
+  name: string;
+  email: string;
+  roles: string[];
+  lastActiveAt: string | null;
+  status: 'active' | 'invited' | 'disabled';
+}
+
+export interface SettingsState {
+  api: ApiAccessSettings;
+  proxy: ProxySettings;
+  pairing: PairingStatus;
+  operators: OperatorAccount[];
+  roles: OperatorRole[];
+  pendingRestart: boolean;
+  lastSavedAt: string | null;
+}
+
+export interface FleetDeviceMetric {
+  id: string;
+  label: string;
+  value: string;
+  unit?: string;
+  status: 'ok' | 'warn' | 'error';
+  trend?: 'up' | 'down' | 'steady';
+  updatedAt?: string;
+  description?: string;
+}
+
+export interface FleetDeviceAction {
+  id: string;
+  label: string;
+  description?: string;
+  group: 'audio' | 'video' | 'system' | 'network' | 'maintenance';
+  method: 'POST' | 'PATCH' | 'DELETE';
+  endpoint: string;
+  requiresConfirmation?: boolean;
+}
+
+export interface FleetDeviceSummary {
+  id: string;
+  name: string;
+  role: string;
+  module: string;
+  status: DeviceStatus;
+  location?: string | null;
+  lastSeen: string;
+  uptime: string;
+  ipAddress: string;
+  version: string;
+  groups: string[];
+  tags: string[];
+  capabilities: string[];
+}
+
+export interface FleetDeviceAlert {
+  id: string;
+  message: string;
+  severity: 'info' | 'warning' | 'error';
+  createdAt: string;
+  acknowledged: boolean;
+}
+
+export interface FleetDeviceDetail {
+  summary: FleetDeviceSummary;
+  metrics: FleetDeviceMetric[];
+  alerts: FleetDeviceAlert[];
+  logs: LogEntry[];
+  actions: FleetDeviceAction[];
+  connections: Array<{ name: string; status: 'connected' | 'pending' | 'error'; lastChecked: string }>;
+}
+
+export interface FleetOverview {
+  totals: {
+    devices: number;
+    online: number;
+    offline: number;
+    degraded: number;
+  };
+  modules: Array<{
+    id: string;
+    label: string;
+    online: number;
+    offline: number;
+    degraded: number;
+  }>;
+  devices: FleetDeviceSummary[];
+  updatedAt: string;
 }
 
 export interface HealthTile {
@@ -193,8 +413,10 @@ export interface LayoutData {
 }
 
 export interface LogsData {
-  entries: EventFeedItem[];
-  cursor?: string;
+  entries: LogEntry[];
+  sources: LogSource[];
+  cursor?: string | null;
+  lastUpdated: string;
 }
 
 export interface ConnectionProbe {

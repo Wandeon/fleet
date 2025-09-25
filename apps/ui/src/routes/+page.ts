@@ -1,6 +1,7 @@
 import type { PageLoad } from './$types';
 import { apiClient } from '$lib/api/client';
 import { getAudioOverview } from '$lib/api/audio-operations';
+import { getCameraOverview } from '$lib/api/camera-operations';
 
 interface ModuleResult<T> {
   data: T | null;
@@ -23,7 +24,7 @@ export const load: PageLoad = async ({ fetch, depends }) => {
     toResult(getAudioOverview({ fetch })),
     toResult(apiClient.fetchVideo({ fetch })),
     toResult(apiClient.fetchZigbee({ fetch })),
-    toResult(apiClient.fetchCamera({ fetch }))
+    toResult(getCameraOverview({ fetch }))
   ]);
 
   return {

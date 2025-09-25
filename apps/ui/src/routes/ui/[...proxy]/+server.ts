@@ -9,7 +9,7 @@ const FALLBACKS = new Map<string, () => unknown>([
   ['/video', () => mockApi.video()],
   ['/zigbee', () => mockApi.zigbee()],
   ['/camera', () => mockApi.camera()],
-  ['/logs', () => mockApi.logs()],
+  ['/logs', () => mockApi.logsSnapshot()],
 ]);
 
 const missingMock = (path: string) => () => {

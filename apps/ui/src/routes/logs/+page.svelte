@@ -1,236 +1,375 @@
 <script lang="ts">
-  import Card from '$lib/components/Card.svelte';
+  import { onDestroy, onMount } from 'svelte';
   import Button from '$lib/components/Button.svelte';
+  import Card from '$lib/components/Card.svelte';
   import StatusPill from '$lib/components/StatusPill.svelte';
   import type { PageData } from './$types';
+  import type { LogEntry, LogSeverity, LogsSnapshot } from '$lib/types';
+  import {
+    exportLogs,
+    fetchLogSnapshot,
+    subscribeToLogStream,
+    type LogQueryOptions,
+    type LogStreamSubscription
+  } from '$lib/api/logs-operations';
 
   export let data: PageData;
 
-  let searchQuery = '';
-  let selectedSeverity = 'all';
-  let selectedTimeRange = '24h';
-  let showAdvancedFilters = false;
+  let snapshot: LogsSnapshot | null = data.snapshot ?? null;
+  let error: string | null = data.error ?? null;
 
-  $: filteredLogs = data.logs?.entries.filter(entry => {
-    // Search filter
-    const matchesSearch = !searchQuery ||
-      entry.message.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      entry.id.toLowerCase().includes(searchQuery.toLowerCase());
+  let sourceId = snapshot?.sources[0]?.id ?? 'all';
+  let severity: LogSeverity | 'all' = 'all';
+  let search = '';
+  let limit = 200;
+  let autoRefresh = true;
+  let loading = false;
+  let downloading = false;
 
-    // Severity filter
-    const matchesSeverity = selectedSeverity === 'all' || entry.severity === selectedSeverity;
+  let entries: LogEntry[] = snapshot?.entries ?? [];
+  let subscription: LogStreamSubscription | null = null;
+  let searchDebounce: ReturnType<typeof setTimeout> | null = null;
 
-    // Time range filter
-    const entryTime = new Date(entry.timestamp);
-    const now = new Date();
-    const timeThreshold = getTimeThreshold(selectedTimeRange);
-    const matchesTime = timeThreshold === null || (now.getTime() - entryTime.getTime()) <= timeThreshold;
+  const severityOptions: Array<{ value: LogSeverity | 'all'; label: string }> = [
+    { value: 'all', label: 'All severities' },
+    { value: 'critical', label: 'Critical' },
+    { value: 'error', label: 'Errors' },
+    { value: 'warning', label: 'Warnings' },
+    { value: 'info', label: 'Info' },
+    { value: 'debug', label: 'Debug' }
+  ];
 
-    return matchesSearch && matchesSeverity && matchesTime;
-  }) || [];
+  $: sources = snapshot?.sources ?? [];
 
-  function getTimeThreshold(range: string): number | null {
-    switch (range) {
-      case '1h': return 60 * 60 * 1000;
-      case '6h': return 6 * 60 * 60 * 1000;
-      case '24h': return 24 * 60 * 60 * 1000;
-      case '7d': return 7 * 24 * 60 * 60 * 1000;
-      case '30d': return 30 * 24 * 60 * 60 * 1000;
-      case 'all': return null;
-      default: return 24 * 60 * 60 * 1000;
+  const applySnapshot = (value: LogsSnapshot) => {
+    snapshot = value;
+    entries = value.entries;
+    if (!sources.find((item) => item.id === sourceId)) {
+      sourceId = value.sources[0]?.id ?? 'all';
     }
-  }
+  };
 
-  function clearFilters() {
-    searchQuery = '';
-    selectedSeverity = 'all';
-    selectedTimeRange = '24h';
-  }
+  const loadLogs = async (options: Partial<LogQueryOptions> = {}) => {
+    loading = true;
+    error = null;
+    try {
+      const result = await fetchLogSnapshot({
+        fetch,
+        sourceId,
+        severity,
+        search: search.trim(),
+        limit,
+        ...options
+      });
+      applySnapshot(result);
+    } catch (err) {
+      error = err instanceof Error ? err.message : 'Failed to load logs';
+    } finally {
+      loading = false;
+    }
+  };
 
-  function exportLogs() {
-    const logsText = filteredLogs.map(entry =>
-      `[${entry.timestamp}] ${entry.severity.toUpperCase()}: ${entry.message}`
-    ).join('\n');
+  const handleStreamEvent = (entry: LogEntry) => {
+    entries = [entry, ...entries].slice(0, limit);
+    snapshot = snapshot
+      ? {
+          ...snapshot,
+          entries,
+          lastUpdated: new Date().toISOString()
+        }
+      : {
+          entries,
+          sources,
+          cursor: entry.id,
+          lastUpdated: new Date().toISOString()
+        } satisfies LogsSnapshot;
+  };
 
-    const blob = new Blob([logsText], { type: 'text/plain' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = `fleet-logs-${new Date().toISOString().slice(0, 10)}.txt`;
-    document.body.appendChild(a);
-    a.click();
-    document.body.removeChild(a);
-    URL.revokeObjectURL(url);
-  }
+  const stopStream = () => {
+    subscription?.stop();
+    subscription = null;
+  };
+
+  const startStream = () => {
+    stopStream();
+    subscription = subscribeToLogStream({
+      filters: {
+        sourceId,
+        severity,
+        search: search.trim()
+      },
+      onEvent: handleStreamEvent,
+      onError: (streamError) => {
+        console.warn('Log stream error', streamError);
+        error = streamError.message;
+        autoRefresh = false;
+        stopStream();
+      }
+    });
+  };
+
+  const refresh = async () => {
+    await loadLogs();
+    if (autoRefresh) updateStream();
+  };
+
+  const updateStream = () => {
+    stopStream();
+    if (autoRefresh) {
+      startStream();
+    }
+  };
+
+  const applyFilters = async () => {
+    await loadLogs();
+    updateStream();
+  };
+
+  const handleSourceChange = async (event: Event) => {
+    sourceId = (event.target as HTMLSelectElement).value;
+    await applyFilters();
+  };
+
+  const handleSeverityChange = async (event: Event) => {
+    severity = (event.target as HTMLSelectElement).value as typeof severity;
+    await applyFilters();
+  };
+
+  const handleLimitChange = async (event: Event) => {
+    limit = Number((event.target as HTMLSelectElement).value);
+    await applyFilters();
+  };
+
+  const handleSearchInput = (event: Event) => {
+    const value = (event.target as HTMLInputElement).value;
+    search = value;
+    if (searchDebounce) clearTimeout(searchDebounce);
+    searchDebounce = setTimeout(applyFilters, 250);
+  };
+
+  onMount(async () => {
+    if (!snapshot) {
+      await loadLogs();
+    }
+    updateStream();
+  });
+
+  onDestroy(() => {
+    stopStream();
+    if (searchDebounce) {
+      clearTimeout(searchDebounce);
+    }
+  });
+
+  const download = async (format: 'json' | 'text') => {
+    downloading = true;
+    try {
+      const blob = await exportLogs({ fetch, sourceId, severity, search: search.trim(), limit, format });
+      const url = URL.createObjectURL(blob);
+      const anchor = document.createElement('a');
+      anchor.href = url;
+      anchor.download = `fleet-logs-${new Date().toISOString().replace(/[:T]/g, '-').slice(0, 19)}.${format === 'json' ? 'json' : 'log'}`;
+      document.body.appendChild(anchor);
+      anchor.click();
+      document.body.removeChild(anchor);
+      URL.revokeObjectURL(url);
+    } finally {
+      downloading = false;
+    }
+  };
+
+  const formatTimestamp = (timestamp: string) => new Date(timestamp).toLocaleString();
+  const maxContextPreview = 240;
+
+  const severityToStatus = (value: LogSeverity): 'ok' | 'warn' | 'error' => {
+    if (value === 'critical' || value === 'error') return 'error';
+    if (value === 'warning') return 'warn';
+    return 'ok';
+  };
+
+  const toggleAutoRefresh = async () => {
+    autoRefresh = !autoRefresh;
+    if (autoRefresh) {
+      await applyFilters();
+    } else {
+      stopStream();
+    }
+  };
 </script>
 
-<div class="logs-container">
-  <Card title="Event log" subtitle="Audit trail of recent actions">
-    <!-- Filters and Search -->
-    <div class="filters-section">
-      <div class="search-bar">
+<svelte:head>
+  <title>Logs – Fleet Control</title>
+</svelte:head>
+
+<div class="logs-page">
+  <div class="toolbar">
+    <div class="filters">
+      <label>
+        <span>Source</span>
+        <select bind:value={sourceId} on:change={handleSourceChange}>
+          {#each sources as source}
+            <option value={source.id}>{source.label}</option>
+          {/each}
+          <option value="all">All sources</option>
+        </select>
+      </label>
+      <label>
+        <span>Severity</span>
+        <select bind:value={severity} on:change={handleSeverityChange}>
+          {#each severityOptions as option}
+            <option value={option.value}>{option.label}</option>
+          {/each}
+        </select>
+      </label>
+      <label>
+        <span>Rows</span>
+        <select bind:value={limit} on:change={handleLimitChange}>
+          <option value={50}>50</option>
+          <option value={100}>100</option>
+          <option value={200}>200</option>
+          <option value={500}>500</option>
+        </select>
+      </label>
+      <label class="search">
+        <span>Search</span>
         <input
-          type="text"
-          placeholder="Search logs by message or ID..."
-          bind:value={searchQuery}
-          class="search-input"
+          type="search"
+          placeholder="Message, device, correlation ID"
+          value={search}
+          on:input={handleSearchInput}
         />
-        <div class="filter-controls">
-          <select bind:value={selectedSeverity} class="filter-select">
-            <option value="all">All Levels</option>
-            <option value="info">Info</option>
-            <option value="warning">Warning</option>
-            <option value="error">Error</option>
-            <option value="debug">Debug</option>
-          </select>
-
-          <select bind:value={selectedTimeRange} class="filter-select">
-            <option value="1h">Last Hour</option>
-            <option value="6h">Last 6 Hours</option>
-            <option value="24h">Last 24 Hours</option>
-            <option value="7d">Last 7 Days</option>
-            <option value="30d">Last 30 Days</option>
-            <option value="all">All Time</option>
-          </select>
-        </div>
-      </div>
-
-      <div class="filter-actions">
-        <Button variant="ghost" on:click={clearFilters}>Clear Filters</Button>
-        <Button variant="secondary" on:click={exportLogs}>Export Logs</Button>
-      </div>
+      </label>
     </div>
-
-    <!-- Results Summary -->
-    <div class="results-summary">
-      <span class="count">Showing {filteredLogs.length} of {data.logs?.entries.length || 0} entries</span>
-      {#if searchQuery || selectedSeverity !== 'all' || selectedTimeRange !== '24h'}
-        <span class="filter-indicator">Filters active</span>
-      {/if}
+    <div class="actions">
+      <Button variant="ghost" on:click={toggleAutoRefresh}>
+        {autoRefresh ? '⏸ Pause stream' : '▶ Resume stream'}
+      </Button>
+      <Button variant="secondary" on:click={() => download('text')} disabled={downloading}>
+        Export TXT
+      </Button>
+      <Button variant="secondary" on:click={() => download('json')} disabled={downloading}>
+        Export JSON
+      </Button>
+      <Button variant="primary" on:click={refresh} disabled={loading}>
+        Refresh
+      </Button>
     </div>
+  </div>
 
-    <!-- Log Entries -->
-    {#if data.error && !data.logs}
-      <p role="alert" class="error-message">{data.error}</p>
-    {:else if filteredLogs.length > 0}
+  {#if error}
+    <div class="error" role="alert">
+      <strong>Log stream unavailable:</strong> {error}
+    </div>
+  {/if}
+
+  <Card title="Live log stream" subtitle={`Last updated ${snapshot?.lastUpdated ? formatTimestamp(snapshot.lastUpdated) : '–'}`}>
+    {#if loading && !entries.length}
+      <p class="loading">Loading log entries…</p>
+    {:else if !entries.length}
+      <div class="empty">
+        <p>No log entries match the current filters.</p>
+        <Button variant="ghost" on:click={() => { search = ''; severity = 'all'; sourceId = 'all'; }}>Reset filters</Button>
+      </div>
+    {:else}
       <ul class="log-list">
-        {#each filteredLogs as entry (entry.id)}
+        {#each entries as entry (entry.id)}
           <li class="log-entry">
-            <div class="log-content">
-              <time class="log-timestamp">{new Date(entry.timestamp).toLocaleString()}</time>
-              <p class="log-message">{entry.message}</p>
-              {#if entry.id}
-                <span class="log-id">ID: {entry.id}</span>
+            <div class="meta">
+              <time datetime={entry.timestamp}>{formatTimestamp(entry.timestamp)}</time>
+              <StatusPill status={severityToStatus(entry.severity)} label={entry.severity} />
+              <span class="source">{entry.source}</span>
+              {#if entry.deviceId}
+                <a class="device" href={`/fleet/${entry.deviceId}`}>{entry.deviceId}</a>
+              {/if}
+              {#if entry.correlationId}
+                <span class="correlation">{entry.correlationId}</span>
               {/if}
             </div>
-            <StatusPill
-              status={entry.severity === 'error' ? 'error' : entry.severity === 'warning' ? 'warn' : 'ok'}
-              label={entry.severity}
-            />
+            <pre class="message">{entry.message.length > maxContextPreview ? `${entry.message.slice(0, maxContextPreview)}…` : entry.message}</pre>
+            {#if entry.context}
+              <details class="context">
+                <summary>Context</summary>
+                <pre>{JSON.stringify(entry.context, null, 2)}</pre>
+              </details>
+            {/if}
           </li>
         {/each}
       </ul>
-    {:else if data.logs?.entries.length === 0}
-      <div class="empty-state">
-        <div class="empty-icon">📝</div>
-        <p>No log entries available.</p>
-        <small>Events will appear here as they occur.</small>
-      </div>
-    {:else}
-      <div class="empty-state">
-        <div class="empty-icon">🔍</div>
-        <p>No entries match your filters.</p>
-        <small>Try adjusting your search criteria.</small>
-      </div>
     {/if}
   </Card>
 </div>
 
 <style>
-  .logs-container {
-    max-width: 100%;
-    margin: 0 auto;
-  }
-
-  .filters-section {
+  .logs-page {
     display: flex;
     flex-direction: column;
+    gap: var(--spacing-6);
+  }
+
+  .toolbar {
+    display: flex;
+    flex-wrap: wrap;
     gap: var(--spacing-4);
-    margin-bottom: var(--spacing-4);
-    padding-bottom: var(--spacing-4);
-    border-bottom: 1px solid rgba(148, 163, 184, 0.1);
+    align-items: flex-end;
+    justify-content: space-between;
   }
 
-  .search-bar {
+  .filters {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--spacing-4);
+    align-items: flex-end;
+  }
+
+  label {
     display: flex;
     flex-direction: column;
-    gap: var(--spacing-3);
-  }
-
-  .search-input {
-    padding: var(--spacing-3);
-    border: 1px solid rgba(148, 163, 184, 0.3);
-    border-radius: var(--radius-md);
-    background: rgba(11, 23, 45, 0.4);
-    color: var(--color-text);
-    font-size: var(--font-size-sm);
-    width: 100%;
-  }
-
-  .search-input:focus {
-    outline: none;
-    border-color: var(--color-brand);
-  }
-
-  .filter-controls {
-    display: flex;
-    gap: var(--spacing-3);
-    flex-wrap: wrap;
-  }
-
-  .filter-select {
-    padding: var(--spacing-2) var(--spacing-3);
-    border: 1px solid rgba(148, 163, 184, 0.3);
-    border-radius: var(--radius-md);
-    background: rgba(11, 23, 45, 0.4);
-    color: var(--color-text);
-    font-size: var(--font-size-sm);
-    cursor: pointer;
-  }
-
-  .filter-select:focus {
-    outline: none;
-    border-color: var(--color-brand);
-  }
-
-  .filter-actions {
-    display: flex;
-    gap: var(--spacing-3);
-    align-items: center;
-    justify-content: flex-end;
-    flex-wrap: wrap;
-  }
-
-  .results-summary {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    margin-bottom: var(--spacing-4);
-    padding: var(--spacing-2) 0;
-  }
-
-  .count {
-    font-size: var(--font-size-sm);
+    gap: var(--spacing-2);
+    font-size: var(--font-size-xs);
     color: var(--color-text-muted);
   }
 
-  .filter-indicator {
-    background: rgba(59, 130, 246, 0.1);
-    color: rgb(59, 130, 246);
-    padding: var(--spacing-1) var(--spacing-2);
-    border-radius: var(--radius-sm);
-    font-size: var(--font-size-xs);
-    font-weight: 500;
+  select,
+  input[type='search'] {
+    min-width: 12rem;
+    padding: var(--spacing-2) var(--spacing-3);
+    border-radius: var(--radius-md);
+    border: 1px solid rgba(148, 163, 184, 0.3);
+    background: rgba(11, 23, 45, 0.4);
+    color: var(--color-text);
+  }
+
+  .search input {
+    min-width: 18rem;
+  }
+
+  .actions {
+    display: flex;
+    gap: var(--spacing-3);
+    align-items: center;
+  }
+
+  .error {
+    padding: var(--spacing-3);
+    border-radius: var(--radius-md);
+    background: rgba(239, 68, 68, 0.15);
+    border: 1px solid rgba(239, 68, 68, 0.3);
+    color: var(--color-red-200);
+  }
+
+  .loading {
+    margin: 0;
+    padding: var(--spacing-4);
+    text-align: center;
+  }
+
+  .empty {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: var(--spacing-3);
+    padding: var(--spacing-6) var(--spacing-4);
+    color: var(--color-text-muted);
   }
 
   .log-list {
@@ -242,88 +381,90 @@
   }
 
   .log-entry {
+    border: 1px solid rgba(148, 163, 184, 0.15);
+    border-radius: var(--radius-md);
+    padding: var(--spacing-3);
+    background: rgba(11, 23, 45, 0.25);
+    display: grid;
+    gap: var(--spacing-2);
+  }
+
+  .meta {
     display: flex;
-    justify-content: space-between;
+    flex-wrap: wrap;
     gap: var(--spacing-3);
-    align-items: flex-start;
-    padding: var(--spacing-3);
-    border: 1px solid rgba(148, 163, 184, 0.1);
-    border-radius: var(--radius-md);
-    background: rgba(11, 23, 45, 0.2);
-  }
-
-  .log-content {
-    flex: 1;
-    min-width: 0;
-  }
-
-  .log-timestamp {
-    display: block;
+    align-items: center;
     font-size: var(--font-size-xs);
     color: var(--color-text-muted);
-    margin-bottom: var(--spacing-1);
   }
 
-  .log-message {
+  time {
+    font-variant-numeric: tabular-nums;
+  }
+
+  .source {
+    font-weight: 600;
+    color: var(--color-text);
+  }
+
+  .device {
+    color: var(--color-brand);
+    text-decoration: none;
+  }
+
+  .device:hover {
+    text-decoration: underline;
+  }
+
+  .message {
     margin: 0;
+    white-space: pre-wrap;
     font-size: var(--font-size-sm);
-    color: var(--color-text);
     line-height: 1.5;
+    color: var(--color-text);
   }
 
-  .log-id {
-    display: block;
+  .context {
+    background: rgba(15, 23, 42, 0.45);
+    border-radius: var(--radius-sm);
+    overflow: hidden;
+  }
+
+  .context summary {
+    padding: var(--spacing-2) var(--spacing-3);
+    cursor: pointer;
     font-size: var(--font-size-xs);
     color: var(--color-text-muted);
-    margin-top: var(--spacing-1);
-    font-family: 'Courier New', monospace;
   }
 
-  .empty-state {
-    text-align: center;
-    padding: var(--spacing-8) var(--spacing-4);
-    color: var(--color-text-muted);
-  }
-
-  .empty-icon {
-    font-size: 3rem;
-    margin-bottom: var(--spacing-3);
-  }
-
-  .empty-state p {
-    margin: 0 0 var(--spacing-2);
-    font-size: var(--font-size-lg);
-    color: var(--color-text);
-  }
-
-  .empty-state small {
-    font-size: var(--font-size-sm);
-  }
-
-  .error-message {
-    color: var(--color-red-500);
-    background: rgba(239, 68, 68, 0.1);
-    border: 1px solid rgba(239, 68, 68, 0.3);
-    border-radius: var(--radius-md);
+  .context pre {
+    margin: 0;
     padding: var(--spacing-3);
+    font-size: var(--font-size-xs);
+    background: rgba(15, 23, 42, 0.7);
+    border-top: 1px solid rgba(148, 163, 184, 0.1);
   }
 
-  @media (min-width: 48rem) {
-    .search-bar {
-      flex-direction: row;
-      align-items: center;
-      justify-content: space-between;
+  @media (max-width: 768px) {
+    .filters {
+      width: 100%;
+      justify-content: stretch;
     }
 
-    .search-input {
-      flex: 1;
-      max-width: 24rem;
+    .filters label,
+    .filters select,
+    .filters input {
+      width: 100%;
     }
 
-    .filters-section {
-      flex-direction: row;
-      align-items: center;
-      justify-content: space-between;
+    .actions {
+      width: 100%;
+      justify-content: flex-end;
+      flex-wrap: wrap;
+    }
+
+    .actions :global(button) {
+      flex: 1 1 auto;
     }
   }
 </style>

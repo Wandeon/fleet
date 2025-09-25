@@ -1,0 +1,92 @@
+{
+  "api": {
+    "bearerTokenMasked": "sk_live_****2318",
+    "lastRotatedAt": "2025-09-24T22:41:12Z",
+    "expiresAt": "2025-10-08T22:41:12Z",
+    "allowedOrigins": [
+      "https://ops.headspa.example",
+      "https://staging.headspa.example"
+    ],
+    "webhookUrl": "https://ops.headspa.example/hooks/events"
+  },
+  "proxy": {
+    "baseUrl": "https://proxy.headspa.internal",
+    "timeoutMs": 8000,
+    "health": "online",
+    "latencyMs": 82,
+    "errorRate": 0.002
+  },
+  "pairing": {
+    "active": false,
+    "method": "qr",
+    "expiresAt": null,
+    "discovered": [],
+    "history": [
+      {
+        "id": "pair-20250924-01",
+        "completedAt": "2025-09-24T19:12:00Z",
+        "deviceId": "pi-audio-05",
+        "status": "success",
+        "note": "Paired via QR"
+      },
+      {
+        "id": "pair-20250923-01",
+        "completedAt": "2025-09-23T16:08:22Z",
+        "deviceId": "pi-video-02",
+        "status": "error",
+        "note": "Timed out waiting for heartbeat"
+      }
+    ]
+  },
+  "operators": [
+    {
+      "id": "op-mmartin",
+      "name": "Martina Rivera",
+      "email": "martina.rivera@example.com",
+      "roles": ["operator", "audio"],
+      "lastActiveAt": "2025-09-25T01:12:08Z",
+      "status": "active"
+    },
+    {
+      "id": "op-wchan",
+      "name": "Wen Chan",
+      "email": "wen.chan@example.com",
+      "roles": ["admin"],
+      "lastActiveAt": "2025-09-24T23:02:41Z",
+      "status": "active"
+    },
+    {
+      "id": "op-loreilly",
+      "name": "Connor O'Reilly",
+      "email": "connor.oreilly@example.com",
+      "roles": ["viewer"],
+      "lastActiveAt": null,
+      "status": "invited"
+    }
+  ],
+  "roles": [
+    {
+      "id": "admin",
+      "name": "Administrator",
+      "description": "Full access to all settings and device actions",
+      "permissions": ["settings:write", "devices:reboot", "audio:override"],
+      "assignable": true
+    },
+    {
+      "id": "operator",
+      "name": "Operator",
+      "description": "Manage day-to-day jobs across modules",
+      "permissions": ["audio:play", "video:control", "logs:view"],
+      "assignable": true
+    },
+    {
+      "id": "viewer",
+      "name": "Viewer",
+      "description": "Read-only access for audits",
+      "permissions": ["logs:view"],
+      "assignable": true
+    }
+  ],
+  "pendingRestart": false,
+  "lastSavedAt": "2025-09-24T22:41:15Z"
+}

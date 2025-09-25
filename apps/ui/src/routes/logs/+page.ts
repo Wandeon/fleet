@@ -1,14 +1,15 @@
 import type { PageLoad } from './$types';
-import { apiClient } from '$lib/api/client';
+import { fetchLogSnapshot } from '$lib/api/logs-operations';
+import type { LogsSnapshot } from '$lib/types';
 
 export const load: PageLoad = async ({ fetch, depends }) => {
   depends('app:logs');
 
   try {
-    const logs = await apiClient.fetchLogs({ fetch });
-    return { logs, error: null };
+    const snapshot = await fetchLogSnapshot({ fetch });
+    return { snapshot, error: null as string | null } satisfies { snapshot: LogsSnapshot; error: string | null };
   } catch (error) {
     const message = error instanceof Error ? error.message : 'Unable to load logs';
-    return { logs: null, error: message };
+    return { snapshot: null, error: message };
   }
 };
