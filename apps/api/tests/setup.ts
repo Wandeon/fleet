@@ -1,3 +1,5 @@
+import { execSync } from 'node:child_process';
+
 process.env.NODE_ENV = 'test';
 process.env.DATABASE_URL = process.env.DATABASE_URL ?? 'file:./test.db';
 process.env.API_BEARER = process.env.API_BEARER ?? 'test-token';
@@ -25,3 +27,12 @@ process.env.DEVICE_REGISTRY_JSON =
       }
     ]
   });
+
+if (!process.env.PRISMA_MIGRATED) {
+  const env = {
+    ...process.env,
+    DATABASE_URL: process.env.DATABASE_URL ?? 'file:./test.db'
+  };
+  execSync('npx prisma migrate deploy', { stdio: 'ignore', env });
+  process.env.PRISMA_MIGRATED = 'true';
+}

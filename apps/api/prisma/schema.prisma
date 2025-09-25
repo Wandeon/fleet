@@ -24,6 +24,82 @@ model Device {
   jobs     Job[]
 }
 
+model AudioTrack {
+  id               String   @id @default(cuid())
+  title            String
+  artist           String?
+  durationSeconds  Float
+  format           String
+  sizeBytes        BigInt?
+  tagsJson         String?
+  metadataJson     String?
+  filePath         String
+  uploadedAt       DateTime @default(now())
+
+  playlistEntries  AudioPlaylistTrack[]
+  sessions         AudioSession[]
+}
+
+model AudioPlaylist {
+  id          String               @id @default(cuid())
+  name        String
+  description String?
+  loop        Boolean              @default(false)
+  syncMode    String
+  createdAt   DateTime             @default(now())
+  updatedAt   DateTime             @updatedAt
+
+  tracks      AudioPlaylistTrack[]
+}
+
+model AudioPlaylistTrack {
+  id                  String        @id @default(cuid())
+  playlistId          String
+  trackId             String
+  order               Int
+  startOffsetSeconds  Float?
+  deviceOverridesJson String?
+
+  playlist            AudioPlaylist @relation(fields: [playlistId], references: [id], onDelete: Cascade)
+  track               AudioTrack    @relation(fields: [trackId], references: [id], onDelete: Cascade)
+
+  @@index([playlistId, order])
+}
+
+model AudioSession {
+  id             String    @id @default(cuid())
+  playlistId     String?
+  trackId        String?
+  deviceIdsJson  String
+  assignmentsJson String?
+  syncMode       String
+  state          String
+  startedAt      DateTime  @default(now())
+  completedAt    DateTime?
+  lastError      String?
+  driftJson      String?
+
+  track          AudioTrack? @relation(fields: [trackId], references: [id])
+}
+
+model AudioDeviceStatus {
+  deviceId           String   @id
+  name               String
+  status             String
+  group              String?
+  volumePercent      Int
+  capabilitiesJson   String
+  playbackJson       String
+  lastUpdated        DateTime @updatedAt
+  lastError          String?
+  timelineJson       String?
+}
+
+model AudioSetting {
+  key   String @id
+  value String
+}
+
 model DeviceState {
   id         String   @id @default(cuid())
   deviceId   String
