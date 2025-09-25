@@ -342,23 +342,40 @@ export const setDeviceVolume = async (
   }
 
   const fetchImpl = ensureFetch(options.fetch);
+  const normalized = Math.max(0, Math.min(2, volumePercent / 100));
+
+  // Try the control-plane endpoint first (preferred, aligns with OpenAPI).
   try {
     await rawRequest(`/audio/devices/${deviceId}/volume`, {
       method: 'POST',
       headers: jsonHeaders,
-      body: JSON.stringify({ volume: Math.max(0, Math.min(2, volumePercent / 100)) }),
+      body: JSON.stringify({ volume: normalized }),
       fetch: fetchImpl as RequestOptions['fetch']
     });
   } catch (error) {
+    // Fallback path for environments where /audio/devices/{id}/volume isn't live yet.
     console.warn('TODO(backlog): implement /audio/devices/{id}/volume endpoint', error);
-    await AudioApi.setVolume(deviceId, {
-      volume: Math.max(0, Math.min(2, volumePercent / 100))
-    });
+    await AudioApi.setVolume(deviceId, { volume: normalized });
+    try {
+      return mapDeviceFromApi(await AudioApi.getDevice(deviceId));
+    } catch (fallbackErr) {
+      console.warn('Fallback getDevice failed after setVolume', fallbackErr);
+      throw fallbackErr;
+    }
   }
 
-  const latest = await rawRequest<AudioDeviceStatus>(`/audio/devices/${deviceId}`, {
-    fetch: fetchImpl as RequestOptions['fetch']
-  });
+  // Read back latest status from control-plane; if that fails, fallback to legacy client.
+  try {
+    const latest = await rawRequest<AudioDeviceStatus>(`/audio/devices/${deviceId}`, {
+      fetch: fetchImpl as RequestOptions['fetch']
+    });
+    return mapDeviceFromApi(latest);
+  } catch (error) {
+    console.warn('TODO(backlog): implement /audio/devices/{id} endpoint', error);
+    // Final fallback: legacy client read
+    return mapDeviceFromApi(await AudioApi.getDevice(deviceId));
+  }
+};
 
   if (latest) {
     return mapDeviceFromApi(latest);
