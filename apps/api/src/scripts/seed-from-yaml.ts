@@ -121,7 +121,10 @@ function buildCapabilities(device: InventoryDevice) {
       },
     });
   }
-  // eslint-disable-next-line no-console
+   
   console.log('Seed complete');
   process.exit(0);
-})();
+})().catch(error => {
+  console.error('Seed failed:', error);
+  process.exit(1);
+});

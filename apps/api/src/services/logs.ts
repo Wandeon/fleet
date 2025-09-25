@@ -229,7 +229,7 @@ function deriveSeverity(
     normalizeSeverity((labels as Record<string, unknown>).syslog_priority);
   if (fromLabels) return fromLabels;
 
-  const match = message.match(/^[\s\[]*(TRACE|DEBUG|INFO|NOTICE|WARN|WARNING|ERR|ERROR|CRIT|CRITICAL|ALERT|EMERG|FATAL)\b/i);
+  const match = message.match(/^[\s[]*(TRACE|DEBUG|INFO|NOTICE|WARN|WARNING|ERR|ERROR|CRIT|CRITICAL|ALERT|EMERG|FATAL)\b/i);
   if (match) {
     const fromMessage = normalizeSeverity(match[1]);
     if (fromMessage) return fromMessage;
@@ -267,7 +267,7 @@ function parseLogLine(raw: string): {
         }
         fields = Object.keys(copy).length ? copy : undefined;
       }
-    } catch (err) {
+    } catch {
       message = trimmed;
     }
   } else {
@@ -282,7 +282,7 @@ function nsToIso(ns: string): string {
   try {
     const ms = Number(BigInt(ns) / 1_000_000n);
     return new Date(ms).toISOString();
-  } catch (err) {
+  } catch {
     const fallback = Number.parseInt(ns.slice(0, -6), 10);
     return new Date(fallback).toISOString();
   }
@@ -370,7 +370,7 @@ export async function fetchLogs(options: FetchLogsOptions = {}): Promise<FetchLo
     });
 
     const data = response.data?.data;
-    const streams = Array.isArray(data?.result) ? (data.result as any) : [];
+    const streams = Array.isArray(data?.result) ? (data.result) : [];
     const entries = transformStreams(streams, active);
     return {
       source: active.id,

@@ -32,7 +32,7 @@
   let subscription: LogStreamSubscription | null = null;
   let searchDebounce: ReturnType<typeof setTimeout> | null = null;
 
-  const severityOptions: Array<{ value: LogSeverity | 'all'; label: string }> = [
+  const severityOptions: { value: LogSeverity | 'all'; label: string }[] = [
     { value: 'all', label: 'All severities' },
     { value: 'critical', label: 'Critical' },
     { value: 'error', label: 'Errors' },

@@ -20,7 +20,7 @@ export function getContext(): RequestContext | undefined {
 export function setContextValue<TKey extends keyof RequestContext>(key: TKey, value: RequestContext[TKey]) {
   const ctx = storage.getStore();
   if (ctx) {
-    ctx[key] = value as RequestContext[TKey];
+    ctx[key] = value;
   }
 }
 
