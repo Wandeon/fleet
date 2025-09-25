@@ -112,7 +112,7 @@ export async function deleteLibraryTrack(trackId: string): Promise<void> {
 
 export interface PlaylistTrackInput {
   trackId: string;
-  order: number;
+  order?: number;
   startOffsetSeconds?: number | null;
   deviceOverrides?: Record<string, string> | null;
 }

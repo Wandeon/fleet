@@ -10,7 +10,7 @@ export const audioPlaylistTrackSchema = z.object({
   trackId: z.string().min(1),
   order: z.coerce.number().int().min(0).optional(),
   startOffsetSeconds: z.coerce.number().min(0).optional(),
-  deviceOverrides: z.record(z.string()).optional()
+  deviceOverrides: z.record(z.string(), z.string()).optional()
 });
 
 export const audioPlaylistSchema = z.object({
