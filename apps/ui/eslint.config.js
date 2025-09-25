@@ -4,7 +4,14 @@ import sveltePlugin from 'eslint-plugin-svelte';
 import globals from 'globals';
 import tseslint from 'typescript-eslint';
 
-const projectIgnores = ['build/**', '.svelte-kit/**', 'node_modules/**', 'static/**'];
+const projectIgnores = [
+  'build/**',
+  '.svelte-kit/**',
+  'node_modules/**',
+  'static/**',
+  'src/lib/api/gen/**',
+  'src/lib/api/generated/**'
+];
 
 const svelteConfigs = sveltePlugin.configs['flat/recommended'].map((config) => {
   if (!config.languageOptions) {

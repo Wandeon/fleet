@@ -30,6 +30,7 @@
         saveStatus = '';
       }, 3000);
     } catch (error) {
+      console.error('Failed to save settings', error);
       saveStatus = 'error';
       setTimeout(() => {
         saveStatus = '';
@@ -277,7 +278,6 @@
     color: var(--color-text);
   }
 
-  .field input[type="text"],
   .field input[type="password"],
   .field input[type="number"] {
     padding: var(--spacing-3);

@@ -141,8 +141,14 @@ export const HealthApi = {
 
 import { browser } from '$app/environment';
 import { mockApi } from './mock';
-import type { AudioState, CameraState, LayoutData, LogsData, VideoState, ZigbeeState } from '$lib/types';
-import type { ConnectionProbe } from '$lib/types';
+import type {
+  AudioState,
+  CameraState,
+  FleetOverviewState,
+  LayoutData,
+  VideoState,
+  ZigbeeState
+} from '$lib/types';
 
 const trimTrailingSlash = (value: string | null | undefined): string => {
   if (!value) {
@@ -304,7 +310,7 @@ export const apiClient = {
   async fetchLayout(options?: RequestOptions): Promise<LayoutData> {
     return request<LayoutData>('/fleet/layout', options);
   },
-  async fetchState(options?: RequestOptions): Promise<{ connection: ConnectionProbe; build: { commit: string; version: string } }> {
+  async fetchState(options?: RequestOptions): Promise<FleetOverviewState> {
     return request('/fleet/state', options);
   },
   async fetchAudio(options?: RequestOptions): Promise<AudioState> {
@@ -318,9 +324,6 @@ export const apiClient = {
   },
   async fetchCamera(options?: RequestOptions): Promise<CameraState> {
     return request('/camera', options);
-  },
-  async fetchLogs(options?: RequestOptions): Promise<LogsData> {
-    return request('/logs', options);
   }
 };
 

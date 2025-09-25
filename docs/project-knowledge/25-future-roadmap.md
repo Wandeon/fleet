@@ -8,6 +8,7 @@ High-level priorities for the next phases of Fleet development. Update as initia
 - **API completeness** – Implement real data for video/zigbee/camera routes currently returning placeholders. Add Zigbee action execution and camera event feeds.【F:apps/api/src/routes/video.ts†L1-L74】【F:apps/api/src/routes/zigbee.ts†L1-L82】【F:apps/api/src/routes/camera.ts†L1-L72】
 - **Health dashboards** – Wire `/health` UI to `/api/health/summary` and `/api/health/events/recent`, create Grafana panels for Zigbee and camera health.【F:apps/api/src/routes/health.ts†L1-L59】
 - **Knowledge base maintenance** – Integrate docs linting to ensure `/docs/project-knowledge/` stays authoritative (see [16-ci-fixes-history](./16-ci-fixes-history.md)).
+- **UX audit tracking** – See [Phase C report (2025-09-25)](../ux/audit/phaseC-20250925.md) for the latest UI gaps and mock dependencies.
 
 ## Mid term (3–6 months)
 
