@@ -1,7 +1,7 @@
 import type { LayoutLoad } from './$types';
 import { version } from '$app/environment';
-import { HealthApi, apiClient } from '$lib/api/client';
-import type { HealthSummary, ModuleHealth } from '$lib/api/client';
+import { apiClient, rawRequest } from '$lib/api/client';
+import type { FleetOverview } from '$lib/api/client';
 import type { HealthData, LayoutData } from '$lib/types';
 
 export const load: LayoutLoad = async ({ fetch, depends }) => {
@@ -24,47 +24,54 @@ export const load: LayoutLoad = async ({ fetch, depends }) => {
       .replace(/[-_]/g, ' ')
       .replace(/\b\w/g, (segment) => segment.toUpperCase());
 
-  const toTileStatus = (status: ModuleHealth['status']): 'ok' | 'warn' | 'error' => {
-    if (status === 'healthy') return 'ok';
-    if (status === 'degraded') return 'warn';
-    return 'error';
+  const toTileStatus = (module: FleetOverview['modules'][number]): 'ok' | 'warn' | 'error' => {
+    if (module.degraded > 0) return 'warn';
+    if (module.offline > 0) return 'error';
+    return 'ok';
   };
 
-  const toHealthData = (summary: HealthSummary, fallback?: HealthData | null): HealthData => {
-    const metrics = summary.modules.length
-      ? summary.modules.map((module) => ({
-          id: module.id,
-          label: formatModuleLabel(module.id),
-          value:
-            module.status === 'healthy'
-              ? 'Healthy'
-              : module.status === 'degraded'
-                ? 'Degraded'
-                : 'Down',
-          status: toTileStatus(module.status),
-          hint: module.message ?? undefined
-        }))
+  const toHealthData = (overview: FleetOverview, fallback?: HealthData | null): HealthData => {
+    const metrics = overview.modules.length
+      ? overview.modules.map((module) => {
+          const total = module.online + module.degraded + module.offline;
+          const label = module.label || formatModuleLabel(module.id);
+          const status = toTileStatus(module);
+          let hint: string | undefined;
+          if (module.degraded > 0) {
+            hint = `${module.degraded} degraded`;
+          } else if (module.offline > 0) {
+            hint = `${module.offline} offline`;
+          }
+          const value = total > 0 ? `${module.online}/${total} online` : 'No devices';
+          return {
+            id: module.id,
+            label,
+            value,
+            status,
+            hint
+          } satisfies HealthData['metrics'][number];
+        })
       : fallback?.metrics ?? [];
 
     return {
-      updatedAt: summary.updatedAt,
+      updatedAt: overview.updatedAt,
       uptime: fallback?.uptime ?? '—',
       metrics
     } satisfies HealthData;
   };
 
-  const [layoutResult, stateResult, healthResult] = await Promise.all([
+  const [layoutResult, stateResult, overviewResult] = await Promise.all([
     toResult(apiClient.fetchLayout({ fetch })),
     toResult(apiClient.fetchState({ fetch })),
-    toResult(HealthApi.getSummary())
+    toResult(rawRequest<FleetOverview>('/fleet/overview', { fetch }))
   ]);
 
   const layoutSource = layoutResult.value ?? null;
   let layout: LayoutData | null = layoutSource ? { ...layoutSource } : null;
 
   const existingHealth = layout?.health ?? null;
-  const normalizedHealth = healthResult.value
-    ? toHealthData(healthResult.value, existingHealth)
+  const normalizedHealth = overviewResult.value
+    ? toHealthData(overviewResult.value, existingHealth)
     : existingHealth;
 
   if (layout) {
@@ -84,7 +91,7 @@ export const load: LayoutLoad = async ({ fetch, depends }) => {
     layout,
     layoutError: layoutResult.error,
     stateError: stateResult.error,
-    healthError: healthResult.error,
+    healthError: overviewResult.error,
     connection: state?.connection ?? { status: 'offline', latencyMs: 0 },
     build: state?.build ?? { commit: 'unknown', version: 'unknown' },
     lastUpdated: health?.updatedAt ?? new Date().toISOString()

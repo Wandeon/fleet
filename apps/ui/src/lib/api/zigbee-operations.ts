@@ -1,7 +1,6 @@
 import {
   rawRequest,
-  USE_MOCKS,
-  ZigbeeApi
+  USE_MOCKS
 } from '$lib/api/client';
 import type { RequestOptions } from '$lib/api/client';
 import { mockApi } from '$lib/api/mock';
@@ -13,10 +12,23 @@ interface PairingState {
   discovered: { id: string; name: string; type: string; signal: number }[];
 }
 
+interface LegacyZigbeeDevice {
+  id: string;
+  displayName?: string;
+  type?: string;
+  state?: string;
+  batteryPercent?: number | null;
+  lastSeen?: string;
+}
+
 const ensureFetch = (fetchImpl?: typeof fetch) => fetchImpl ?? fetch;
 
-const mapDevices = async (): Promise<ZigbeeState> => {
-  const { items } = await ZigbeeApi.listDevices();
+const legacyZigbeeOverview = async (fetchImpl: typeof fetch): Promise<ZigbeeState> => {
+  const response = await rawRequest<{ items?: LegacyZigbeeDevice[] }>(
+    '/zigbee/devices',
+    { fetch: fetchImpl as RequestOptions['fetch'] }
+  );
+  const items = response?.items ?? [];
   return {
     devices: items.map((item) => ({
       id: item.id,
@@ -24,7 +36,7 @@ const mapDevices = async (): Promise<ZigbeeState> => {
       type: item.type ?? 'Device',
       state: (item.state as ZigbeeState['devices'][number]['state']) ?? 'inactive',
       lastSeen: item.lastSeen ?? new Date().toISOString(),
-      battery: item.batteryPercent ?? 100
+      battery: item.batteryPercent ?? undefined
     })),
     quickActions: [
       { id: 'open', label: 'Open', description: 'Trigger open action' },
@@ -35,7 +47,7 @@ const mapDevices = async (): Promise<ZigbeeState> => {
       active: false,
       discovered: []
     }
-  };
+  } satisfies ZigbeeState;
 };
 
 export const getZigbeeOverview = async (options: { fetch?: typeof fetch } = {}): Promise<ZigbeeState> => {
@@ -52,7 +64,7 @@ export const getZigbeeOverview = async (options: { fetch?: typeof fetch } = {}):
     });
   } catch (error) {
     console.warn('TODO(backlog): implement /zigbee/overview endpoint', error);
-    return mapDevices();
+    return legacyZigbeeOverview(fetchImpl);
   }
 };
 
