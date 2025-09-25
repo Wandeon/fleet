@@ -141,12 +141,12 @@ export interface ZigbeeState {
   pairing?: {
     active: boolean;
     expiresAt?: string;
-    discovered: Array<{
+    discovered: {
       id: string;
       name: string;
       type: string;
       signal: number;
-    }>;
+    }[];
   };
 }
 
@@ -407,7 +407,7 @@ export interface FleetDeviceDetail {
   alerts: FleetDeviceAlert[];
   logs: LogEntry[];
   actions: FleetDeviceAction[];
-  connections: Array<{ name: string; status: 'connected' | 'pending' | 'error'; lastChecked: string }>;
+  connections: { name: string; status: 'connected' | 'pending' | 'error'; lastChecked: string }[];
 }
 
 export interface FleetOverview {
@@ -417,13 +417,13 @@ export interface FleetOverview {
     offline: number;
     degraded: number;
   };
-  modules: Array<{
+  modules: {
     id: string;
     label: string;
     online: number;
     offline: number;
     degraded: number;
-  }>;
+  }[];
   devices: FleetDeviceSummary[];
   updatedAt: string;
 }

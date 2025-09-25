@@ -37,7 +37,7 @@
         (filterStatus === 'error' && device.status === 'error') ||
         (filterStatus === 'offline' && device.status === 'offline') ||
         (filterStatus === 'online' && device.status === 'online') ||
-        (filterStatus === 'degraded' && device.status === 'degraded');
+        (filterStatus === 'degraded' && device.status === 'error');
       return moduleMatch && statusMatch;
     });
   };

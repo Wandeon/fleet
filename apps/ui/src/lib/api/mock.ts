@@ -568,29 +568,29 @@ const mockApiBase = {
   }
 };
 
-type MockApiExtensions = {
+interface MockApiExtensions {
   camera(): CameraState;
   cameraSummary(): {
     status: 'online' | 'offline' | 'degraded';
     updatedAt: string;
     reason: string | null;
-    cameras: Array<{
+    cameras: {
       id: string;
       name: string;
       status: 'online' | 'offline' | 'degraded';
       lastSeen?: string | null;
       reason?: string | null;
-    }>;
+    }[];
   };
   cameraEvents(): {
-    items: Array<{
+    items: {
       id: string;
       ts: string;
       message: string;
       severity: 'info' | 'warn' | 'error';
       cameraId?: string | null;
       snapshotUrl?: string | null;
-    }>;
+    }[];
     updatedAt: string;
   };
   cameraPreview(cameraId: string): {
