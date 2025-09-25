@@ -7,6 +7,8 @@ const LOG_LABEL = '[ui-proxy]';
 
 const BASE_RESPONSE_HEADERS = new Set(['cache-control', 'etag', 'last-modified']);
 
+type HttpMethod = 'GET' | 'HEAD' | 'POST' | 'PUT' | 'PATCH' | 'DELETE';
+
 interface ProxyOptions {
   /** When true the request will bypass mock fallbacks even if mocks are enabled. */
   forceLive?: boolean;
@@ -15,6 +17,16 @@ interface ProxyOptions {
   /** Additional response headers to forward from the upstream response. */
   forwardHeaders?: string[];
 }
+
+export interface ProxyFallbackContext {
+  event: RequestEvent;
+  rawBody: ArrayBuffer | null;
+  json: () => Promise<unknown>;
+  text: () => Promise<string>;
+  formData: () => Promise<FormData>;
+}
+
+type ProxyFallback = (context: ProxyFallbackContext) => Promise<Response | unknown> | Response | unknown;
 
 function resolveAuthorization(): string | null {
   if (!AUTH_TOKEN) return null;
@@ -69,18 +81,53 @@ function copyAllowedHeaders(source: Headers, target: Headers, extra: string[] = 
 export async function proxyFleetRequest(
   event: RequestEvent,
   path: string,
-  fallback: () => unknown,
+  fallback: ProxyFallback,
   options: ProxyOptions = {},
 ): Promise<Response> {
-  const method = event.request.method ?? 'GET';
+  const method = (event.request.method?.toUpperCase() ?? 'GET') as HttpMethod;
   const targetPath = path.startsWith('/') ? path : `/${path}`;
   const startedAt = Date.now();
   const requestId = event.locals.requestId;
   const usingMocks = USE_MOCKS && !options.forceLive;
 
-  if (usingMocks) {
-    const mock = fallback();
-    const response = json(mock);
+  let rawBody: ArrayBuffer | null = null;
+  if (!['GET', 'HEAD'].includes(method)) {
+    rawBody = await event.request.clone().arrayBuffer();
+  }
+
+  const context: ProxyFallbackContext = {
+    event,
+    rawBody,
+    json: async () => {
+      if (!rawBody) return null;
+      const text = new TextDecoder().decode(rawBody);
+      return text ? JSON.parse(text) : null;
+    },
+    text: async () => {
+      if (!rawBody) return '';
+      return new TextDecoder().decode(rawBody);
+    },
+    formData: async () => {
+      if (rawBody === null && ['GET', 'HEAD'].includes(method)) {
+        return new FormData();
+      }
+      return event.request.clone().formData();
+    }
+  };
+
+  const respondWithMock = async () => {
+    const mock = await fallback(context);
+    if (mock instanceof Response) {
+      const response = mock;
+      response.headers.set('cache-control', response.headers.get('cache-control') ?? 'no-store');
+      logInfo(`${method} ${targetPath} -> ${response.status}`, {
+        requestId,
+        source: 'mock',
+        durationMs: Date.now() - startedAt,
+      });
+      return response;
+    }
+    const response = json(mock ?? {}, { status: 200 });
     response.headers.set('cache-control', 'no-store');
     logInfo(`${method} ${targetPath} -> 200`, {
       requestId,
@@ -88,10 +135,18 @@ export async function proxyFleetRequest(
       durationMs: Date.now() - startedAt,
     });
     return response;
+  };
+
+  if (usingMocks) {
+    return respondWithMock();
   }
 
   const target = buildTarget(targetPath);
   const headers = new Headers({ Accept: 'application/json' });
+  const originalContentType = event.request.headers.get('content-type');
+  if (originalContentType) {
+    headers.set('content-type', originalContentType);
+  }
   const auth = resolveAuthorization();
   if (auth) headers.set('Authorization', auth);
   if (event.locals.requestId) {
@@ -100,14 +155,18 @@ export async function proxyFleetRequest(
 
   let upstream: Response;
   try {
-    upstream = await event.fetch(target, { method: 'GET', headers });
+    upstream = await event.fetch(target, {
+      method,
+      headers,
+      body: rawBody ? rawBody.slice(0) : undefined
+    });
   } catch (err) {
     const detail = err instanceof Error ? err.message : String(err);
     logError(`${method} ${targetPath} -> upstream request failed`, {
       requestId,
       detail,
     });
-    throw error(502, `Upstream request failed: ${detail}`);
+    return respondWithMock();
   }
 
   if (!upstream.ok) {
@@ -117,7 +176,11 @@ export async function proxyFleetRequest(
       requestId,
       detail: detailMessage,
     });
-    throw error(upstream.status, detailMessage ?? 'Upstream request failed');
+    try {
+      return await respondWithMock();
+    } catch {
+      throw error(upstream.status, detailMessage ?? 'Upstream request failed');
+    }
   }
 
   let response: Response;

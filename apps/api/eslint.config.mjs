@@ -45,7 +45,7 @@ export default [
           argsIgnorePattern: '^_'
         }
       ],
-      // Temporarily disable strict type checking rules for CI greenlight
+
       '@typescript-eslint/no-explicit-any': 'warn',
       '@typescript-eslint/no-unsafe-assignment': 'warn',
       '@typescript-eslint/no-unsafe-member-access': 'warn',
