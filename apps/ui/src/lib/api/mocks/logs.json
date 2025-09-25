@@ -1,28 +1,78 @@
 {
   "entries": [
     {
-      "id": "log-1",
-      "timestamp": "2025-01-12T12:20:01Z",
-      "message": "pi-audio-01 acknowledged volume change",
-      "severity": "info"
+      "id": "log-001",
+      "ts": "2025-01-12T12:20:01Z",
+      "level": "info",
+      "msg": "pi-audio-01 acknowledged volume change",
+      "service": "audio-agent",
+      "host": "pi-audio-01",
+      "correlationId": "corr-audio-1001",
+      "context": {
+        "deviceId": "pi-audio-01",
+        "module": "audio",
+        "action": "volume",
+        "value": 68
+      }
     },
     {
-      "id": "log-2",
-      "timestamp": "2025-01-12T12:18:35Z",
-      "message": "Operator muted lounge TV",
-      "severity": "info"
+      "id": "log-002",
+      "ts": "2025-01-12T12:18:35Z",
+      "level": "info",
+      "msg": "Operator muted lounge TV",
+      "service": "video-control",
+      "host": "pi-video-01",
+      "correlationId": "corr-video-2402",
+      "context": {
+        "deviceId": "pi-video-01",
+        "module": "video",
+        "operation": "mute",
+        "initiator": "operator"
+      }
     },
     {
-      "id": "log-3",
-      "timestamp": "2025-01-12T11:57:12Z",
-      "message": "pi-audio-02 didn’t respond. Retry?",
-      "severity": "error"
+      "id": "log-003",
+      "ts": "2025-01-12T11:57:12Z",
+      "level": "error",
+      "msg": "Upstream timeout reaching pi-audio-02",
+      "service": "fleet-api",
+      "host": "fleet-vps",
+      "correlationId": "corr-api-7734",
+      "context": {
+        "deviceId": "pi-audio-02",
+        "module": "audio",
+        "status": "timeout",
+        "durationMs": 3100
+      }
     },
     {
-      "id": "log-4",
-      "timestamp": "2025-01-12T11:31:10Z",
-      "message": "Zigbee hub offline. Check power and network.",
-      "severity": "warning"
+      "id": "log-004",
+      "ts": "2025-01-12T11:31:10Z",
+      "level": "warn",
+      "msg": "Zigbee hub offline. Check power and network.",
+      "service": "zigbee-coordinator",
+      "host": "pi-zigbee-01",
+      "correlationId": "corr-zigbee-0912",
+      "context": {
+        "module": "zigbee",
+        "deviceId": "pi-zigbee-01",
+        "attempt": 2
+      }
+    },
+    {
+      "id": "log-005",
+      "ts": "2025-01-12T11:21:04Z",
+      "level": "debug",
+      "msg": "Camera heartbeat acknowledged",
+      "service": "camera-bridge",
+      "host": "pi-camera-01",
+      "correlationId": "corr-camera-4581",
+      "context": {
+        "module": "camera",
+        "deviceId": "pi-camera-01",
+        "status": "heartbeat"
+      }
     }
-  ]
+  ],
+  "cursor": null
 }

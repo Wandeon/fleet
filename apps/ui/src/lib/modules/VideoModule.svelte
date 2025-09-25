@@ -7,6 +7,7 @@
   import StatusPill from '$lib/components/StatusPill.svelte';
   import { createEventDispatcher } from 'svelte';
   import { goto, invalidate } from '$app/navigation';
+  import { resolve } from '$app/paths';
   import {
     fetchRecordingTimeline,
     generateLivePreviewUrl,
@@ -57,6 +58,11 @@
     dispatch('refresh');
     invalidate('app:video');
     onRetry?.();
+  };
+
+  const openVideoControls = () => {
+    const videoRoute = resolve('/video');
+    void goto(videoRoute);
   };
 
   const showMessage = (message: string) => {
@@ -208,7 +214,7 @@
         <strong>{data.input}</strong>
         <span class="label">Last signal</span>
         <strong>{new Date(data.lastSignal).toLocaleTimeString()}</strong>
-        <Button variant="ghost" on:click={() => goto('/video')}>Open controls</Button>
+        <Button variant="ghost" on:click={openVideoControls}>Open controls</Button>
       </div>
     </div>
   {:else}
@@ -300,7 +306,7 @@
         {:else}
           <div class="timeline-body">
             <ul class="segments">
-              {#each timeline as segment}
+              {#each timeline as segment (segment.id)}
                 <li class:selected={segment.id === selectedSegmentId}>
                   <button type="button" on:click={() => playSegment(segment)}>
                     <strong>{segment.label ?? segment.id}</strong>
@@ -339,7 +345,7 @@
           <p class="muted">No downstream CEC devices reported.</p>
         {:else}
           <ul class="cec-list">
-            {#each data.cecDevices as device}
+            {#each data.cecDevices as device (device.id)}
               <li>
                 <div>
                   <strong>{device.name}</strong>

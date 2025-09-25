@@ -73,6 +73,7 @@ export const getAudioOverview = async (options: { fetch?: typeof fetch } = {}): 
       sessions: []
     };
   } catch (error) {
+    console.warn('Falling back to AudioApi.listDevices()', error);
     const fallback = await AudioApi.listDevices();
     return {
       masterVolume: 100,
@@ -340,9 +341,28 @@ export const setDeviceVolume = async (
     return mockApi.audioSetVolume(deviceId, volumePercent);
   }
 
-  await AudioApi.setVolume(deviceId, {
-    volume: Math.max(0, Math.min(2, volumePercent / 100))
+  const fetchImpl = ensureFetch(options.fetch);
+  try {
+    await rawRequest(`/audio/devices/${deviceId}/volume`, {
+      method: 'POST',
+      headers: jsonHeaders,
+      body: JSON.stringify({ volume: Math.max(0, Math.min(2, volumePercent / 100)) }),
+      fetch: fetchImpl as RequestOptions['fetch']
+    });
+  } catch (error) {
+    console.warn('TODO(backlog): implement /audio/devices/{id}/volume endpoint', error);
+    await AudioApi.setVolume(deviceId, {
+      volume: Math.max(0, Math.min(2, volumePercent / 100))
+    });
+  }
+
+  const latest = await rawRequest<AudioDeviceStatus>(`/audio/devices/${deviceId}`, {
+    fetch: fetchImpl as RequestOptions['fetch']
   });
+
+  if (latest) {
+    return mapDeviceFromApi(latest);
+  }
 
   return mapDeviceFromApi(await AudioApi.getDevice(deviceId));
 };
