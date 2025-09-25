@@ -3,48 +3,14 @@ import {
   AudioService,
   CameraService,
   FleetService,
-  HealthService,
+  LogsService,
   OpenAPI,
+  SettingsService,
   VideoService,
   ZigbeeService,
 } from './gen';
 
-export type {
-  AudioConfigRequest,
-  AudioConfigResponse,
-  AudioConfigState,
-  AudioDeviceList,
-  AudioDeviceStatus,
-  AudioPlaybackState,
-  AudioPlayRequest,
-  AudioStopResponse,
-  AudioVolumeRequest,
-  AudioVolumeResponse,
-  AudioVolumeState,
-  CameraEvent,
-  CameraEvents,
-  CameraStateSummary,
-  CameraPreview,
-  CameraSummary,
-  CameraSummaryItem,
-  CameraStorageSummary,
-  FleetLayout,
-  FleetState,
-  HealthSummary,
-  ModuleHealth,
-  RecentEvent,
-  RecentEvents,
-  TvInputRequest,
-  TvMuteRequest,
-  TvPowerRequest,
-  TvStatus,
-  TvVolumeRequest,
-  ZigbeeActionRequest,
-  ZigbeeDeviceList,
-  ZigbeeStateSummary,
-} from './gen';
-
-export { ApiError, CancelablePromise, CancelError } from './gen';
+export * from './gen';
 
 export interface ApiClientOptions {
   /** Base URL for API calls. Defaults to `/api`. */
@@ -93,50 +59,114 @@ export const configureApiClient = (options: ApiClientOptions = {}): void => {
 };
 
 export const FleetApi = {
-  getLayout: () => FleetService.getFleetLayout(),
-  getState: () => FleetService.getFleetState(),
+  getOverview: () => FleetService.getFleetOverview(),
+  getDeviceDetail: (deviceId: string) => FleetService.getFleetDeviceDetail(deviceId),
+  triggerAction: (deviceId: string, actionId: string) =>
+    FleetService.triggerFleetDeviceAction(deviceId, actionId),
 };
 
 export const AudioApi = {
-  listDevices: (limit?: number, cursor?: string) => AudioService.listAudioDevices(limit, cursor),
+  getOverview: () => AudioService.getAudioOverview(),
+  listDevices: async () => {
+    const overview = await AudioService.getAudioOverview();
+    return {
+      items: overview.devices,
+      nextCursor: null as string | null,
+    };
+  },
   getDevice: (id: string) => AudioService.getAudioDevice(id),
-  play: (id: string, payload: Parameters<typeof AudioService.playAudioDevice>[1]) =>
-    AudioService.playAudioDevice(id, payload),
+  play: (
+    deviceId: string,
+    payload: Partial<Parameters<typeof AudioService.startAudioPlayback>[0]> & {
+      syncMode?: Parameters<typeof AudioService.startAudioPlayback>[0]['syncMode'];
+    },
+  ) =>
+    AudioService.startAudioPlayback({
+      deviceIds: payload.deviceIds ?? [deviceId],
+      playlistId: payload.playlistId ?? null,
+      trackId: payload.trackId ?? null,
+      assignments: payload.assignments ?? [],
+      syncMode: payload.syncMode ?? 'independent',
+      resume: payload.resume ?? false,
+      startAtSeconds: payload.startAtSeconds,
+      loop: payload.loop,
+    }),
   stop: (id: string) => AudioService.stopAudioDevice(id),
+  pause: (id: string) => AudioService.pauseAudioDevice(id),
+  resume: (id: string) => AudioService.resumeAudioDevice(id),
+  seek: (id: string, payload: Parameters<typeof AudioService.seekAudioDevice>[1]) =>
+    AudioService.seekAudioDevice(id, payload),
   setVolume: (id: string, payload: Parameters<typeof AudioService.setAudioDeviceVolume>[1]) =>
     AudioService.setAudioDeviceVolume(id, payload),
-  updateConfig: (id: string, payload: Parameters<typeof AudioService.updateAudioDeviceConfig>[1]) =>
-    AudioService.updateAudioDeviceConfig(id, payload),
+  setMasterVolume: (payload: Parameters<typeof AudioService.setAudioMasterVolume>[0]) =>
+    AudioService.setAudioMasterVolume(payload),
+  uploadTrack: (formData: Parameters<typeof AudioService.uploadAudioTrack>[0]) =>
+    AudioService.uploadAudioTrack(formData),
+  createPlaylist: (payload: Parameters<typeof AudioService.createAudioPlaylist>[0]) =>
+    AudioService.createAudioPlaylist(payload),
+  updatePlaylist: (id: string, payload: Parameters<typeof AudioService.updateAudioPlaylist>[1]) =>
+    AudioService.updateAudioPlaylist(id, payload),
+  deletePlaylist: (id: string) => AudioService.deleteAudioPlaylist(id),
 };
 
 export const VideoApi = {
-  getTv: () => VideoService.getTvStatus(),
-  setPower: (payload: Parameters<typeof VideoService.setTvPower>[0]) =>
-    VideoService.setTvPower(payload),
-  setInput: (payload: Parameters<typeof VideoService.setTvInput>[0]) =>
-    VideoService.setTvInput(payload),
-  setVolume: (payload: Parameters<typeof VideoService.setTvVolume>[0]) =>
-    VideoService.setTvVolume(payload),
-  setMute: (payload: Parameters<typeof VideoService.setTvMute>[0]) =>
-    VideoService.setTvMute(payload),
+  getOverview: () => VideoService.getVideoOverview(),
+  getRecordings: () => VideoService.getVideoRecordings(),
+  generatePreview: (payload?: Parameters<typeof VideoService.generateVideoPreview>[0]) =>
+    VideoService.generateVideoPreview(payload),
 };
 
 export const ZigbeeApi = {
-  listDevices: (limit?: number, cursor?: string) => ZigbeeService.listZigbeeDevices(limit, cursor),
-  runAction: (id: string, payload: Parameters<typeof ZigbeeService.runZigbeeDeviceAction>[1]) =>
-    ZigbeeService.runZigbeeDeviceAction(id, payload),
+  getOverview: () => ZigbeeService.getZigbeeOverview(),
+  runAction: (id: string, payload: Parameters<typeof ZigbeeService.runZigbeeAction>[1]) =>
+    ZigbeeService.runZigbeeAction(id, payload),
+  startPairing: (payload?: Parameters<typeof ZigbeeService.startZigbeePairing>[0]) =>
+    ZigbeeService.startZigbeePairing(payload),
+  stopPairing: () => ZigbeeService.stopZigbeePairing(),
+  pollDiscovered: () => ZigbeeService.pollZigbeeDiscovered(),
+  confirmPairing: (id: string) => ZigbeeService.confirmZigbeePairing(id),
 };
 
 export const CameraApi = {
-  getSummary: () => CameraService.getCameraSummary(),
-  getEvents: (limit?: number, cursor?: string, since?: string) =>
-    CameraService.listCameraEvents(limit, cursor, since),
-  getPreview: (id: string) => CameraService.getCameraPreview(id),
+  getOverview: () => CameraService.getCameraOverview(),
+  selectCamera: (payload: Parameters<typeof CameraService.selectCamera>[0]) =>
+    CameraService.selectCamera(payload),
+  acknowledgeEvent: (eventId: string) => CameraService.acknowledgeCameraEvent(eventId),
+  requestClip: (
+    eventId: string,
+    payload: Parameters<typeof CameraService.requestCameraClip>[1],
+  ) => CameraService.requestCameraClip(eventId, payload),
+  refreshCamera: (cameraId: string) => CameraService.refreshCamera(cameraId),
 };
 
-export const HealthApi = {
-  getSummary: () => HealthService.getHealthSummary(),
-  getRecentEvents: (limit?: number, cursor?: string) => HealthService.getRecentEvents(limit, cursor),
+export const LogsApi = {
+  getSnapshot: (
+    ...args: Parameters<typeof LogsService.getLogs>
+  ) => LogsService.getLogs(...args),
+  stream: (
+    ...args: Parameters<typeof LogsService.streamLogs>
+  ) => LogsService.streamLogs(...args),
+};
+
+export const SettingsApi = {
+  getSettings: () => SettingsService.getSettings(),
+  updateProxy: (payload: Parameters<typeof SettingsService.updateProxySettings>[0]) =>
+    SettingsService.updateProxySettings(payload),
+  rotateApiToken: () => SettingsService.rotateApiToken(),
+  updateAllowedOrigins: (
+    payload: Parameters<typeof SettingsService.updateAllowedOrigins>[0],
+  ) => SettingsService.updateAllowedOrigins(payload),
+  startPairing: (
+    payload: Parameters<typeof SettingsService.startSettingsPairing>[0],
+  ) => SettingsService.startSettingsPairing(payload),
+  cancelPairing: () => SettingsService.cancelSettingsPairing(),
+  claimPairingCandidate: (
+    candidateId: string,
+    payload: Parameters<typeof SettingsService.claimPairingCandidate>[1],
+  ) => SettingsService.claimPairingCandidate(candidateId, payload),
+  inviteOperator: (
+    payload: Parameters<typeof SettingsService.inviteOperator>[0],
+  ) => SettingsService.inviteOperator(payload),
 };
 
 import { browser } from '$app/environment';

@@ -13,30 +13,46 @@ interface PairingState {
   discovered: { id: string; name: string; type: string; signal: number }[];
 }
 
+interface LegacyZigbeeDeviceSummary {
+  id: string;
+  displayName?: string;
+  type?: string;
+  state?: string;
+  batteryPercent?: number | null;
+  lastSeen?: string;
+}
+
 const ensureFetch = (fetchImpl?: typeof fetch) => fetchImpl ?? fetch;
 
-const mapDevices = async (): Promise<ZigbeeState> => {
-  const { items } = await ZigbeeApi.listDevices();
-  return {
-    devices: items.map((item) => ({
-      id: item.id,
-      name: item.displayName ?? item.id,
-      type: item.type ?? 'Device',
-      state: (item.state as ZigbeeState['devices'][number]['state']) ?? 'inactive',
-      lastSeen: item.lastSeen ?? new Date().toISOString(),
-      battery: item.batteryPercent ?? 100
-    })),
-    quickActions: [
-      { id: 'open', label: 'Open', description: 'Trigger open action' },
-      { id: 'close', label: 'Close', description: 'Trigger close action' }
-    ],
-    hubStatus: 'online',
-    pairing: {
-      active: false,
-      discovered: []
-    }
-  };
-};
+const mapLegacyDevices = (items: LegacyZigbeeDeviceSummary[]): ZigbeeState => ({
+  devices: items.map((item) => ({
+    id: item.id,
+    name: item.displayName ?? item.id,
+    type: item.type ?? 'Device',
+    state: (item.state as ZigbeeState['devices'][number]['state']) ?? 'inactive',
+    lastSeen: item.lastSeen ?? new Date().toISOString(),
+    battery: item.batteryPercent ?? undefined
+  })),
+  quickActions: [
+    { id: 'open', label: 'Open', description: 'Trigger open action' },
+    { id: 'close', label: 'Close', description: 'Trigger close action' }
+  ],
+  hubStatus: 'online',
+  pairing: {
+    active: false,
+    discovered: []
+  }
+});
+
+const mapPairingState = (state: {
+  active: boolean;
+  expiresAt?: string | null;
+  discovered: Array<{ id: string; name: string; type: string; signal: number }>;
+}): PairingState => ({
+  active: state.active,
+  expiresAt: state.expiresAt ?? undefined,
+  discovered: state.discovered ?? []
+});
 
 export const getZigbeeOverview = async (options: { fetch?: typeof fetch } = {}): Promise<ZigbeeState> => {
   if (USE_MOCKS) {
@@ -52,7 +68,16 @@ export const getZigbeeOverview = async (options: { fetch?: typeof fetch } = {}):
     });
   } catch (error) {
     console.warn('TODO(backlog): implement /zigbee/overview endpoint', error);
-    return mapDevices();
+    try {
+      const legacy = await rawRequest<{ items?: LegacyZigbeeDeviceSummary[] }>('/zigbee/devices', {
+        method: 'GET',
+        fetch: fetchImpl as RequestOptions['fetch']
+      });
+      return mapLegacyDevices(legacy?.items ?? []);
+    } catch (fallbackError) {
+      console.warn('Legacy zigbee device list unavailable', fallbackError);
+      return mapLegacyDevices([]);
+    }
   }
 };
 
@@ -67,14 +92,15 @@ export const runZigbeeAction = async (
 
   const fetchImpl = ensureFetch(options.fetch);
   try {
+    await ZigbeeApi.runAction(deviceId, { actionId });
+  } catch (error) {
+    console.warn('TODO(backlog): implement zigbee action endpoint', error);
     await rawRequest(`/zigbee/devices/${deviceId}/action`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ actionId }),
       fetch: fetchImpl as RequestOptions['fetch']
     });
-  } catch (error) {
-    console.warn('TODO(backlog): implement zigbee action endpoint', error);
   }
   return getZigbeeOverview(options);
 };
@@ -89,12 +115,8 @@ export const startPairing = async (
 
   const fetchImpl = ensureFetch(options.fetch);
   try {
-    return await rawRequest<PairingState>('/zigbee/pairing', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ durationSeconds }),
-      fetch: fetchImpl as RequestOptions['fetch']
-    });
+    const result = await ZigbeeApi.startPairing({ durationSeconds });
+    return mapPairingState(result);
   } catch (error) {
     console.warn('TODO(backlog): implement zigbee pairing endpoint', error);
     return {
@@ -111,10 +133,8 @@ export const stopPairing = async (options: { fetch?: typeof fetch } = {}): Promi
   }
   const fetchImpl = ensureFetch(options.fetch);
   try {
-    return await rawRequest<PairingState>('/zigbee/pairing', {
-      method: 'DELETE',
-      fetch: fetchImpl as RequestOptions['fetch']
-    });
+    const state = await ZigbeeApi.stopPairing();
+    return mapPairingState(state);
   } catch (error) {
     console.warn('TODO(backlog): implement pairing stop endpoint', error);
     return { active: false, discovered: [] };
@@ -127,10 +147,8 @@ export const pollDiscoveredDevices = async (options: { fetch?: typeof fetch } = 
   }
   const fetchImpl = ensureFetch(options.fetch);
   try {
-    return await rawRequest<PairingState>('/zigbee/pairing/discovered', {
-      method: 'GET',
-      fetch: fetchImpl as RequestOptions['fetch']
-    });
+    const state = await ZigbeeApi.pollDiscovered();
+    return mapPairingState(state);
   } catch (error) {
     console.warn('TODO(backlog): implement pairing discovery endpoint', error);
     return { active: false, discovered: [] };
@@ -147,12 +165,13 @@ export const confirmPairing = async (
 
   const fetchImpl = ensureFetch(options.fetch);
   try {
+    await ZigbeeApi.confirmPairing(deviceId);
+  } catch (error) {
+    console.warn('TODO(backlog): implement pairing confirm endpoint', error);
     await rawRequest(`/zigbee/pairing/${deviceId}`, {
       method: 'POST',
       fetch: fetchImpl as RequestOptions['fetch']
     });
-  } catch (error) {
-    console.warn('TODO(backlog): implement pairing confirm endpoint', error);
   }
 
   return getZigbeeOverview(options);

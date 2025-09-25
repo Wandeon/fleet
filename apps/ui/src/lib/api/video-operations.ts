@@ -2,8 +2,7 @@ import {
   API_BASE_URL,
   rawRequest,
   USE_MOCKS,
-  UiApiError,
-  VideoApi
+  UiApiError
 } from '$lib/api/client';
 import type { RequestOptions } from '$lib/api/client';
 import { mockApi } from '$lib/api/mock';
@@ -19,7 +18,19 @@ const jsonHeaders = {
   'Content-Type': 'application/json'
 };
 
-const mapFallbackState = (status: Awaited<ReturnType<typeof VideoApi.getTv>>): VideoState => ({
+interface LegacyTvStatus {
+  id: string;
+  displayName: string;
+  online?: boolean;
+  power: PowerState;
+  input: string;
+  availableInputs?: string[];
+  volume: number;
+  mute: boolean;
+  lastSeen: string;
+}
+
+const mapFallbackState = (status: LegacyTvStatus): VideoState => ({
   power: status.power,
   input: status.input,
   availableInputs: (status.availableInputs ?? []).map((input) => ({
@@ -56,8 +67,26 @@ export const getVideoOverview = async (options: { fetch?: typeof fetch } = {}): 
     });
   } catch (error) {
     console.warn('TODO(backlog): implement /video/overview endpoint', error);
-    const status = await VideoApi.getTv();
-    return mapFallbackState(status);
+    try {
+      const status = await rawRequest<LegacyTvStatus>('/video', {
+        method: 'GET',
+        fetch: fetchImpl as RequestOptions['fetch']
+      });
+      return mapFallbackState(status);
+    } catch (fallbackError) {
+      console.warn('Legacy /video endpoint unavailable', fallbackError);
+      return {
+        power: 'off',
+        input: 'HDMI1',
+        availableInputs: [],
+        livePreview: null,
+        recordings: [],
+        volume: 50,
+        muted: false,
+        lastSignal: new Date().toISOString(),
+        cecDevices: []
+      } satisfies VideoState;
+    }
   }
 };
 
@@ -69,7 +98,13 @@ export const setVideoPower = async (
     return mockApi.videoSetPower(power);
   }
 
-  await VideoApi.setPower({ on: power === 'on' });
+  const fetchImpl = ensureFetch(options.fetch);
+  await rawRequest('/video/power', {
+    method: 'POST',
+    headers: jsonHeaders,
+    body: JSON.stringify({ on: power === 'on' }),
+    fetch: fetchImpl as RequestOptions['fetch']
+  });
   return getVideoOverview(options);
 };
 
@@ -81,7 +116,13 @@ export const setVideoInput = async (
     return mockApi.videoSetInput(inputId);
   }
 
-  await VideoApi.setInput({ input: inputId });
+  const fetchImpl = ensureFetch(options.fetch);
+  await rawRequest('/video/input', {
+    method: 'POST',
+    headers: jsonHeaders,
+    body: JSON.stringify({ input: inputId }),
+    fetch: fetchImpl as RequestOptions['fetch']
+  });
   return getVideoOverview(options);
 };
 
@@ -94,7 +135,13 @@ export const setVideoVolume = async (
     return mockApi.videoSetVolume(safeVolume);
   }
 
-  await VideoApi.setVolume({ level: safeVolume });
+  const fetchImpl = ensureFetch(options.fetch);
+  await rawRequest('/video/volume', {
+    method: 'POST',
+    headers: jsonHeaders,
+    body: JSON.stringify({ level: safeVolume }),
+    fetch: fetchImpl as RequestOptions['fetch']
+  });
   return getVideoOverview(options);
 };
 
@@ -106,7 +153,13 @@ export const setVideoMute = async (
     return mockApi.videoSetMute(muted);
   }
 
-  await VideoApi.setMute({ mute: muted });
+  const fetchImpl = ensureFetch(options.fetch);
+  await rawRequest('/video/mute', {
+    method: 'POST',
+    headers: jsonHeaders,
+    body: JSON.stringify({ mute: muted }),
+    fetch: fetchImpl as RequestOptions['fetch']
+  });
   return getVideoOverview(options);
 };
 

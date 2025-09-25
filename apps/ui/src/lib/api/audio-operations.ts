@@ -8,7 +8,13 @@ import {
 } from './client';
 import type { RequestOptions } from './client';
 import { mockApi } from './mock';
-import type { AudioDeviceStatus } from './gen';
+import type {
+  AudioDeviceSnapshot as ApiAudioDeviceSnapshot,
+  AudioLibraryTrack as ApiAudioLibraryTrack,
+  AudioPlaylist as ApiAudioPlaylist,
+  AudioSession as ApiAudioSession,
+  AudioState as ApiAudioState
+} from './gen';
 import type {
   AudioDeviceSnapshot,
   AudioLibraryTrack,
@@ -57,6 +63,72 @@ const jsonHeaders = {
   'Content-Type': 'application/json'
 };
 
+const mapTrackFromApi = (track: ApiAudioLibraryTrack): AudioLibraryTrack => ({
+  id: track.id,
+  title: track.title,
+  artist: track.artist ?? null,
+  durationSeconds: track.durationSeconds,
+  format: track.format,
+  sizeBytes: track.sizeBytes ?? undefined,
+  tags: track.tags ?? [],
+  uploadedAt: track.uploadedAt
+});
+
+const mapPlaylistFromApi = (playlist: ApiAudioPlaylist): AudioPlaylist => ({
+  id: playlist.id,
+  name: playlist.name,
+  description: playlist.description ?? null,
+  loop: playlist.loop,
+  syncMode: playlist.syncMode,
+  createdAt: playlist.createdAt,
+  updatedAt: playlist.updatedAt,
+  tracks: playlist.tracks.map((track) => ({
+    trackId: track.trackId,
+    order: track.order,
+    startOffsetSeconds: track.startOffsetSeconds ?? undefined,
+    deviceOverrides: track.deviceOverrides ?? undefined
+  }))
+});
+
+const mapSessionFromApi = (session: ApiAudioSession): AudioState['sessions'][number] => ({
+  id: session.id,
+  playlistId: session.playlistId ?? null,
+  deviceIds: session.deviceIds,
+  syncMode: session.syncMode,
+  state: session.state,
+  startedAt: session.startedAt
+});
+
+const mapDeviceFromApi = (device: ApiAudioDeviceSnapshot): AudioDeviceSnapshot => ({
+  id: device.id,
+  name: device.name,
+  status: device.status,
+  group: device.group ?? null,
+  volumePercent: Math.round(device.volumePercent ?? 0),
+  capabilities: device.capabilities ?? [],
+  playback: {
+    state: device.playback.state,
+    trackId: device.playback.trackId ?? null,
+    trackTitle: device.playback.trackTitle ?? null,
+    playlistId: device.playback.playlistId ?? null,
+    positionSeconds: device.playback.positionSeconds ?? 0,
+    durationSeconds: device.playback.durationSeconds ?? 0,
+    startedAt: device.playback.startedAt ?? null,
+    syncGroup: device.playback.syncGroup ?? null,
+    lastError: device.playback.lastError ?? null
+  },
+  lastUpdated: device.lastUpdated
+});
+
+const mapAudioStateFromApi = (state: ApiAudioState): AudioState => ({
+  masterVolume: state.masterVolume,
+  devices: state.devices.map(mapDeviceFromApi),
+  library: state.library.map(mapTrackFromApi),
+  playlists: state.playlists.map(mapPlaylistFromApi),
+  sessions: state.sessions.map(mapSessionFromApi),
+  message: state.message ?? undefined
+});
+
 export const getAudioOverview = async (options: { fetch?: typeof fetch } = {}): Promise<AudioState> => {
   if (USE_MOCKS) {
     return mockApi.audio();
@@ -65,48 +137,30 @@ export const getAudioOverview = async (options: { fetch?: typeof fetch } = {}): 
   const fetchImpl = ensureFetch(options.fetch);
 
   try {
-    return (await rawRequest<AudioState>('/audio/overview', { fetch: fetchImpl })) ?? {
-      masterVolume: 100,
-      devices: [],
-      library: [],
-      playlists: [],
-      sessions: []
-    };
+    const result = await rawRequest<ApiAudioState>('/audio/overview', {
+      fetch: fetchImpl as RequestOptions['fetch']
+    });
+    if (result) {
+      return mapAudioStateFromApi(result);
+    }
   } catch (error) {
-    console.warn('Falling back to AudioApi.listDevices()', error);
-    const fallback = await AudioApi.listDevices();
-    return {
-      masterVolume: 100,
-      devices: fallback.items.map(mapDeviceFromApi),
-      library: [],
-      playlists: [],
-      sessions: []
-    } satisfies AudioState;
+    console.warn('Falling back to AudioApi.getOverview()', error);
+    try {
+      const fallback = await AudioApi.getOverview();
+      return mapAudioStateFromApi(fallback as ApiAudioState);
+    } catch (fallbackError) {
+      console.warn('Audio overview fallback failed', fallbackError);
+    }
   }
-};
 
-const mapDeviceFromApi = (device: AudioDeviceStatus): AudioDeviceSnapshot => {
-  const playback = (device as { playback?: Record<string, unknown> }).playback ?? {};
   return {
-    id: device.id,
-    name: (device as { displayName?: string }).displayName ?? device.id,
-    status: device.online ? 'online' : 'offline',
-    group: undefined,
-    volumePercent: Math.round(((device as { volume?: { level?: number } }).volume?.level ?? 1) * 100),
-    capabilities: (device as { capabilities?: string[] }).capabilities ?? [],
-    playback: {
-      state: (playback.state as AudioDeviceSnapshot['playback']['state']) ?? (device.online ? 'idle' : 'error'),
-      trackId: (playback.trackId as string | undefined) ?? null,
-      trackTitle: (playback.trackTitle as string | undefined) ?? null,
-      playlistId: (playback.playlistId as string | undefined) ?? null,
-      positionSeconds: (playback.positionSeconds as number | undefined) ?? 0,
-      durationSeconds: (playback.durationSeconds as number | undefined) ?? 0,
-      startedAt: (playback.since as string | undefined) ?? null,
-      syncGroup: (playback.syncGroup as string | undefined) ?? null,
-      lastError: (playback.errorMessage as string | undefined) ?? null
-    },
-    lastUpdated: (device as { lastSeen?: string }).lastSeen ?? new Date().toISOString()
-  } satisfies AudioDeviceSnapshot;
+    masterVolume: 100,
+    devices: [],
+    library: [],
+    playlists: [],
+    sessions: [],
+    message: 'Audio overview unavailable'
+  } satisfies AudioState;
 };
 
 export const uploadTrack = async (options: UploadTrackOptions): Promise<AudioLibraryTrack> => {
@@ -248,7 +302,12 @@ export const playOnDevices = async (payload: PlayDevicesOptions, options: { fetc
   } catch (error) {
     console.warn('TODO(backlog): implement /audio/playback endpoint', error);
     for (const deviceId of payload.deviceIds) {
-      await AudioApi.play(deviceId, { source: 'file', resume: payload.resume ?? false });
+      await AudioApi.play(deviceId, {
+        playlistId: payload.playlistId ?? null,
+        trackId: payload.trackId ?? null,
+        resume: payload.resume ?? false,
+        syncMode: payload.syncMode ?? 'independent'
+      });
     }
   }
 
@@ -285,7 +344,7 @@ export const resumeDevice = async (deviceId: string, options: { fetch?: typeof f
     });
   } catch (error) {
     console.warn('TODO(backlog): implement /audio/devices/{id}/resume endpoint', error);
-    await AudioApi.play(deviceId, { source: 'file', resume: true });
+    await AudioApi.play(deviceId, { resume: true, syncMode: 'independent' });
   }
 
   return mapDeviceFromApi(await AudioApi.getDevice(deviceId));
@@ -366,7 +425,7 @@ export const setDeviceVolume = async (
 
   // Read back latest status from control-plane; if that fails, fallback to legacy client.
   try {
-    const latest = await rawRequest<AudioDeviceStatus>(`/audio/devices/${deviceId}`, {
+    const latest = await rawRequest<ApiAudioDeviceSnapshot>(`/audio/devices/${deviceId}`, {
       fetch: fetchImpl as RequestOptions['fetch']
     });
     return mapDeviceFromApi(latest);
