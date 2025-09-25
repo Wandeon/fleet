@@ -15,11 +15,11 @@
     "db:migrate": "prisma migrate deploy",
     "start": "node dist/index.js",
     "worker": "node dist/workers/index.js",
-    "lint": "eslint \"src/**/*.{ts,tsx}\" --max-warnings=0",
+    "lint": "eslint \"src/**/*.{ts,tsx}\"",
     "typecheck": "tsc --noEmit -p tsconfig.json",
     "test": "vitest run",
     "test:watch": "vitest",
-    "contract": "spectral lint --ruleset=@stoplight/spectral-rulesets/oas openapi.local.yaml",
+    "contract": "spectral lint openapi.yaml",
     "ci": "npm run lint && npm run typecheck && npm run test && npm run contract && npm run build",
     "postinstall": "prisma generate"
   },

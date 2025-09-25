@@ -15,4 +15,4 @@ void startTracing().catch((error) => {
   log.warn({ err: error instanceof Error ? error.message : error }, 'Tracing init failed in worker');
 });
 
-loop();
+void loop();
