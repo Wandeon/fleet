@@ -1,4 +1,4 @@
-import { browser } from '$app/environment';
+// import { browser } from '$app/environment';
 import { rawRequest, USE_MOCKS, UiApiError } from '$lib/api/client';
 import type { RequestOptions } from '$lib/api/client';
 import { mockApi } from '$lib/api/mock';
@@ -174,7 +174,7 @@ export const removeOperator = async (operatorId: string, options: SettingsFetchO
 
 export const saveSettingsDraft = async (
   draft: Partial<SettingsState>,
-  options: SettingsFetchOptions = {}
+  _options: SettingsFetchOptions = {}
 ): Promise<SettingsState> => {
   if (USE_MOCKS) {
     return mockApi.settingsUpdate(draft);
