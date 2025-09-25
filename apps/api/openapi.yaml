@@ -1596,6 +1596,40 @@ components:
           format: date-time
         acknowledged:
           type: boolean
+    FleetLayoutModule:
+      type: object
+      required:
+        - id
+        - displayName
+        - enabled
+        - capabilities
+      properties:
+        id:
+          type: string
+        displayName:
+          type: string
+        enabled:
+          type: boolean
+        description:
+          type: string
+          nullable: true
+        capabilities:
+          type: array
+          items:
+            type: string
+    FleetLayout:
+      type: object
+      required:
+        - updatedAt
+        - modules
+      properties:
+        updatedAt:
+          type: string
+          format: date-time
+        modules:
+          type: array
+          items:
+            $ref: '#/components/schemas/FleetLayoutModule'
     FleetDeviceSummary:
       type: object
       required:
@@ -1754,6 +1788,35 @@ components:
           type: string
           format: date-time
 paths:
+  /fleet/layout:
+    get:
+      tags:
+        - Fleet
+      summary: Retrieve fleet layout metadata for UI composition.
+      description: Retrieve fleet layout metadata for UI composition.
+      operationId: getFleetLayout
+      responses:
+        '200':
+          description: Fleet module layout describing enabled capabilities.
+          headers:
+            x-correlation-id:
+              $ref: '#/components/headers/CorrelationId'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/FleetLayout'
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '403':
+          $ref: '#/components/responses/ForbiddenError'
+        '429':
+          $ref: '#/components/responses/RateLimitError'
+        '502':
+          $ref: '#/components/responses/BadGatewayError'
+        '504':
+          $ref: '#/components/responses/GatewayTimeoutError'
+        '500':
+          $ref: '#/components/responses/InternalError'
   /fleet/overview:
     get:
       tags:
