@@ -673,6 +673,7 @@ components:
           items:
             $ref: '#/components/schemas/VideoInputOption'
         livePreview:
+          type: object
           allOf:
             - $ref: '#/components/schemas/VideoLiveStream'
           nullable: true
@@ -794,6 +795,7 @@ components:
         hubStatus:
           $ref: '#/components/schemas/DeviceStatus'
         pairing:
+          type: object
           allOf:
             - $ref: '#/components/schemas/ZigbeePairingState'
           nullable: true
@@ -1080,11 +1082,13 @@ components:
               format: date-time
               nullable: true
         summary:
+          type: object
           allOf:
             - $ref: '#/components/schemas/CameraOverviewSummary'
           nullable: true
           description: Optional roll-up of camera health for quick status review.
         preview:
+          type: object
           allOf:
             - $ref: '#/components/schemas/CameraPreviewState'
           nullable: true
