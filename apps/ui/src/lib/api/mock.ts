@@ -5,21 +5,13 @@ import type {
   AudioSession,
   AudioState,
   CameraState,
-  ConnectionProbe,
+  FleetOverviewState,
   LayoutData,
-  LogsData,
+  LogsSnapshot,
   PowerState,
   VideoState,
   ZigbeeState
 } from '$lib/types';
-
-interface StateMock {
-  connection: ConnectionProbe;
-  build: {
-    commit: string;
-    version: string;
-  };
-}
 
 const mockModules = import.meta.glob('./mocks/*.json', { eager: true }) as Record<string, { default: unknown }>;
 
@@ -104,8 +96,8 @@ export const mockApi = {
   layout(): LayoutData {
     return readMock<LayoutData>('layout');
   },
-  state(): StateMock {
-    return readMock<StateMock>('state');
+  state(): FleetOverviewState {
+    return readMock<FleetOverviewState>('state');
   },
   audio(): AudioState {
     return clone(getAudioState());
@@ -186,7 +178,7 @@ export const mockApi = {
   audioPlay(payload: {
     deviceIds: string[];
     playlistId?: string | null;
-    assignments?: Array<{ deviceId: string; trackId: string; startOffsetSeconds?: number }>;
+    assignments?: { deviceId: string; trackId: string; startOffsetSeconds?: number }[];
     trackId?: string | null;
     syncMode: AudioSession['syncMode'];
     resume?: boolean;
@@ -336,7 +328,7 @@ export const mockApi = {
   zigbee(): ZigbeeState {
     return clone(getZigbeeState());
   },
-  zigbeeStartPairing(durationSeconds: number = 60) {
+  zigbeeStartPairing(durationSeconds = 60) {
     const state = clone(getZigbeeState());
     const expiresAt = new Date(Date.now() + durationSeconds * 1000).toISOString();
     state.pairing = {
@@ -406,7 +398,33 @@ export const mockApi = {
   camera(): CameraState {
     return readMock<CameraState>('camera');
   },
-  logs(): LogsData {
-    return readMock<LogsData>('logs');
+  cameraSummary() {
+    const snapshot = readMock<CameraState>('camera');
+    return snapshot.summary;
+  },
+  cameraEvents() {
+    const snapshot = readMock<CameraState>('camera');
+    return {
+      items: snapshot.events,
+      updatedAt: snapshot.summary.updatedAt
+    };
+  },
+  cameraPreview(id: string) {
+    const snapshot = readMock<CameraState>('camera');
+    const preview = snapshot.preview;
+    if (!preview || (preview.cameraId && preview.cameraId !== id)) {
+      return {
+        cameraId: id,
+        status: 'unavailable',
+        posterUrl: preview?.posterUrl ?? null,
+        streamUrl: null,
+        reason: preview?.reason ?? 'Preview not available in mock data',
+        updatedAt: snapshot.summary.updatedAt
+      } satisfies CameraState['preview'];
+    }
+    return preview;
+  },
+  logs(): LogsSnapshot {
+    return readMock<LogsSnapshot>('logs');
   }
 };

@@ -141,26 +141,54 @@ export interface ZigbeeState {
   pairing?: {
     active: boolean;
     expiresAt?: string;
-    discovered: Array<{
+    discovered: {
       id: string;
       name: string;
       type: string;
       signal: number;
-    }>;
+    }[];
   };
 }
 
-export interface CameraEvent {
+export type CameraEventSeverity = 'info' | 'warn' | 'error';
+
+export interface CameraEventEntry {
   id: string;
-  timestamp: string;
-  description: string;
-  severity: 'info' | 'warning' | 'error';
+  ts: string;
+  message: string;
+  severity: CameraEventSeverity;
+  cameraId?: string | null;
+  snapshotUrl?: string | null;
+}
+
+export interface CameraSummaryItem {
+  id: string;
+  name: string;
+  status: 'online' | 'offline' | 'degraded';
+  lastSeen?: string | null;
+  reason?: string | null;
+}
+
+export interface CameraOverview {
+  status: 'online' | 'offline' | 'degraded';
+  updatedAt: string;
+  reason?: string | null;
+  cameras: CameraSummaryItem[];
+}
+
+export interface CameraPreviewState {
+  cameraId: string | null;
+  status: 'ready' | 'pending' | 'unavailable';
+  posterUrl: string | null;
+  streamUrl: string | null;
+  reason?: string | null;
+  updatedAt: string;
 }
 
 export interface CameraState {
-  previewImage: string;
-  lastMotion: string | null;
-  events: CameraEvent[];
+  summary: CameraOverview;
+  preview: CameraPreviewState;
+  events: CameraEventEntry[];
 }
 
 export interface HealthTile {
@@ -186,15 +214,66 @@ export interface EventFeedItem {
   actionLabel?: string;
 }
 
-export interface LayoutData {
-  health: HealthData;
-  errors: EventFeedItem[];
-  events: EventFeedItem[];
+export type LogLevel = 'trace' | 'debug' | 'info' | 'warn' | 'error' | 'fatal';
+
+export interface LogEntry {
+  id: string;
+  ts: string;
+  level: LogLevel;
+  msg: string;
+  service: string;
+  host: string;
+  correlationId: string | null;
+  context?: Record<string, unknown>;
 }
 
-export interface LogsData {
-  entries: EventFeedItem[];
-  cursor?: string;
+export interface LogsSnapshot {
+  entries: LogEntry[];
+  cursor: string | null;
+}
+
+export interface LayoutModuleDevice {
+  id: string;
+  name: string;
+  role?: string | null;
+  capabilities?: string[] | null;
+}
+
+export interface LayoutModuleSummary {
+  module: string;
+  displayName?: string;
+  enabled?: boolean;
+  description?: string | null;
+  capabilities?: string[];
+  devices?: LayoutModuleDevice[];
+}
+
+export interface LayoutData {
+  health?: HealthData;
+  errors?: EventFeedItem[];
+  events?: EventFeedItem[];
+  modules?: LayoutModuleSummary[];
+  generatedAt?: string;
+}
+
+export interface FleetStateDevice {
+  id: string;
+  name: string;
+  role?: string;
+  module?: string;
+  online: boolean;
+  reason?: string | null;
+}
+
+export interface FleetOverviewState {
+  connection: ConnectionProbe;
+  build: { commit: string; version: string };
+  audio?: {
+    total: number;
+    online: number;
+    devices: FleetStateDevice[];
+  };
+  updatedAt?: string;
 }
 
 export interface ConnectionProbe {

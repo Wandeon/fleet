@@ -1,7 +1,7 @@
 import type { PageLoad } from './$types';
 import type { EventFeedItem, HealthTile } from '$lib/types';
 
-export const load: PageLoad = async ({ parent, fetch }) => {
+export const load: PageLoad = async ({ parent }) => {
   const { layout } = await parent();
 
   // For now, provide mock health data until we implement the health API

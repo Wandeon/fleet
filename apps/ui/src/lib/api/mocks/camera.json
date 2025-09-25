@@ -1,18 +1,47 @@
 {
-  "previewImage": "https://dummyimage.com/640x360/0b172d/ffffff&text=Camera+Preview",
-  "lastMotion": "2025-01-12T12:11:08Z",
+  "summary": {
+    "status": "offline",
+    "updatedAt": "2025-01-12T12:21:08Z",
+    "reason": "MediaMTX pipeline not integrated in the dev stack",
+    "cameras": [
+      {
+        "id": "pi-camera-01",
+        "name": "Entrance Camera",
+        "status": "offline",
+        "lastSeen": null,
+        "reason": "Camera bridge disabled until MediaMTX is deployed"
+      },
+      {
+        "id": "pi-camera-02",
+        "name": "Studio Camera",
+        "status": "degraded",
+        "lastSeen": "2025-01-12T11:59:42Z",
+        "reason": "Waiting on upstream RTSP health"
+      }
+    ]
+  },
+  "preview": {
+    "cameraId": "pi-camera-01",
+    "status": "unavailable",
+    "posterUrl": "https://dummyimage.com/640x360/0b172d/ffffff&text=Camera+offline",
+    "streamUrl": null,
+    "reason": "MediaMTX not integrated",
+    "updatedAt": "2025-01-12T12:21:08Z"
+  },
   "events": [
     {
       "id": "cam-evt-1",
-      "timestamp": "2025-01-12T12:11:08Z",
-      "description": "Motion detected at spa entrance",
-      "severity": "warning"
+      "ts": "2025-01-12T12:11:08Z",
+      "message": "Camera watchdog triggered offline placeholder",
+      "severity": "warn",
+      "cameraId": "pi-camera-01"
     },
     {
       "id": "cam-evt-2",
-      "timestamp": "2025-01-12T11:59:42Z",
-      "description": "No camera events yet. Connect a camera to get started.",
-      "severity": "info"
+      "ts": "2025-01-12T11:59:42Z",
+      "message": "No camera events yet. Connect MediaMTX to enable live telemetry.",
+      "severity": "info",
+      "cameraId": "pi-camera-02"
     }
   ]
 }

@@ -28,7 +28,7 @@
   let showPairingModal = false;
   let isPairing = false;
   let pairingStatus = '';
-  let discoveredDevices: Array<{ id: string; name: string; type: string; signal: number }> = [];
+  let discoveredDevices: { id: string; name: string; type: string; signal: number }[] = [];
   let pairingTimeLeft = 0;
   let pairingTimer: ReturnType<typeof setInterval> | null = null;
   let discoveryTimer: ReturnType<typeof setInterval> | null = null;

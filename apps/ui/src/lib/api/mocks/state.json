@@ -6,5 +6,27 @@
   "build": {
     "commit": "mock",
     "version": "0.1.0"
-  }
+  },
+  "audio": {
+    "total": 2,
+    "online": 1,
+    "devices": [
+      {
+        "id": "pi-audio-01",
+        "name": "Lobby Speakers",
+        "role": "audio",
+        "module": "audio",
+        "online": true
+      },
+      {
+        "id": "pi-audio-02",
+        "name": "Cafe Speakers",
+        "role": "audio",
+        "module": "audio",
+        "online": false,
+        "reason": "Upstream timeout reaching device"
+      }
+    ]
+  },
+  "updatedAt": "2025-01-12T12:21:12Z"
 }

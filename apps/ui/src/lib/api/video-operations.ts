@@ -131,9 +131,7 @@ export const fetchRecordingTimeline = async (
   }
 };
 
-export const generateLivePreviewUrl = async (
-  options: { fetch?: typeof fetch } = {}
-): Promise<string> => {
+export const generateLivePreviewUrl = async (): Promise<string> => {
   if (USE_MOCKS) {
     const live = mockApi.video().livePreview;
     if (!live) throw new UiApiError('No live stream available', 404);

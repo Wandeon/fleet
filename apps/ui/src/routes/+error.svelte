@@ -1,8 +1,7 @@
 <script lang="ts">
+  // eslint-disable-next-line svelte/valid-prop-names-in-kit-pages
   export let error: Error & { message?: string };
-  export let status: number;
-
-  const isClientError = status >= 400 && status < 500;
+  const message = (error?.message ?? '').trim();
 </script>
 
 <svelte:head>
@@ -13,8 +12,8 @@
   <h1 id="error-title">Something went wrong</h1>
   <p>We couldn&apos;t load the requested page. Try refreshing or navigate back to the dashboard.</p>
 
-  {#if isClientError && error?.message}
-    <p class="hint">{error.message}</p>
+  {#if message}
+    <p class="hint">{message}</p>
   {:else}
     <p class="hint">If the issue persists, share the request ID from the response headers with the ops team.</p>
   {/if}
