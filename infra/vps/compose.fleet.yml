@@ -66,7 +66,7 @@ services:
       - PORT=3000
       - HOST=0.0.0.0
       - ORIGIN=https://app.headspamartina.hr
-      - FLEET_API_BASE=http://fleet-api:3015
+      - API_BASE_URL=http://fleet-api:3015
       - VITE_API_BASE=/api
       - VITE_USE_MOCKS=0
     restart: unless-stopped

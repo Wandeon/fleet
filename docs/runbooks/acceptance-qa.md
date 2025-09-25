@@ -25,11 +25,11 @@ The command executes Playwright API/UI tests, the audio device shell tests, and 
 | --- | --- |
 | `SSH_USER` | SSH username for Raspberry Pi devices (defaults to `admin`). |
 | `AUDIOCTL_TOKEN` | Bearer token for audio control API requests. |
-| `ACCEPTANCE_API_TOKEN` or `FLEET_API_TOKEN` | Bearer token for Fleet API calls. |
+| `API_BEARER` (or `ACCEPTANCE_API_TOKEN`) | Bearer token for Fleet API calls. |
 | `ICECAST_URL` / `ACCEPTANCE_AUDIO_ICECAST_URL` | Icecast mount URL for HEAD checks. |
-| `FLEET_API_BASE` | Base URL for API tests (e.g. `https://staging.example.com/api`). |
-| `FLEET_UI_BASE` | Base URL for UI smoke test. |
-| `FLEET_UI_EXPECTED_TITLE` | Marker text expected in UI HTML (defaults to `Head Spa Control`). |
+| `API_BASE_URL` | Base URL for API tests (e.g. `https://staging.example.com/api`). |
+| `UI_BASE_URL` | Base URL for UI smoke test. |
+| `UI_EXPECTED_TITLE` | Marker text expected in UI HTML (defaults to `Head Spa Control`). |
 | `ACCEPTANCE_INSECURE` | Set to `1` to disable TLS verification for self-signed certs. |
 
 ### Exit codes

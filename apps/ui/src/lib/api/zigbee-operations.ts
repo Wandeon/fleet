@@ -10,7 +10,7 @@ import type { ZigbeeState } from '$lib/types';
 interface PairingState {
   active: boolean;
   expiresAt?: string;
-  discovered: Array<{ id: string; name: string; type: string; signal: number }>;
+  discovered: { id: string; name: string; type: string; signal: number }[];
 }
 
 const ensureFetch = (fetchImpl?: typeof fetch) => fetchImpl ?? fetch;

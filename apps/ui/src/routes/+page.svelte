@@ -5,6 +5,7 @@
   import CameraModule from '$lib/modules/CameraModule.svelte';
   import { createModuleStateStore, type PanelState } from '$lib/stores/app';
   import { invalidate } from '$app/navigation';
+  import { featureFlags } from '$lib/config/features';
   import type { PageData } from './$types';
 
   export let data: PageData;
@@ -29,9 +30,15 @@
 
 <div class="modules">
   <AudioModule data={data.audio.data} state={audioPanelState} variant="compact" onRetry={refreshDashboard} />
-  <VideoModule data={data.video.data} state={videoPanelState} onRetry={refreshDashboard} />
-  <ZigbeeModule data={data.zigbee.data} state={zigbeePanelState} onRetry={refreshDashboard} />
-  <CameraModule data={data.camera.data} state={cameraPanelState} onRetry={refreshDashboard} />
+  {#if featureFlags.video}
+    <VideoModule data={data.video.data} state={videoPanelState} onRetry={refreshDashboard} />
+  {/if}
+  {#if featureFlags.zigbee}
+    <ZigbeeModule data={data.zigbee.data} state={zigbeePanelState} onRetry={refreshDashboard} />
+  {/if}
+  {#if featureFlags.camera}
+    <CameraModule data={data.camera.data} state={cameraPanelState} onRetry={refreshDashboard} />
+  {/if}
 </div>
 
 <style>

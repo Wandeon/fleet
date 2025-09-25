@@ -18,7 +18,9 @@
   let snapshot: LogsSnapshot | null = data.snapshot ?? null;
   let error: string | null = data.error ?? null;
 
-  let sourceId = snapshot?.sources[0]?.id ?? 'all';
+  const resolveSources = (value: LogsSnapshot | null | undefined) => value?.sources ?? [];
+
+  let sourceId = resolveSources(snapshot)[0]?.id ?? 'all';
   let severity: LogSeverity | 'all' = 'all';
   let search = '';
   let limit = 200;
@@ -39,13 +41,14 @@
     { value: 'debug', label: 'Debug' }
   ];
 
-  $: sources = snapshot?.sources ?? [];
+  $: sources = resolveSources(snapshot);
 
   const applySnapshot = (value: LogsSnapshot) => {
     snapshot = value;
     entries = value.entries;
-    if (!sources.find((item) => item.id === sourceId)) {
-      sourceId = value.sources[0]?.id ?? 'all';
+    const nextSources = resolveSources(value);
+    if (!nextSources.find((item) => item.id === sourceId)) {
+      sourceId = nextSources[0]?.id ?? 'all';
     }
   };
 

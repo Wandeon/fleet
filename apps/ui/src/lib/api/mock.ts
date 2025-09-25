@@ -6,10 +6,11 @@ import type {
   AudioState,
   CameraEvent,
   CameraState,
-  ConnectionProbe,
-  LayoutData,
+  DeviceStatus,
   FleetDeviceDetail,
   FleetOverview,
+  FleetOverviewState,
+  LayoutData,
   LogEntry,
   LogSeverity,
   LogsFilterState,
@@ -20,14 +21,6 @@ import type {
   VideoState,
   ZigbeeState
 } from '$lib/types';
-
-interface StateMock {
-  connection: ConnectionProbe;
-  build: {
-    commit: string;
-    version: string;
-  };
-}
 
 const mockModules = import.meta.glob('./mocks/*.json', { eager: true }) as Record<string, { default: unknown }>;
 
@@ -274,8 +267,8 @@ const mockApiBase = {
   layout(): LayoutData {
     return readMock<LayoutData>('layout');
   },
-  state(): StateMock {
-    return readMock<StateMock>('state');
+  state(): FleetOverviewState {
+    return readMock<FleetOverviewState>('state');
   },
   audio(): AudioState {
     return clone(getAudioState());
@@ -356,7 +349,7 @@ const mockApiBase = {
   audioPlay(payload: {
     deviceIds: string[];
     playlistId?: string | null;
-    assignments?: Array<{ deviceId: string; trackId: string; startOffsetSeconds?: number }>;
+    assignments?: { deviceId: string; trackId: string; startOffsetSeconds?: number }[];
     trackId?: string | null;
     syncMode: AudioSession['syncMode'];
     resume?: boolean;
@@ -506,7 +499,7 @@ const mockApiBase = {
   zigbee(): ZigbeeState {
     return clone(getZigbeeState());
   },
-  zigbeeStartPairing(durationSeconds: number = 60) {
+  zigbeeStartPairing(durationSeconds = 60) {
     const state = clone(getZigbeeState());
     const expiresAt = new Date(Date.now() + durationSeconds * 1000).toISOString();
     state.pairing = {
@@ -577,11 +570,43 @@ const mockApiBase = {
 
 type MockApiExtensions = {
   camera(): CameraState;
+  cameraSummary(): {
+    status: 'online' | 'offline' | 'degraded';
+    updatedAt: string;
+    reason: string | null;
+    cameras: Array<{
+      id: string;
+      name: string;
+      status: 'online' | 'offline' | 'degraded';
+      lastSeen?: string | null;
+      reason?: string | null;
+    }>;
+  };
+  cameraEvents(): {
+    items: Array<{
+      id: string;
+      ts: string;
+      message: string;
+      severity: 'info' | 'warn' | 'error';
+      cameraId?: string | null;
+      snapshotUrl?: string | null;
+    }>;
+    updatedAt: string;
+  };
+  cameraPreview(cameraId: string): {
+    cameraId: string | null;
+    status: 'ready' | 'pending' | 'unavailable';
+    posterUrl: string | null;
+    streamUrl: string | null;
+    reason?: string | null;
+    updatedAt: string;
+  };
   cameraSelect(cameraId: string): CameraState;
   cameraAcknowledge(eventId: string): CameraState;
   cameraAddEvent(event: Omit<CameraEvent, 'id' | 'timestamp'> & { id?: string; timestamp?: string }): CameraEvent;
   cameraRefreshPreview(cameraId?: string): CameraState;
   logsSnapshot(filters?: Partial<LogsFilterState> & { limit?: number; cursor?: string | null }): LogsSnapshot;
+  logs(): LogsSnapshot;
   logsAppend(entry: Partial<LogEntry> & { message: string; severity?: LogSeverity; source?: string }): LogEntry;
   logsStream(filters: Partial<LogsFilterState>, onEvent: (entry: LogEntry) => void): () => void;
   settings(): SettingsState;
@@ -607,6 +632,90 @@ export const mockApi = mockApiBase as MockApi;
 const mockApiExtensions: MockApiExtensions = {
   camera(): CameraState {
     return clone(getCameraState());
+  },
+  cameraSummary() {
+    const state = clone(getCameraState());
+    const updatedAt = state.overview.updatedAt ?? nowIso();
+    const normaliseStatus = (status: DeviceStatus): 'online' | 'offline' | 'degraded' => {
+      if (status === 'online') return 'online';
+      if (status === 'error') return 'offline';
+      return 'degraded';
+    };
+
+    const cameras = state.devices.map((device) => ({
+      id: device.id,
+      name: device.name,
+      status: normaliseStatus(device.status),
+      lastSeen: device.lastHeartbeat,
+      reason: device.status === 'error' ? 'Device offline' : null
+    }));
+
+    const status = (() => {
+      if (cameras.every((camera) => camera.status === 'offline')) return 'offline';
+      if (cameras.some((camera) => camera.status === 'degraded')) return 'degraded';
+      if (cameras.some((camera) => camera.status === 'online')) return 'online';
+      return 'offline';
+    })();
+
+    const reason = status === 'online'
+      ? null
+      : state.overview.health === 'error'
+        ? 'Camera bridge offline'
+        : state.overview.health === 'offline'
+          ? 'No camera heartbeat received'
+          : state.overview.health === 'online'
+            ? null
+            : 'Camera health degraded';
+
+    return { status, updatedAt, reason, cameras };
+  },
+  cameraEvents() {
+    const state = clone(getCameraState());
+    const updatedAt = state.overview.updatedAt ?? nowIso();
+    const mapSeverity = (severity: CameraEvent['severity']): 'info' | 'warn' | 'error' => {
+      if (severity === 'alert' || severity === 'error') return 'error';
+      if (severity === 'warning') return 'warn';
+      return 'info';
+    };
+
+    const items = state.events.map((event) => ({
+      id: event.id,
+      ts: event.timestamp,
+      message: event.description,
+      severity: mapSeverity(event.severity),
+      cameraId: event.cameraId,
+      snapshotUrl: event.snapshotUrl ?? null
+    }));
+
+    return { items, updatedAt };
+  },
+  cameraPreview(cameraId: string) {
+    const state = clone(getCameraState());
+    const updatedAt = state.overview.updatedAt ?? nowIso();
+    const activeId = cameraId || state.activeCameraId;
+    const device = activeId ? state.devices.find((item) => item.id === activeId) : null;
+    if (!device) {
+      return {
+        cameraId: activeId ?? null,
+        status: 'unavailable',
+        posterUrl: state.overview.previewImage,
+        streamUrl: state.overview.streamUrl,
+        reason: 'Camera not found',
+        updatedAt
+      };
+    }
+
+    const streamUrl = device.streamUrl ?? state.overview.streamUrl;
+    const hasStream = Boolean(streamUrl);
+
+    return {
+      cameraId: device.id,
+      status: hasStream ? 'ready' : 'pending',
+      posterUrl: device.stillUrl ?? state.overview.previewImage,
+      streamUrl,
+      reason: hasStream ? null : 'Stream unavailable in mock data',
+      updatedAt
+    };
   },
   cameraSelect(cameraId: string): CameraState {
     const state = clone(getCameraState());
@@ -663,6 +772,15 @@ const mockApiExtensions: MockApiExtensions = {
     state.overview.updatedAt = nowIso();
     return commitCameraState(state);
   },
+  logs(): LogsSnapshot {
+    const state = getLogsState();
+    return {
+      entries: clone(state.entries),
+      sources: clone(state.sources),
+      lastUpdated: state.lastUpdated,
+      cursor: state.entries.at(-1)?.id ?? null
+    } satisfies LogsSnapshot;
+  },
   logsSnapshot(filters: Partial<LogsFilterState> & { limit?: number; cursor?: string | null } = {}): LogsSnapshot {
     const state = getLogsState();
     const filtered = filterLogs(sortLogsDesc(state.entries), filters);
@@ -676,7 +794,7 @@ const mockApiExtensions: MockApiExtensions = {
     commitLogsState({
       entries: state.entries,
       sources: state.sources,
-      lastUpdated: snapshot.lastUpdated
+      lastUpdated: snapshot.lastUpdated ?? nowIso()
     });
     return snapshot;
   },

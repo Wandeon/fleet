@@ -10,9 +10,14 @@
     {
       "id": "log-entrance-01",
       "timestamp": "2025-09-25T01:55:12Z",
+      "ts": "2025-09-25T01:55:12Z",
       "severity": "info",
+      "level": "info",
       "message": "pi-audio-01 acknowledged volume change",
+      "msg": "pi-audio-01 acknowledged volume change",
       "source": "pi-audio-01",
+      "service": "audio-agent",
+      "host": "pi-audio-01",
       "module": "audio",
       "deviceId": "pi-audio-01",
       "correlationId": "req-8c12",
@@ -21,9 +26,14 @@
     {
       "id": "log-entrance-02",
       "timestamp": "2025-09-25T01:53:02Z",
+      "ts": "2025-09-25T01:53:02Z",
       "severity": "warning",
+      "level": "warn",
       "message": "Network jitter detected on pi-audio-02 (145 ms)",
+      "msg": "Network jitter detected on pi-audio-02 (145 ms)",
       "source": "pi-audio-02",
+      "service": "audio-agent",
+      "host": "pi-audio-02",
       "module": "audio",
       "deviceId": "pi-audio-02",
       "correlationId": "req-8bf0",
@@ -32,9 +42,14 @@
     {
       "id": "log-video-01",
       "timestamp": "2025-09-25T01:50:34Z",
+      "ts": "2025-09-25T01:50:34Z",
       "severity": "info",
+      "level": "info",
       "message": "Operator muted lounge TV",
+      "msg": "Operator muted lounge TV",
       "source": "pi-video-01",
+      "service": "video-control",
+      "host": "pi-video-01",
       "module": "video",
       "deviceId": "pi-video-01",
       "context": { "muted": true }
@@ -42,9 +57,14 @@
     {
       "id": "log-audio-error-01",
       "timestamp": "2025-09-25T01:48:01Z",
+      "ts": "2025-09-25T01:48:01Z",
       "severity": "error",
+      "level": "error",
       "message": "pi-audio-02 timed out waiting for playlist sync",
+      "msg": "pi-audio-02 timed out waiting for playlist sync",
       "source": "pi-audio-02",
+      "service": "fleet-api",
+      "host": "fleet-vps",
       "module": "audio",
       "deviceId": "pi-audio-02",
       "correlationId": "req-8bd1",
@@ -53,12 +73,18 @@
     {
       "id": "log-control-01",
       "timestamp": "2025-09-25T01:45:10Z",
+      "ts": "2025-09-25T01:45:10Z",
       "severity": "debug",
+      "level": "debug",
       "message": "Scheduler enqueued firmware rollout batch",
+      "msg": "Scheduler enqueued firmware rollout batch",
       "source": "control-plane",
+      "service": "control-plane",
+      "host": "fleet-vps",
       "module": "system",
       "context": { "batchSize": 3, "cohort": "audio" }
     }
   ],
-  "lastUpdated": "2025-09-25T01:58:45Z"
+  "lastUpdated": "2025-09-25T01:58:45Z",
+  "cursor": null
 }

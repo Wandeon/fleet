@@ -19,6 +19,81 @@ env:
   PRISMA_CLI_QUERY_ENGINE_TYPE: binary
 
 jobs:
+  inventory_sync:
+    name: inventory vs monitoring targets
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install PyYAML
+        run: pip install --user pyyaml
+
+      - name: Verify Prometheus targets match inventory
+        run: |
+          python3 - <<'PY'
+          import json
+          import sys
+          from pathlib import Path
+          from urllib.parse import urlparse
+
+          import yaml
+
+          inventory_path = Path('inventory/device-interfaces.yaml')
+          target_paths = sorted(Path('infra/vps').glob('targets-*.json'))
+
+          inventory_data = yaml.safe_load(inventory_path.read_text()) or {}
+          devices = inventory_data.get('devices', [])
+
+          inventory_targets: dict[str, set[str]] = {}
+          for device in devices:
+            role = device.get('role')
+            base_url = device.get('api', {}).get('base_url')
+            if not role or not base_url:
+              continue
+            parsed = urlparse(base_url)
+            host = parsed.netloc or parsed.path
+            if not host:
+              continue
+            inventory_targets.setdefault(role, set()).add(host)
+
+          file_targets: dict[str, set[str]] = {}
+          for path in target_paths:
+            try:
+              payload = json.loads(path.read_text())
+            except json.JSONDecodeError as exc:
+              print(f'::error file={path}::Failed to parse JSON: {exc}')
+              sys.exit(1)
+            for entry in payload:
+              role = entry.get('labels', {}).get('role')
+              targets = entry.get('targets') or []
+              if not role:
+                continue
+              file_targets.setdefault(role, set()).update(targets)
+
+          issues: list[str] = []
+          for role, hosts in sorted(inventory_targets.items()):
+            defined = file_targets.get(role, set())
+            missing = sorted(hosts - defined)
+            extra = sorted(defined - hosts)
+            if missing or extra:
+              message = [f'role: {role}']
+              if missing:
+                message.append(f'  missing targets: {", ".join(missing)}')
+              if extra:
+                message.append(f'  unexpected targets: {", ".join(extra)}')
+              issues.append('\n'.join(message))
+
+          unused_roles = sorted(set(file_targets) - set(inventory_targets))
+          if unused_roles:
+            issues.append('targets JSON contains roles absent from inventory: ' + ', '.join(unused_roles))
+
+          if issues:
+            print('::error ::inventory/device-interfaces.yaml is out of sync with infra/vps/targets-*.json')
+            print('\n'.join(issues))
+            print('\nPlease update infra/vps/targets-*.json to reflect changes in inventory/device-interfaces.yaml.')
+            sys.exit(1)
+          PY
+
   lint:
     name: lint (node ${{ matrix.node }})
     runs-on: ubuntu-latest

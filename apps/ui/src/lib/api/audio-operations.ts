@@ -73,6 +73,7 @@ export const getAudioOverview = async (options: { fetch?: typeof fetch } = {}): 
       sessions: []
     };
   } catch (error) {
+    console.warn('Falling back to AudioApi.listDevices()', error);
     const fallback = await AudioApi.listDevices();
     return {
       masterVolume: 100,
@@ -340,11 +341,40 @@ export const setDeviceVolume = async (
     return mockApi.audioSetVolume(deviceId, volumePercent);
   }
 
-  await AudioApi.setVolume(deviceId, {
-    volume: Math.max(0, Math.min(2, volumePercent / 100))
-  });
+  const fetchImpl = ensureFetch(options.fetch);
+  const normalized = Math.max(0, Math.min(2, volumePercent / 100));
 
-  return mapDeviceFromApi(await AudioApi.getDevice(deviceId));
+  // Try the control-plane endpoint first (preferred, aligns with OpenAPI).
+  try {
+    await rawRequest(`/audio/devices/${deviceId}/volume`, {
+      method: 'POST',
+      headers: jsonHeaders,
+      body: JSON.stringify({ volume: normalized }),
+      fetch: fetchImpl as RequestOptions['fetch']
+    });
+  } catch (error) {
+    // Fallback path for environments where /audio/devices/{id}/volume isn't live yet.
+    console.warn('TODO(backlog): implement /audio/devices/{id}/volume endpoint', error);
+    await AudioApi.setVolume(deviceId, { volume: normalized });
+    try {
+      return mapDeviceFromApi(await AudioApi.getDevice(deviceId));
+    } catch (fallbackErr) {
+      console.warn('Fallback getDevice failed after setVolume', fallbackErr);
+      throw fallbackErr;
+    }
+  }
+
+  // Read back latest status from control-plane; if that fails, fallback to legacy client.
+  try {
+    const latest = await rawRequest<AudioDeviceStatus>(`/audio/devices/${deviceId}`, {
+      fetch: fetchImpl as RequestOptions['fetch']
+    });
+    return mapDeviceFromApi(latest);
+  } catch (error) {
+    console.warn('TODO(backlog): implement /audio/devices/{id} endpoint', error);
+    // Final fallback: legacy client read
+    return mapDeviceFromApi(await AudioApi.getDevice(deviceId));
+  }
 };
 
 export const setMasterVolume = async (

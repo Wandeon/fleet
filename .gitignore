@@ -6,6 +6,8 @@ vps/secrets/*
 
 # OS metadata
 .DS_Store
+# Log files
+*.log
 # Dependencies and build outputs
 node_modules/
 .svelte-kit/

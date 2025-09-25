@@ -195,6 +195,41 @@ export interface CameraClip {
   label?: string | null;
 }
 
+export type CameraEventEntrySeverity = 'info' | 'warn' | 'error';
+
+export interface CameraEventEntry {
+  id: string;
+  ts: string;
+  message: string;
+  severity: CameraEventEntrySeverity;
+  cameraId?: string | null;
+  snapshotUrl?: string | null;
+}
+
+export interface CameraSummaryItem {
+  id: string;
+  name: string;
+  status: 'online' | 'offline' | 'degraded';
+  lastSeen?: string | null;
+  reason?: string | null;
+}
+
+export interface CameraOverview {
+  status: 'online' | 'offline' | 'degraded';
+  updatedAt: string;
+  reason: string | null;
+  cameras: CameraSummaryItem[];
+}
+
+export interface CameraPreviewState {
+  cameraId: string | null;
+  status: 'ready' | 'pending' | 'unavailable';
+  posterUrl: string | null;
+  streamUrl: string | null;
+  reason?: string | null;
+  updatedAt: string;
+}
+
 export interface CameraState {
   activeCameraId: string | null;
   devices: CameraDevice[];
@@ -207,7 +242,12 @@ export interface CameraState {
     health: DeviceStatus;
     updatedAt: string | null;
   };
+  summary?: CameraOverview;
+  preview?: CameraPreviewState;
+  eventFeed?: CameraEventEntry[];
 }
+
+export type LogLevel = 'trace' | 'debug' | 'info' | 'warn' | 'error' | 'fatal';
 
 export interface LogEntry {
   id: string;
@@ -219,13 +259,18 @@ export interface LogEntry {
   deviceId?: string | null;
   correlationId?: string | null;
   context?: Record<string, unknown> | null;
+  ts?: string;
+  level?: LogLevel;
+  msg?: string;
+  service?: string;
+  host?: string;
 }
 
 export interface LogSource {
   id: string;
   label: string;
   description?: string;
-  kind: 'device' | 'service' | 'system';
+  kind: 'device' | 'service' | 'system' | 'group';
   module?: string | null;
   deviceId?: string | null;
   active?: boolean;
@@ -233,8 +278,8 @@ export interface LogSource {
 
 export interface LogsSnapshot {
   entries: LogEntry[];
-  sources: LogSource[];
-  lastUpdated: string;
+  sources?: LogSource[];
+  lastUpdated?: string;
   cursor?: string | null;
 }
 
@@ -406,15 +451,33 @@ export interface EventFeedItem {
   actionLabel?: string;
 }
 
+export interface LayoutModuleDevice {
+  id: string;
+  name: string;
+  role?: string | null;
+  capabilities?: string[] | null;
+}
+
+export interface LayoutModuleSummary {
+  module: string;
+  displayName?: string;
+  enabled?: boolean;
+  description?: string | null;
+  capabilities?: string[];
+  devices?: LayoutModuleDevice[];
+}
+
 export interface LayoutData {
-  health: HealthData;
-  errors: EventFeedItem[];
-  events: EventFeedItem[];
+  health?: HealthData;
+  errors?: EventFeedItem[];
+  events?: EventFeedItem[];
+  modules?: LayoutModuleSummary[];
+  generatedAt?: string;
 }
 
 export interface LogsData {
   entries: LogEntry[];
-  sources: LogSource[];
+  sources?: LogSource[];
   cursor?: string | null;
   lastUpdated: string;
 }
@@ -423,6 +486,27 @@ export interface ConnectionProbe {
   status: 'online' | 'degraded' | 'offline';
   latencyMs: number;
 }
+
+export interface FleetStateDevice {
+  id: string;
+  name: string;
+  role?: string;
+  module?: string;
+  online: boolean;
+  reason?: string | null;
+}
+
+export interface FleetOverviewState {
+  connection: ConnectionProbe;
+  build: { commit: string; version: string };
+  audio?: {
+    total: number;
+    online: number;
+    devices: FleetStateDevice[];
+  };
+  updatedAt?: string;
+}
+
 export type RoutePath =
   | '/'
   | '/audio'

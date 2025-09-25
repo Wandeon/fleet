@@ -11,7 +11,7 @@ test.describe('Dashboard smoke', () => {
       route.continue();
     });
 
-    const proxyResponses: Array<{ url: string; status: number }> = [];
+    const proxyResponses: { url: string; status: number }[] = [];
     page.on('response', (response) => {
       const url = response.url();
       if (url.includes('/ui/')) {

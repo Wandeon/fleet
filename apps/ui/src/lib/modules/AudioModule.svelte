@@ -7,7 +7,9 @@
   import Skeleton from '$lib/components/Skeleton.svelte';
   import StatusPill from '$lib/components/StatusPill.svelte';
   import { createEventDispatcher } from 'svelte';
+  import { SvelteSet } from 'svelte/reactivity';
   import { goto, invalidate } from '$app/navigation';
+  import { resolve } from '$app/paths';
   import {
     createPlaylist,
     deletePlaylist,
@@ -67,7 +69,7 @@ import type {
     return 'ok';
   };
 
-  let selectedDevices = new Set<string>();
+  let selectedDevices = new SvelteSet<string>();
   let playbackMode: 'single' | 'perDevice' | 'playlist' = 'single';
   let selectedTrackId: string | null = null;
   let selectedPlaylistId: string | null = null;
@@ -107,6 +109,35 @@ import type {
   let playlistBusy = false;
   let playlistError = '';
 
+  const assignmentsEqual = (
+    prev: Record<string, string | null>,
+    next: Record<string, string | null>
+  ): boolean => {
+    const prevKeys = Object.keys(prev);
+    const nextKeys = Object.keys(next);
+    if (prevKeys.length !== nextKeys.length) return false;
+    for (const key of nextKeys) {
+      if (prev[key] !== next[key]) return false;
+    }
+    return true;
+  };
+
+  const reconcileAssignments = (selection: Set<string>) => {
+    const nextAssignments: Record<string, string | null> = {};
+    for (const deviceId of selection) {
+      nextAssignments[deviceId] = deviceAssignments[deviceId] ?? null;
+    }
+    if (!assignmentsEqual(deviceAssignments, nextAssignments)) {
+      deviceAssignments = nextAssignments;
+    }
+  };
+
+  const setSelectedDevices = (ids: Iterable<string>) => {
+    const nextSelection = new SvelteSet(ids);
+    selectedDevices = nextSelection;
+    reconcileAssignments(nextSelection);
+  };
+
   const resetBanner = () => {
     banner = null;
   };
@@ -117,25 +148,20 @@ import type {
     onRetry?.();
   };
 
+  const openAudioControl = () => {
+    const audioRoute = resolve('/audio');
+    void goto(audioRoute);
+  };
+
   const toggleDeviceSelection = (deviceId: string) => {
-    const next = new Set(selectedDevices);
+    const next = new SvelteSet(selectedDevices);
     if (next.has(deviceId)) {
       next.delete(deviceId);
     } else {
       next.add(deviceId);
     }
-    selectedDevices = next;
+    setSelectedDevices(next);
   };
-
-  const ensureAssignmentsForSelection = () => {
-    const next: Record<string, string | null> = {};
-    for (const deviceId of selectedDevices) {
-      next[deviceId] = deviceAssignments[deviceId] ?? null;
-    }
-    deviceAssignments = next;
-  };
-
-  $: ensureAssignmentsForSelection();
 
   const updateState = (next: AudioState) => {
     data = next;
@@ -458,7 +484,7 @@ import type {
         </div>
       </div>
       <ul class="compact-list">
-        {#each data.devices.slice(0, 3) as device}
+        {#each data.devices.slice(0, 3) as device (device.id)}
           <li>
             <StatusPill status={computeStatus(device)} />
             <span class="device-name">{device.name}</span>
@@ -474,7 +500,7 @@ import type {
           </li>
         {/each}
       </ul>
-      <Button variant="ghost" on:click={() => goto('/audio')}>Open audio control</Button>
+      <Button variant="ghost" on:click={openAudioControl}>Open audio control</Button>
     </div>
   {:else}
     <div class="audio-layout">
@@ -513,7 +539,7 @@ import type {
           <p>Select endpoints for playback orchestration.</p>
         </header>
         <div class="grid">
-          {#each data.devices as device}
+          {#each data.devices as device (device.id)}
             <DeviceTile
               title={device.name}
               subtitle={device.playback.trackTitle ?? 'Idle'}
@@ -614,7 +640,7 @@ import type {
                 <span>Track</span>
                 <select bind:value={selectedTrackId}>
                   <option value="">Select a track</option>
-                  {#each library as track}
+                  {#each library as track (track.id)}
                     <option value={track.id}>{track.title}</option>
                   {/each}
                 </select>
@@ -625,12 +651,12 @@ import type {
               {#if !selectedDevices.size}
                 <p>Select devices first to assign tracks.</p>
               {:else}
-                {#each assignmentList as assignment}
+                {#each assignmentList as assignment (assignment.deviceId)}
                   <label>
                     <span>{devices.find((item) => item.id === assignment.deviceId)?.name ?? assignment.deviceId}</span>
                     <select value={assignment.trackId ?? ''} on:change={createAssignmentChangeHandler(assignment.deviceId)}>
                       <option value="">Choose track</option>
-                      {#each library as track}
+                      {#each library as track (track.id)}
                         <option value={track.id}>{track.title}</option>
                       {/each}
                     </select>
@@ -644,7 +670,7 @@ import type {
                 <span>Playlist</span>
                 <select bind:value={selectedPlaylistId}>
                   <option value="">Select a playlist</option>
-                  {#each playlists as playlist}
+                  {#each playlists as playlist (playlist.id)}
                     <option value={playlist.id}>{playlist.name}</option>
                   {/each}
                 </select>
@@ -677,7 +703,7 @@ import type {
             <p class="form-error" role="alert">{playbackError}</p>
           {/if}
           <div class="orchestrator-actions">
-            <Button variant="secondary" on:click={() => (selectedDevices = new Set())}>Clear selection</Button>
+            <Button variant="secondary" on:click={() => setSelectedDevices([])}>Clear selection</Button>
             <Button variant="primary" disabled={playbackBusy} on:click={handlePlayback}>
               {playbackBusy ? 'Starting…' : 'Start playback'}
             </Button>
@@ -703,7 +729,7 @@ import type {
             </tr>
           </thead>
           <tbody>
-            {#each library as track}
+            {#each library as track (track.id)}
               <tr>
                 <th scope="row">{track.title}</th>
                 <td>{track.artist ?? '—'}</td>
@@ -735,7 +761,7 @@ import type {
           <p class="muted">No playlists yet. Create one from the library above.</p>
         {:else}
           <ul class="playlist-list">
-            {#each playlists as playlist}
+            {#each playlists as playlist (playlist.id)}
               <li>
                 <div class="playlist-meta">
                   <div>
@@ -841,7 +867,7 @@ import type {
           <div class="track-selection">
             <h4>Select tracks</h4>
             <div class="track-grid">
-              {#each library as track}
+              {#each library as track (track.id)}
                 <label class="track-option">
                   <input
                     type="checkbox"

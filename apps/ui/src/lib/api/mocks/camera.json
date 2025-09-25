@@ -42,9 +42,7 @@
       "clipUrl": "https://cdn.example.invalid/clips/entrance-20250925T015418Z.mp4",
       "snapshotUrl": "https://dummyimage.com/320x180/0b172d/ffffff&text=Entrance+Motion",
       "acknowledged": false,
-      "detections": [
-        { "id": "det-1", "label": "Person", "confidence": 0.88 }
-      ],
+      "detections": [{ "id": "det-1", "label": "Person", "confidence": 0.88 }],
       "tags": ["motion", "person"]
     },
     {
@@ -56,9 +54,7 @@
       "clipUrl": "https://cdn.example.invalid/clips/treatment-20250925T014003Z.mp4",
       "snapshotUrl": "https://dummyimage.com/320x180/16213a/ffffff&text=Door+Opened",
       "acknowledged": true,
-      "detections": [
-        { "id": "det-2", "label": "Door", "confidence": 0.76 }
-      ],
+      "detections": [{ "id": "det-2", "label": "Door", "confidence": 0.76 }],
       "tags": ["door"]
     },
     {
@@ -98,6 +94,42 @@
     "streamUrl": "https://cdn.example.invalid/streams/entrance.m3u8",
     "lastMotion": "2025-09-25T01:54:18Z",
     "health": "online",
+    "updatedAt": "2025-09-25T01:58:30Z"
+  },
+  "summary": {
+    "status": "degraded",
+    "updatedAt": "2025-09-25T01:58:30Z",
+    "reason": "Storage camera offline",
+    "cameras": [
+      {
+        "id": "cam-entry-01",
+        "name": "Entrance Cam",
+        "status": "online",
+        "lastSeen": "2025-09-25T01:58:00Z",
+        "reason": null
+      },
+      {
+        "id": "cam-treatment-02",
+        "name": "Treatment Room 2",
+        "status": "online",
+        "lastSeen": "2025-09-25T01:56:45Z",
+        "reason": null
+      },
+      {
+        "id": "cam-storage-01",
+        "name": "Storage",
+        "status": "offline",
+        "lastSeen": "2025-09-25T00:12:16Z",
+        "reason": "Awaiting device replacement"
+      }
+    ]
+  },
+  "preview": {
+    "cameraId": "cam-entry-01",
+    "status": "ready",
+    "posterUrl": "https://dummyimage.com/640x360/0b172d/ffffff&text=Live+Preview",
+    "streamUrl": "https://cdn.example.invalid/streams/entrance.m3u8",
+    "reason": null,
     "updatedAt": "2025-09-25T01:58:30Z"
   }
 }

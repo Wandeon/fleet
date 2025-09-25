@@ -1,11 +1,10 @@
 import { browser } from '$app/environment';
-import { API_BASE_URL, rawRequest, USE_MOCKS, UiApiError } from '$lib/api/client';
-import type { RequestOptions } from '$lib/api/client';
+import { API_BASE_URL, rawRequest, USE_MOCKS, UiApiError, type RequestOptions } from '$lib/api/client';
 import { mockApi } from '$lib/api/mock';
 import type { CameraEvent, CameraState } from '$lib/types';
 
 const ensureFetch = (fetchImpl?: typeof fetch) => fetchImpl ?? fetch;
-const jsonHeaders = { 'Content-Type': 'application/json' };
+const jsonHeaders = { 'Content-Type': 'application/json' } as const;
 
 export interface CameraQueryOptions {
   fetch?: typeof fetch;
@@ -32,6 +31,9 @@ export const getCameraOverview = async (options: CameraQueryOptions = {}): Promi
   }
 };
 
+export const loadCameraState = async (options: CameraQueryOptions = {}): Promise<CameraState> =>
+  getCameraOverview(options);
+
 export const selectCamera = async (cameraId: string, options: CameraQueryOptions = {}): Promise<CameraState> => {
   if (USE_MOCKS) {
     return mockApi.cameraSelect(cameraId);
@@ -51,7 +53,10 @@ export const selectCamera = async (cameraId: string, options: CameraQueryOptions
   return getCameraOverview(options);
 };
 
-export const acknowledgeCameraEvent = async (eventId: string, options: CameraQueryOptions = {}): Promise<CameraState> => {
+export const acknowledgeCameraEvent = async (
+  eventId: string,
+  options: CameraQueryOptions = {}
+): Promise<CameraState> => {
   if (USE_MOCKS) {
     return mockApi.cameraAcknowledge(eventId);
   }
@@ -68,7 +73,10 @@ export const acknowledgeCameraEvent = async (eventId: string, options: CameraQue
   return getCameraOverview(options);
 };
 
-export const requestCameraClip = async (event: CameraEvent, options: CameraQueryOptions = {}): Promise<string> => {
+export const requestCameraClip = async (
+  event: CameraEvent,
+  options: CameraQueryOptions = {}
+): Promise<string> => {
   if (USE_MOCKS) {
     const refreshed = mockApi.cameraRefreshPreview(event.cameraId);
     const match = refreshed.clips.find((clip) => clip.id === event.id || clip.cameraId === event.cameraId);
@@ -96,7 +104,10 @@ export const requestCameraClip = async (event: CameraEvent, options: CameraQuery
   return body.url;
 };
 
-export const refreshCameraPreview = async (cameraId: string | undefined, options: CameraQueryOptions = {}): Promise<CameraState> => {
+export const refreshCameraPreview = async (
+  cameraId: string | undefined,
+  options: CameraQueryOptions = {}
+): Promise<CameraState> => {
   if (USE_MOCKS) {
     return mockApi.cameraRefreshPreview(cameraId);
   }

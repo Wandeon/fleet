@@ -1,8 +1,9 @@
 <script lang="ts">
   import { onMount } from 'svelte';
   import { apiClient as api } from '$lib/api/client';
+  import type { LayoutData } from '$lib/types';
 
-  let fleetLayout: any = null;
+  let fleetLayout: LayoutData | null = null;
   let error: string | null = null;
   let loading = true;
 
@@ -53,17 +54,20 @@
   {:else if fleetLayout}
     <div class="space-y-6">
       <div class="text-sm text-gray-600 mb-4">
-        Generated at: {new Date(fleetLayout.generatedAt).toLocaleString()}
+        Generated at:
+        {fleetLayout.generatedAt
+          ? new Date(fleetLayout.generatedAt).toLocaleString()
+          : 'Unknown'}
       </div>
 
       {#if fleetLayout.modules && fleetLayout.modules.length > 0}
         <div class="grid gap-6">
-          {#each fleetLayout.modules as module}
+          {#each fleetLayout.modules as module (module.module)}
             <div class="bg-white rounded-lg shadow p-6">
               <h2 class="text-lg font-semibold mb-4 capitalize">{module.module} Module</h2>
               {#if module.devices && module.devices.length > 0}
                 <div class="space-y-3">
-                  {#each module.devices as device}
+                  {#each module.devices as device (device.id)}
                     <div class="border rounded p-4">
                       <div class="flex justify-between items-start mb-2">
                         <div>
@@ -76,7 +80,7 @@
                       </div>
                       {#if device.capabilities && device.capabilities.length > 0}
                         <div class="flex flex-wrap gap-1 mt-2">
-                          {#each device.capabilities as capability}
+                          {#each device.capabilities as capability (capability)}
                             <span class="px-2 py-1 bg-gray-100 text-gray-700 text-xs rounded">
                               {capability}
                             </span>
