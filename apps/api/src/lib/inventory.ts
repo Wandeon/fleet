@@ -113,7 +113,7 @@ export function loadInventoryDevices(): Record<string, InventoryDevice> {
     }
     cached = { mtimeMs: stats.mtimeMs, devices };
     return devices;
-  } catch (err) {
+  } catch {
     // File missing or unreadable – return empty structure.
     cached = null;
     return {};

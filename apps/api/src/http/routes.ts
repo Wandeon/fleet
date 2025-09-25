@@ -94,7 +94,7 @@ router.get('/logs', async (req, res) => {
     });
     res.json(result);
   } catch (err) {
-    const status = typeof (err as any)?.status === 'number' ? (err as any).status : 502;
+    const status = typeof (err)?.status === 'number' ? (err).status : 502;
     const message = err instanceof Error ? err.message : 'Failed to query logs';
     log.error({ err: message, status }, 'logs endpoint error');
     res.status(status).json({ error: message });

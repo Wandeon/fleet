@@ -14,13 +14,13 @@ export type Error = {
   /**
    * Optional client-facing recommendation.
    */
-  hint?: string;
+  hint?: string | null;
   /**
    * Correlates the request across systems.
    */
   correlationId: string;
   /**
-   * Additional contextual information.
+   * Additional contextual information for debugging.
    */
   details?: any;
 };

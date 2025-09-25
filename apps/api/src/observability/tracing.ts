@@ -15,7 +15,7 @@ const serviceVersion =
   process.env.COMMIT_SHA ||
   'unknown';
 
-export async function startTracing() {
+export function startTracing() {
   if (process.env.OTEL_TRACING_DISABLED === '1' || process.env.OTEL_TRACING_DISABLED === 'true') {
     return;
   }
@@ -39,7 +39,7 @@ export async function startTracing() {
     instrumentations: [getNodeAutoInstrumentations()],
   });
 
-  await sdk.start();
+  sdk.start();
 
   const shutdown = async () => {
     await shutdownTracing();
@@ -52,7 +52,7 @@ export async function startTracing() {
 export async function shutdownTracing() {
   if (!sdk) return;
   await sdk.shutdown().catch((error) => {
-    // eslint-disable-next-line no-console
+     
     console.error('failed to shutdown tracing', error);
   });
   sdk = null;

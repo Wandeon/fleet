@@ -5,7 +5,7 @@ export interface NowPlayingInfo {
   art?: string;
 }
 
-export type DeviceStatus = 'online' | 'offline' | 'error';
+export type DeviceStatus = 'online' | 'offline' | 'error' | 'degraded';
 
 export type AudioPlaybackStateName = 'idle' | 'playing' | 'paused' | 'buffering' | 'error';
 

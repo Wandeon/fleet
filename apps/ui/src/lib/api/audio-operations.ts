@@ -1,6 +1,5 @@
 import { browser } from '$app/environment';
 import {
-  AudioApi,
   API_BASE_URL,
   rawRequest,
   USE_MOCKS,
@@ -8,7 +7,6 @@ import {
 } from './client';
 import type { RequestOptions } from './client';
 import { mockApi } from './mock';
-import type { AudioDeviceStatus } from './gen';
 import type {
   AudioDeviceSnapshot,
   AudioLibraryTrack,
@@ -57,6 +55,119 @@ const jsonHeaders = {
   'Content-Type': 'application/json'
 };
 
+interface LegacyAudioPlayback {
+  state?: string;
+  trackId?: string | null;
+  trackTitle?: string | null;
+  playlistId?: string | null;
+  positionSeconds?: number;
+  durationSeconds?: number;
+  since?: string | null;
+  syncGroup?: string | null;
+  errorMessage?: string | null;
+}
+
+interface LegacyAudioDevice {
+  id: string;
+  displayName?: string;
+  online?: boolean;
+  playback?: LegacyAudioPlayback;
+  volume?: { level?: number };
+  capabilities?: string[];
+  lastSeen?: string;
+}
+
+const mapLegacyDevice = (device: LegacyAudioDevice): AudioDeviceSnapshot => {
+  const playback = device.playback ?? {};
+  const online = device.online ?? false;
+  return {
+    id: device.id,
+    name: device.displayName ?? device.id,
+    status: online ? 'online' : 'offline',
+    group: null,
+    volumePercent: Math.round(((device.volume?.level ?? 1) as number) * 100),
+    capabilities: device.capabilities ?? [],
+    playback: {
+      state:
+        (playback.state as AudioDeviceSnapshot['playback']['state'])
+        ?? (online ? 'idle' : 'error'),
+      trackId: playback.trackId ?? null,
+      trackTitle: playback.trackTitle ?? null,
+      playlistId: playback.playlistId ?? null,
+      positionSeconds: playback.positionSeconds ?? 0,
+      durationSeconds: playback.durationSeconds ?? 0,
+      startedAt: playback.since ?? null,
+      syncGroup: playback.syncGroup ?? null,
+      lastError: playback.errorMessage ?? null
+    },
+    lastUpdated: device.lastSeen ?? new Date().toISOString()
+  } satisfies AudioDeviceSnapshot;
+};
+
+const legacyListDevices = async (
+  fetchImpl: typeof fetch
+): Promise<LegacyAudioDevice[]> => {
+  const response = await rawRequest<{ items?: LegacyAudioDevice[] }>(
+    '/audio/devices',
+    { fetch: fetchImpl as RequestOptions['fetch'] }
+  );
+  return response?.items ?? [];
+};
+
+const legacyPlayDevice = async (
+  deviceId: string,
+  payload: { source: 'file' | 'stream'; resume?: boolean },
+  fetchImpl: typeof fetch
+) => {
+  await rawRequest(`/audio/${deviceId}/play`, {
+    method: 'POST',
+    headers: jsonHeaders,
+    body: JSON.stringify(payload),
+    fetch: fetchImpl as RequestOptions['fetch']
+  });
+};
+
+const legacyStopDevice = async (deviceId: string, fetchImpl: typeof fetch) => {
+  await rawRequest(`/audio/${deviceId}/stop`, {
+    method: 'POST',
+    fetch: fetchImpl as RequestOptions['fetch']
+  });
+};
+
+const legacySetDeviceVolume = async (
+  deviceId: string,
+  volume: number,
+  fetchImpl: typeof fetch
+) => {
+  await rawRequest(`/audio/${deviceId}/volume`, {
+    method: 'POST',
+    headers: jsonHeaders,
+    body: JSON.stringify({ volume }),
+    fetch: fetchImpl as RequestOptions['fetch']
+  });
+};
+
+const readDeviceSnapshot = async (
+  deviceId: string,
+  fetchImpl: typeof fetch
+): Promise<AudioDeviceSnapshot> => {
+  try {
+    const snapshot = await rawRequest<AudioDeviceSnapshot>(`/audio/devices/${deviceId}`, {
+      fetch: fetchImpl as RequestOptions['fetch']
+    });
+    if (snapshot) {
+      return snapshot;
+    }
+  } catch (error) {
+    console.warn('TODO(backlog): implement /audio/devices/{id} endpoint', error);
+  }
+
+  const legacy = await rawRequest<LegacyAudioDevice>(`/audio/${deviceId}`, {
+    fetch: fetchImpl as RequestOptions['fetch']
+  });
+  return mapLegacyDevice(legacy);
+};
+
 export const getAudioOverview = async (options: { fetch?: typeof fetch } = {}): Promise<AudioState> => {
   if (USE_MOCKS) {
     return mockApi.audio();
@@ -73,40 +184,16 @@ export const getAudioOverview = async (options: { fetch?: typeof fetch } = {}): 
       sessions: []
     };
   } catch (error) {
-    console.warn('Falling back to AudioApi.listDevices()', error);
-    const fallback = await AudioApi.listDevices();
+    console.warn('Falling back to legacy /audio/devices endpoint', error);
+    const fallback = await legacyListDevices(fetchImpl);
     return {
       masterVolume: 100,
-      devices: fallback.items.map(mapDeviceFromApi),
+      devices: fallback.map(mapLegacyDevice),
       library: [],
       playlists: [],
       sessions: []
     } satisfies AudioState;
   }
-};
-
-const mapDeviceFromApi = (device: AudioDeviceStatus): AudioDeviceSnapshot => {
-  const playback = (device as { playback?: Record<string, unknown> }).playback ?? {};
-  return {
-    id: device.id,
-    name: (device as { displayName?: string }).displayName ?? device.id,
-    status: device.online ? 'online' : 'offline',
-    group: undefined,
-    volumePercent: Math.round(((device as { volume?: { level?: number } }).volume?.level ?? 1) * 100),
-    capabilities: (device as { capabilities?: string[] }).capabilities ?? [],
-    playback: {
-      state: (playback.state as AudioDeviceSnapshot['playback']['state']) ?? (device.online ? 'idle' : 'error'),
-      trackId: (playback.trackId as string | undefined) ?? null,
-      trackTitle: (playback.trackTitle as string | undefined) ?? null,
-      playlistId: (playback.playlistId as string | undefined) ?? null,
-      positionSeconds: (playback.positionSeconds as number | undefined) ?? 0,
-      durationSeconds: (playback.durationSeconds as number | undefined) ?? 0,
-      startedAt: (playback.since as string | undefined) ?? null,
-      syncGroup: (playback.syncGroup as string | undefined) ?? null,
-      lastError: (playback.errorMessage as string | undefined) ?? null
-    },
-    lastUpdated: (device as { lastSeen?: string }).lastSeen ?? new Date().toISOString()
-  } satisfies AudioDeviceSnapshot;
 };
 
 export const uploadTrack = async (options: UploadTrackOptions): Promise<AudioLibraryTrack> => {
@@ -248,7 +335,7 @@ export const playOnDevices = async (payload: PlayDevicesOptions, options: { fetc
   } catch (error) {
     console.warn('TODO(backlog): implement /audio/playback endpoint', error);
     for (const deviceId of payload.deviceIds) {
-      await AudioApi.play(deviceId, { source: 'file', resume: payload.resume ?? false });
+      await legacyPlayDevice(deviceId, { source: 'file', resume: payload.resume ?? false }, fetchImpl);
     }
   }
 
@@ -260,17 +347,18 @@ export const pauseDevice = async (deviceId: string, options: { fetch?: typeof fe
     return mockApi.audioPause(deviceId);
   }
 
+  const fetchImpl = ensureFetch(options.fetch);
   try {
     await rawRequest(`/audio/devices/${deviceId}/pause`, {
       method: 'POST',
-      fetch: ensureFetch(options.fetch) as RequestOptions['fetch']
+      fetch: fetchImpl as RequestOptions['fetch']
     });
   } catch (error) {
     console.warn('TODO(backlog): implement /audio/devices/{id}/pause endpoint', error);
-    await AudioApi.stop(deviceId);
+    await legacyStopDevice(deviceId, fetchImpl);
   }
 
-  return mapDeviceFromApi(await AudioApi.getDevice(deviceId));
+  return readDeviceSnapshot(deviceId, fetchImpl);
 };
 
 export const resumeDevice = async (deviceId: string, options: { fetch?: typeof fetch } = {}): Promise<AudioDeviceSnapshot> => {
@@ -278,17 +366,18 @@ export const resumeDevice = async (deviceId: string, options: { fetch?: typeof f
     return mockApi.audioResume(deviceId);
   }
 
+  const fetchImpl = ensureFetch(options.fetch);
   try {
     await rawRequest(`/audio/devices/${deviceId}/resume`, {
       method: 'POST',
-      fetch: ensureFetch(options.fetch) as RequestOptions['fetch']
+      fetch: fetchImpl as RequestOptions['fetch']
     });
   } catch (error) {
     console.warn('TODO(backlog): implement /audio/devices/{id}/resume endpoint', error);
-    await AudioApi.play(deviceId, { source: 'file', resume: true });
+    await legacyPlayDevice(deviceId, { source: 'file', resume: true }, fetchImpl);
   }
 
-  return mapDeviceFromApi(await AudioApi.getDevice(deviceId));
+  return readDeviceSnapshot(deviceId, fetchImpl);
 };
 
 export const stopDevice = async (deviceId: string, options: { fetch?: typeof fetch } = {}): Promise<AudioDeviceSnapshot> => {
@@ -296,17 +385,18 @@ export const stopDevice = async (deviceId: string, options: { fetch?: typeof fet
     return mockApi.audioStop(deviceId);
   }
 
+  const fetchImpl = ensureFetch(options.fetch);
   try {
     await rawRequest(`/audio/devices/${deviceId}/stop`, {
       method: 'POST',
-      fetch: ensureFetch(options.fetch) as RequestOptions['fetch']
+      fetch: fetchImpl as RequestOptions['fetch']
     });
   } catch (error) {
     console.warn('TODO(backlog): implement /audio/devices/{id}/stop endpoint', error);
-    await AudioApi.stop(deviceId);
+    await legacyStopDevice(deviceId, fetchImpl);
   }
 
-  return mapDeviceFromApi(await AudioApi.getDevice(deviceId));
+  return readDeviceSnapshot(deviceId, fetchImpl);
 };
 
 export const seekDevice = async (
@@ -318,18 +408,19 @@ export const seekDevice = async (
     return mockApi.audioSeek(deviceId, positionSeconds);
   }
 
+  const fetchImpl = ensureFetch(options.fetch);
   try {
     await rawRequest(`/audio/devices/${deviceId}/seek`, {
       method: 'POST',
       headers: jsonHeaders,
       body: JSON.stringify({ positionSeconds }),
-      fetch: ensureFetch(options.fetch) as RequestOptions['fetch']
+      fetch: fetchImpl as RequestOptions['fetch']
     });
   } catch (error) {
     console.warn('TODO(backlog): implement /audio/devices/{id}/seek endpoint', error);
   }
 
-  return mapDeviceFromApi(await AudioApi.getDevice(deviceId));
+  return readDeviceSnapshot(deviceId, fetchImpl);
 };
 
 export const setDeviceVolume = async (
@@ -355,26 +446,11 @@ export const setDeviceVolume = async (
   } catch (error) {
     // Fallback path for environments where /audio/devices/{id}/volume isn't live yet.
     console.warn('TODO(backlog): implement /audio/devices/{id}/volume endpoint', error);
-    await AudioApi.setVolume(deviceId, { volume: normalized });
-    try {
-      return mapDeviceFromApi(await AudioApi.getDevice(deviceId));
-    } catch (fallbackErr) {
-      console.warn('Fallback getDevice failed after setVolume', fallbackErr);
-      throw fallbackErr;
-    }
+    await legacySetDeviceVolume(deviceId, normalized, fetchImpl);
   }
 
   // Read back latest status from control-plane; if that fails, fallback to legacy client.
-  try {
-    const latest = await rawRequest<AudioDeviceStatus>(`/audio/devices/${deviceId}`, {
-      fetch: fetchImpl as RequestOptions['fetch']
-    });
-    return mapDeviceFromApi(latest);
-  } catch (error) {
-    console.warn('TODO(backlog): implement /audio/devices/{id} endpoint', error);
-    // Final fallback: legacy client read
-    return mapDeviceFromApi(await AudioApi.getDevice(deviceId));
-  }
+  return readDeviceSnapshot(deviceId, fetchImpl);
 };
 
 export const setMasterVolume = async (

@@ -35,7 +35,7 @@ function captureLog(level: string, obj: any) {
   logEventCallbacks.forEach(callback => {
     try {
       callback(entry);
-    } catch (err) {
+    } catch {
       // Ignore callback errors to prevent infinite loops
     }
   });

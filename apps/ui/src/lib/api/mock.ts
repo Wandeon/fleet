@@ -623,7 +623,7 @@ interface MockApiExtensions {
   fleetOverview(): FleetOverview;
   fleetDevice(deviceId: string): FleetDeviceDetail;
   fleetExecuteAction(deviceId: string, actionId: string): FleetDeviceDetail;
-};
+}
 
 type MockApi = typeof mockApiBase & MockApiExtensions;
 

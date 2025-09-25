@@ -3,45 +3,75 @@ import {
   AudioService,
   CameraService,
   FleetService,
-  HealthService,
+  LogsService,
   OpenAPI,
+  SettingsService,
   VideoService,
   ZigbeeService,
 } from './gen';
+import type {
+  AllowedOriginsRequest,
+  AudioMasterVolumeRequest,
+  AudioPlaybackRequest,
+  AudioSeekRequest,
+  AudioVolumeRequest,
+  CameraClipRequest,
+  CameraSelectionRequest,
+  InviteOperatorRequest,
+  PairingClaimRequest,
+  PairingStartRequest,
+  ProxyUpdateRequest,
+  VideoPreviewRequest,
+  ZigbeeActionRequest,
+  ZigbeePairingStartRequest,
+} from './gen';
 
 export type {
-  AudioConfigRequest,
-  AudioConfigResponse,
-  AudioConfigState,
-  AudioDeviceList,
-  AudioDeviceStatus,
-  AudioPlaybackState,
-  AudioPlayRequest,
-  AudioStopResponse,
+  AllowedOriginsRequest,
+  ApiAccessSettings,
+  AudioDeviceSnapshot,
+  AudioLibraryTrack,
+  AudioMasterVolumeRequest,
+  AudioPlaybackAssignment,
+  AudioPlaybackRequest,
+  AudioPlaylist,
+  AudioSeekRequest,
+  AudioSession,
+  AudioState,
   AudioVolumeRequest,
-  AudioVolumeResponse,
-  AudioVolumeState,
+  CameraClip,
+  CameraClipRequest,
+  CameraClipResponse,
+  CameraDevice,
   CameraEvent,
-  CameraEvents,
-  CameraStateSummary,
-  CameraPreview,
-  CameraSummary,
-  CameraSummaryItem,
-  CameraStorageSummary,
-  FleetLayout,
-  FleetState,
-  HealthSummary,
-  ModuleHealth,
-  RecentEvent,
-  RecentEvents,
-  TvInputRequest,
-  TvMuteRequest,
-  TvPowerRequest,
-  TvStatus,
-  TvVolumeRequest,
+  CameraEventDetection,
+  CameraPreviewState,
+  CameraSelectionRequest,
+  CameraState,
+  DeviceStatus,
+  FleetDeviceAction,
+  FleetDeviceAlert,
+  FleetDeviceDetail,
+  FleetDeviceMetric,
+  FleetDeviceSummary,
+  FleetOverview,
+  LogEntry,
+  LogSeverity,
+  LogSource,
+  LogsSnapshot,
+  OperatorAccount,
+  OperatorRole,
+  ProxySettings,
+  ProxySettingsPatch,
+  ProxyUpdateRequest,
+  SettingsState,
+  VideoPreviewRequest,
+  VideoRecordingSegment,
+  VideoState,
   ZigbeeActionRequest,
-  ZigbeeDeviceList,
-  ZigbeeStateSummary,
+  ZigbeePairingStartRequest,
+  ZigbeePairingState,
+  ZigbeeState,
 } from './gen';
 
 export { ApiError, CancelablePromise, CancelError } from './gen';
@@ -93,50 +123,117 @@ export const configureApiClient = (options: ApiClientOptions = {}): void => {
 };
 
 export const FleetApi = {
-  getLayout: () => FleetService.getFleetLayout(),
-  getState: () => FleetService.getFleetState(),
+  getOverview: () => FleetService.getFleetOverview(),
+  getDeviceDetail: (deviceId: string) => FleetService.getFleetDeviceDetail(deviceId),
+  triggerDeviceAction: (deviceId: string, actionId: string) =>
+    FleetService.triggerFleetDeviceAction(deviceId, actionId),
 };
 
 export const AudioApi = {
-  listDevices: (limit?: number, cursor?: string) => AudioService.listAudioDevices(limit, cursor),
-  getDevice: (id: string) => AudioService.getAudioDevice(id),
-  play: (id: string, payload: Parameters<typeof AudioService.playAudioDevice>[1]) =>
-    AudioService.playAudioDevice(id, payload),
-  stop: (id: string) => AudioService.stopAudioDevice(id),
-  setVolume: (id: string, payload: Parameters<typeof AudioService.setAudioDeviceVolume>[1]) =>
-    AudioService.setAudioDeviceVolume(id, payload),
-  updateConfig: (id: string, payload: Parameters<typeof AudioService.updateAudioDeviceConfig>[1]) =>
-    AudioService.updateAudioDeviceConfig(id, payload),
+  getOverview: () => AudioService.getAudioOverview(),
+  getDevice: (deviceId: string) => AudioService.getAudioDevice(deviceId),
+  startPlayback: (payload: AudioPlaybackRequest) => AudioService.startAudioPlayback(payload),
+  pauseDevice: (deviceId: string) => AudioService.pauseAudioDevice(deviceId),
+  resumeDevice: (deviceId: string) => AudioService.resumeAudioDevice(deviceId),
+  stopDevice: (deviceId: string) => AudioService.stopAudioDevice(deviceId),
+  seekDevice: (deviceId: string, payload: AudioSeekRequest) =>
+    AudioService.seekAudioDevice(deviceId, payload),
+  setDeviceVolume: (deviceId: string, payload: AudioVolumeRequest) =>
+    AudioService.setAudioDeviceVolume(deviceId, payload),
+  setMasterVolume: (payload: AudioMasterVolumeRequest) =>
+    AudioService.setAudioMasterVolume(payload),
 };
 
+interface LegacyTvStatus {
+  id: string;
+  displayName: string;
+  online?: boolean;
+  power: 'on' | 'off';
+  input: string;
+  availableInputs?: string[];
+  volume: number;
+  mute: boolean;
+  lastSeen: string;
+}
+
 export const VideoApi = {
-  getTv: () => VideoService.getTvStatus(),
-  setPower: (payload: Parameters<typeof VideoService.setTvPower>[0]) =>
-    VideoService.setTvPower(payload),
-  setInput: (payload: Parameters<typeof VideoService.setTvInput>[0]) =>
-    VideoService.setTvInput(payload),
-  setVolume: (payload: Parameters<typeof VideoService.setTvVolume>[0]) =>
-    VideoService.setTvVolume(payload),
-  setMute: (payload: Parameters<typeof VideoService.setTvMute>[0]) =>
-    VideoService.setTvMute(payload),
+  getOverview: () => VideoService.getVideoOverview(),
+  getRecordings: () => VideoService.getVideoRecordings(),
+  generatePreview: (payload?: VideoPreviewRequest) => VideoService.generateVideoPreview(payload),
+  getTv: () => request<LegacyTvStatus>('/video/tv'),
+  setPower: (payload: { on: boolean }) =>
+    request<LegacyTvStatus>('/video/tv/power', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload),
+    }),
+  setInput: (payload: { input: string }) =>
+    request<LegacyTvStatus>('/video/tv/input', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload),
+    }),
+  setVolume: (payload: { level: number }) =>
+    request<LegacyTvStatus>('/video/tv/volume', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload),
+    }),
+  setMute: (payload: { mute: boolean }) =>
+    request<LegacyTvStatus>('/video/tv/mute', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload),
+    }),
 };
 
 export const ZigbeeApi = {
-  listDevices: (limit?: number, cursor?: string) => ZigbeeService.listZigbeeDevices(limit, cursor),
-  runAction: (id: string, payload: Parameters<typeof ZigbeeService.runZigbeeDeviceAction>[1]) =>
-    ZigbeeService.runZigbeeDeviceAction(id, payload),
+  getOverview: () => ZigbeeService.getZigbeeOverview(),
+  runAction: (deviceId: string, payload: ZigbeeActionRequest) =>
+    ZigbeeService.runZigbeeAction(deviceId, payload),
+  startPairing: (payload?: ZigbeePairingStartRequest) => ZigbeeService.startZigbeePairing(payload),
+  stopPairing: () => ZigbeeService.stopZigbeePairing(),
+  pollDiscovered: () => ZigbeeService.pollZigbeeDiscovered(),
+  confirmPairing: (deviceId: string) => ZigbeeService.confirmZigbeePairing(deviceId),
 };
 
 export const CameraApi = {
-  getSummary: () => CameraService.getCameraSummary(),
-  getEvents: (limit?: number, cursor?: string, since?: string) =>
-    CameraService.listCameraEvents(limit, cursor, since),
-  getPreview: (id: string) => CameraService.getCameraPreview(id),
+  getOverview: () => CameraService.getCameraOverview(),
+  selectCamera: (payload: CameraSelectionRequest) => CameraService.selectCamera(payload),
+  acknowledgeEvent: (eventId: string) => CameraService.acknowledgeCameraEvent(eventId),
+  requestClip: (eventId: string, payload: CameraClipRequest) =>
+    CameraService.requestCameraClip(eventId, payload),
+  refreshCamera: (cameraId: string) => CameraService.refreshCamera(cameraId),
 };
 
-export const HealthApi = {
-  getSummary: () => HealthService.getHealthSummary(),
-  getRecentEvents: (limit?: number, cursor?: string) => HealthService.getRecentEvents(limit, cursor),
+export const LogsApi = {
+  getSnapshot: (
+    source?: string,
+    level?: Parameters<typeof LogsService.getLogs>[1],
+    q?: string,
+    limit?: number,
+    cursor?: string,
+  ) => LogsService.getLogs(source, level, q, limit ?? 50, cursor),
+  stream: (
+    source?: string,
+    level?: Parameters<typeof LogsService.streamLogs>[1],
+    q?: string,
+    accept?: string,
+  ) => LogsService.streamLogs(source, level, q, accept),
+};
+
+export const SettingsApi = {
+  getSettings: () => SettingsService.getSettings(),
+  updateProxy: (payload: ProxyUpdateRequest) => SettingsService.updateProxySettings(payload),
+  rotateApiToken: () => SettingsService.rotateApiToken(),
+  updateAllowedOrigins: (payload: AllowedOriginsRequest) =>
+    SettingsService.updateAllowedOrigins(payload),
+  startPairing: (payload: PairingStartRequest) => SettingsService.startSettingsPairing(payload),
+  cancelPairing: () => SettingsService.cancelSettingsPairing(),
+  claimPairingCandidate: (candidateId: string, payload?: PairingClaimRequest) =>
+    SettingsService.claimPairingCandidate(candidateId, payload),
+  inviteOperator: (payload: InviteOperatorRequest) => SettingsService.inviteOperator(payload),
+  removeOperator: (operatorId: string) => SettingsService.removeOperator(operatorId),
 };
 
 import { browser } from '$app/environment';

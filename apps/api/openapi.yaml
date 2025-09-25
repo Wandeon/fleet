@@ -1,11 +1,12 @@
 openapi: 3.0.3
 info:
   title: Fleet Control API
-  version: 0.1.0
+  version: 0.2.0
   description: |
     Public web API consumed by the Fleet web UI. The API aggregates multiple
     device roles (audio players, video/CEC, Zigbee, cameras) and exposes a
-    consistent contract for UI integrations.
+    consistent contract for UI integrations. Schemas align with the live device
+    capabilities matrix to ensure client compatibility.
   contact:
     name: Fleet Platform Team
     email: platform@fleet.example
@@ -15,17 +16,19 @@ security:
   - bearerAuth: []
 tags:
   - name: Fleet
-    description: Layout metadata and overall fleet state aggregation.
+    description: Fleet device summary and per-device detail endpoints.
   - name: Audio
-    description: Distributed audio player control and configuration.
+    description: Distributed audio player control, playlist, and playback endpoints.
   - name: Video
-    description: CEC-enabled TV power, input, volume, and mute controls.
+    description: TV control, live preview, and recording timelines.
   - name: Zigbee
-    description: Zigbee lighting and scene orchestration endpoints.
+    description: Zigbee lighting, pairing, and quick action orchestration.
   - name: Camera
-    description: Camera health summaries, event feeds, and preview links.
-  - name: Health
-    description: Cross-module health reporting and recent event feeds.
+    description: Camera health summaries, event feeds, and clip generation.
+  - name: Logs
+    description: Operator log viewing and streaming diagnostics.
+  - name: Settings
+    description: Control plane configuration, pairing, and operator management.
 components:
   securitySchemes:
     bearerAuth:
@@ -68,669 +71,41 @@ components:
       description: Opaque pagination cursor returned by previous responses.
       schema:
         type: string
-    SinceParam:
-      name: since
+    LogLevelParam:
+      name: level
       in: query
-      description: Filter events to those occurring at or after the ISO-8601 timestamp.
+      description: Filter log entries to a specific severity level.
       schema:
         type: string
-        format: date-time
-    EventsLimitParam:
-      name: limit
+        enum:
+          - trace
+          - debug
+          - info
+          - warn
+          - error
+          - fatal
+    LogSourceParam:
+      name: source
       in: query
-      description: Maximum number of events to return.
+      description: Limit log entries to a specific source identifier.
       schema:
-        type: integer
-        format: int32
-        minimum: 1
-        maximum: 200
-        default: 50
-  schemas:
-    Error:
-      type: object
-      required:
-        - code
-        - message
-        - correlationId
-      properties:
-        code:
-          type: string
-          description: Machine-readable error code.
-          example: AUDIO_DEVICE_TIMEOUT
-        message:
-          type: string
-          description: Human-readable summary of the error.
-          example: Audio player pi-audio-01 timed out while responding.
-        hint:
-          type: string
-          description: Optional client-facing recommendation.
-          example: Retry in a few seconds or check device connectivity.
-        correlationId:
-          type: string
-          description: Correlates the request across systems.
-          example: 14d6f1fd-4c9f-4e8d-8621-9254cb59aa81
-        details:
-          description: Additional contextual information.
-          type: object
-          nullable: true
-          additionalProperties: true
-          example:
-            deviceId: pi-audio-01
-            timeoutMs: 4000
-    FleetLayout:
-      type: object
-      required:
-        - updatedAt
-        - modules
-      properties:
-        updatedAt:
-          type: string
-          format: date-time
-          description: Timestamp when the layout was generated.
-        modules:
-          type: array
-          items:
-            $ref: '#/components/schemas/LayoutModule'
-    LayoutModule:
-      type: object
-      required:
-        - id
-        - displayName
-        - enabled
-        - capabilities
-      properties:
-        id:
-          type: string
-          description: Stable module identifier.
-          example: audio
-        displayName:
-          type: string
-          example: Audio Players
-        enabled:
-          type: boolean
-          description: Whether the module is currently enabled in the UI.
-        description:
-          type: string
-          nullable: true
-          example: Controls for distributed audio zones.
-        capabilities:
-          type: array
-          items:
-            type: string
-          example:
-            - playback
-            - volume
-            - configuration
-    FleetState:
-      type: object
-      required:
-        - generatedAt
-        - audio
-        - video
-        - zigbee
-        - camera
-      properties:
-        generatedAt:
-          type: string
-          format: date-time
-        audio:
-          type: object
-          required:
-            - devices
-          properties:
-            devices:
-              type: array
-              items:
-                $ref: '#/components/schemas/AudioDeviceStatus'
-        video:
-          type: object
-          required:
-            - tv
-          properties:
-            tv:
-              $ref: '#/components/schemas/TvStatus'
-        zigbee:
-          $ref: '#/components/schemas/ZigbeeStateSummary'
-        camera:
-          $ref: '#/components/schemas/CameraStateSummary'
-    AudioDeviceStatus:
-      type: object
-      required:
-        - id
-        - displayName
-        - online
-        - playback
-        - volume
-        - lastSeen
-      properties:
-        id:
-          type: string
-          example: pi-audio-01
-        displayName:
-          type: string
-          example: Lobby Speakers
-        online:
-          type: boolean
-        playback:
-          $ref: '#/components/schemas/AudioPlaybackState'
-        volume:
-          $ref: '#/components/schemas/AudioVolumeState'
-        lastSeen:
-          type: string
-          format: date-time
-        capabilities:
-          type: array
-          description: Supported control surfaces exposed by the device.
-          items:
-            type: string
-          example:
-            - play
-            - stop
-            - volume
-            - upload
-        config:
-          $ref: '#/components/schemas/AudioConfigState'
-    AudioPlaybackState:
-      type: object
-      required:
-        - state
-        - source
-      properties:
-        state:
-          type: string
-          description: Current playback state.
-          enum:
-            - idle
-            - playing
-            - buffering
-            - error
-          example: playing
-        source:
-          type: string
-          description: Active audio source.
-          enum:
-            - stream
-            - file
-        trackTitle:
-          type: string
-          nullable: true
-          example: Ambient Lobby Stream
-        since:
-          type: string
-          format: date-time
-          nullable: true
-        errorMessage:
-          type: string
-          nullable: true
-    AudioVolumeState:
-      type: object
-      required:
-        - level
-      properties:
-        level:
-          type: number
-          format: float
-          minimum: 0
-          maximum: 2
-          example: 0.85
-        locked:
-          type: boolean
-          description: Whether the device volume is currently hardware locked.
-          default: false
-        lastChangedBy:
-          type: string
-          nullable: true
-          example: ui
-    AudioConfigState:
-      type: object
-      properties:
-        streamUrl:
-          type: string
-          format: uri
-          nullable: true
-        mode:
-          type: string
-          nullable: true
-          description: Device operating mode.
-          example: live
-        defaultSource:
-          type: string
-          nullable: true
-          enum:
-            - stream
-            - file
-    AudioDeviceList:
-      type: object
-      required:
-        - items
-      properties:
-        items:
-          type: array
-          items:
-            $ref: '#/components/schemas/AudioDeviceStatus'
-        nextCursor:
-          type: string
-          nullable: true
-    AudioPlayRequest:
-      type: object
-      required:
-        - source
-      properties:
-        source:
-          type: string
-          enum:
-            - stream
-            - file
-        resume:
-          type: boolean
-          description: Resume previous playback position when available.
-          default: false
-    AudioStopResponse:
-      type: object
-      required:
-        - id
-        - playback
-      properties:
-        id:
-          type: string
-        playback:
-          $ref: '#/components/schemas/AudioPlaybackState'
-    AudioVolumeRequest:
-      type: object
-      required:
-        - volume
-      properties:
-        volume:
-          type: number
-          format: float
-          minimum: 0
-          maximum: 2
-          example: 1.0
-    AudioVolumeResponse:
-      allOf:
-        - $ref: '#/components/schemas/AudioDeviceStatus'
-    AudioConfigRequest:
-      type: object
-      properties:
-        streamUrl:
-          type: string
-          format: uri
-        mode:
-          type: string
-          enum:
-            - live
-            - fallback
-        source:
-          type: string
-          enum:
-            - stream
-            - file
-    AudioConfigResponse:
-      allOf:
-        - $ref: '#/components/schemas/AudioDeviceStatus'
-    TvStatus:
-      type: object
-      required:
-        - id
-        - displayName
-        - online
-        - power
-        - input
-        - volume
-        - mute
-        - lastSeen
-      properties:
-        id:
-          type: string
-          example: tv-main-hall
-        displayName:
-          type: string
-          example: Main Hall TV
-        online:
-          type: boolean
-        power:
-          type: string
-          enum:
-            - on
-            - off
-        input:
-          type: string
-          example: HDMI1
-        availableInputs:
-          type: array
-          items:
-            type: string
-          example:
-            - HDMI1
-            - HDMI2
-            - HDMI3
-        volume:
-          type: integer
-          minimum: 0
-          maximum: 100
-        mute:
-          type: boolean
-        lastSeen:
-          type: string
-          format: date-time
-    TvPowerRequest:
-      type: object
-      required:
-        - on
-      properties:
-        on:
-          type: boolean
-    TvInputRequest:
-      type: object
-      required:
-        - input
-      properties:
-        input:
-          type: string
-          example: HDMI2
-    TvVolumeRequest:
-      type: object
-      required:
-        - level
-      properties:
-        level:
-          type: integer
-          minimum: 0
-          maximum: 100
-    TvMuteRequest:
-      type: object
-      required:
-        - mute
-      properties:
-        mute:
-          type: boolean
-    ZigbeeStateSummary:
-      type: object
-      required:
-        - coordinatorOnline
-        - devicesOnline
-        - totalDevices
-      properties:
-        coordinatorOnline:
-          type: boolean
-        devicesOnline:
-          type: integer
-        totalDevices:
-          type: integer
-        scenesAvailable:
-          type: array
-          items:
-            type: string
-          example:
-            - evening
-            - away
-    ZigbeeDeviceList:
-      type: object
-      required:
-        - items
-      properties:
-        items:
-          type: array
-          items:
-            $ref: '#/components/schemas/ZigbeeDeviceSummary'
-        nextCursor:
-          type: string
-          nullable: true
-    ZigbeeDeviceSummary:
-      type: object
-      required:
-        - id
-        - displayName
-        - type
-        - state
-      properties:
-        id:
-          type: string
-          example: zigbee-switch-01
-        displayName:
-          type: string
-          example: Lobby Lighting
-        type:
-          type: string
-          example: switch
-        state:
-          type: string
-          example: on
-        batteryPercent:
-          type: number
-          nullable: true
-          minimum: 0
-          maximum: 100
-        lastSeen:
-          type: string
-          format: date-time
-    ZigbeeActionRequest:
-      type: object
-      required:
-        - action
-      properties:
-        action:
-          type: string
-          enum:
-            - toggle
-            - on
-            - off
-            - scene
-        scene:
-          type: string
-          description: Required when action is scene.
-          nullable: true
-    CameraStateSummary:
-      type: object
-      required:
-        - totalCameras
-        - onlineCameras
-        - recordingCameras
-      properties:
-        totalCameras:
-          type: integer
-        onlineCameras:
-          type: integer
-        recordingCameras:
-          type: integer
-        motionEventsToday:
-          type: integer
-        lastEventAt:
-          type: string
-          format: date-time
-          nullable: true
-    CameraSummary:
-      type: object
-      required:
-        - cameras
-        - storage
-      properties:
-        cameras:
-          type: array
-          items:
-            $ref: '#/components/schemas/CameraSummaryItem'
-        storage:
-          $ref: '#/components/schemas/CameraStorageSummary'
-    CameraSummaryItem:
-      type: object
-      required:
-        - id
-        - displayName
-        - online
-        - recording
-      properties:
-        id:
-          type: string
-          example: cam-lobby-01
-        displayName:
-          type: string
-          example: Lobby Entrance
-        online:
-          type: boolean
-        recording:
-          type: boolean
-        lastEventAt:
-          type: string
-          format: date-time
-          nullable: true
-    CameraStorageSummary:
-      type: object
-      required:
-        - usedPercent
-        - retentionDays
-      properties:
-        usedPercent:
-          type: number
-          minimum: 0
-          maximum: 100
-        retentionDays:
-          type: integer
-    CameraEvents:
-      type: object
-      required:
-        - items
-      properties:
-        items:
-          type: array
-          items:
-            $ref: '#/components/schemas/CameraEvent'
-        nextCursor:
-          type: string
-          nullable: true
-    CameraEvent:
-      type: object
-      required:
-        - id
-        - cameraId
-        - type
-        - timestamp
-      properties:
-        id:
-          type: string
-          example: evt-20240101-01
-        cameraId:
-          type: string
-          example: cam-lobby-01
-        type:
-          type: string
-          example: motion
-        severity:
-          type: string
-          enum:
-            - info
-            - warning
-            - critical
-        timestamp:
-          type: string
-          format: date-time
-        clipUrl:
-          type: string
-          format: uri
-          nullable: true
-        thumbnailUrl:
-          type: string
-          format: uri
-          nullable: true
-        synopsis:
-          type: string
-          nullable: true
-    CameraPreview:
-      type: object
-      required:
-        - cameraId
-        - url
-      properties:
-        cameraId:
-          type: string
-        url:
-          type: string
-          format: uri
-        expiresAt:
-          type: string
-          format: date-time
-    HealthSummary:
-      type: object
-      required:
-        - status
-        - updatedAt
-        - modules
-      properties:
-        status:
-          type: string
-          enum:
-            - healthy
-            - degraded
-            - down
-        updatedAt:
-          type: string
-          format: date-time
-        modules:
-          type: array
-          items:
-            $ref: '#/components/schemas/ModuleHealth'
-    ModuleHealth:
-      type: object
-      required:
-        - id
-        - status
-      properties:
-        id:
-          type: string
-          example: audio
-        status:
-          type: string
-          enum:
-            - healthy
-            - degraded
-            - down
-        message:
-          type: string
-          nullable: true
-          example: 1 device offline (pi-audio-02)
-    RecentEvents:
-      type: object
-      required:
-        - items
-      properties:
-        items:
-          type: array
-          items:
-            $ref: '#/components/schemas/RecentEvent'
-        nextCursor:
-          type: string
-          nullable: true
-    RecentEvent:
-      type: object
-      required:
-        - id
-        - source
-        - title
-        - severity
-        - timestamp
-      properties:
-        id:
-          type: string
-        source:
-          type: string
-          example: audio
-        title:
-          type: string
-          example: Lobby Speakers playback resumed
-        severity:
-          type: string
-          enum:
-            - info
-            - warning
-            - critical
-        timestamp:
-          type: string
-          format: date-time
-        correlationId:
-          type: string
-          nullable: true
+        type: string
+    LogSearchParam:
+      name: q
+      in: query
+      description: Free-text search filter applied to message and context fields.
+      schema:
+        type: string
+    LogsStreamAccept:
+      name: accept
+      in: header
+      required: false
+      schema:
+        type: string
+      example: text/event-stream
   responses:
     UnauthorizedError:
-      description: Authentication credentials missing or invalid.
+      description: Authentication failed or credentials missing.
       headers:
         x-correlation-id:
           $ref: '#/components/headers/CorrelationId'
@@ -739,14 +114,13 @@ components:
           schema:
             $ref: '#/components/schemas/Error'
           examples:
-            missingToken:
+            default:
               value:
-                code: AUTH_REQUIRED
-                message: Bearer token is required.
-                hint: Provide an Authorization header with a valid token.
-                correlationId: aaaaa1111-2222-3333-4444-555555555555
+                code: UNAUTHENTICATED
+                message: Authentication token missing or invalid.
+                correlationId: 00000000-0000-0000-0000-000000000000
     ForbiddenError:
-      description: Authenticated user lacks required scope.
+      description: Authenticated user does not have permission to access the resource.
       headers:
         x-correlation-id:
           $ref: '#/components/headers/CorrelationId'
@@ -754,14 +128,8 @@ components:
         application/json:
           schema:
             $ref: '#/components/schemas/Error'
-          examples:
-            forbidden:
-              value:
-                code: AUTH_FORBIDDEN
-                message: Token is missing the required scope for audio:write.
-                correlationId: bbbbb1111-2222-3333-4444-555555555555
     NotFoundError:
-      description: Requested resource could not be found.
+      description: Requested resource does not exist.
       headers:
         x-correlation-id:
           $ref: '#/components/headers/CorrelationId'
@@ -769,14 +137,8 @@ components:
         application/json:
           schema:
             $ref: '#/components/schemas/Error'
-          examples:
-            notFound:
-              value:
-                code: RESOURCE_NOT_FOUND
-                message: Audio device pi-audio-99 was not found.
-                correlationId: ccccc1111-2222-3333-4444-555555555555
     ValidationError:
-      description: Request payload failed validation.
+      description: One or more request parameters failed validation.
       headers:
         x-correlation-id:
           $ref: '#/components/headers/CorrelationId'
@@ -785,30 +147,11 @@ components:
           schema:
             $ref: '#/components/schemas/Error'
           examples:
-            invalidVolume:
+            invalid:
               value:
-                code: VALIDATION_FAILED
-                message: Volume must be between 0.0 and 2.0.
-                details:
-                  field: volume
-                  minimum: 0
-                  maximum: 2
-                correlationId: ddddd1111-2222-3333-4444-555555555555
-    ConflictError:
-      description: Resource is in a conflicting state.
-      headers:
-        x-correlation-id:
-          $ref: '#/components/headers/CorrelationId'
-      content:
-        application/json:
-          schema:
-            $ref: '#/components/schemas/Error'
-          examples:
-            conflict:
-              value:
-                code: RESOURCE_BUSY
-                message: TV is processing another command.
-                correlationId: eeeee1111-2222-3333-4444-555555555555
+                code: INVALID_REQUEST
+                message: Provided payload failed validation.
+                correlationId: 11111111-1111-1111-1111-111111111111
     RateLimitError:
       description: Request rate limit exceeded.
       headers:
@@ -824,12 +167,6 @@ components:
         application/json:
           schema:
             $ref: '#/components/schemas/Error'
-          examples:
-            throttled:
-              value:
-                code: RATE_LIMIT_EXCEEDED
-                message: Too many requests. Please retry later.
-                correlationId: fffff1111-2222-3333-4444-555555555555
     BadGatewayError:
       description: Upstream device returned an invalid response or is unreachable.
       headers:
@@ -839,12 +176,6 @@ components:
         application/json:
           schema:
             $ref: '#/components/schemas/Error'
-          examples:
-            badGateway:
-              value:
-                code: UPSTREAM_UNAVAILABLE
-                message: Audio backend is unreachable.
-                correlationId: ggggg1111-2222-3333-4444-555555555555
     GatewayTimeoutError:
       description: Upstream device timed out while processing the request.
       headers:
@@ -854,13 +185,6 @@ components:
         application/json:
           schema:
             $ref: '#/components/schemas/Error'
-          examples:
-            timeout:
-              value:
-                code: AUDIO_DEVICE_TIMEOUT
-                message: Audio device pi-audio-01 timed out.
-                hint: Ensure the device is powered on and reachable.
-                correlationId: hhhhh1111-2222-3333-4444-555555555555
     InternalError:
       description: Unexpected server error occurred.
       headers:
@@ -870,207 +194,1579 @@ components:
         application/json:
           schema:
             $ref: '#/components/schemas/Error'
-          examples:
-            internal:
-              value:
-                code: INTERNAL_ERROR
-                message: Unexpected error occurred.
-                correlationId: iiiii1111-2222-3333-4444-555555555555
-
+    NotImplementedError:
+      description: Endpoint contract defined but backend implementation is pending.
+      headers:
+        x-correlation-id:
+          $ref: '#/components/headers/CorrelationId'
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+  schemas:
+    Error:
+      type: object
+      required:
+        - code
+        - message
+        - correlationId
+      properties:
+        code:
+          type: string
+          description: Machine-readable error code.
+        message:
+          type: string
+          description: Human-readable summary of the error.
+        hint:
+          type: string
+          nullable: true
+          description: Optional client-facing recommendation.
+        correlationId:
+          type: string
+          format: uuid
+          description: Correlates the request across systems.
+        details:
+          type: object
+          nullable: true
+          additionalProperties: true
+          description: Additional contextual information for debugging.
+    DeviceStatus:
+      type: string
+      description: Standard device status values aligned with the device capabilities matrix.
+      enum:
+        - online
+        - offline
+        - error
+        - degraded
+    AudioPlaybackStateName:
+      type: string
+      enum:
+        - idle
+        - playing
+        - paused
+        - buffering
+        - error
+    AudioSyncMode:
+      type: string
+      enum:
+        - independent
+        - synced
+        - grouped
+    AudioDevicePlayback:
+      type: object
+      required:
+        - state
+        - positionSeconds
+        - durationSeconds
+        - startedAt
+        - syncGroup
+      properties:
+        state:
+          $ref: '#/components/schemas/AudioPlaybackStateName'
+        trackId:
+          type: string
+          nullable: true
+        trackTitle:
+          type: string
+          nullable: true
+        playlistId:
+          type: string
+          nullable: true
+        positionSeconds:
+          type: number
+          format: float
+          minimum: 0
+        durationSeconds:
+          type: number
+          format: float
+          minimum: 0
+        startedAt:
+          type: string
+          format: date-time
+          nullable: true
+        syncGroup:
+          type: string
+          nullable: true
+        lastError:
+          type: string
+          nullable: true
+    AudioDeviceSnapshot:
+      type: object
+      required:
+        - id
+        - name
+        - status
+        - volumePercent
+        - capabilities
+        - playback
+        - lastUpdated
+      properties:
+        id:
+          type: string
+        name:
+          type: string
+        status:
+          $ref: '#/components/schemas/DeviceStatus'
+        group:
+          type: string
+          nullable: true
+        volumePercent:
+          type: integer
+          format: int32
+          minimum: 0
+          maximum: 100
+          description: Percent-based volume control, aligned with 1 dB steps in Pi devices.
+        capabilities:
+          type: array
+          description: Capabilities exposed by the device. Values map to the live device capabilities matrix.
+          items:
+            type: string
+          example:
+            - playback
+            - seek
+            - sync
+            - upload
+        playback:
+          $ref: '#/components/schemas/AudioDevicePlayback'
+        lastUpdated:
+          type: string
+          format: date-time
+    AudioLibraryTrack:
+      type: object
+      required:
+        - id
+        - title
+        - durationSeconds
+        - format
+        - uploadedAt
+      properties:
+        id:
+          type: string
+        title:
+          type: string
+        artist:
+          type: string
+          nullable: true
+        durationSeconds:
+          type: number
+          format: float
+          minimum: 0
+        format:
+          type: string
+          description: Media container or codec (e.g. MP3, AAC, FLAC) supported per the device matrix.
+        sizeBytes:
+          type: integer
+          format: int64
+          nullable: true
+        tags:
+          type: array
+          items:
+            type: string
+        uploadedAt:
+          type: string
+          format: date-time
+    AudioPlaylistTrack:
+      type: object
+      required:
+        - trackId
+        - order
+      properties:
+        trackId:
+          type: string
+        order:
+          type: integer
+          format: int32
+          minimum: 0
+        startOffsetSeconds:
+          type: number
+          format: float
+          minimum: 0
+          nullable: true
+        deviceOverrides:
+          type: object
+          additionalProperties:
+            type: string
+          nullable: true
+    AudioPlaylist:
+      type: object
+      required:
+        - id
+        - name
+        - loop
+        - syncMode
+        - createdAt
+        - updatedAt
+        - tracks
+      properties:
+        id:
+          type: string
+        name:
+          type: string
+        description:
+          type: string
+          nullable: true
+        loop:
+          type: boolean
+        syncMode:
+          $ref: '#/components/schemas/AudioSyncMode'
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+        tracks:
+          type: array
+          items:
+            $ref: '#/components/schemas/AudioPlaylistTrack'
+    AudioSession:
+      type: object
+      required:
+        - id
+        - deviceIds
+        - syncMode
+        - state
+        - startedAt
+      properties:
+        id:
+          type: string
+        playlistId:
+          type: string
+          nullable: true
+        deviceIds:
+          type: array
+          items:
+            type: string
+        syncMode:
+          $ref: '#/components/schemas/AudioSyncMode'
+        state:
+          type: string
+          enum:
+            - preparing
+            - playing
+            - paused
+            - completed
+            - error
+        startedAt:
+          type: string
+          format: date-time
+    AudioState:
+      type: object
+      required:
+        - masterVolume
+        - devices
+        - library
+        - playlists
+        - sessions
+      properties:
+        masterVolume:
+          type: integer
+          format: int32
+          minimum: 0
+          maximum: 100
+        devices:
+          type: array
+          items:
+            $ref: '#/components/schemas/AudioDeviceSnapshot'
+        library:
+          type: array
+          items:
+            $ref: '#/components/schemas/AudioLibraryTrack'
+        playlists:
+          type: array
+          items:
+            $ref: '#/components/schemas/AudioPlaylist'
+        sessions:
+          type: array
+          items:
+            $ref: '#/components/schemas/AudioSession'
+        message:
+          type: string
+          nullable: true
+    AudioPlaybackAssignment:
+      type: object
+      required:
+        - deviceId
+        - trackId
+      properties:
+        deviceId:
+          type: string
+        trackId:
+          type: string
+        startOffsetSeconds:
+          type: number
+          format: float
+          minimum: 0
+          nullable: true
+    AudioPlaybackRequest:
+      type: object
+      required:
+        - deviceIds
+        - syncMode
+      properties:
+        deviceIds:
+          type: array
+          items:
+            type: string
+        playlistId:
+          type: string
+          nullable: true
+        trackId:
+          type: string
+          nullable: true
+        assignments:
+          type: array
+          items:
+            $ref: '#/components/schemas/AudioPlaybackAssignment'
+        syncMode:
+          $ref: '#/components/schemas/AudioSyncMode'
+        resume:
+          type: boolean
+          default: false
+        startAtSeconds:
+          type: number
+          format: float
+          minimum: 0
+          default: 0
+        loop:
+          type: boolean
+          default: false
+    AudioSeekRequest:
+      type: object
+      required:
+        - positionSeconds
+      properties:
+        positionSeconds:
+          type: number
+          format: float
+          minimum: 0
+    AudioVolumeRequest:
+      type: object
+      required:
+        - volume
+      properties:
+        volume:
+          type: number
+          format: float
+          minimum: 0
+          maximum: 2
+          description: Normalised volume between 0.0 and 2.0 (inclusive).
+    AudioMasterVolumeRequest:
+      type: object
+      required:
+        - volumePercent
+      properties:
+        volumePercent:
+          type: integer
+          format: int32
+          minimum: 0
+          maximum: 100
+    VideoPowerState:
+      type: string
+      enum:
+        - on
+        - off
+    VideoInputOption:
+      type: object
+      required:
+        - id
+        - label
+        - kind
+      properties:
+        id:
+          type: string
+        label:
+          type: string
+        kind:
+          type: string
+          enum:
+            - hdmi
+            - cast
+            - app
+            - other
+    VideoLiveStream:
+      type: object
+      required:
+        - deviceId
+        - streamUrl
+        - startedAt
+        - latencyMs
+        - status
+      properties:
+        deviceId:
+          type: string
+        streamUrl:
+          type: string
+          format: uri
+        thumbnailUrl:
+          type: string
+          format: uri
+          nullable: true
+        startedAt:
+          type: string
+          format: date-time
+        latencyMs:
+          type: integer
+          format: int32
+        status:
+          type: string
+          enum:
+            - ready
+            - connecting
+            - error
+    VideoRecordingSegment:
+      type: object
+      required:
+        - id
+        - start
+        - end
+        - url
+      properties:
+        id:
+          type: string
+        start:
+          type: string
+          format: date-time
+        end:
+          type: string
+          format: date-time
+        label:
+          type: string
+          nullable: true
+        url:
+          type: string
+          format: uri
+    VideoCecDevice:
+      type: object
+      required:
+        - id
+        - name
+        - power
+      properties:
+        id:
+          type: string
+        name:
+          type: string
+        power:
+          $ref: '#/components/schemas/VideoPowerState'
+        input:
+          type: string
+          nullable: true
+    VideoState:
+      type: object
+      required:
+        - power
+        - input
+        - availableInputs
+        - recordings
+        - volume
+        - muted
+        - lastSignal
+        - cecDevices
+      properties:
+        power:
+          $ref: '#/components/schemas/VideoPowerState'
+        input:
+          type: string
+        availableInputs:
+          type: array
+          items:
+            $ref: '#/components/schemas/VideoInputOption'
+        livePreview:
+          allOf:
+            - $ref: '#/components/schemas/VideoLiveStream'
+          nullable: true
+          description: Most recent live stream snapshot or null when no preview is available.
+        recordings:
+          type: array
+          items:
+            $ref: '#/components/schemas/VideoRecordingSegment'
+        volume:
+          type: integer
+          format: int32
+          minimum: 0
+          maximum: 100
+        muted:
+          type: boolean
+        lastSignal:
+          type: string
+          format: date-time
+        cecDevices:
+          type: array
+          items:
+            $ref: '#/components/schemas/VideoCecDevice'
+    VideoPreviewRequest:
+      type: object
+      properties:
+        deviceId:
+          type: string
+          description: Target video node for generating the preview stream.
+    ZigbeeQuickAction:
+      type: object
+      required:
+        - id
+        - label
+        - description
+      properties:
+        id:
+          type: string
+        label:
+          type: string
+        description:
+          type: string
+    ZigbeeDevice:
+      type: object
+      required:
+        - id
+        - name
+        - type
+        - state
+        - lastSeen
+      properties:
+        id:
+          type: string
+        name:
+          type: string
+        type:
+          type: string
+        state:
+          type: string
+          enum:
+            - open
+            - closed
+            - active
+            - inactive
+        lastSeen:
+          type: string
+          format: date-time
+        battery:
+          type: integer
+          format: int32
+          nullable: true
+    ZigbeePairingCandidate:
+      type: object
+      required:
+        - id
+        - name
+        - type
+        - signal
+      properties:
+        id:
+          type: string
+        name:
+          type: string
+        type:
+          type: string
+        signal:
+          type: integer
+          format: int32
+    ZigbeePairingState:
+      type: object
+      required:
+        - active
+        - discovered
+      properties:
+        active:
+          type: boolean
+        expiresAt:
+          type: string
+          format: date-time
+          nullable: true
+        discovered:
+          type: array
+          items:
+            $ref: '#/components/schemas/ZigbeePairingCandidate'
+    ZigbeeState:
+      type: object
+      required:
+        - devices
+        - quickActions
+        - hubStatus
+      properties:
+        devices:
+          type: array
+          items:
+            $ref: '#/components/schemas/ZigbeeDevice'
+        quickActions:
+          type: array
+          items:
+            $ref: '#/components/schemas/ZigbeeQuickAction'
+        hubStatus:
+          $ref: '#/components/schemas/DeviceStatus'
+        pairing:
+          allOf:
+            - $ref: '#/components/schemas/ZigbeePairingState'
+          nullable: true
+          description: Active pairing state if pairing mode is engaged; null otherwise.
+    ZigbeeActionRequest:
+      type: object
+      required:
+        - actionId
+      properties:
+        actionId:
+          type: string
+    ZigbeePairingStartRequest:
+      type: object
+      properties:
+        durationSeconds:
+          type: integer
+          format: int32
+          minimum: 5
+          maximum: 900
+    CameraEventDetection:
+      type: object
+      required:
+        - id
+        - label
+        - confidence
+      properties:
+        id:
+          type: string
+        label:
+          type: string
+        confidence:
+          type: number
+          format: float
+        boundingBox:
+          type: object
+          nullable: true
+          properties:
+            x:
+              type: number
+              format: float
+            y:
+              type: number
+              format: float
+            width:
+              type: number
+              format: float
+            height:
+              type: number
+              format: float
+    CameraEvent:
+      type: object
+      required:
+        - id
+        - cameraId
+        - timestamp
+        - description
+        - severity
+      properties:
+        id:
+          type: string
+        cameraId:
+          type: string
+        timestamp:
+          type: string
+          format: date-time
+        description:
+          type: string
+        severity:
+          type: string
+          enum:
+            - info
+            - warning
+            - alert
+            - error
+        clipUrl:
+          type: string
+          format: uri
+          nullable: true
+        snapshotUrl:
+          type: string
+          format: uri
+          nullable: true
+        acknowledged:
+          type: boolean
+          nullable: true
+        detections:
+          type: array
+          items:
+            $ref: '#/components/schemas/CameraEventDetection'
+        tags:
+          type: array
+          items:
+            type: string
+    CameraDevice:
+      type: object
+      required:
+        - id
+        - name
+        - status
+        - lastHeartbeat
+        - capabilities
+      properties:
+        id:
+          type: string
+        name:
+          type: string
+        status:
+          $ref: '#/components/schemas/DeviceStatus'
+        location:
+          type: string
+          nullable: true
+        streamUrl:
+          type: string
+          format: uri
+          nullable: true
+        stillUrl:
+          type: string
+          format: uri
+          nullable: true
+        lastHeartbeat:
+          type: string
+          format: date-time
+        capabilities:
+          type: array
+          description: Capabilities correspond to AI camera features documented in the device matrix.
+          items:
+            type: string
+    CameraClip:
+      type: object
+      required:
+        - id
+        - cameraId
+        - start
+        - end
+        - url
+      properties:
+        id:
+          type: string
+        cameraId:
+          type: string
+        start:
+          type: string
+          format: date-time
+        end:
+          type: string
+          format: date-time
+        url:
+          type: string
+          format: uri
+        thumbnailUrl:
+          type: string
+          format: uri
+          nullable: true
+        label:
+          type: string
+          nullable: true
+    CameraPreviewState:
+      type: object
+      required:
+        - cameraId
+        - status
+        - posterUrl
+        - streamUrl
+        - updatedAt
+      properties:
+        cameraId:
+          type: string
+          nullable: true
+        status:
+          type: string
+          enum:
+            - ready
+            - pending
+            - unavailable
+        posterUrl:
+          type: string
+          format: uri
+          nullable: true
+        streamUrl:
+          type: string
+          format: uri
+          nullable: true
+        reason:
+          type: string
+          nullable: true
+        updatedAt:
+          type: string
+          format: date-time
+    CameraOverviewSummary:
+      type: object
+      required:
+        - status
+        - updatedAt
+        - reason
+        - cameras
+      properties:
+        status:
+          type: string
+          enum:
+            - online
+            - offline
+            - degraded
+        updatedAt:
+          type: string
+          format: date-time
+        reason:
+          type: string
+          nullable: true
+        cameras:
+          type: array
+          items:
+            type: object
+            required:
+              - id
+              - name
+              - status
+            properties:
+              id:
+                type: string
+              name:
+                type: string
+              status:
+                type: string
+                enum:
+                  - online
+                  - offline
+                  - degraded
+              lastSeen:
+                type: string
+                format: date-time
+                nullable: true
+              reason:
+                type: string
+                nullable: true
+    CameraState:
+      type: object
+      required:
+        - activeCameraId
+        - devices
+        - events
+        - clips
+        - overview
+      properties:
+        activeCameraId:
+          type: string
+          nullable: true
+        devices:
+          type: array
+          items:
+            $ref: '#/components/schemas/CameraDevice'
+        events:
+          type: array
+          items:
+            $ref: '#/components/schemas/CameraEvent'
+        clips:
+          type: array
+          items:
+            $ref: '#/components/schemas/CameraClip'
+        overview:
+          type: object
+          required:
+            - previewImage
+            - streamUrl
+            - lastMotion
+            - health
+            - updatedAt
+          properties:
+            previewImage:
+              type: string
+              format: uri
+              nullable: true
+            streamUrl:
+              type: string
+              format: uri
+              nullable: true
+            lastMotion:
+              type: string
+              format: date-time
+              nullable: true
+            health:
+              $ref: '#/components/schemas/DeviceStatus'
+            updatedAt:
+              type: string
+              format: date-time
+              nullable: true
+        summary:
+          allOf:
+            - $ref: '#/components/schemas/CameraOverviewSummary'
+          nullable: true
+          description: Optional roll-up of camera health for quick status review.
+        preview:
+          allOf:
+            - $ref: '#/components/schemas/CameraPreviewState'
+          nullable: true
+          description: Preview metadata for the active camera if a live preview exists.
+    CameraSelectionRequest:
+      type: object
+      required:
+        - cameraId
+      properties:
+        cameraId:
+          type: string
+    CameraClipRequest:
+      type: object
+      required:
+        - cameraId
+      properties:
+        cameraId:
+          type: string
+    CameraClipResponse:
+      type: object
+      required:
+        - url
+      properties:
+        url:
+          type: string
+          format: uri
+    LogSeverity:
+      type: string
+      enum:
+        - debug
+        - info
+        - warning
+        - error
+        - critical
+    LogEntry:
+      type: object
+      required:
+        - id
+        - timestamp
+        - severity
+        - message
+        - source
+      properties:
+        id:
+          type: string
+        timestamp:
+          type: string
+          format: date-time
+        severity:
+          $ref: '#/components/schemas/LogSeverity'
+        message:
+          type: string
+        source:
+          type: string
+        module:
+          type: string
+          nullable: true
+        deviceId:
+          type: string
+          nullable: true
+        correlationId:
+          type: string
+          nullable: true
+        context:
+          type: object
+          nullable: true
+          additionalProperties: true
+    LogSource:
+      type: object
+      required:
+        - id
+        - label
+        - kind
+      properties:
+        id:
+          type: string
+        label:
+          type: string
+        description:
+          type: string
+          nullable: true
+        kind:
+          type: string
+          enum:
+            - device
+            - service
+            - system
+            - group
+        module:
+          type: string
+          nullable: true
+        deviceId:
+          type: string
+          nullable: true
+        active:
+          type: boolean
+          nullable: true
+    LogsSnapshot:
+      type: object
+      required:
+        - entries
+        - lastUpdated
+      properties:
+        entries:
+          type: array
+          items:
+            $ref: '#/components/schemas/LogEntry'
+        sources:
+          type: array
+          items:
+            $ref: '#/components/schemas/LogSource'
+        cursor:
+          type: string
+          nullable: true
+        lastUpdated:
+          type: string
+          format: date-time
+    ApiAccessSettings:
+      type: object
+      required:
+        - bearerTokenMasked
+        - lastRotatedAt
+        - allowedOrigins
+      properties:
+        bearerTokenMasked:
+          type: string
+          nullable: true
+        lastRotatedAt:
+          type: string
+          format: date-time
+          nullable: true
+        expiresAt:
+          type: string
+          format: date-time
+          nullable: true
+        allowedOrigins:
+          type: array
+          items:
+            type: string
+            format: uri
+        webhookUrl:
+          type: string
+          format: uri
+          nullable: true
+    ProxySettings:
+      type: object
+      required:
+        - baseUrl
+        - timeoutMs
+        - health
+        - latencyMs
+        - errorRate
+      properties:
+        baseUrl:
+          type: string
+          format: uri
+        timeoutMs:
+          type: integer
+          format: int32
+        health:
+          type: string
+          enum:
+            - online
+            - degraded
+            - offline
+        latencyMs:
+          type: integer
+          format: int32
+        errorRate:
+          type: number
+          format: float
+    ProxySettingsPatch:
+      type: object
+      properties:
+        baseUrl:
+          type: string
+          format: uri
+        timeoutMs:
+          type: integer
+          format: int32
+        health:
+          type: string
+          enum:
+            - online
+            - degraded
+            - offline
+        latencyMs:
+          type: integer
+          format: int32
+        errorRate:
+          type: number
+          format: float
+    PairingDiscoveryCandidate:
+      type: object
+      required:
+        - id
+        - name
+        - capability
+        - signal
+        - discoveredAt
+      properties:
+        id:
+          type: string
+        name:
+          type: string
+        capability:
+          type: string
+        signal:
+          type: integer
+          format: int32
+        discoveredAt:
+          type: string
+          format: date-time
+    PairingHistoryEntry:
+      type: object
+      required:
+        - id
+        - completedAt
+        - deviceId
+        - status
+      properties:
+        id:
+          type: string
+        completedAt:
+          type: string
+          format: date-time
+        deviceId:
+          type: string
+        status:
+          type: string
+          enum:
+            - success
+            - error
+        note:
+          type: string
+          nullable: true
+    PairingStatus:
+      type: object
+      required:
+        - active
+        - method
+        - expiresAt
+        - discovered
+        - history
+      properties:
+        active:
+          type: boolean
+        method:
+          type: string
+          enum:
+            - manual
+            - qr
+            - auto
+        expiresAt:
+          type: string
+          format: date-time
+          nullable: true
+        discovered:
+          type: array
+          items:
+            $ref: '#/components/schemas/PairingDiscoveryCandidate'
+        history:
+          type: array
+          items:
+            $ref: '#/components/schemas/PairingHistoryEntry'
+    OperatorRole:
+      type: object
+      required:
+        - id
+        - name
+        - description
+        - permissions
+        - assignable
+      properties:
+        id:
+          type: string
+        name:
+          type: string
+        description:
+          type: string
+        permissions:
+          type: array
+          items:
+            type: string
+        assignable:
+          type: boolean
+    OperatorAccount:
+      type: object
+      required:
+        - id
+        - name
+        - email
+        - roles
+        - lastActiveAt
+        - status
+      properties:
+        id:
+          type: string
+        name:
+          type: string
+        email:
+          type: string
+          format: email
+        roles:
+          type: array
+          items:
+            type: string
+        lastActiveAt:
+          type: string
+          format: date-time
+          nullable: true
+        status:
+          type: string
+          enum:
+            - active
+            - invited
+            - disabled
+    SettingsState:
+      type: object
+      required:
+        - api
+        - proxy
+        - pairing
+        - operators
+        - roles
+        - pendingRestart
+        - lastSavedAt
+      properties:
+        api:
+          $ref: '#/components/schemas/ApiAccessSettings'
+        proxy:
+          $ref: '#/components/schemas/ProxySettings'
+        pairing:
+          $ref: '#/components/schemas/PairingStatus'
+        operators:
+          type: array
+          items:
+            $ref: '#/components/schemas/OperatorAccount'
+        roles:
+          type: array
+          items:
+            $ref: '#/components/schemas/OperatorRole'
+        pendingRestart:
+          type: boolean
+        lastSavedAt:
+          type: string
+          format: date-time
+          nullable: true
+    ProxyUpdateRequest:
+      type: object
+      required:
+        - proxy
+      properties:
+        proxy:
+          $ref: '#/components/schemas/ProxySettingsPatch'
+    AllowedOriginsRequest:
+      type: object
+      required:
+        - origins
+      properties:
+        origins:
+          type: array
+          items:
+            type: string
+    PairingStartRequest:
+      type: object
+      required:
+        - method
+        - durationSeconds
+      properties:
+        method:
+          type: string
+          enum:
+            - manual
+            - qr
+            - auto
+        durationSeconds:
+          type: integer
+          format: int32
+          minimum: 30
+          maximum: 900
+    PairingClaimRequest:
+      type: object
+      properties:
+        note:
+          type: string
+          nullable: true
+        status:
+          type: string
+          enum:
+            - success
+            - error
+        deviceId:
+          type: string
+          nullable: true
+    InviteOperatorRequest:
+      type: object
+      required:
+        - name
+        - email
+        - roles
+      properties:
+        name:
+          type: string
+        email:
+          type: string
+          format: email
+        roles:
+          type: array
+          items:
+            type: string
+    FleetDeviceMetric:
+      type: object
+      required:
+        - id
+        - label
+        - value
+        - status
+      properties:
+        id:
+          type: string
+        label:
+          type: string
+        value:
+          type: string
+        unit:
+          type: string
+          nullable: true
+        status:
+          type: string
+          enum:
+            - ok
+            - warn
+            - error
+        trend:
+          type: string
+          enum:
+            - up
+            - down
+            - steady
+          nullable: true
+        updatedAt:
+          type: string
+          format: date-time
+          nullable: true
+        description:
+          type: string
+          nullable: true
+    FleetDeviceAction:
+      type: object
+      required:
+        - id
+        - label
+        - group
+        - method
+        - endpoint
+      properties:
+        id:
+          type: string
+        label:
+          type: string
+        description:
+          type: string
+          nullable: true
+        group:
+          type: string
+          enum:
+            - audio
+            - video
+            - system
+            - network
+            - maintenance
+        method:
+          type: string
+          enum:
+            - POST
+            - PATCH
+            - DELETE
+        endpoint:
+          type: string
+        requiresConfirmation:
+          type: boolean
+          nullable: true
+    FleetDeviceAlert:
+      type: object
+      required:
+        - id
+        - message
+        - severity
+        - createdAt
+        - acknowledged
+      properties:
+        id:
+          type: string
+        message:
+          type: string
+        severity:
+          type: string
+          enum:
+            - info
+            - warning
+            - error
+        createdAt:
+          type: string
+          format: date-time
+        acknowledged:
+          type: boolean
+    FleetDeviceSummary:
+      type: object
+      required:
+        - id
+        - name
+        - role
+        - module
+        - status
+        - lastSeen
+        - uptime
+        - ipAddress
+        - version
+        - groups
+        - tags
+        - capabilities
+      properties:
+        id:
+          type: string
+        name:
+          type: string
+        role:
+          type: string
+        module:
+          type: string
+        status:
+          $ref: '#/components/schemas/DeviceStatus'
+        location:
+          type: string
+          nullable: true
+        lastSeen:
+          type: string
+          format: date-time
+        uptime:
+          type: string
+        ipAddress:
+          type: string
+        version:
+          type: string
+        groups:
+          type: array
+          items:
+            type: string
+        tags:
+          type: array
+          items:
+            type: string
+        capabilities:
+          type: array
+          items:
+            type: string
+    FleetDeviceDetail:
+      type: object
+      required:
+        - summary
+        - metrics
+        - alerts
+        - logs
+        - actions
+        - connections
+      properties:
+        summary:
+          $ref: '#/components/schemas/FleetDeviceSummary'
+        metrics:
+          type: array
+          items:
+            $ref: '#/components/schemas/FleetDeviceMetric'
+        alerts:
+          type: array
+          items:
+            $ref: '#/components/schemas/FleetDeviceAlert'
+        logs:
+          type: array
+          items:
+            $ref: '#/components/schemas/LogEntry'
+        actions:
+          type: array
+          items:
+            $ref: '#/components/schemas/FleetDeviceAction'
+        connections:
+          type: array
+          items:
+            type: object
+            required:
+              - name
+              - status
+              - lastChecked
+            properties:
+              name:
+                type: string
+              status:
+                type: string
+                enum:
+                  - connected
+                  - pending
+                  - error
+              lastChecked:
+                type: string
+                format: date-time
+    FleetOverview:
+      type: object
+      required:
+        - totals
+        - modules
+        - devices
+        - updatedAt
+      properties:
+        totals:
+          type: object
+          required:
+            - devices
+            - online
+            - offline
+            - degraded
+          properties:
+            devices:
+              type: integer
+              format: int32
+            online:
+              type: integer
+              format: int32
+            offline:
+              type: integer
+              format: int32
+            degraded:
+              type: integer
+              format: int32
+        modules:
+          type: array
+          items:
+            type: object
+            required:
+              - id
+              - label
+              - online
+              - offline
+              - degraded
+            properties:
+              id:
+                type: string
+              label:
+                type: string
+              online:
+                type: integer
+                format: int32
+              offline:
+                type: integer
+                format: int32
+              degraded:
+                type: integer
+                format: int32
+        devices:
+          type: array
+          items:
+            $ref: '#/components/schemas/FleetDeviceSummary'
+        updatedAt:
+          type: string
+          format: date-time
 paths:
-  /fleet/layout:
+  /fleet/overview:
     get:
       tags:
         - Fleet
-      summary: Retrieve layout metadata for Fleet UI modules.
-      description: Returns the list of modules the UI should render and their exposed capabilities.
-      operationId: getFleetLayout
+      summary: Retrieve aggregate fleet status for operator dashboards.
+      description: Retrieve aggregate fleet status for operator dashboards.
+      operationId: getFleetOverview
       responses:
         '200':
-          description: Layout information for all modules.
+          description: Fleet-wide module and device summary.
           headers:
             x-correlation-id:
               $ref: '#/components/headers/CorrelationId'
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/FleetLayout'
-              examples:
-                default:
-                  summary: Example layout
-                  value:
-                    updatedAt: '2024-03-28T09:00:00Z'
-                    modules:
-                      - id: audio
-                        displayName: Audio Players
-                        enabled: true
-                        description: Controls for distributed audio zones.
-                        capabilities:
-                          - playback
-                          - volume
-                          - configuration
-                      - id: video
-                        displayName: TV Control
-                        enabled: true
-                        capabilities:
-                          - power
-                          - input
-                          - volume
-                      - id: zigbee
-                        displayName: Zigbee Lighting
-                        enabled: true
-                        capabilities:
-                          - toggle
-                          - scene
-                      - id: camera
-                        displayName: Cameras
-                        enabled: true
-                        capabilities:
-                          - live-preview
-                          - events
-        '401':
-          $ref: '#/components/responses/UnauthorizedError'
-        '403':
-          $ref: '#/components/responses/ForbiddenError'
-        '429':
-          $ref: '#/components/responses/RateLimitError'
-        '500':
-          $ref: '#/components/responses/InternalError'
-  /fleet/state:
-    get:
-      tags:
-        - Fleet
-      summary: Retrieve summarized state for the dashboard view.
-      description: Aggregates the latest audio, video, Zigbee, and camera status into a single payload for the dashboard.
-      operationId: getFleetState
-      responses:
-        '200':
-          description: Summarized fleet state.
-          headers:
-            x-correlation-id:
-              $ref: '#/components/headers/CorrelationId'
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/FleetState'
-              examples:
-                default:
-                  summary: Fleet overview
-                  value:
-                    generatedAt: '2024-03-28T09:05:00Z'
-                    audio:
-                      devices:
-                        - id: pi-audio-01
-                          displayName: Lobby Speakers
-                          online: true
-                          playback:
-                            state: playing
-                            source: stream
-                            trackTitle: Ambient Lobby Stream
-                            since: '2024-03-28T08:55:00Z'
-                          volume:
-                            level: 0.9
-                            locked: false
-                          lastSeen: '2024-03-28T09:05:00Z'
-                          capabilities:
-                            - play
-                            - stop
-                            - volume
-                            - upload
-                          config:
-                            streamUrl: 'http://stream.example.com/lobby'
-                            mode: live
-                            defaultSource: stream
-                        - id: pi-audio-02
-                          displayName: Patio Speakers
-                          online: false
-                          playback:
-                            state: error
-                            source: stream
-                            errorMessage: Heartbeat lost
-                          volume:
-                            level: 0.5
-                          lastSeen: '2024-03-28T08:40:12Z'
-                    video:
-                      tv:
-                        id: tv-main-hall
-                        displayName: Main Hall TV
-                        online: true
-                        power: on
-                        input: HDMI2
-                        availableInputs:
-                          - HDMI1
-                          - HDMI2
-                          - HDMI3
-                        volume: 18
-                        mute: false
-                        lastSeen: '2024-03-28T09:04:27Z'
-                    zigbee:
-                      coordinatorOnline: true
-                      devicesOnline: 22
-                      totalDevices: 24
-                      scenesAvailable:
-                        - evening
-                        - away
-                    camera:
-                      totalCameras: 6
-                      onlineCameras: 6
-                      recordingCameras: 5
-                      motionEventsToday: 8
-                      lastEventAt: '2024-03-28T08:58:45Z'
-        '401':
-          $ref: '#/components/responses/UnauthorizedError'
-        '403':
-          $ref: '#/components/responses/ForbiddenError'
-        '429':
-          $ref: '#/components/responses/RateLimitError'
-        '500':
-          $ref: '#/components/responses/InternalError'
-  /audio/devices:
-    get:
-      tags:
-        - Audio
-      summary: List registered audio devices.
-      description: Returns a paginated list of audio players and their latest telemetry.
-      operationId: listAudioDevices
-      parameters:
-        - $ref: '#/components/parameters/LimitParam'
-        - $ref: '#/components/parameters/CursorParam'
-      responses:
-        '200':
-          description: Collection of audio devices.
-          headers:
-            x-correlation-id:
-              $ref: '#/components/headers/CorrelationId'
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/AudioDeviceList'
-              examples:
-                default:
-                  value:
-                    items:
-                      - id: pi-audio-01
-                        displayName: Lobby Speakers
-                        online: true
-                        playback:
-                          state: playing
-                          source: stream
-                        volume:
-                          level: 0.85
-                        lastSeen: '2024-03-28T09:05:00Z'
-                      - id: pi-audio-02
-                        displayName: Patio Speakers
-                        online: false
-                        playback:
-                          state: error
-                          source: stream
-                          errorMessage: Device offline
-                        volume:
-                          level: 0.5
-                          locked: true
-                        lastSeen: '2024-03-28T08:50:10Z'
-                    nextCursor: null
+                $ref: '#/components/schemas/FleetOverview'
         '401':
           $ref: '#/components/responses/UnauthorizedError'
         '403':
@@ -1081,30 +1777,31 @@ paths:
           $ref: '#/components/responses/BadGatewayError'
         '504':
           $ref: '#/components/responses/GatewayTimeoutError'
-  /audio/{id}:
+        '500':
+          $ref: '#/components/responses/InternalError'
+  /fleet/devices/{deviceId}:
     get:
       tags:
-        - Audio
-      summary: Retrieve status for a specific audio device.
-      description: Fetches the real-time playback, volume, and connectivity status for a single audio player.
-      operationId: getAudioDevice
+        - Fleet
+      summary: Retrieve detailed status, metrics, and actions for a fleet device.
+      description: Retrieve detailed status, metrics, and actions for a fleet device.
+      operationId: getFleetDeviceDetail
       parameters:
-        - name: id
+        - name: deviceId
           in: path
           required: true
-          description: Audio device identifier.
           schema:
             type: string
       responses:
         '200':
-          description: Current device status.
+          description: Detailed device view for operator troubleshooting.
           headers:
             x-correlation-id:
               $ref: '#/components/headers/CorrelationId'
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/AudioDeviceStatus'
+                $ref: '#/components/schemas/FleetDeviceDetail'
         '401':
           $ref: '#/components/responses/UnauthorizedError'
         '403':
@@ -1117,15 +1814,180 @@ paths:
           $ref: '#/components/responses/BadGatewayError'
         '504':
           $ref: '#/components/responses/GatewayTimeoutError'
-  /audio/{id}/play:
+        '500':
+          $ref: '#/components/responses/InternalError'
+  /fleet/devices/{deviceId}/actions/{actionId}:
+    post:
+      tags:
+        - Fleet
+      summary: Trigger a quick action on a fleet device.
+      description: Trigger a quick action on a fleet device.
+      operationId: triggerFleetDeviceAction
+      parameters:
+        - name: deviceId
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: actionId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '202':
+          description: Action accepted for asynchronous execution.
+          headers:
+            x-correlation-id:
+              $ref: '#/components/headers/CorrelationId'
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '403':
+          $ref: '#/components/responses/ForbiddenError'
+        '404':
+          $ref: '#/components/responses/NotFoundError'
+        '409':
+          description: Device is busy and cannot accept the requested action.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '429':
+          $ref: '#/components/responses/RateLimitError'
+        '502':
+          $ref: '#/components/responses/BadGatewayError'
+        '504':
+          $ref: '#/components/responses/GatewayTimeoutError'
+        '500':
+          $ref: '#/components/responses/InternalError'
+  /audio/overview:
+    get:
+      tags:
+        - Audio
+      summary: Retrieve consolidated audio state including devices, playlists, and sessions.
+      description: Retrieve consolidated audio state including devices, playlists, and sessions.
+      operationId: getAudioOverview
+      responses:
+        '200':
+          description: Audio overview payload for the operator UI.
+          headers:
+            x-correlation-id:
+              $ref: '#/components/headers/CorrelationId'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AudioState'
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '403':
+          $ref: '#/components/responses/ForbiddenError'
+        '429':
+          $ref: '#/components/responses/RateLimitError'
+        '502':
+          $ref: '#/components/responses/BadGatewayError'
+        '504':
+          $ref: '#/components/responses/GatewayTimeoutError'
+        '500':
+          $ref: '#/components/responses/InternalError'
+  /audio/library:
     post:
       tags:
         - Audio
-      summary: Start playback on an audio device.
-      description: Requests the player to begin playback from either the live stream or cached fallback file.
-      operationId: playAudioDevice
+      summary: Upload a new track to the audio library.
+      description: Upload a new track to the audio library.
+      operationId: uploadAudioTrack
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              required:
+                - file
+                - title
+              properties:
+                file:
+                  type: string
+                  format: binary
+                title:
+                  type: string
+                artist:
+                  type: string
+                tags:
+                  type: string
+                  description: Comma-separated tags applied to the track.
+                durationSeconds:
+                  type: number
+                  format: float
+      responses:
+        '201':
+          description: Track successfully uploaded.
+          headers:
+            x-correlation-id:
+              $ref: '#/components/headers/CorrelationId'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AudioLibraryTrack'
+        '400':
+          $ref: '#/components/responses/ValidationError'
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '403':
+          $ref: '#/components/responses/ForbiddenError'
+        '413':
+          description: Uploaded file exceeds allowed limits.
+        '429':
+          $ref: '#/components/responses/RateLimitError'
+        '501':
+          $ref: '#/components/responses/NotImplementedError'
+        '502':
+          $ref: '#/components/responses/BadGatewayError'
+        '504':
+          $ref: '#/components/responses/GatewayTimeoutError'
+        '500':
+          $ref: '#/components/responses/InternalError'
+  /audio/playlists:
+    post:
+      tags:
+        - Audio
+      summary: Create a new audio playlist.
+      description: Create a new audio playlist.
+      operationId: createAudioPlaylist
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AudioPlaylist'
+      responses:
+        '201':
+          description: Playlist created.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AudioPlaylist'
+        '400':
+          $ref: '#/components/responses/ValidationError'
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '403':
+          $ref: '#/components/responses/ForbiddenError'
+        '429':
+          $ref: '#/components/responses/RateLimitError'
+        '501':
+          $ref: '#/components/responses/NotImplementedError'
+        '500':
+          $ref: '#/components/responses/InternalError'
+  /audio/playlists/{playlistId}:
+    put:
+      tags:
+        - Audio
+      summary: Update an existing audio playlist.
+      description: Update an existing audio playlist.
+      operationId: updateAudioPlaylist
       parameters:
-        - name: id
+        - name: playlistId
           in: path
           required: true
           schema:
@@ -1135,78 +1997,109 @@ paths:
         content:
           application/json:
             schema:
-              $ref: '#/components/schemas/AudioPlayRequest'
-            examples:
-              stream:
-                value:
-                  source: stream
-              file:
-                value:
-                  source: file
-                  resume: true
+              $ref: '#/components/schemas/AudioPlaylist'
       responses:
         '200':
-          description: Updated device status after triggering playback.
-          headers:
-            x-correlation-id:
-              $ref: '#/components/headers/CorrelationId'
+          description: Updated playlist definition.
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/AudioDeviceStatus'
+                $ref: '#/components/schemas/AudioPlaylist'
+        '400':
+          $ref: '#/components/responses/ValidationError'
         '401':
           $ref: '#/components/responses/UnauthorizedError'
         '403':
           $ref: '#/components/responses/ForbiddenError'
         '404':
           $ref: '#/components/responses/NotFoundError'
-        '409':
-          description: Device busy and cannot accept playback command.
-          headers:
-            x-correlation-id:
-              $ref: '#/components/headers/CorrelationId'
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/Error'
-              examples:
-                busy:
-                  value:
-                    code: AUDIO_DEVICE_BUSY
-                    message: Device pi-audio-01 is switching sources.
-                    hint: Retry after the current action completes.
-                    correlationId: 4ab2f33e-2cdd-4c02-afad-305feff5df4f
-        '422':
-          $ref: '#/components/responses/ValidationError'
         '429':
           $ref: '#/components/responses/RateLimitError'
+        '501':
+          $ref: '#/components/responses/NotImplementedError'
+        '500':
+          $ref: '#/components/responses/InternalError'
+    delete:
+      tags:
+        - Audio
+      summary: Delete an existing audio playlist.
+      description: Delete an existing audio playlist.
+      operationId: deleteAudioPlaylist
+      parameters:
+        - name: playlistId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '204':
+          description: Playlist removed.
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '403':
+          $ref: '#/components/responses/ForbiddenError'
+        '404':
+          $ref: '#/components/responses/NotFoundError'
+        '429':
+          $ref: '#/components/responses/RateLimitError'
+        '501':
+          $ref: '#/components/responses/NotImplementedError'
+        '500':
+          $ref: '#/components/responses/InternalError'
+  /audio/playback:
+    post:
+      tags:
+        - Audio
+      summary: Initiate playback across one or more audio devices.
+      description: Initiate playback across one or more audio devices.
+      operationId: startAudioPlayback
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AudioPlaybackRequest'
+      responses:
+        '202':
+          description: Playback request accepted.
+        '400':
+          $ref: '#/components/responses/ValidationError'
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '403':
+          $ref: '#/components/responses/ForbiddenError'
+        '404':
+          $ref: '#/components/responses/NotFoundError'
+        '429':
+          $ref: '#/components/responses/RateLimitError'
+        '501':
+          $ref: '#/components/responses/NotImplementedError'
         '502':
           $ref: '#/components/responses/BadGatewayError'
         '504':
           $ref: '#/components/responses/GatewayTimeoutError'
-  /audio/{id}/stop:
-    post:
+        '500':
+          $ref: '#/components/responses/InternalError'
+  /audio/devices/{deviceId}:
+    get:
       tags:
         - Audio
-      summary: Stop playback on an audio device.
-      description: Immediately halts playback and reports the resulting idle state for the device.
-      operationId: stopAudioDevice
+      summary: Retrieve the latest snapshot for an individual audio device.
+      description: Retrieve the latest snapshot for an individual audio device.
+      operationId: getAudioDevice
       parameters:
-        - name: id
+        - name: deviceId
           in: path
           required: true
           schema:
             type: string
       responses:
         '200':
-          description: Playback halted.
-          headers:
-            x-correlation-id:
-              $ref: '#/components/headers/CorrelationId'
+          description: Current device snapshot.
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/AudioStopResponse'
+                $ref: '#/components/schemas/AudioDeviceSnapshot'
         '401':
           $ref: '#/components/responses/UnauthorizedError'
         '403':
@@ -1219,15 +2112,137 @@ paths:
           $ref: '#/components/responses/BadGatewayError'
         '504':
           $ref: '#/components/responses/GatewayTimeoutError'
-  /audio/{id}/volume:
+        '500':
+          $ref: '#/components/responses/InternalError'
+  /audio/devices/{deviceId}/pause:
     post:
       tags:
         - Audio
-      summary: Adjust playback volume for an audio device.
-      description: Sets the absolute gain multiplier on the target player (0.0–2.0 range).
+      summary: Pause playback on an audio device.
+      description: Pause playback on an audio device.
+      operationId: pauseAudioDevice
+      parameters:
+        - name: deviceId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '202':
+          description: Pause command accepted.
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '403':
+          $ref: '#/components/responses/ForbiddenError'
+        '404':
+          $ref: '#/components/responses/NotFoundError'
+        '429':
+          $ref: '#/components/responses/RateLimitError'
+        '501':
+          $ref: '#/components/responses/NotImplementedError'
+        '500':
+          $ref: '#/components/responses/InternalError'
+  /audio/devices/{deviceId}/resume:
+    post:
+      tags:
+        - Audio
+      summary: Resume playback on an audio device.
+      description: Resume playback on an audio device.
+      operationId: resumeAudioDevice
+      parameters:
+        - name: deviceId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '202':
+          description: Resume command accepted.
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '403':
+          $ref: '#/components/responses/ForbiddenError'
+        '404':
+          $ref: '#/components/responses/NotFoundError'
+        '429':
+          $ref: '#/components/responses/RateLimitError'
+        '501':
+          $ref: '#/components/responses/NotImplementedError'
+        '500':
+          $ref: '#/components/responses/InternalError'
+  /audio/devices/{deviceId}/stop:
+    post:
+      tags:
+        - Audio
+      summary: Stop playback on an audio device.
+      description: Stop playback on an audio device.
+      operationId: stopAudioDevice
+      parameters:
+        - name: deviceId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '202':
+          description: Stop command accepted.
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '403':
+          $ref: '#/components/responses/ForbiddenError'
+        '404':
+          $ref: '#/components/responses/NotFoundError'
+        '429':
+          $ref: '#/components/responses/RateLimitError'
+        '501':
+          $ref: '#/components/responses/NotImplementedError'
+        '500':
+          $ref: '#/components/responses/InternalError'
+  /audio/devices/{deviceId}/seek:
+    post:
+      tags:
+        - Audio
+      summary: Seek to a position in the currently playing track.
+      description: Seek to a position in the currently playing track.
+      operationId: seekAudioDevice
+      parameters:
+        - name: deviceId
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AudioSeekRequest'
+      responses:
+        '202':
+          description: Seek command accepted.
+        '400':
+          $ref: '#/components/responses/ValidationError'
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '403':
+          $ref: '#/components/responses/ForbiddenError'
+        '404':
+          $ref: '#/components/responses/NotFoundError'
+        '429':
+          $ref: '#/components/responses/RateLimitError'
+        '501':
+          $ref: '#/components/responses/NotImplementedError'
+        '500':
+          $ref: '#/components/responses/InternalError'
+  /audio/devices/{deviceId}/volume:
+    post:
+      tags:
+        - Audio
+      summary: Set the volume for an audio device.
+      description: Set the volume for an audio device.
       operationId: setAudioDeviceVolume
       parameters:
-        - name: id
+        - name: deviceId
           in: path
           required: true
           schema:
@@ -1239,296 +2254,190 @@ paths:
             schema:
               $ref: '#/components/schemas/AudioVolumeRequest'
       responses:
-        '200':
-          description: Updated device volume state.
-          headers:
-            x-correlation-id:
-              $ref: '#/components/headers/CorrelationId'
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/AudioVolumeResponse'
+        '202':
+          description: Volume update accepted.
+        '400':
+          $ref: '#/components/responses/ValidationError'
         '401':
           $ref: '#/components/responses/UnauthorizedError'
         '403':
           $ref: '#/components/responses/ForbiddenError'
         '404':
           $ref: '#/components/responses/NotFoundError'
-        '422':
-          $ref: '#/components/responses/ValidationError'
         '429':
           $ref: '#/components/responses/RateLimitError'
-        '502':
-          $ref: '#/components/responses/BadGatewayError'
-        '504':
-          $ref: '#/components/responses/GatewayTimeoutError'
-  /audio/{id}/config:
-    put:
+        '501':
+          $ref: '#/components/responses/NotImplementedError'
+        '500':
+          $ref: '#/components/responses/InternalError'
+  /audio/master-volume:
+    post:
       tags:
         - Audio
-      summary: Update persistent configuration for an audio device.
-      description: Persists stream URLs, fallback behaviour, and default source selection for a player.
-      operationId: updateAudioDeviceConfig
-      parameters:
-        - name: id
-          in: path
-          required: true
-          schema:
-            type: string
+      summary: Set the global master volume for audio playback.
+      description: Set the global master volume for audio playback.
+      operationId: setAudioMasterVolume
       requestBody:
         required: true
         content:
           application/json:
             schema:
-              $ref: '#/components/schemas/AudioConfigRequest'
+              $ref: '#/components/schemas/AudioMasterVolumeRequest'
+      responses:
+        '202':
+          description: Master volume update accepted.
+        '400':
+          $ref: '#/components/responses/ValidationError'
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '403':
+          $ref: '#/components/responses/ForbiddenError'
+        '429':
+          $ref: '#/components/responses/RateLimitError'
+        '501':
+          $ref: '#/components/responses/NotImplementedError'
+        '500':
+          $ref: '#/components/responses/InternalError'
+  /video/overview:
+    get:
+      tags:
+        - Video
+      summary: Retrieve consolidated video device status.
+      description: Retrieve consolidated video device status.
+      operationId: getVideoOverview
       responses:
         '200':
-          description: Updated device configuration and status.
+          description: Video overview for the primary display node.
           headers:
             x-correlation-id:
               $ref: '#/components/headers/CorrelationId'
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/AudioConfigResponse'
+                $ref: '#/components/schemas/VideoState'
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '403':
+          $ref: '#/components/responses/ForbiddenError'
+        '429':
+          $ref: '#/components/responses/RateLimitError'
+        '501':
+          $ref: '#/components/responses/NotImplementedError'
+        '502':
+          $ref: '#/components/responses/BadGatewayError'
+        '504':
+          $ref: '#/components/responses/GatewayTimeoutError'
+        '500':
+          $ref: '#/components/responses/InternalError'
+  /video/recordings:
+    get:
+      tags:
+        - Video
+      summary: Retrieve recording segments for the active video source.
+      description: Retrieve recording segments for the active video source.
+      operationId: getVideoRecordings
+      responses:
+        '200':
+          description: Recording segments available for playback.
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/VideoRecordingSegment'
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '403':
+          $ref: '#/components/responses/ForbiddenError'
+        '429':
+          $ref: '#/components/responses/RateLimitError'
+        '501':
+          $ref: '#/components/responses/NotImplementedError'
+        '502':
+          $ref: '#/components/responses/BadGatewayError'
+        '504':
+          $ref: '#/components/responses/GatewayTimeoutError'
+        '500':
+          $ref: '#/components/responses/InternalError'
+  /video/preview:
+    post:
+      tags:
+        - Video
+      summary: Generate a signed URL for a live video preview stream.
+      description: Generate a signed URL for a live video preview stream.
+      operationId: generateVideoPreview
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/VideoPreviewRequest'
+      responses:
+        '200':
+          description: Signed preview stream URL.
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                  - streamUrl
+                properties:
+                  streamUrl:
+                    type: string
+                    format: uri
         '401':
           $ref: '#/components/responses/UnauthorizedError'
         '403':
           $ref: '#/components/responses/ForbiddenError'
         '404':
           $ref: '#/components/responses/NotFoundError'
-        '409':
-          description: Device busy updating configuration.
-          headers:
-            x-correlation-id:
-              $ref: '#/components/headers/CorrelationId'
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/Error'
-        '422':
-          $ref: '#/components/responses/ValidationError'
         '429':
           $ref: '#/components/responses/RateLimitError'
+        '501':
+          $ref: '#/components/responses/NotImplementedError'
         '502':
           $ref: '#/components/responses/BadGatewayError'
         '504':
           $ref: '#/components/responses/GatewayTimeoutError'
-  /video/tv:
-    get:
-      tags:
-        - Video
-      summary: Retrieve the current TV state.
-      description: Reports the TV's power, input, volume, and mute status via the backend CEC adapter.
-      operationId: getTvStatus
-      responses:
-        '200':
-          description: TV status details.
-          headers:
-            x-correlation-id:
-              $ref: '#/components/headers/CorrelationId'
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/TvStatus'
-        '401':
-          $ref: '#/components/responses/UnauthorizedError'
-        '403':
-          $ref: '#/components/responses/ForbiddenError'
-        '429':
-          $ref: '#/components/responses/RateLimitError'
-        '502':
-          $ref: '#/components/responses/BadGatewayError'
-        '504':
-          $ref: '#/components/responses/GatewayTimeoutError'
-  /video/tv/power:
-    post:
-      tags:
-        - Video
-      summary: Toggle TV power state.
-      description: Sends a CEC command to turn the TV on or off and returns the updated status snapshot.
-      operationId: setTvPower
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              $ref: '#/components/schemas/TvPowerRequest'
-      responses:
-        '200':
-          description: Updated TV status.
-          headers:
-            x-correlation-id:
-              $ref: '#/components/headers/CorrelationId'
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/TvStatus'
-        '401':
-          $ref: '#/components/responses/UnauthorizedError'
-        '403':
-          $ref: '#/components/responses/ForbiddenError'
-        '409':
-          description: TV is already processing another command.
-          headers:
-            x-correlation-id:
-              $ref: '#/components/headers/CorrelationId'
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/Error'
-        '422':
-          $ref: '#/components/responses/ValidationError'
-        '429':
-          $ref: '#/components/responses/RateLimitError'
-        '502':
-          $ref: '#/components/responses/BadGatewayError'
-        '504':
-          $ref: '#/components/responses/GatewayTimeoutError'
-  /video/tv/input:
-    post:
-      tags:
-        - Video
-      summary: Change the active TV input.
-      description: Switches the HDMI input using CEC and yields the refreshed device status.
-      operationId: setTvInput
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              $ref: '#/components/schemas/TvInputRequest'
-      responses:
-        '200':
-          description: Updated TV status.
-          headers:
-            x-correlation-id:
-              $ref: '#/components/headers/CorrelationId'
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/TvStatus'
-        '401':
-          $ref: '#/components/responses/UnauthorizedError'
-        '403':
-          $ref: '#/components/responses/ForbiddenError'
-        '409':
-          $ref: '#/components/responses/ConflictError'
-        '422':
-          $ref: '#/components/responses/ValidationError'
-        '429':
-          $ref: '#/components/responses/RateLimitError'
-        '502':
-          $ref: '#/components/responses/BadGatewayError'
-        '504':
-          $ref: '#/components/responses/GatewayTimeoutError'
-  /video/tv/volume:
-    post:
-      tags:
-        - Video
-      summary: Set the absolute TV volume level.
-      description: Issues an absolute volume command and returns the post-change TV status payload.
-      operationId: setTvVolume
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              $ref: '#/components/schemas/TvVolumeRequest'
-      responses:
-        '200':
-          description: Updated TV status including volume details.
-          headers:
-            x-correlation-id:
-              $ref: '#/components/headers/CorrelationId'
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/TvStatus'
-        '401':
-          $ref: '#/components/responses/UnauthorizedError'
-        '403':
-          $ref: '#/components/responses/ForbiddenError'
-        '422':
-          $ref: '#/components/responses/ValidationError'
-        '429':
-          $ref: '#/components/responses/RateLimitError'
-        '502':
-          $ref: '#/components/responses/BadGatewayError'
-        '504':
-          $ref: '#/components/responses/GatewayTimeoutError'
-  /video/tv/mute:
-    post:
-      tags:
-        - Video
-      summary: Toggle TV mute state.
-      description: Updates the mute flag through CEC commands and returns the latest status snapshot.
-      operationId: setTvMute
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              $ref: '#/components/schemas/TvMuteRequest'
-      responses:
-        '200':
-          description: Updated TV status.
-          headers:
-            x-correlation-id:
-              $ref: '#/components/headers/CorrelationId'
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/TvStatus'
-        '401':
-          $ref: '#/components/responses/UnauthorizedError'
-        '403':
-          $ref: '#/components/responses/ForbiddenError'
-        '429':
-          $ref: '#/components/responses/RateLimitError'
-        '502':
-          $ref: '#/components/responses/BadGatewayError'
-        '504':
-          $ref: '#/components/responses/GatewayTimeoutError'
-  /zigbee/devices:
+        '500':
+          $ref: '#/components/responses/InternalError'
+  /zigbee/overview:
     get:
       tags:
         - Zigbee
-      summary: List Zigbee devices with their latest state.
-      description: Provides a paginated list of Zigbee switches, sensors, and lights with recent telemetry.
-      operationId: listZigbeeDevices
-      parameters:
-        - $ref: '#/components/parameters/LimitParam'
-        - $ref: '#/components/parameters/CursorParam'
+      summary: Retrieve Zigbee hub state, devices, and quick actions.
+      description: Retrieve Zigbee hub state, devices, and quick actions.
+      operationId: getZigbeeOverview
       responses:
         '200':
-          description: Zigbee device collection.
-          headers:
-            x-correlation-id:
-              $ref: '#/components/headers/CorrelationId'
+          description: Zigbee overview payload.
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/ZigbeeDeviceList'
+                $ref: '#/components/schemas/ZigbeeState'
         '401':
           $ref: '#/components/responses/UnauthorizedError'
         '403':
           $ref: '#/components/responses/ForbiddenError'
         '429':
           $ref: '#/components/responses/RateLimitError'
+        '501':
+          $ref: '#/components/responses/NotImplementedError'
         '502':
           $ref: '#/components/responses/BadGatewayError'
         '504':
           $ref: '#/components/responses/GatewayTimeoutError'
-  /zigbee/devices/{id}/action:
+        '500':
+          $ref: '#/components/responses/InternalError'
+  /zigbee/devices/{deviceId}/action:
     post:
       tags:
         - Zigbee
-      summary: Execute a control action on a Zigbee device.
-      description: Sends toggle, on/off, or scene commands to a Zigbee endpoint and reports the updated device state.
-      operationId: runZigbeeDeviceAction
+      summary: Execute a quick action on a Zigbee device.
+      description: Execute a quick action on a Zigbee device.
+      operationId: runZigbeeAction
       parameters:
-        - name: id
+        - name: deviceId
           in: path
           required: true
           schema:
@@ -1542,110 +2451,115 @@ paths:
       responses:
         '202':
           description: Action accepted.
-          headers:
-            x-correlation-id:
-              $ref: '#/components/headers/CorrelationId'
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ZigbeeDeviceSummary'
+        '400':
+          $ref: '#/components/responses/ValidationError'
         '401':
           $ref: '#/components/responses/UnauthorizedError'
         '403':
           $ref: '#/components/responses/ForbiddenError'
         '404':
           $ref: '#/components/responses/NotFoundError'
-        '409':
-          $ref: '#/components/responses/ConflictError'
-        '422':
+        '429':
+          $ref: '#/components/responses/RateLimitError'
+        '501':
+          $ref: '#/components/responses/NotImplementedError'
+        '500':
+          $ref: '#/components/responses/InternalError'
+  /zigbee/pairing:
+    post:
+      tags:
+        - Zigbee
+      summary: Start Zigbee pairing mode for discovering new devices.
+      description: Start Zigbee pairing mode for discovering new devices.
+      operationId: startZigbeePairing
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ZigbeePairingStartRequest'
+      responses:
+        '200':
+          description: Pairing window started.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ZigbeePairingState'
+        '400':
           $ref: '#/components/responses/ValidationError'
-        '429':
-          $ref: '#/components/responses/RateLimitError'
-        '502':
-          $ref: '#/components/responses/BadGatewayError'
-        '504':
-          $ref: '#/components/responses/GatewayTimeoutError'
-  /camera/summary:
-    get:
-      tags:
-        - Camera
-      summary: Retrieve aggregated camera health and storage information.
-      description: Summarises camera online/offline status and recording storage utilisation.
-      operationId: getCameraSummary
-      responses:
-        '200':
-          description: Camera summary data.
-          headers:
-            x-correlation-id:
-              $ref: '#/components/headers/CorrelationId'
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/CameraSummary'
         '401':
           $ref: '#/components/responses/UnauthorizedError'
         '403':
           $ref: '#/components/responses/ForbiddenError'
         '429':
           $ref: '#/components/responses/RateLimitError'
-        '502':
-          $ref: '#/components/responses/BadGatewayError'
-        '504':
-          $ref: '#/components/responses/GatewayTimeoutError'
-  /camera/events:
-    get:
+        '501':
+          $ref: '#/components/responses/NotImplementedError'
+        '500':
+          $ref: '#/components/responses/InternalError'
+    delete:
       tags:
-        - Camera
-      summary: List recent camera events.
-      description: Provides paginated camera motion/offline events with optional time filtering.
-      operationId: listCameraEvents
-      parameters:
-        - $ref: '#/components/parameters/EventsLimitParam'
-        - $ref: '#/components/parameters/CursorParam'
-        - $ref: '#/components/parameters/SinceParam'
+        - Zigbee
+      summary: Stop Zigbee pairing mode.
+      description: Stop Zigbee pairing mode.
+      operationId: stopZigbeePairing
       responses:
         '200':
-          description: Recent camera events.
-          headers:
-            x-correlation-id:
-              $ref: '#/components/headers/CorrelationId'
+          description: Pairing mode stopped.
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/CameraEvents'
+                $ref: '#/components/schemas/ZigbeePairingState'
         '401':
           $ref: '#/components/responses/UnauthorizedError'
         '403':
           $ref: '#/components/responses/ForbiddenError'
         '429':
           $ref: '#/components/responses/RateLimitError'
-        '502':
-          $ref: '#/components/responses/BadGatewayError'
-        '504':
-          $ref: '#/components/responses/GatewayTimeoutError'
-  /camera/preview/{id}:
+        '501':
+          $ref: '#/components/responses/NotImplementedError'
+        '500':
+          $ref: '#/components/responses/InternalError'
+  /zigbee/pairing/discovered:
     get:
       tags:
-        - Camera
-      summary: Generate a temporary preview URL for a camera feed.
-      description: Issues a signed URL for live preview playback when available for the requested camera.
-      operationId: getCameraPreview
+        - Zigbee
+      summary: Poll for newly discovered Zigbee devices during pairing mode.
+      description: Poll for newly discovered Zigbee devices during pairing mode.
+      operationId: pollZigbeeDiscovered
+      responses:
+        '200':
+          description: Discovered devices snapshot.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ZigbeePairingState'
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '403':
+          $ref: '#/components/responses/ForbiddenError'
+        '429':
+          $ref: '#/components/responses/RateLimitError'
+        '501':
+          $ref: '#/components/responses/NotImplementedError'
+        '500':
+          $ref: '#/components/responses/InternalError'
+  /zigbee/pairing/{deviceId}:
+    post:
+      tags:
+        - Zigbee
+      summary: Confirm pairing of a discovered Zigbee device.
+      description: Confirm pairing of a discovered Zigbee device.
+      operationId: confirmZigbeePairing
       parameters:
-        - name: id
+        - name: deviceId
           in: path
           required: true
           schema:
             type: string
       responses:
-        '200':
-          description: Preview URL for the requested camera.
-          headers:
-            x-correlation-id:
-              $ref: '#/components/headers/CorrelationId'
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/CameraPreview'
+        '202':
+          description: Pairing confirmation accepted.
         '401':
           $ref: '#/components/responses/UnauthorizedError'
         '403':
@@ -1654,27 +2568,185 @@ paths:
           $ref: '#/components/responses/NotFoundError'
         '429':
           $ref: '#/components/responses/RateLimitError'
+        '501':
+          $ref: '#/components/responses/NotImplementedError'
+        '500':
+          $ref: '#/components/responses/InternalError'
+  /camera/overview:
+    get:
+      tags:
+        - Camera
+      summary: Retrieve consolidated camera state for the operator dashboard.
+      description: Retrieve consolidated camera state for the operator dashboard.
+      operationId: getCameraOverview
+      responses:
+        '200':
+          description: Camera overview payload.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CameraState'
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '403':
+          $ref: '#/components/responses/ForbiddenError'
+        '429':
+          $ref: '#/components/responses/RateLimitError'
+        '501':
+          $ref: '#/components/responses/NotImplementedError'
         '502':
           $ref: '#/components/responses/BadGatewayError'
         '504':
           $ref: '#/components/responses/GatewayTimeoutError'
-  /health/summary:
-    get:
+        '500':
+          $ref: '#/components/responses/InternalError'
+  /camera/active:
+    put:
       tags:
-        - Health
-      summary: Fleet-wide health summary for observability panel.
-      description: Collates module health states, marking degraded components and timestamping the snapshot.
-      operationId: getHealthSummary
+        - Camera
+      summary: Select the active camera for preview and clip operations.
+      description: Select the active camera for preview and clip operations.
+      operationId: selectCamera
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CameraSelectionRequest'
+      responses:
+        '202':
+          description: Camera selection accepted.
+        '400':
+          $ref: '#/components/responses/ValidationError'
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '403':
+          $ref: '#/components/responses/ForbiddenError'
+        '404':
+          $ref: '#/components/responses/NotFoundError'
+        '429':
+          $ref: '#/components/responses/RateLimitError'
+        '501':
+          $ref: '#/components/responses/NotImplementedError'
+        '500':
+          $ref: '#/components/responses/InternalError'
+  /camera/events/{eventId}/ack:
+    post:
+      tags:
+        - Camera
+      summary: Mark a camera event as acknowledged.
+      description: Mark a camera event as acknowledged.
+      operationId: acknowledgeCameraEvent
+      parameters:
+        - name: eventId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '202':
+          description: Event acknowledgement accepted.
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '403':
+          $ref: '#/components/responses/ForbiddenError'
+        '404':
+          $ref: '#/components/responses/NotFoundError'
+        '429':
+          $ref: '#/components/responses/RateLimitError'
+        '501':
+          $ref: '#/components/responses/NotImplementedError'
+        '500':
+          $ref: '#/components/responses/InternalError'
+  /camera/events/{eventId}/clip:
+    post:
+      tags:
+        - Camera
+      summary: Generate or retrieve a clip for a camera event.
+      description: Generate or retrieve a clip for a camera event.
+      operationId: requestCameraClip
+      parameters:
+        - name: eventId
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CameraClipRequest'
       responses:
         '200':
-          description: Health information for modules.
+          description: Clip URL response.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CameraClipResponse'
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '403':
+          $ref: '#/components/responses/ForbiddenError'
+        '404':
+          $ref: '#/components/responses/NotFoundError'
+        '429':
+          $ref: '#/components/responses/RateLimitError'
+        '501':
+          $ref: '#/components/responses/NotImplementedError'
+        '500':
+          $ref: '#/components/responses/InternalError'
+  /camera/{cameraId}/refresh:
+    post:
+      tags:
+        - Camera
+      summary: Refresh the preview for a camera or the active camera when cameraId is 'active'.
+      description: Refresh the preview for a camera or the active camera when cameraId is 'active'.
+      operationId: refreshCamera
+      parameters:
+        - name: cameraId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '202':
+          description: Refresh request accepted.
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '403':
+          $ref: '#/components/responses/ForbiddenError'
+        '404':
+          $ref: '#/components/responses/NotFoundError'
+        '429':
+          $ref: '#/components/responses/RateLimitError'
+        '501':
+          $ref: '#/components/responses/NotImplementedError'
+        '500':
+          $ref: '#/components/responses/InternalError'
+  /logs:
+    get:
+      tags:
+        - Logs
+      summary: Retrieve a snapshot of recent logs with optional filtering.
+      description: Retrieve a snapshot of recent logs with optional filtering.
+      operationId: getLogs
+      parameters:
+        - $ref: '#/components/parameters/LogSourceParam'
+        - $ref: '#/components/parameters/LogLevelParam'
+        - $ref: '#/components/parameters/LogSearchParam'
+        - $ref: '#/components/parameters/LimitParam'
+        - $ref: '#/components/parameters/CursorParam'
+      responses:
+        '200':
+          description: Logs snapshot response.
           headers:
             x-correlation-id:
               $ref: '#/components/headers/CorrelationId'
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/HealthSummary'
+                $ref: '#/components/schemas/LogsSnapshot'
         '401':
           $ref: '#/components/responses/UnauthorizedError'
         '403':
@@ -1683,30 +2755,267 @@ paths:
           $ref: '#/components/responses/RateLimitError'
         '500':
           $ref: '#/components/responses/InternalError'
-  /events/recent:
+  /logs/stream:
     get:
       tags:
-        - Health
-      summary: Retrieve recent cross-module events for the activity feed.
-      description: Returns a flattened, paginated activity feed across all Fleet subsystems.
-      operationId: getRecentEvents
+        - Logs
+      summary: Subscribe to the live event stream of log entries.
+      description: Subscribe to the live event stream of log entries.
+      operationId: streamLogs
       parameters:
-        - $ref: '#/components/parameters/EventsLimitParam'
-        - $ref: '#/components/parameters/CursorParam'
+        - $ref: '#/components/parameters/LogSourceParam'
+        - $ref: '#/components/parameters/LogLevelParam'
+        - $ref: '#/components/parameters/LogSearchParam'
+        - $ref: '#/components/parameters/LogsStreamAccept'
       responses:
         '200':
-          description: Recent fleet events.
+          description: Server-sent events stream of log entries.
           headers:
-            x-correlation-id:
-              $ref: '#/components/headers/CorrelationId'
-          content:
-            application/json:
+            content-type:
+              description: Always text/event-stream for live updates.
               schema:
-                $ref: '#/components/schemas/RecentEvents'
+                type: string
+          content:
+            text/event-stream:
+              schema:
+                type: string
+                description: Serialized JSON log entries delivered as SSE data frames.
         '401':
           $ref: '#/components/responses/UnauthorizedError'
         '403':
           $ref: '#/components/responses/ForbiddenError'
+        '429':
+          $ref: '#/components/responses/RateLimitError'
+        '500':
+          $ref: '#/components/responses/InternalError'
+  /settings:
+    get:
+      tags:
+        - Settings
+      summary: Retrieve operator settings, proxy configuration, and pairing status.
+      description: Retrieve operator settings, proxy configuration, and pairing status.
+      operationId: getSettings
+      responses:
+        '200':
+          description: Settings payload for the control plane.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SettingsState'
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '403':
+          $ref: '#/components/responses/ForbiddenError'
+        '429':
+          $ref: '#/components/responses/RateLimitError'
+        '500':
+          $ref: '#/components/responses/InternalError'
+  /settings/proxy:
+    patch:
+      tags:
+        - Settings
+      summary: Update proxy configuration settings.
+      description: Update proxy configuration settings.
+      operationId: updateProxySettings
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ProxyUpdateRequest'
+      responses:
+        '202':
+          description: Proxy update accepted.
+        '400':
+          $ref: '#/components/responses/ValidationError'
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '403':
+          $ref: '#/components/responses/ForbiddenError'
+        '429':
+          $ref: '#/components/responses/RateLimitError'
+        '500':
+          $ref: '#/components/responses/InternalError'
+  /settings/api-token:
+    post:
+      tags:
+        - Settings
+      summary: Rotate the API bearer token used by operator integrations.
+      description: Rotate the API bearer token used by operator integrations.
+      operationId: rotateApiToken
+      responses:
+        '202':
+          description: Token rotation accepted.
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '403':
+          $ref: '#/components/responses/ForbiddenError'
+        '429':
+          $ref: '#/components/responses/RateLimitError'
+        '500':
+          $ref: '#/components/responses/InternalError'
+  /settings/allowed-origins:
+    put:
+      tags:
+        - Settings
+      summary: Replace the list of allowed CORS origins for the API.
+      description: Replace the list of allowed CORS origins for the API.
+      operationId: updateAllowedOrigins
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AllowedOriginsRequest'
+      responses:
+        '202':
+          description: Allowed origins updated.
+        '400':
+          $ref: '#/components/responses/ValidationError'
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '403':
+          $ref: '#/components/responses/ForbiddenError'
+        '429':
+          $ref: '#/components/responses/RateLimitError'
+        '500':
+          $ref: '#/components/responses/InternalError'
+  /settings/pairing/start:
+    post:
+      tags:
+        - Settings
+      summary: Start operator pairing flow for onboarding new devices.
+      description: Start operator pairing flow for onboarding new devices.
+      operationId: startSettingsPairing
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PairingStartRequest'
+      responses:
+        '202':
+          description: Pairing flow started.
+        '400':
+          $ref: '#/components/responses/ValidationError'
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '403':
+          $ref: '#/components/responses/ForbiddenError'
+        '429':
+          $ref: '#/components/responses/RateLimitError'
+        '500':
+          $ref: '#/components/responses/InternalError'
+  /settings/pairing/cancel:
+    post:
+      tags:
+        - Settings
+      summary: Cancel an in-progress pairing flow.
+      description: Cancel an in-progress pairing flow.
+      operationId: cancelSettingsPairing
+      responses:
+        '202':
+          description: Pairing flow cancelled.
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '403':
+          $ref: '#/components/responses/ForbiddenError'
+        '404':
+          $ref: '#/components/responses/NotFoundError'
+        '429':
+          $ref: '#/components/responses/RateLimitError'
+        '500':
+          $ref: '#/components/responses/InternalError'
+  /settings/pairing/{candidateId}/claim:
+    post:
+      tags:
+        - Settings
+      summary: Claim a discovered device and record pairing outcome.
+      description: Claim a discovered device and record pairing outcome.
+      operationId: claimPairingCandidate
+      parameters:
+        - name: candidateId
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PairingClaimRequest'
+      responses:
+        '202':
+          description: Pairing candidate claim accepted.
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '403':
+          $ref: '#/components/responses/ForbiddenError'
+        '404':
+          $ref: '#/components/responses/NotFoundError'
+        '429':
+          $ref: '#/components/responses/RateLimitError'
+        '500':
+          $ref: '#/components/responses/InternalError'
+  /settings/operators:
+    post:
+      tags:
+        - Settings
+      summary: Invite a new operator account with specified roles.
+      description: Invite a new operator account with specified roles.
+      operationId: inviteOperator
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/InviteOperatorRequest'
+      responses:
+        '201':
+          description: Operator invited.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SettingsState'
+        '400':
+          $ref: '#/components/responses/ValidationError'
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '403':
+          $ref: '#/components/responses/ForbiddenError'
+        '409':
+          description: Operator already exists.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '429':
+          $ref: '#/components/responses/RateLimitError'
+        '500':
+          $ref: '#/components/responses/InternalError'
+  /settings/operators/{operatorId}:
+    delete:
+      tags:
+        - Settings
+      summary: Remove an operator account.
+      description: Remove an operator account.
+      operationId: removeOperator
+      parameters:
+        - name: operatorId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '202':
+          description: Operator removal accepted.
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '403':
+          $ref: '#/components/responses/ForbiddenError'
+        '404':
+          $ref: '#/components/responses/NotFoundError'
         '429':
           $ref: '#/components/responses/RateLimitError'
         '500':

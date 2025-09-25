@@ -45,7 +45,7 @@ export default [
           argsIgnorePattern: '^_'
         }
       ],
-      // Relax strict type checking rules to warnings to allow CI to pass while maintaining code quality
+
       '@typescript-eslint/no-explicit-any': 'warn',
       '@typescript-eslint/no-unsafe-assignment': 'warn',
       '@typescript-eslint/no-unsafe-member-access': 'warn',
