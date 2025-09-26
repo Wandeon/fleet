@@ -113,6 +113,7 @@ This document enumerates the primary operator goals for the fleet control surfac
 - **Success Criteria:** Feed loads last 24h within 2 seconds; selecting event opens video modal at detection timestamp.
 - **Failure Modes:** Missing clip, stale metadata, network errors. UI surfaces fallback image, offers retry, and logs issue.
 - **Security Considerations:** Obfuscate PII in thumbnails; restrict event data export; audit all event views.
+- **D3 Notes:** Operators query `/camera/events` with correlation IDs for filtered feeds and fetch detail via `/camera/events/{eventId}` to retrieve clip metadata and AI context.
 
 ### Story: Configure night mode escalation
 - **Goal:** Adjust detection handling during night mode windows.
@@ -180,6 +181,7 @@ This document enumerates the primary operator goals for the fleet control surfac
 - **Success Criteria:** Export job returns download link; data matches current filters.
 - **Failure Modes:** Large export timeouts, anonymization conflicts. UI shows progress indicator and warnings.
 - **Security Considerations:** Require MFA for export; encrypt files at rest; log download events.
+- **D3 Notes:** `/logs/export` now enforces privileged operator roles and returns download manifests for CSV/JSON filters including requested correlation IDs.
 
 ## Settings
 

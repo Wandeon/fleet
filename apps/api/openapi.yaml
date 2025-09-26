@@ -1,7 +1,7 @@
 openapi: 3.0.3
 info:
   title: Fleet Control API
-  version: 0.2.1
+  version: 0.2.2
   description: |
     Public web API consumed by the Fleet web UI. The API aggregates multiple
     device roles (audio players, video/CEC, Zigbee, cameras) and exposes a
@@ -1048,45 +1048,161 @@ components:
       required:
         - id
         - cameraId
+        - cameraName
         - timestamp
-        - description
+        - type
         - severity
+        - confidence
+        - tags
+        - clipAvailable
+        - acknowledged
       properties:
         id:
           type: string
         cameraId:
           type: string
+        cameraName:
+          type: string
         timestamp:
           type: string
           format: date-time
-        description:
+        type:
           type: string
         severity:
           type: string
           enum:
             - info
             - warning
-            - alert
-            - error
-        clipUrl:
-          type: string
-          format: uri
-          nullable: true
-        snapshotUrl:
-          type: string
-          format: uri
-          nullable: true
-        acknowledged:
-          type: boolean
-          nullable: true
-        detections:
-          type: array
-          items:
-            $ref: '#/components/schemas/CameraEventDetection'
+            - critical
+        confidence:
+          type: number
+          format: float
         tags:
           type: array
           items:
             type: string
+        thumbnailUrl:
+          type: string
+          format: uri
+          nullable: true
+        clipUrl:
+          type: string
+          format: uri
+          nullable: true
+        clipAvailable:
+          type: boolean
+        acknowledged:
+          type: boolean
+        acknowledgedAt:
+          type: string
+          format: date-time
+          nullable: true
+    CameraEventClip:
+      type: object
+      required:
+        - url
+        - expiresAt
+        - durationSeconds
+        - format
+      properties:
+        url:
+          type: string
+          format: uri
+          nullable: true
+        expiresAt:
+          type: string
+          format: date-time
+          nullable: true
+        durationSeconds:
+          type: integer
+          format: int32
+          nullable: true
+        format:
+          type: string
+          nullable: true
+    CameraEventDetail:
+      allOf:
+        - $ref: '#/components/schemas/CameraEvent'
+        - type: object
+          required:
+            - metadata
+            - clip
+          properties:
+            metadata:
+              type: object
+              additionalProperties: true
+            clip:
+              $ref: '#/components/schemas/CameraEventClip'
+    CameraEventListResponse:
+      type: object
+      required:
+        - events
+        - pagination
+        - generatedAt
+      properties:
+        events:
+          type: array
+          items:
+            $ref: '#/components/schemas/CameraEvent'
+        pagination:
+          type: object
+          required:
+            - total
+            - limit
+            - hasMore
+          properties:
+            total:
+              type: integer
+              format: int32
+            limit:
+              type: integer
+              format: int32
+            nextCursor:
+              type: string
+              nullable: true
+            hasMore:
+              type: boolean
+        filters:
+          type: object
+          nullable: true
+          properties:
+            cameraId:
+              type: string
+              nullable: true
+            start:
+              type: string
+              format: date-time
+              nullable: true
+            end:
+              type: string
+              format: date-time
+              nullable: true
+            tags:
+              type: array
+              items:
+                type: string
+            minConfidence:
+              type: number
+              format: float
+              nullable: true
+            maxConfidence:
+              type: number
+              format: float
+              nullable: true
+        generatedAt:
+          type: string
+          format: date-time
+    CameraEventDetailResponse:
+      type: object
+      required:
+        - event
+        - retrievedAt
+      properties:
+        event:
+          $ref: '#/components/schemas/CameraEventDetail'
+        retrievedAt:
+          type: string
+          format: date-time
     CameraDevice:
       type: object
       required:
@@ -1396,6 +1512,83 @@ components:
         lastUpdated:
           type: string
           format: date-time
+    LogsExportRequest:
+      type: object
+      properties:
+        deviceId:
+          type: string
+        level:
+          type: string
+          enum:
+            - trace
+            - debug
+            - info
+            - warn
+            - error
+            - fatal
+        start:
+          type: string
+          format: date-time
+        end:
+          type: string
+          format: date-time
+        format:
+          type: string
+          enum:
+            - json
+            - csv
+          default: json
+    LogsExportResponse:
+      type: object
+      required:
+        - exportId
+        - status
+        - format
+        - filters
+        - requestedAt
+        - estimatedReadyAt
+        - downloadUrl
+      properties:
+        exportId:
+          type: string
+        status:
+          type: string
+          enum:
+            - queued
+        format:
+          type: string
+          enum:
+            - json
+            - csv
+        filters:
+          type: object
+          properties:
+            deviceId:
+              type: string
+              nullable: true
+            level:
+              type: string
+              nullable: true
+            start:
+              type: string
+              format: date-time
+              nullable: true
+            end:
+              type: string
+              format: date-time
+              nullable: true
+        requestedAt:
+          type: string
+          format: date-time
+        estimatedReadyAt:
+          type: string
+          format: date-time
+        downloadUrl:
+          type: string
+          format: uri
+        correlationId:
+          type: string
+          nullable: true
     ProxySettings:
       type: object
       required:
@@ -3241,6 +3434,128 @@ paths:
           $ref: '#/components/responses/NotImplementedError'
         '500':
           $ref: '#/components/responses/InternalError'
+  /camera/events:
+    get:
+      tags:
+        - Camera
+      summary: List camera AI events with optional filters.
+      description: Retrieve camera detections with support for time range, confidence, and tag filtering.
+      operationId: listCameraEvents
+      parameters:
+        - name: start
+          in: query
+          description: Return events that occurred at or after this timestamp.
+          required: false
+          schema:
+            type: string
+            format: date-time
+        - name: end
+          in: query
+          description: Return events that occurred at or before this timestamp.
+          required: false
+          schema:
+            type: string
+            format: date-time
+        - name: cameraId
+          in: query
+          description: Restrict results to a single camera identifier.
+          required: false
+          schema:
+            type: string
+        - name: tags
+          in: query
+          style: form
+          explode: false
+          description: Comma separated list of tags that must be present on the event.
+          required: false
+          schema:
+            type: array
+            items:
+              type: string
+        - name: minConfidence
+          in: query
+          description: Minimum detection confidence (0.0-1.0 or percentage).
+          required: false
+          schema:
+            type: number
+            minimum: 0
+            maximum: 1
+        - name: maxConfidence
+          in: query
+          description: Maximum detection confidence (0.0-1.0 or percentage).
+          required: false
+          schema:
+            type: number
+            minimum: 0
+            maximum: 1
+        - name: limit
+          in: query
+          description: Maximum number of events to return in a single response.
+          required: false
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 200
+            default: 50
+        - name: cursor
+          in: query
+          description: Cursor returned by a previous request for pagination.
+          required: false
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Camera event collection.
+          headers:
+            x-correlation-id:
+              $ref: '#/components/headers/CorrelationId'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CameraEventListResponse'
+        '400':
+          $ref: '#/components/responses/ValidationError'
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '403':
+          $ref: '#/components/responses/ForbiddenError'
+        '429':
+          $ref: '#/components/responses/RateLimitError'
+        '500':
+          $ref: '#/components/responses/InternalError'
+  /camera/events/{eventId}:
+    get:
+      tags:
+        - Camera
+      summary: Retrieve a single camera event with metadata and clip reference.
+      description: Retrieve a single camera event with metadata and clip reference.
+      operationId: getCameraEvent
+      parameters:
+        - name: eventId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Camera event detail response.
+          headers:
+            x-correlation-id:
+              $ref: '#/components/headers/CorrelationId'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CameraEventDetailResponse'
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '403':
+          $ref: '#/components/responses/ForbiddenError'
+        '404':
+          $ref: '#/components/responses/NotFoundError'
+        '429':
+          $ref: '#/components/responses/RateLimitError'
+        '500':
+          $ref: '#/components/responses/InternalError'
   /camera/events/{eventId}/ack:
     post:
       tags:
@@ -3468,54 +3783,25 @@ paths:
         content:
           application/json:
             schema:
-              type: object
-              properties:
-                level:
-                  type: string
-                  enum:
-                    - trace
-                    - debug
-                    - info
-                    - warn
-                    - error
-                    - fatal
-                deviceId:
-                  type: string
-                correlationId:
-                  type: string
+              $ref: '#/components/schemas/LogsExportRequest'
       responses:
         '202':
           description: Export scheduled.
+          headers:
+            x-correlation-id:
+              $ref: '#/components/headers/CorrelationId'
           content:
             application/json:
               schema:
-                type: object
-                required:
-                  - exportId
-                  - status
-                  - requestedAt
-                  - downloadUrl
-                properties:
-                  exportId:
-                    type: string
-                  status:
-                    type: string
-                  filters:
-                    type: object
-                    additionalProperties:
-                      type: string
-                  requestedAt:
-                    type: string
-                    format: date-time
-                  downloadUrl:
-                    type: string
-                    format: uri
+                $ref: '#/components/schemas/LogsExportResponse'
         '400':
           $ref: '#/components/responses/ValidationError'
         '401':
           $ref: '#/components/responses/UnauthorizedError'
         '403':
           $ref: '#/components/responses/ForbiddenError'
+        '429':
+          $ref: '#/components/responses/RateLimitError'
         '500':
           $ref: '#/components/responses/InternalError'
   /settings:

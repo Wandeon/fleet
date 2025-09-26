@@ -2,18 +2,19 @@
 /* tslint:disable */
 /* eslint-disable */
 
-import type { CameraEventDetection } from './CameraEventDetection';
-
 export type CameraEvent = {
   id: string;
   cameraId: string;
+  cameraName: string;
   timestamp: string;
-  description: string;
-  severity: 'info' | 'warning' | 'alert' | 'error';
+  type: string;
+  severity: 'info' | 'warning' | 'critical';
+  confidence: number;
+  tags: Array<string>;
+  thumbnailUrl?: string | null;
   clipUrl?: string | null;
-  snapshotUrl?: string | null;
-  acknowledged?: boolean | null;
-  detections?: Array<CameraEventDetection>;
-  tags?: Array<string>;
+  clipAvailable: boolean;
+  acknowledged: boolean;
+  acknowledgedAt?: string | null;
 };
 
