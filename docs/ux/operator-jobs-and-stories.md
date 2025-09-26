@@ -47,6 +47,7 @@ This document enumerates the primary operator goals for the fleet control surfac
 - **Security Considerations:** Ensure diagnostics endpoints are read-only for view-only roles; protect nudge commands behind elevated permissions.
 - **Status:** ✅ Implemented (Phase D1). Device tiles expose drift alerts from `playback.lastError` and provide a “Re-sync” button that replays the active source through `/ui/audio/playback` with `syncMode=synced`.
 - **D1 Notes:** Toasts confirm both successful and failed re-sync attempts, and sync group identifiers remain visible beside each device.
+- **D2 Notes:** The UI now records drift reports through `/ui/audio/playback/sessions/{sessionId}/sync`, keeping the session list (`/ui/audio/playback/sessions`) fresh without reloading.
 
 ### Story: Manage library assets
 - **Goal:** Maintain audio assets and metadata for deployment.
@@ -58,6 +59,7 @@ This document enumerates the primary operator goals for the fleet control surfac
 - **Security Considerations:** Virus scan uploads; permission gate delete/restore; audit asset changes.
 - **Status:** ✅ Implemented (Phase D1). The upload modal now posts multipart payloads to `/ui/audio/library` with inline validation and error handling.
 - **D1 Notes:** Newly uploaded tracks appear immediately in the library table and can be slotted into playlists without refreshing the page.
+- **D2 Notes:** Upload registration now begins with `/ui/audio/library/uploads` so the UI can request signed parameters before streaming large assets, and playlist drag handles persist order via `/ui/audio/playlists/{id}/reorder`.
 
 ## Video
 
@@ -78,6 +80,7 @@ This document enumerates the primary operator goals for the fleet control surfac
 - **Success Criteria:** Fetch of `/video/:id/recordings` returns segments; scrubbing updates playback within 1 second; exports produce downloadable file.
 - **Failure Modes:** Missing segments, expired retention, export failure. UI shows gap indicators and error notifications.
 - **Security Considerations:** Restrict exports to authorized roles; watermark downloads; log access events.
+- **D2 Notes:** Operators can stage preview sessions on demand with `/ui/video/preview`, adjust TV state via `/ui/video/devices/{id}/power`, `/mute`, `/input`, and export clips through `/ui/video/recordings/{recordingId}/export` with real-time status toasts.
 
 ## Zigbee
 
@@ -98,6 +101,7 @@ This document enumerates the primary operator goals for the fleet control surfac
 - **Success Criteria:** Rule saves via `/zigbee/rules` API; simulation test returns expected actuator preview.
 - **Failure Modes:** Invalid conditions, conflicting rules, offline actuators. UI highlights conflicts and offers resolution suggestions.
 - **Security Considerations:** Validate rule scopes; prevent privilege escalation through actuator selection; audit rule changes.
+- **D2 Notes:** The pairing wizard now coordinates with `/ui/zigbee/pairing` lifecycle endpoints and polls `/ui/zigbee/pairing/discovered`, while rule validation POSTs to `/ui/zigbee/rules/validate` before persisting.
 
 ## Camera (AI)
 

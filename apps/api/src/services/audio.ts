@@ -3,6 +3,7 @@ import { randomUUID } from 'node:crypto';
 import { basename, resolve } from 'node:path';
 import { prisma } from '../lib/db.js';
 import { deviceRegistry } from '../upstream/devices.js';
+import type { AudioPlaylistReorderInput } from '../util/schema/audio.js';
 
 export interface LibraryTrackInput {
   title: string;
@@ -213,6 +214,53 @@ export async function deletePlaylist(playlistId: string): Promise<void> {
   await prisma.audioPlaylist.delete({ where: { id: playlistId } });
 }
 
+export async function reorderPlaylistTracks(playlistId: string, input: AudioPlaylistReorderInput) {
+  const playlist = await prisma.audioPlaylist.findUnique({
+    where: { id: playlistId },
+    include: { tracks: { orderBy: { order: 'asc' } } }
+  });
+
+  if (!playlist) {
+    throw new Error('Playlist not found');
+  }
+
+  const trackMap = new Map(playlist.tracks.map((track) => [track.trackId, track]));
+  if (trackMap.size !== input.ordering.length) {
+    throw new Error('Track ordering does not match playlist');
+  }
+
+  for (const entry of input.ordering) {
+    if (!trackMap.has(entry.trackId)) {
+      throw new Error(`Track ${entry.trackId} not part of playlist`);
+    }
+  }
+
+  await prisma.$transaction(async (tx) => {
+    await Promise.all(
+      input.ordering.map((entry) => {
+        const track = trackMap.get(entry.trackId)!;
+        return tx.audioPlaylistTrack.update({ where: { id: track.id }, data: { order: entry.position } });
+      })
+    );
+  });
+
+  const updated = await prisma.audioPlaylist.findUniqueOrThrow({
+    where: { id: playlistId },
+    include: { tracks: { orderBy: { order: 'asc' } } }
+  });
+
+  return {
+    id: updated.id,
+    name: updated.name,
+    description: updated.description,
+    loop: updated.loop,
+    syncMode: updated.syncMode,
+    createdAt: updated.createdAt,
+    updatedAt: updated.updatedAt,
+    tracks: updated.tracks.map(mapPlaylistTrack)
+  };
+}
+
 export interface PlaybackAssignment {
   deviceId: string;
   trackId: string;
@@ -392,6 +440,22 @@ export async function startPlayback(request: PlaybackRequest): Promise<string> {
   return sessionId;
 }
 
+export async function createPlaybackSession(request: PlaybackRequest) {
+  const sessionId = await startPlayback(request);
+  const created = await prisma.audioSession.findUniqueOrThrow({ where: { id: sessionId } });
+  return {
+    id: created.id,
+    playlistId: created.playlistId,
+    trackId: created.trackId,
+    deviceIds: parseJsonArray(created.deviceIdsJson),
+    syncMode: created.syncMode,
+    state: created.state,
+    startedAt: created.startedAt,
+    lastError: created.lastError ?? null,
+    drift: parseJsonObject(created.driftJson, { maxDriftSeconds: 0, perDevice: {} })
+  };
+}
+
 export async function pauseDevice(deviceId: string) {
   await updateDevicePlayback(deviceId, { state: 'paused' }, { event: 'pause' });
 }
@@ -489,6 +553,7 @@ export async function listSessions() {
   return sessions.map((session) => ({
     id: session.id,
     playlistId: session.playlistId,
+    trackId: session.trackId,
     deviceIds: parseJsonArray(session.deviceIdsJson),
     syncMode: session.syncMode,
     state: session.state,
@@ -496,6 +561,62 @@ export async function listSessions() {
     lastError: session.lastError ?? null,
     drift: parseJsonObject(session.driftJson, { maxDriftSeconds: 0, perDevice: {} })
   }));
+}
+
+export async function recordSessionSync(
+  sessionId: string,
+  payload: { referenceTimestamp: string; maxDriftSeconds: number; perDevice: Record<string, number>; correctionsApplied: boolean }
+) {
+  const existing = await prisma.audioSession.findUnique({ where: { id: sessionId } });
+  if (!existing) {
+    throw new Error('Session not found');
+  }
+
+  await prisma.audioSession.update({
+    where: { id: sessionId },
+    data: {
+      driftJson: JSON.stringify({
+        referenceTimestamp: payload.referenceTimestamp,
+        maxDriftSeconds: payload.maxDriftSeconds,
+        perDevice: payload.perDevice,
+        correctionsApplied: payload.correctionsApplied
+      })
+    }
+  });
+
+  return listSessions();
+}
+
+export function registerLibraryUpload(input: {
+  filename: string;
+  contentType: string;
+  sizeBytes?: number;
+  title?: string;
+  artist?: string;
+  tags?: string[];
+  metadata?: Record<string, unknown>;
+}) {
+  const uploadId = randomUUID();
+  const now = new Date();
+  const expiresAt = new Date(now.getTime() + 15 * 60 * 1000);
+
+  return {
+    uploadId,
+    filename: input.filename,
+    contentType: input.contentType,
+    sizeBytes: input.sizeBytes ?? null,
+    title: input.title ?? null,
+    artist: input.artist ?? null,
+    tags: input.tags ?? [],
+    metadata: input.metadata ?? {},
+    uploadUrl: `https://uploads.example/${uploadId}`,
+    expiresAt: expiresAt.toISOString(),
+    fields: {
+      policy: Buffer.from(JSON.stringify({ bucket: 'audio-library', key: uploadId })).toString('base64'),
+      algorithm: 'AWS4-HMAC-SHA256',
+      credential: `mock/${now.toISOString().slice(0, 10).replace(/-/g, '')}/auto/s3/aws4_request`
+    }
+  };
 }
 
 export async function getAudioOverview() {

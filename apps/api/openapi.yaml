@@ -1,7 +1,7 @@
 openapi: 3.0.3
 info:
   title: Fleet Control API
-  version: 0.2.0
+  version: 0.2.1
   description: |
     Public web API consumed by the Fleet web UI. The API aggregates multiple
     device roles (audio players, video/CEC, Zigbee, cameras) and exposes a
@@ -433,6 +433,9 @@ components:
         playlistId:
           type: string
           nullable: true
+        trackId:
+          type: string
+          nullable: true
         deviceIds:
           type: array
           items:
@@ -450,6 +453,11 @@ components:
         startedAt:
           type: string
           format: date-time
+        lastError:
+          type: string
+          nullable: true
+        drift:
+          $ref: '#/components/schemas/AudioSessionDrift'
     AudioState:
       type: object
       required:
@@ -518,6 +526,147 @@ components:
           type: array
           items:
             $ref: '#/components/schemas/AudioPlaybackAssignment'
+    AudioPlaybackSessionCreateRequest:
+      allOf:
+        - $ref: '#/components/schemas/AudioPlaybackRequest'
+        - type: object
+          properties:
+            label:
+              type: string
+              description: Optional session label displayed in operator UI.
+              nullable: true
+    AudioPlaylistReorderRequest:
+      type: object
+      required:
+        - ordering
+      properties:
+        ordering:
+          type: array
+          items:
+            type: object
+            required:
+              - trackId
+              - position
+            properties:
+              trackId:
+                type: string
+              position:
+                type: integer
+                format: int32
+                minimum: 0
+    AudioSessionSyncRequest:
+      type: object
+      required:
+        - referenceTimestamp
+        - maxDriftSeconds
+        - perDevice
+      properties:
+        referenceTimestamp:
+          type: string
+          format: date-time
+        maxDriftSeconds:
+          type: number
+          format: float
+        perDevice:
+          type: object
+          additionalProperties:
+            type: number
+            format: float
+        correctionsApplied:
+          type: boolean
+    AudioSessionDrift:
+      type: object
+      required:
+        - maxDriftSeconds
+        - perDevice
+      properties:
+        referenceTimestamp:
+          type: string
+          format: date-time
+          nullable: true
+        maxDriftSeconds:
+          type: number
+          format: float
+        perDevice:
+          type: object
+          additionalProperties:
+            type: number
+            format: float
+        correctionsApplied:
+          type: boolean
+    AudioLibraryUploadRegistrationRequest:
+      type: object
+      required:
+        - filename
+      properties:
+        filename:
+          type: string
+        contentType:
+          type: string
+          default: application/octet-stream
+        sizeBytes:
+          type: integer
+          format: int64
+          minimum: 0
+        title:
+          type: string
+          nullable: true
+        artist:
+          type: string
+          nullable: true
+        tags:
+          type: array
+          items:
+            type: string
+        metadata:
+          type: object
+          additionalProperties:
+            type: string
+          nullable: true
+    AudioLibraryUploadRegistration:
+      type: object
+      required:
+        - uploadId
+        - filename
+        - contentType
+        - uploadUrl
+        - expiresAt
+      properties:
+        uploadId:
+          type: string
+        filename:
+          type: string
+        contentType:
+          type: string
+        sizeBytes:
+          type: integer
+          format: int64
+          nullable: true
+        title:
+          type: string
+          nullable: true
+        artist:
+          type: string
+          nullable: true
+        tags:
+          type: array
+          items:
+            type: string
+        metadata:
+          type: object
+          additionalProperties:
+            type: string
+          nullable: true
+        uploadUrl:
+          type: string
+          format: uri
+        expiresAt:
+          type: string
+          format: date-time
+        fields:
+          type: object
+          additionalProperties:
+            type: string
         syncMode:
           $ref: '#/components/schemas/AudioSyncMode'
         resume:
@@ -565,156 +714,154 @@ components:
       type: string
       enum:
         - on
-        - off
-    VideoInputOption:
+        - standby
+    VideoPreviewSession:
       type: object
       required:
-        - id
-        - label
-        - kind
-      properties:
-        id:
-          type: string
-        label:
-          type: string
-        kind:
-          type: string
-          enum:
-            - hdmi
-            - cast
-            - app
-            - other
-    VideoLiveStream:
-      type: object
-      required:
-        - deviceId
+        - sessionId
         - streamUrl
-        - startedAt
-        - latencyMs
-        - status
+        - expiresAt
       properties:
-        deviceId:
+        sessionId:
           type: string
         streamUrl:
           type: string
           format: uri
-        thumbnailUrl:
+        expiresAt:
+          type: string
+          format: date-time
+        device:
+          type: object
+          nullable: true
+          properties:
+            id:
+              type: string
+            name:
+              type: string
+            input:
+              type: string
+    VideoClipExport:
+      type: object
+      required:
+        - exportId
+        - recordingId
+        - status
+        - startOffsetSeconds
+        - endOffsetSeconds
+        - requestedAt
+        - downloadUrl
+      properties:
+        exportId:
+          type: string
+        recordingId:
+          type: string
+        status:
+          type: string
+          enum:
+            - queued
+            - processing
+            - complete
+            - failed
+        startOffsetSeconds:
+          type: number
+          format: float
+        endOffsetSeconds:
+          type: number
+          format: float
+        requestedAt:
+          type: string
+          format: date-time
+        downloadUrl:
           type: string
           format: uri
-          nullable: true
+    VideoRecordingSegment:
+      type: object
+      required:
+        - id
+        - deviceId
+        - startedAt
+        - endedAt
+        - durationSeconds
+        - status
+      properties:
+        id:
+          type: string
+        deviceId:
+          type: string
         startedAt:
           type: string
           format: date-time
-        latencyMs:
+        endedAt:
+          type: string
+          format: date-time
+        durationSeconds:
           type: integer
           format: int32
         status:
           type: string
           enum:
-            - ready
-            - connecting
-            - error
-    VideoRecordingSegment:
-      type: object
-      required:
-        - id
-        - start
-        - end
-        - url
-      properties:
-        id:
-          type: string
-        start:
-          type: string
-          format: date-time
-        end:
-          type: string
-          format: date-time
-        label:
-          type: string
-          nullable: true
-        url:
-          type: string
-          format: uri
-    VideoCecDevice:
+            - available
+            - processing
+            - failed
+    VideoDeviceState:
       type: object
       required:
         - id
         - name
+        - module
+        - role
+        - status
         - power
+        - mute
+        - input
+        - lastUpdated
       properties:
         id:
           type: string
         name:
           type: string
+        module:
+          type: string
+        role:
+          type: string
+        status:
+          type: string
         power:
           $ref: '#/components/schemas/VideoPowerState'
-        input:
-          type: string
-          nullable: true
-    VideoState:
-      type: object
-      required:
-        - power
-        - input
-        - availableInputs
-        - recordings
-        - volume
-        - muted
-        - lastSignal
-        - cecDevices
-      properties:
-        power:
-          $ref: '#/components/schemas/VideoPowerState'
-        input:
-          type: string
-        availableInputs:
-          type: array
-          items:
-            $ref: '#/components/schemas/VideoInputOption'
-        livePreview:
-          type: object
-          allOf:
-            - $ref: '#/components/schemas/VideoLiveStream'
-          nullable: true
-          description: Most recent live stream snapshot or null when no preview is available.
-        recordings:
-          type: array
-          items:
-            $ref: '#/components/schemas/VideoRecordingSegment'
-        volume:
-          type: integer
-          format: int32
-          minimum: 0
-          maximum: 100
-        muted:
+        mute:
           type: boolean
-        lastSignal:
+        input:
+          type: string
+        lastUpdated:
           type: string
           format: date-time
-        cecDevices:
+    VideoOverview:
+      type: object
+      required:
+        - devices
+        - total
+        - online
+        - updatedAt
+      properties:
+        devices:
           type: array
           items:
-            $ref: '#/components/schemas/VideoCecDevice'
+            $ref: '#/components/schemas/VideoDeviceState'
+        total:
+          type: integer
+          format: int32
+        online:
+          type: integer
+          format: int32
+        updatedAt:
+          type: string
+          format: date-time
     VideoPreviewRequest:
       type: object
       properties:
         deviceId:
           type: string
           description: Target video node for generating the preview stream.
-    ZigbeeQuickAction:
-      type: object
-      required:
-        - id
-        - label
-        - description
-      properties:
-        id:
-          type: string
-        label:
-          type: string
-        description:
-          type: string
     ZigbeeDevice:
       type: object
       required:
@@ -748,19 +895,23 @@ components:
       type: object
       required:
         - id
-        - name
-        - type
+        - model
+        - manufacturer
         - signal
+        - lastSeen
       properties:
         id:
           type: string
-        name:
+        model:
           type: string
-        type:
+        manufacturer:
           type: string
         signal:
           type: integer
           format: int32
+        lastSeen:
+          type: string
+          format: date-time
     ZigbeePairingState:
       type: object
       required:
@@ -769,6 +920,10 @@ components:
       properties:
         active:
           type: boolean
+        startedAt:
+          type: string
+          format: date-time
+          nullable: true
         expiresAt:
           type: string
           format: date-time
@@ -777,36 +932,79 @@ components:
           type: array
           items:
             $ref: '#/components/schemas/ZigbeePairingCandidate'
+        confirmed:
+          type: array
+          items:
+            type: string
     ZigbeeState:
       type: object
       required:
         - devices
-        - quickActions
-        - hubStatus
+        - hub
+        - pairing
+        - rules
       properties:
         devices:
           type: array
           items:
             $ref: '#/components/schemas/ZigbeeDevice'
-        quickActions:
+        hub:
+          type: object
+          required:
+            - id
+            - status
+            - channel
+            - lastHeartbeatAt
+          properties:
+            id:
+              type: string
+            status:
+              type: string
+            channel:
+              type: integer
+              format: int32
+            lastHeartbeatAt:
+              type: string
+              format: date-time
+        pairing:
+          $ref: '#/components/schemas/ZigbeePairingState'
+        rules:
           type: array
           items:
-            $ref: '#/components/schemas/ZigbeeQuickAction'
-        hubStatus:
-          $ref: '#/components/schemas/DeviceStatus'
-        pairing:
-          type: object
-          allOf:
-            - $ref: '#/components/schemas/ZigbeePairingState'
-          nullable: true
-          description: Active pairing state if pairing mode is engaged; null otherwise.
+            type: object
+            required:
+              - id
+              - name
+              - enabled
+              - createdAt
+              - updatedAt
+            properties:
+              id:
+                type: string
+              name:
+                type: string
+              enabled:
+                type: boolean
+              createdAt:
+                type: string
+                format: date-time
+              updatedAt:
+                type: string
+                format: date-time
     ZigbeeActionRequest:
       type: object
       required:
-        - actionId
+        - deviceId
+        - command
       properties:
-        actionId:
+        deviceId:
           type: string
+        command:
+          type: string
+        payload:
+          type: object
+          additionalProperties:
+            type: string
     ZigbeePairingStartRequest:
       type: object
       properties:
@@ -1115,40 +1313,32 @@ components:
         url:
           type: string
           format: uri
-    LogSeverity:
-      type: string
-      enum:
-        - debug
-        - info
-        - warning
-        - error
-        - critical
     LogEntry:
       type: object
       required:
-        - id
         - timestamp
-        - severity
         - message
-        - source
+        - level
       properties:
-        id:
-          type: string
         timestamp:
           type: string
           format: date-time
-        severity:
-          $ref: '#/components/schemas/LogSeverity'
+        level:
+          type: string
+          enum:
+            - trace
+            - debug
+            - info
+            - warn
+            - error
+            - fatal
         message:
           type: string
-        source:
-          type: string
-        module:
-          type: string
+        meta:
+          type: object
           nullable: true
-        deviceId:
-          type: string
-          nullable: true
+          additionalProperties:
+            type: string
         correlationId:
           type: string
           nullable: true
@@ -1206,188 +1396,86 @@ components:
         lastUpdated:
           type: string
           format: date-time
-    ApiAccessSettings:
-      type: object
-      required:
-        - bearerTokenMasked
-        - lastRotatedAt
-        - allowedOrigins
-      properties:
-        bearerTokenMasked:
-          type: string
-          nullable: true
-        lastRotatedAt:
-          type: string
-          format: date-time
-          nullable: true
-        expiresAt:
-          type: string
-          format: date-time
-          nullable: true
-        allowedOrigins:
-          type: array
-          items:
-            type: string
-            format: uri
-        webhookUrl:
-          type: string
-          format: uri
-          nullable: true
     ProxySettings:
       type: object
       required:
-        - baseUrl
-        - timeoutMs
-        - health
-        - latencyMs
-        - errorRate
+        - upstreamUrl
+        - authMode
+        - heartbeatIntervalSeconds
       properties:
-        baseUrl:
+        upstreamUrl:
           type: string
           format: uri
-        timeoutMs:
-          type: integer
-          format: int32
-        health:
+        authMode:
           type: string
           enum:
-            - online
-            - degraded
-            - offline
-        latencyMs:
+            - none
+            - basic
+            - token
+        heartbeatIntervalSeconds:
           type: integer
           format: int32
-        errorRate:
-          type: number
-          format: float
+          minimum: 5
     ProxySettingsPatch:
       type: object
       properties:
-        baseUrl:
+        upstreamUrl:
           type: string
           format: uri
-        timeoutMs:
-          type: integer
-          format: int32
-        health:
+        authMode:
           type: string
           enum:
-            - online
-            - degraded
-            - offline
-        latencyMs:
+            - none
+            - basic
+            - token
+        heartbeatIntervalSeconds:
           type: integer
           format: int32
-        errorRate:
-          type: number
-          format: float
-    PairingDiscoveryCandidate:
-      type: object
-      required:
-        - id
-        - name
-        - capability
-        - signal
-        - discoveredAt
-      properties:
-        id:
-          type: string
-        name:
-          type: string
-        capability:
-          type: string
-        signal:
-          type: integer
-          format: int32
-        discoveredAt:
-          type: string
-          format: date-time
-    PairingHistoryEntry:
-      type: object
-      required:
-        - id
-        - completedAt
-        - deviceId
-        - status
-      properties:
-        id:
-          type: string
-        completedAt:
-          type: string
-          format: date-time
-        deviceId:
-          type: string
-        status:
-          type: string
-          enum:
-            - success
-            - error
-        note:
-          type: string
-          nullable: true
-    PairingStatus:
+          minimum: 5
+          maximum: 3600
+    SettingsPairingState:
       type: object
       required:
         - active
-        - method
         - expiresAt
-        - discovered
-        - history
+        - ticketId
+        - candidates
       properties:
         active:
           type: boolean
-        method:
-          type: string
-          enum:
-            - manual
-            - qr
-            - auto
         expiresAt:
           type: string
           format: date-time
           nullable: true
-        discovered:
+        ticketId:
+          type: string
+          nullable: true
+        candidates:
           type: array
           items:
-            $ref: '#/components/schemas/PairingDiscoveryCandidate'
-        history:
-          type: array
-          items:
-            $ref: '#/components/schemas/PairingHistoryEntry'
-    OperatorRole:
-      type: object
-      required:
-        - id
-        - name
-        - description
-        - permissions
-        - assignable
-      properties:
-        id:
-          type: string
-        name:
-          type: string
-        description:
-          type: string
-        permissions:
-          type: array
-          items:
-            type: string
-        assignable:
-          type: boolean
+            type: object
+            required:
+              - id
+              - model
+              - signal
+            properties:
+              id:
+                type: string
+              model:
+                type: string
+              signal:
+                type: integer
+                format: int32
     OperatorAccount:
       type: object
       required:
         - id
-        - name
         - email
         - roles
-        - lastActiveAt
+        - invitedAt
         - status
       properties:
         id:
-          type: string
-        name:
           type: string
         email:
           type: string
@@ -1396,7 +1484,7 @@ components:
           type: array
           items:
             type: string
-        lastActiveAt:
+        invitedAt:
           type: string
           format: date-time
           nullable: true
@@ -1404,36 +1492,33 @@ components:
           type: string
           enum:
             - active
-            - invited
-            - disabled
+            - pending
+            - removed
     SettingsState:
       type: object
       required:
-        - api
         - proxy
+        - allowedOrigins
         - pairing
         - operators
-        - roles
-        - pendingRestart
-        - lastSavedAt
+        - apiTokenPreview
+        - updatedAt
       properties:
-        api:
-          $ref: '#/components/schemas/ApiAccessSettings'
         proxy:
           $ref: '#/components/schemas/ProxySettings'
+        allowedOrigins:
+          type: array
+          items:
+            type: string
         pairing:
-          $ref: '#/components/schemas/PairingStatus'
+          $ref: '#/components/schemas/SettingsPairingState'
         operators:
           type: array
           items:
             $ref: '#/components/schemas/OperatorAccount'
-        roles:
-          type: array
-          items:
-            $ref: '#/components/schemas/OperatorRole'
-        pendingRestart:
-          type: boolean
-        lastSavedAt:
+        apiTokenPreview:
+          type: string
+        updatedAt:
           type: string
           format: date-time
           nullable: true
@@ -1456,43 +1541,40 @@ components:
     PairingStartRequest:
       type: object
       required:
-        - method
-        - durationSeconds
+        - networkRole
+        - expiresInSeconds
       properties:
-        method:
+        networkRole:
           type: string
           enum:
-            - manual
-            - qr
-            - auto
-        durationSeconds:
+            - audio
+            - video
+            - lighting
+            - sensor
+        expiresInSeconds:
           type: integer
           format: int32
-          minimum: 30
-          maximum: 900
+          minimum: 60
+          maximum: 3600
     PairingClaimRequest:
       type: object
       properties:
-        note:
+        alias:
           type: string
           nullable: true
-        status:
-          type: string
-          enum:
-            - success
-            - error
-        deviceId:
+        location:
           type: string
           nullable: true
+        metadata:
+          type: object
+          additionalProperties:
+            type: string
     InviteOperatorRequest:
       type: object
       required:
-        - name
         - email
         - roles
       properties:
-        name:
-          type: string
         email:
           type: string
           format: email
@@ -2014,7 +2096,67 @@ paths:
           $ref: '#/components/responses/GatewayTimeoutError'
         '500':
           $ref: '#/components/responses/InternalError'
+  /audio/library/uploads:
+    post:
+      tags:
+        - Audio
+      summary: Register a pending upload for an audio library track.
+      description: Register a pending upload for an audio library track. Returns signed upload parameters for the UI.
+      operationId: registerAudioUpload
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AudioLibraryUploadRegistrationRequest'
+      responses:
+        '201':
+          description: Upload registration created.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AudioLibraryUploadRegistration'
+        '400':
+          $ref: '#/components/responses/ValidationError'
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '403':
+          $ref: '#/components/responses/ForbiddenError'
+        '429':
+          $ref: '#/components/responses/RateLimitError'
+        '500':
+          $ref: '#/components/responses/InternalError'
   /audio/playlists:
+    get:
+      tags:
+        - Audio
+      summary: List audio playlists configured for distributed playback.
+      description: Retrieve ordered playlists available to the operator workspace with track metadata.
+      operationId: listAudioPlaylists
+      responses:
+        '200':
+          description: Collection of playlists.
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                  - items
+                  - total
+                properties:
+                  items:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/AudioPlaylist'
+                  total:
+                    type: integer
+                    format: int32
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '403':
+          $ref: '#/components/responses/ForbiddenError'
+        '429':
+          $ref: '#/components/responses/RateLimitError'
     post:
       tags:
         - Audio
@@ -2084,6 +2226,44 @@ paths:
           $ref: '#/components/responses/RateLimitError'
         '501':
           $ref: '#/components/responses/NotImplementedError'
+        '500':
+          $ref: '#/components/responses/InternalError'
+  /audio/playlists/{playlistId}/reorder:
+    post:
+      tags:
+        - Audio
+      summary: Reorder tracks within a playlist without modifying metadata.
+      description: Update the track ordering for an existing playlist by supplying a new ordered list of track identifiers.
+      operationId: reorderAudioPlaylist
+      parameters:
+        - name: playlistId
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AudioPlaylistReorderRequest'
+      responses:
+        '200':
+          description: Playlist reordered successfully.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AudioPlaylist'
+        '400':
+          $ref: '#/components/responses/ValidationError'
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '403':
+          $ref: '#/components/responses/ForbiddenError'
+        '404':
+          $ref: '#/components/responses/NotFoundError'
+        '429':
+          $ref: '#/components/responses/RateLimitError'
         '500':
           $ref: '#/components/responses/InternalError'
     delete:
@@ -2207,6 +2387,117 @@ paths:
           $ref: '#/components/responses/RateLimitError'
         '501':
           $ref: '#/components/responses/NotImplementedError'
+        '500':
+          $ref: '#/components/responses/InternalError'
+  /audio/playback/sessions:
+    get:
+      tags:
+        - Audio
+      summary: List recent audio playback sessions and their current state.
+      description: Provide historical playback session data for operators monitoring sync and device cohorts.
+      operationId: listAudioPlaybackSessions
+      responses:
+        '200':
+          description: Collection of playback sessions.
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                  - items
+                  - total
+                properties:
+                  items:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/AudioSession'
+                  total:
+                    type: integer
+                    format: int32
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '403':
+          $ref: '#/components/responses/ForbiddenError'
+        '429':
+          $ref: '#/components/responses/RateLimitError'
+        '500':
+          $ref: '#/components/responses/InternalError'
+    post:
+      tags:
+        - Audio
+      summary: Create and start a new coordinated playback session.
+      description: Launch a playback session spanning multiple devices with optional sync and playlist configuration.
+      operationId: createAudioPlaybackSession
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AudioPlaybackSessionCreateRequest'
+      responses:
+        '201':
+          description: Session started.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AudioSession'
+        '400':
+          $ref: '#/components/responses/ValidationError'
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '403':
+          $ref: '#/components/responses/ForbiddenError'
+        '429':
+          $ref: '#/components/responses/RateLimitError'
+        '500':
+          $ref: '#/components/responses/InternalError'
+  /audio/playback/sessions/{sessionId}/sync:
+    post:
+      tags:
+        - Audio
+      summary: Report drift metrics for a playback session to drive resynchronisation.
+      description: Submit drift telemetry captured by the UI so the backend can record the latest synchronisation context.
+      operationId: syncAudioPlaybackSession
+      parameters:
+        - name: sessionId
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AudioSessionSyncRequest'
+      responses:
+        '202':
+          description: Drift update accepted.
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                  - sessions
+                  - updatedAt
+                properties:
+                  sessions:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/AudioSession'
+                  updatedAt:
+                    type: string
+                    format: date-time
+        '400':
+          $ref: '#/components/responses/ValidationError'
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '403':
+          $ref: '#/components/responses/ForbiddenError'
+        '404':
+          $ref: '#/components/responses/NotFoundError'
+        '429':
+          $ref: '#/components/responses/RateLimitError'
         '500':
           $ref: '#/components/responses/InternalError'
   /audio/devices/{deviceId}/resume:
@@ -2381,7 +2672,7 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/VideoState'
+                $ref: '#/components/schemas/VideoOverview'
         '401':
           $ref: '#/components/responses/UnauthorizedError'
         '403':
@@ -2394,6 +2685,252 @@ paths:
           $ref: '#/components/responses/BadGatewayError'
         '504':
           $ref: '#/components/responses/GatewayTimeoutError'
+        '500':
+          $ref: '#/components/responses/InternalError'
+  /video/devices:
+    get:
+      tags:
+        - Video
+      summary: List managed video devices and their current state.
+      description: Enumerate video endpoints, including power, mute, and input state for the operator dashboard.
+      operationId: listVideoDevices
+      responses:
+        '200':
+          description: Video device inventory.
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                  - devices
+                  - updatedAt
+                properties:
+                  devices:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/VideoDeviceState'
+                  updatedAt:
+                    type: string
+                    format: date-time
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '403':
+          $ref: '#/components/responses/ForbiddenError'
+        '429':
+          $ref: '#/components/responses/RateLimitError'
+        '500':
+          $ref: '#/components/responses/InternalError'
+  /video/devices/{deviceId}/power:
+    post:
+      tags:
+        - Video
+      summary: Set the power state of a video endpoint.
+      description: Issue power on or standby commands to a managed display or switcher.
+      operationId: setVideoPower
+      parameters:
+        - name: deviceId
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - power
+              properties:
+                power:
+                  $ref: '#/components/schemas/VideoPowerState'
+      responses:
+        '202':
+          description: Power command accepted.
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                  - deviceId
+                  - power
+                  - lastUpdated
+                properties:
+                  deviceId:
+                    type: string
+                  power:
+                    $ref: '#/components/schemas/VideoPowerState'
+                  lastUpdated:
+                    type: string
+                    format: date-time
+        '400':
+          $ref: '#/components/responses/ValidationError'
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '403':
+          $ref: '#/components/responses/ForbiddenError'
+        '404':
+          $ref: '#/components/responses/NotFoundError'
+        '429':
+          $ref: '#/components/responses/RateLimitError'
+        '500':
+          $ref: '#/components/responses/InternalError'
+  /video/devices/{deviceId}/mute:
+    post:
+      tags:
+        - Video
+      summary: Update mute state for a video device.
+      description: Toggle the audio mute flag for the specified video endpoint.
+      operationId: setVideoMute
+      parameters:
+        - name: deviceId
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - mute
+              properties:
+                mute:
+                  type: boolean
+      responses:
+        '202':
+          description: Mute update accepted.
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                  - deviceId
+                  - mute
+                  - lastUpdated
+                properties:
+                  deviceId:
+                    type: string
+                  mute:
+                    type: boolean
+                  lastUpdated:
+                    type: string
+                    format: date-time
+        '400':
+          $ref: '#/components/responses/ValidationError'
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '403':
+          $ref: '#/components/responses/ForbiddenError'
+        '404':
+          $ref: '#/components/responses/NotFoundError'
+        '429':
+          $ref: '#/components/responses/RateLimitError'
+        '500':
+          $ref: '#/components/responses/InternalError'
+  /video/devices/{deviceId}/input:
+    post:
+      tags:
+        - Video
+      summary: Switch the active input on a video device.
+      description: Change the current input selection on a display or receiver.
+      operationId: setVideoInput
+      parameters:
+        - name: deviceId
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - input
+              properties:
+                input:
+                  type: string
+      responses:
+        '202':
+          description: Input change accepted.
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                  - deviceId
+                  - input
+                  - lastUpdated
+                properties:
+                  deviceId:
+                    type: string
+                  input:
+                    type: string
+                  lastUpdated:
+                    type: string
+                    format: date-time
+        '400':
+          $ref: '#/components/responses/ValidationError'
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '403':
+          $ref: '#/components/responses/ForbiddenError'
+        '404':
+          $ref: '#/components/responses/NotFoundError'
+        '429':
+          $ref: '#/components/responses/RateLimitError'
+        '500':
+          $ref: '#/components/responses/InternalError'
+  /video/recordings/{recordingId}/export:
+    post:
+      tags:
+        - Video
+      summary: Request an export of a recording clip for download.
+      description: Submit an export intent for a recorded segment, returning tracking metadata and a download URL when ready.
+      operationId: exportVideoClip
+      parameters:
+        - name: recordingId
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - startOffsetSeconds
+                - endOffsetSeconds
+              properties:
+                startOffsetSeconds:
+                  type: number
+                  format: float
+                endOffsetSeconds:
+                  type: number
+                  format: float
+      responses:
+        '202':
+          description: Export request accepted.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/VideoClipExport'
+        '400':
+          $ref: '#/components/responses/ValidationError'
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '403':
+          $ref: '#/components/responses/ForbiddenError'
+        '404':
+          $ref: '#/components/responses/NotFoundError'
+        '429':
+          $ref: '#/components/responses/RateLimitError'
         '500':
           $ref: '#/components/responses/InternalError'
   /video/recordings:
@@ -2409,9 +2946,22 @@ paths:
           content:
             application/json:
               schema:
-                type: array
-                items:
-                  $ref: '#/components/schemas/VideoRecordingSegment'
+                type: object
+                required:
+                  - items
+                  - total
+                  - generatedAt
+                properties:
+                  items:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/VideoRecordingSegment'
+                  total:
+                    type: integer
+                    format: int32
+                  generatedAt:
+                    type: string
+                    format: date-time
         '401':
           $ref: '#/components/responses/UnauthorizedError'
         '403':
@@ -2445,13 +2995,7 @@ paths:
           content:
             application/json:
               schema:
-                type: object
-                required:
-                  - streamUrl
-                properties:
-                  streamUrl:
-                    type: string
-                    format: uri
+                $ref: '#/components/schemas/VideoPreviewSession'
         '401':
           $ref: '#/components/responses/UnauthorizedError'
         '403':
@@ -2855,6 +3399,125 @@ paths:
           $ref: '#/components/responses/RateLimitError'
         '500':
           $ref: '#/components/responses/InternalError'
+  /logs/query:
+    get:
+      tags:
+        - Logs
+      summary: Retrieve a filtered slice of logs for operator review.
+      description: Fetch recent log lines matching severity, device, and correlation filters for troubleshooting.
+      operationId: queryLogs
+      parameters:
+        - $ref: '#/components/parameters/LogLevelParam'
+        - name: deviceId
+          in: query
+          schema:
+            type: string
+          description: Filter to a specific device identifier.
+        - name: correlationId
+          in: query
+          schema:
+            type: string
+          description: Filter by correlation identifier.
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            format: int32
+            minimum: 1
+            maximum: 500
+            default: 100
+      responses:
+        '200':
+          description: Filtered log entries.
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                  - items
+                  - total
+                  - fetchedAt
+                properties:
+                  items:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/LogEntry'
+                  total:
+                    type: integer
+                    format: int32
+                  fetchedAt:
+                    type: string
+                    format: date-time
+        '400':
+          $ref: '#/components/responses/ValidationError'
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '403':
+          $ref: '#/components/responses/ForbiddenError'
+        '500':
+          $ref: '#/components/responses/InternalError'
+  /logs/export:
+    post:
+      tags:
+        - Logs
+      summary: Create an export of logs matching a filter set.
+      description: Queue a downloadable log export job using optional filters for offline analysis.
+      operationId: exportLogs
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                level:
+                  type: string
+                  enum:
+                    - trace
+                    - debug
+                    - info
+                    - warn
+                    - error
+                    - fatal
+                deviceId:
+                  type: string
+                correlationId:
+                  type: string
+      responses:
+        '202':
+          description: Export scheduled.
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                  - exportId
+                  - status
+                  - requestedAt
+                  - downloadUrl
+                properties:
+                  exportId:
+                    type: string
+                  status:
+                    type: string
+                  filters:
+                    type: object
+                    additionalProperties:
+                      type: string
+                  requestedAt:
+                    type: string
+                    format: date-time
+                  downloadUrl:
+                    type: string
+                    format: uri
+        '400':
+          $ref: '#/components/responses/ValidationError'
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '403':
+          $ref: '#/components/responses/ForbiddenError'
+        '500':
+          $ref: '#/components/responses/InternalError'
   /settings:
     get:
       tags:
@@ -2893,6 +3556,19 @@ paths:
       responses:
         '202':
           description: Proxy update accepted.
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                  - proxy
+                  - updatedAt
+                properties:
+                  proxy:
+                    $ref: '#/components/schemas/ProxySettings'
+                  updatedAt:
+                    type: string
+                    format: date-time
         '400':
           $ref: '#/components/responses/ValidationError'
         '401':
@@ -2913,6 +3589,22 @@ paths:
       responses:
         '202':
           description: Token rotation accepted.
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                  - status
+                  - tokenPreview
+                  - rotatedAt
+                properties:
+                  status:
+                    type: string
+                  tokenPreview:
+                    type: string
+                  rotatedAt:
+                    type: string
+                    format: date-time
         '401':
           $ref: '#/components/responses/UnauthorizedError'
         '403':
@@ -2937,6 +3629,21 @@ paths:
       responses:
         '202':
           description: Allowed origins updated.
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                  - allowedOrigins
+                  - updatedAt
+                properties:
+                  allowedOrigins:
+                    type: array
+                    items:
+                      type: string
+                  updatedAt:
+                    type: string
+                    format: date-time
         '400':
           $ref: '#/components/responses/ValidationError'
         '401':
@@ -2963,6 +3670,10 @@ paths:
       responses:
         '202':
           description: Pairing flow started.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SettingsPairingState'
         '400':
           $ref: '#/components/responses/ValidationError'
         '401':
@@ -2983,6 +3694,19 @@ paths:
       responses:
         '202':
           description: Pairing flow cancelled.
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                  - cancelled
+                  - updatedAt
+                properties:
+                  cancelled:
+                    type: boolean
+                  updatedAt:
+                    type: string
+                    format: date-time
         '401':
           $ref: '#/components/responses/UnauthorizedError'
         '403':
@@ -3015,6 +3739,27 @@ paths:
       responses:
         '202':
           description: Pairing candidate claim accepted.
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                  - accepted
+                  - candidateId
+                  - metadata
+                  - updatedAt
+                properties:
+                  accepted:
+                    type: boolean
+                  candidateId:
+                    type: string
+                  metadata:
+                    type: object
+                    additionalProperties:
+                      type: string
+                  updatedAt:
+                    type: string
+                    format: date-time
         '401':
           $ref: '#/components/responses/UnauthorizedError'
         '403':
@@ -3044,7 +3789,7 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/SettingsState'
+                $ref: '#/components/schemas/OperatorAccount'
         '400':
           $ref: '#/components/responses/ValidationError'
         '401':
@@ -3077,6 +3822,22 @@ paths:
       responses:
         '202':
           description: Operator removal accepted.
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                  - removed
+                  - operatorId
+                  - updatedAt
+                properties:
+                  removed:
+                    type: boolean
+                  operatorId:
+                    type: string
+                  updatedAt:
+                    type: string
+                    format: date-time
         '401':
           $ref: '#/components/responses/UnauthorizedError'
         '403':

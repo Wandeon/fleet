@@ -3,9 +3,12 @@
 /* eslint-disable */
 import type { AllowedOriginsRequest } from '../models/AllowedOriginsRequest';
 import type { InviteOperatorRequest } from '../models/InviteOperatorRequest';
+import type { OperatorAccount } from '../models/OperatorAccount';
 import type { PairingClaimRequest } from '../models/PairingClaimRequest';
 import type { PairingStartRequest } from '../models/PairingStartRequest';
+import type { ProxySettings } from '../models/ProxySettings';
 import type { ProxyUpdateRequest } from '../models/ProxyUpdateRequest';
+import type { SettingsPairingState } from '../models/SettingsPairingState';
 import type { SettingsState } from '../models/SettingsState';
 
 import type { CancelablePromise } from '../core/CancelablePromise';
@@ -42,7 +45,10 @@ export class SettingsService {
    */
   public static updateProxySettings(
     requestBody: ProxyUpdateRequest,
-  ): CancelablePromise<any> {
+  ): CancelablePromise<{
+    proxy: ProxySettings;
+    updatedAt: string;
+  }> {
     return __request(OpenAPI, {
       method: 'PATCH',
       url: '/settings/proxy',
@@ -64,7 +70,11 @@ export class SettingsService {
    * @returns any Token rotation accepted.
    * @throws ApiError
    */
-  public static rotateApiToken(): CancelablePromise<any> {
+  public static rotateApiToken(): CancelablePromise<{
+    status: string;
+    tokenPreview: string;
+    rotatedAt: string;
+  }> {
     return __request(OpenAPI, {
       method: 'POST',
       url: '/settings/api-token',
@@ -86,7 +96,10 @@ export class SettingsService {
    */
   public static updateAllowedOrigins(
     requestBody: AllowedOriginsRequest,
-  ): CancelablePromise<any> {
+  ): CancelablePromise<{
+    allowedOrigins: Array<string>;
+    updatedAt: string;
+  }> {
     return __request(OpenAPI, {
       method: 'PUT',
       url: '/settings/allowed-origins',
@@ -106,12 +119,12 @@ export class SettingsService {
    * Start operator pairing flow for onboarding new devices.
    * Start operator pairing flow for onboarding new devices.
    * @param requestBody
-   * @returns any Pairing flow started.
+   * @returns SettingsPairingState Pairing flow started.
    * @throws ApiError
    */
   public static startSettingsPairing(
     requestBody: PairingStartRequest,
-  ): CancelablePromise<any> {
+  ): CancelablePromise<SettingsPairingState> {
     return __request(OpenAPI, {
       method: 'POST',
       url: '/settings/pairing/start',
@@ -133,7 +146,10 @@ export class SettingsService {
    * @returns any Pairing flow cancelled.
    * @throws ApiError
    */
-  public static cancelSettingsPairing(): CancelablePromise<any> {
+  public static cancelSettingsPairing(): CancelablePromise<{
+    cancelled: boolean;
+    updatedAt: string;
+  }> {
     return __request(OpenAPI, {
       method: 'POST',
       url: '/settings/pairing/cancel',
@@ -158,7 +174,12 @@ export class SettingsService {
   public static claimPairingCandidate(
     candidateId: string,
     requestBody?: PairingClaimRequest,
-  ): CancelablePromise<any> {
+  ): CancelablePromise<{
+    accepted: boolean;
+    candidateId: string;
+    metadata: Record<string, string>;
+    updatedAt: string;
+  }> {
     return __request(OpenAPI, {
       method: 'POST',
       url: '/settings/pairing/{candidateId}/claim',
@@ -181,12 +202,12 @@ export class SettingsService {
    * Invite a new operator account with specified roles.
    * Invite a new operator account with specified roles.
    * @param requestBody
-   * @returns SettingsState Operator invited.
+   * @returns OperatorAccount Operator invited.
    * @throws ApiError
    */
   public static inviteOperator(
     requestBody: InviteOperatorRequest,
-  ): CancelablePromise<SettingsState> {
+  ): CancelablePromise<OperatorAccount> {
     return __request(OpenAPI, {
       method: 'POST',
       url: '/settings/operators',
@@ -212,7 +233,11 @@ export class SettingsService {
    */
   public static removeOperator(
     operatorId: string,
-  ): CancelablePromise<any> {
+  ): CancelablePromise<{
+    removed: boolean;
+    operatorId: string;
+    updatedAt: string;
+  }> {
     return __request(OpenAPI, {
       method: 'DELETE',
       url: '/settings/operators/{operatorId}',

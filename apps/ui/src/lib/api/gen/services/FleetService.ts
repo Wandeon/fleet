@@ -2,6 +2,7 @@
 /* tslint:disable */
 /* eslint-disable */
 import type { FleetDeviceDetail } from '../models/FleetDeviceDetail';
+import type { FleetLayout } from '../models/FleetLayout';
 import type { FleetOverview } from '../models/FleetOverview';
 
 import type { CancelablePromise } from '../core/CancelablePromise';
@@ -9,6 +10,27 @@ import { OpenAPI } from '../core/OpenAPI';
 import { request as __request } from '../core/request';
 
 export class FleetService {
+
+  /**
+   * Retrieve fleet layout metadata for UI composition.
+   * Retrieve fleet layout metadata for UI composition.
+   * @returns FleetLayout Fleet module layout describing enabled capabilities.
+   * @throws ApiError
+   */
+  public static getFleetLayout(): CancelablePromise<FleetLayout> {
+    return __request(OpenAPI, {
+      method: 'GET',
+      url: '/fleet/layout',
+      errors: {
+        401: `Authentication failed or credentials missing.`,
+        403: `Authenticated user does not have permission to access the resource.`,
+        429: `Request rate limit exceeded.`,
+        500: `Unexpected server error occurred.`,
+        502: `Upstream device returned an invalid response or is unreachable.`,
+        504: `Upstream device timed out while processing the request.`,
+      },
+    });
+  }
 
   /**
    * Retrieve aggregate fleet status for operator dashboards.

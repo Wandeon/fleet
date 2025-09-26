@@ -2,11 +2,11 @@
 
 | Device Type | Supported Media (Files) | Supported Streams | Volume Control | Seek Support | Sync Endpoints | Pairing Method | Notes |
 |-------------|-------------------------|-------------------|----------------|--------------|----------------|----------------|-------|
-| Audio Pi (v3) | MP3, AAC, FLAC up to 96 kHz; playlists via library | RTP, HLS (audio-only) | Master volume + per-zone trim; 1 dB steps | Yes (±1 second scrub, fine-grain 100 ms) | PTP-based clock sync; responds to `/sync/nudge` | QR provisioning + token handshake | Primary audio endpoint in production locations. D1 control-plane surfaces drift telemetry and supports UI-triggered re-sync/nudge. |
+| Audio Pi (v3) | MP3, AAC, FLAC up to 96 kHz; playlists via library | RTP, HLS (audio-only) | Master volume + per-zone trim; 1 dB steps | Yes (±1 second scrub, fine-grain 100 ms) | PTP-based clock sync; responds to `/sync/nudge` | QR provisioning + token handshake | Primary audio endpoint in production locations. D2 adds `/audio/playback/sessions` for fleet sync insight and `/audio/library/uploads` for pre-signed ingest. |
 | Audio Pi (legacy v2) | MP3, AAC | RTP only | Master volume only | Partial (jump to markers) | Legacy NTP sync; manual drift correction | PIN-based pairing | Limited to single-zone playback; avoid for critical sync. |
-| Video Node | MP4 (H.264), MKV (H.265) | RTSP, WebRTC | N/A | Yes (keyframe aligned) | Syncs via media timeline with ±250 ms tolerance | Device management portal registration | Requires GPU driver 1.4+. |
+| Video Node | MP4 (H.264), MKV (H.265) | RTSP, WebRTC | N/A | Yes (keyframe aligned) | Syncs via media timeline with ±250 ms tolerance | Device management portal registration | Requires GPU driver 1.4+. Phase D2 exposes `/video/devices/{id}/power|mute|input`, `/video/preview`, and clip exports. |
 | AI Camera | MP4 clip export (H.264) | RTSP live, WebRTC preview | N/A | Clip seek with 1-second granularity | Syncs detections via event timestamp service | Auto-enroll through secure boot | Supports on-device inference; night mode configurable. |
-| Zigbee Hub | Config bundles (JSON) | Telemetry MQTT bridge | N/A | N/A | Clock sync via coordinator heartbeat | Physical button + admin console approval | Handles up to 120 endpoints. |
+| Zigbee Hub | Config bundles (JSON) | Telemetry MQTT bridge | N/A | N/A | Clock sync via coordinator heartbeat | Physical button + admin console approval | Handles up to 120 endpoints. D2 pairing lifecycle runs through `/zigbee/pairing` and rule orchestration via `/zigbee/rules`. |
 | Zigbee Sensor | Firmware blobs | Event stream via hub | N/A | N/A | Sync inherits from hub | Touchlink + hub approval | Requires battery level >40% for updates. |
 | Fleet Gateway | Config packages, firmware | MQTT, HTTPS webhooks | N/A | N/A | Sync with central scheduler | Serial number registration | Orchestrates cross-device jobs. |
 

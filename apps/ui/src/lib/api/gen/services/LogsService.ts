@@ -1,6 +1,7 @@
 /* istanbul ignore file */
 /* tslint:disable */
 /* eslint-disable */
+import type { LogEntry } from '../models/LogEntry';
 import type { LogsSnapshot } from '../models/LogsSnapshot';
 
 import type { CancelablePromise } from '../core/CancelablePromise';
@@ -77,6 +78,78 @@ export class LogsService {
         401: `Authentication failed or credentials missing.`,
         403: `Authenticated user does not have permission to access the resource.`,
         429: `Request rate limit exceeded.`,
+        500: `Unexpected server error occurred.`,
+      },
+    });
+  }
+
+  /**
+   * Retrieve a filtered slice of logs for operator review.
+   * Fetch recent log lines matching severity, device, and correlation filters for troubleshooting.
+   * @param level Filter log entries to a specific severity level.
+   * @param deviceId Filter to a specific device identifier.
+   * @param correlationId Filter by correlation identifier.
+   * @param limit
+   * @returns any Filtered log entries.
+   * @throws ApiError
+   */
+  public static queryLogs(
+    level?: 'trace' | 'debug' | 'info' | 'warn' | 'error' | 'fatal',
+    deviceId?: string,
+    correlationId?: string,
+    limit: number = 100,
+  ): CancelablePromise<{
+    items: Array<LogEntry>;
+    total: number;
+    fetchedAt: string;
+  }> {
+    return __request(OpenAPI, {
+      method: 'GET',
+      url: '/logs/query',
+      query: {
+        'level': level,
+        'deviceId': deviceId,
+        'correlationId': correlationId,
+        'limit': limit,
+      },
+      errors: {
+        400: `One or more request parameters failed validation.`,
+        401: `Authentication failed or credentials missing.`,
+        403: `Authenticated user does not have permission to access the resource.`,
+        500: `Unexpected server error occurred.`,
+      },
+    });
+  }
+
+  /**
+   * Create an export of logs matching a filter set.
+   * Queue a downloadable log export job using optional filters for offline analysis.
+   * @param requestBody
+   * @returns any Export scheduled.
+   * @throws ApiError
+   */
+  public static exportLogs(
+    requestBody?: {
+      level?: 'trace' | 'debug' | 'info' | 'warn' | 'error' | 'fatal';
+      deviceId?: string;
+      correlationId?: string;
+    },
+  ): CancelablePromise<{
+    exportId: string;
+    status: string;
+    filters?: Record<string, string>;
+    requestedAt: string;
+    downloadUrl: string;
+  }> {
+    return __request(OpenAPI, {
+      method: 'POST',
+      url: '/logs/export',
+      body: requestBody,
+      mediaType: 'application/json',
+      errors: {
+        400: `One or more request parameters failed validation.`,
+        401: `Authentication failed or credentials missing.`,
+        403: `Authenticated user does not have permission to access the resource.`,
         500: `Unexpected server error occurred.`,
       },
     });
