@@ -41,7 +41,8 @@ _fleet_log() {
   local message="$1"
   shift || true
 
-  local ts=$(_fleet_log_timestamp)
+  local ts
+  ts=$(_fleet_log_timestamp)
   local service="${FLEET_LOG_SERVICE:-${LOG_SERVICE:-role-agent}}"
   local host="${FLEET_LOG_HOST:-${LOG_SOURCE_HOST:-$(hostname 2>/dev/null || echo unknown)}}"
   local role="${FLEET_LOG_ROLE:-${ROLE:-unknown}}"
