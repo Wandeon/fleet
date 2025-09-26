@@ -12,7 +12,7 @@ export default defineConfig({
   testMatch: ['**/*.spec.ts'],
   projects: baseConfig.projects,
   use: {
-    ...baseConfig.use
+    ...baseConfig.use,
   },
-  webServer: baseConfig.webServer
+  webServer: baseConfig.webServer,
 });

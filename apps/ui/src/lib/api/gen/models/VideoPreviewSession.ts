@@ -12,4 +12,3 @@ export type VideoPreviewSession = {
     input?: string;
   } | null;
 };
-

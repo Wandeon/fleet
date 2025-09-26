@@ -17,4 +17,3 @@ export type LogsExportResponse = {
   downloadUrl: string;
   correlationId?: string | null;
 };
-

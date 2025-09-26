@@ -16,4 +16,3 @@ export type AudioSession = {
   lastError?: string | null;
   drift?: AudioSessionDrift;
 };
-

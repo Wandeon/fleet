@@ -13,7 +13,6 @@ import { OpenAPI } from '../core/OpenAPI';
 import { request as __request } from '../core/request';
 
 export class CameraService {
-
   /**
    * Retrieve consolidated camera state for the operator dashboard.
    * Retrieve consolidated camera state for the operator dashboard.
@@ -43,9 +42,7 @@ export class CameraService {
    * @returns any Camera selection accepted.
    * @throws ApiError
    */
-  public static selectCamera(
-    requestBody: CameraSelectionRequest,
-  ): CancelablePromise<any> {
+  public static selectCamera(requestBody: CameraSelectionRequest): CancelablePromise<any> {
     return __request(OpenAPI, {
       method: 'PUT',
       url: '/camera/active',
@@ -85,20 +82,20 @@ export class CameraService {
     minConfidence?: number,
     maxConfidence?: number,
     limit: number = 50,
-    cursor?: string,
+    cursor?: string
   ): CancelablePromise<CameraEventListResponse> {
     return __request(OpenAPI, {
       method: 'GET',
       url: '/camera/events',
       query: {
-        'start': start,
-        'end': end,
-        'cameraId': cameraId,
-        'tags': tags,
-        'minConfidence': minConfidence,
-        'maxConfidence': maxConfidence,
-        'limit': limit,
-        'cursor': cursor,
+        start: start,
+        end: end,
+        cameraId: cameraId,
+        tags: tags,
+        minConfidence: minConfidence,
+        maxConfidence: maxConfidence,
+        limit: limit,
+        cursor: cursor,
       },
       errors: {
         400: `One or more request parameters failed validation.`,
@@ -117,14 +114,12 @@ export class CameraService {
    * @returns CameraEventDetailResponse Camera event detail response.
    * @throws ApiError
    */
-  public static getCameraEvent(
-    eventId: string,
-  ): CancelablePromise<CameraEventDetailResponse> {
+  public static getCameraEvent(eventId: string): CancelablePromise<CameraEventDetailResponse> {
     return __request(OpenAPI, {
       method: 'GET',
       url: '/camera/events/{eventId}',
       path: {
-        'eventId': eventId,
+        eventId: eventId,
       },
       errors: {
         401: `Authentication failed or credentials missing.`,
@@ -143,14 +138,12 @@ export class CameraService {
    * @returns any Event acknowledgement accepted.
    * @throws ApiError
    */
-  public static acknowledgeCameraEvent(
-    eventId: string,
-  ): CancelablePromise<any> {
+  public static acknowledgeCameraEvent(eventId: string): CancelablePromise<any> {
     return __request(OpenAPI, {
       method: 'POST',
       url: '/camera/events/{eventId}/ack',
       path: {
-        'eventId': eventId,
+        eventId: eventId,
       },
       errors: {
         401: `Authentication failed or credentials missing.`,
@@ -173,13 +166,13 @@ export class CameraService {
    */
   public static requestCameraClip(
     eventId: string,
-    requestBody: CameraClipRequest,
+    requestBody: CameraClipRequest
   ): CancelablePromise<CameraClipResponse> {
     return __request(OpenAPI, {
       method: 'POST',
       url: '/camera/events/{eventId}/clip',
       path: {
-        'eventId': eventId,
+        eventId: eventId,
       },
       body: requestBody,
       mediaType: 'application/json',
@@ -201,14 +194,12 @@ export class CameraService {
    * @returns any Refresh request accepted.
    * @throws ApiError
    */
-  public static refreshCamera(
-    cameraId: string,
-  ): CancelablePromise<any> {
+  public static refreshCamera(cameraId: string): CancelablePromise<any> {
     return __request(OpenAPI, {
       method: 'POST',
       url: '/camera/{cameraId}/refresh',
       path: {
-        'cameraId': cameraId,
+        cameraId: cameraId,
       },
       errors: {
         401: `Authentication failed or credentials missing.`,
@@ -220,5 +211,4 @@ export class CameraService {
       },
     });
   }
-
 }

@@ -1,13 +1,13 @@
 import { browser } from '$app/environment';
-import { API_BASE_URL, rawRequest, USE_MOCKS, UiApiError, type RequestOptions } from '$lib/api/client';
+import {
+  API_BASE_URL,
+  rawRequest,
+  USE_MOCKS,
+  UiApiError,
+  type RequestOptions,
+} from '$lib/api/client';
 import { mockApi } from '$lib/api/mock';
-import type {
-  LogEntry,
-  LogLevel,
-  LogSeverity,
-  LogsFilterState,
-  LogsSnapshot
-} from '$lib/types';
+import type { LogEntry, LogLevel, LogSeverity, LogsFilterState, LogsSnapshot } from '$lib/types';
 
 export interface LogQueryOptions extends Partial<LogsFilterState> {
   limit?: number;
@@ -88,9 +88,7 @@ const normaliseEntry = (entry: LogEntry): LogEntry => {
   }
 
   const timestamp = entry.ts ?? new Date().toISOString();
-  const severity
-    = entry.severity
-    ?? (entry.level ? levelToSeverity(entry.level) : 'info');
+  const severity = entry.severity ?? (entry.level ? levelToSeverity(entry.level) : 'info');
   const message = entry.message ?? entry.msg ?? 'Log entry';
   const source = entry.source ?? entry.service ?? 'fleet-service';
 
@@ -99,7 +97,7 @@ const normaliseEntry = (entry: LogEntry): LogEntry => {
     timestamp,
     severity,
     message,
-    source
+    source,
   };
 };
 
@@ -137,14 +135,14 @@ export const fetchLogSnapshot = async (options: LogQueryOptions = {}): Promise<L
     lastUpdated?: string;
   }>(`/logs?${params.toString()}`, {
     method: 'GET',
-    fetch: fetchImpl as RequestOptions['fetch']
+    fetch: fetchImpl as RequestOptions['fetch'],
   });
 
   return {
     entries: (result?.entries ?? []).map(normaliseEntry),
     sources: result?.sources ?? [],
     cursor: result?.cursor ?? null,
-    lastUpdated: result?.lastUpdated ?? new Date().toISOString()
+    lastUpdated: result?.lastUpdated ?? new Date().toISOString(),
   } satisfies LogsSnapshot;
 };
 
@@ -152,7 +150,7 @@ export const fetchLogsSnapshot = async (options: FetchLogsOptions = {}): Promise
   const mapped: LogQueryOptions = {
     fetch: options.fetch,
     limit: options.limit,
-    cursor: options.cursor
+    cursor: options.cursor,
   };
 
   if (options.level) {
@@ -177,7 +175,9 @@ export const exportLogs = async (options: LogExportOptions = {}): Promise<Blob> 
 
 export const subscribeToLogStream = (options: LogStreamOptions): LogStreamSubscription => {
   if (USE_MOCKS || !browser) {
-    const stop = mockApi.logsStream(options.filters, (entry) => options.onEvent(normaliseEntry(entry)));
+    const stop = mockApi.logsStream(options.filters, (entry) =>
+      options.onEvent(normaliseEntry(entry))
+    );
     return { stop };
   }
 
@@ -209,7 +209,7 @@ export const subscribeToLogStream = (options: LogStreamOptions): LogStreamSubscr
       eventSource.removeEventListener('message', handleMessage);
       eventSource.removeEventListener('error', handleError);
       eventSource.close();
-    }
+    },
   };
 };
 
@@ -239,7 +239,7 @@ export const createLogsStream = (options: LogsStreamOptions = {}): LogsStream | 
     subscription = subscribeToLogStream({
       filters,
       onEvent: emit,
-      onError: (error) => options.onError?.(error)
+      onError: (error) => options.onError?.(error),
     });
   };
 
@@ -272,6 +272,6 @@ export const createLogsStream = (options: LogsStreamOptions = {}): LogsStream | 
     },
     get paused() {
       return paused;
-    }
+    },
   };
 };

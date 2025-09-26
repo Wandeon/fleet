@@ -11,4 +11,3 @@ export type VideoClipExport = {
   requestedAt: string;
   downloadUrl: string;
 };
-

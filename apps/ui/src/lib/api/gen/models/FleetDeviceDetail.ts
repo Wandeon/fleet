@@ -20,4 +20,3 @@ export type FleetDeviceDetail = {
     lastChecked: string;
   }>;
 };
-

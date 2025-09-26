@@ -19,4 +19,3 @@ export type FleetDeviceSummary = {
   tags: Array<string>;
   capabilities: Array<string>;
 };
-

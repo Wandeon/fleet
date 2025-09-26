@@ -7,4 +7,3 @@ import type { ProxySettingsPatch } from './ProxySettingsPatch';
 export type ProxyUpdateRequest = {
   proxy: ProxySettingsPatch;
 };
-

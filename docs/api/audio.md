@@ -4,21 +4,21 @@ The audio control endpoints expose daily-use operations for managing the shared 
 
 ## Endpoint overview
 
-| Method | Path | Description |
-| ------ | ---- | ----------- |
-| `GET` | `/audio/overview` | Aggregated audio state including devices, library, playlists, sessions, and master volume. |
-| `POST` | `/audio/library` | Upload a track into the shared library with metadata tags. |
-| `POST` | `/audio/playlists` | Create a playlist with ordered tracks and sync mode. |
-| `PUT` | `/audio/playlists/{playlistId}` | Update playlist metadata and track ordering. |
-| `DELETE` | `/audio/playlists/{playlistId}` | Remove a playlist and associated assignments. |
-| `POST` | `/audio/playback` | Start playback for one or more devices using a playlist, track, or explicit assignments. |
-| `GET` | `/audio/devices/{deviceId}` | Retrieve the current snapshot for a device including playback state, drift metrics, and timeline events. |
-| `POST` | `/audio/devices/{deviceId}/pause` | Pause playback on a device. |
-| `POST` | `/audio/devices/{deviceId}/resume` | Resume playback on a device. |
-| `POST` | `/audio/devices/{deviceId}/stop` | Stop playback and reset state. |
-| `POST` | `/audio/devices/{deviceId}/seek` | Seek to a position (seconds) in the current track. |
-| `POST` | `/audio/devices/{deviceId}/volume` | Set the per-device volume (0-100%). |
-| `POST` | `/audio/master-volume` | Set the master volume applied to all sessions. |
+| Method   | Path                               | Description                                                                                              |
+| -------- | ---------------------------------- | -------------------------------------------------------------------------------------------------------- |
+| `GET`    | `/audio/overview`                  | Aggregated audio state including devices, library, playlists, sessions, and master volume.               |
+| `POST`   | `/audio/library`                   | Upload a track into the shared library with metadata tags.                                               |
+| `POST`   | `/audio/playlists`                 | Create a playlist with ordered tracks and sync mode.                                                     |
+| `PUT`    | `/audio/playlists/{playlistId}`    | Update playlist metadata and track ordering.                                                             |
+| `DELETE` | `/audio/playlists/{playlistId}`    | Remove a playlist and associated assignments.                                                            |
+| `POST`   | `/audio/playback`                  | Start playback for one or more devices using a playlist, track, or explicit assignments.                 |
+| `GET`    | `/audio/devices/{deviceId}`        | Retrieve the current snapshot for a device including playback state, drift metrics, and timeline events. |
+| `POST`   | `/audio/devices/{deviceId}/pause`  | Pause playback on a device.                                                                              |
+| `POST`   | `/audio/devices/{deviceId}/resume` | Resume playback on a device.                                                                             |
+| `POST`   | `/audio/devices/{deviceId}/stop`   | Stop playback and reset state.                                                                           |
+| `POST`   | `/audio/devices/{deviceId}/seek`   | Seek to a position (seconds) in the current track.                                                       |
+| `POST`   | `/audio/devices/{deviceId}/volume` | Set the per-device volume (0-100%).                                                                      |
+| `POST`   | `/audio/master-volume`             | Set the master volume applied to all sessions.                                                           |
 
 ## Request and response examples
 
@@ -72,9 +72,7 @@ Authorization: Bearer <token>
       "syncMode": "synced",
       "createdAt": "2024-11-06T18:11:00.000Z",
       "updatedAt": "2024-11-06T18:11:00.000Z",
-      "tracks": [
-        { "trackId": "trk_123", "order": 0 }
-      ]
+      "tracks": [{ "trackId": "trk_123", "order": 0 }]
     }
   ],
   "sessions": [
@@ -140,13 +138,12 @@ Returns `202 Accepted` with `{ "accepted": true }` once the session is recorded.
 
 The audio API uses standard error envelopes from the shared backend:
 
-| Code | HTTP | Description |
-| ---- | ---- | ----------- |
-| `bad_request` | 400 | Validation failure for payload or multipart form fields. |
-| `unauthorized` | 401 | Missing or invalid bearer token. |
-| `forbidden` | 403 | Authenticated caller lacks audio permissions. |
-| `not_found` | 404 | Requested device, playlist, or track is unknown. |
-| `rate_limited` | 429 | Rate-limit guard triggered. |
-| `not_implemented` | 501 | Operation is not yet wired to downstream audio workers. |
-| `internal_error` | 500 | Unexpected failure logged in application traces. |
-
+| Code              | HTTP | Description                                              |
+| ----------------- | ---- | -------------------------------------------------------- |
+| `bad_request`     | 400  | Validation failure for payload or multipart form fields. |
+| `unauthorized`    | 401  | Missing or invalid bearer token.                         |
+| `forbidden`       | 403  | Authenticated caller lacks audio permissions.            |
+| `not_found`       | 404  | Requested device, playlist, or track is unknown.         |
+| `rate_limited`    | 429  | Rate-limit guard triggered.                              |
+| `not_implemented` | 501  | Operation is not yet wired to downstream audio workers.  |
+| `internal_error`  | 500  | Unexpected failure logged in application traces.         |

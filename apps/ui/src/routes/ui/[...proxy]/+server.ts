@@ -2,12 +2,17 @@ import { error, json, type RequestHandler } from '@sveltejs/kit';
 import { mockApi } from '$lib/api/mock';
 import { proxyFleetRequest, type ProxyFallbackContext } from '$lib/server/proxy';
 
-type ProxyFallback = (context: ProxyFallbackContext) => Promise<Response | unknown> | Response | unknown;
+type ProxyFallback = (
+  context: ProxyFallbackContext
+) => Promise<Response | unknown> | Response | unknown;
 import type { AudioDeviceSnapshot, AudioState, SettingsState } from '$lib/types';
 
 type HttpMethod = 'GET' | 'POST' | 'PUT' | 'PATCH' | 'DELETE';
 
-type RouteHandler = (context: ProxyFallbackContext, match: RegExpMatchArray) => Promise<Response | unknown> | Response | unknown;
+type RouteHandler = (
+  context: ProxyFallbackContext,
+  match: RegExpMatchArray
+) => Promise<Response | unknown> | Response | unknown;
 
 interface RouteDefinition {
   pattern: RegExp;
@@ -43,20 +48,20 @@ const toAudioDeviceStatus = (snapshot: AudioDeviceSnapshot) => {
       durationSeconds: basePlayback.durationSeconds,
       since: basePlayback.startedAt,
       errorMessage: basePlayback.lastError ?? null,
-      syncGroup: basePlayback.syncGroup ?? null
+      syncGroup: basePlayback.syncGroup ?? null,
     },
     volume: {
       level: online ? Math.max(0, snapshot.volumePercent / 100) : 0,
       locked: false,
-      lastChangedBy: online ? 'mock' : null
+      lastChangedBy: online ? 'mock' : null,
     },
     lastSeen: snapshot.lastUpdated,
     capabilities: snapshot.capabilities,
     config: {
       streamUrl: null,
       mode: 'mock',
-      defaultSource: source
-    }
+      defaultSource: source,
+    },
   };
 };
 
@@ -64,7 +69,7 @@ const listAudioDevices = () => {
   const state = mockApi.audio();
   return {
     items: state.devices.map(toAudioDeviceStatus),
-    nextCursor: null
+    nextCursor: null,
   };
 };
 
@@ -80,7 +85,8 @@ const ensureAudioDeviceSnapshot = (deviceId: string): AudioDeviceSnapshot => {
 const audioStateResponse = (): AudioState => mockApi.audio();
 
 const buildHealthSummary = () => {
-  const modules: { id: string; status: 'healthy' | 'degraded' | 'down'; message: string | null }[] = [];
+  const modules: { id: string; status: 'healthy' | 'degraded' | 'down'; message: string | null }[] =
+    [];
   const audio = mockApi.audio();
   const totalAudio = audio.devices.length;
   const onlineAudio = audio.devices.filter((device) => device.status === 'online');
@@ -89,19 +95,25 @@ const buildHealthSummary = () => {
   if (totalAudio === 0) {
     modules.push({ id: 'audio', status: 'down', message: 'No audio devices registered' });
   } else if (onlineAudio.length === 0) {
-    modules.push({ id: 'audio', status: 'down', message: `All ${totalAudio} audio devices offline` });
+    modules.push({
+      id: 'audio',
+      status: 'down',
+      message: `All ${totalAudio} audio devices offline`,
+    });
   } else if (erroredAudio.length) {
     modules.push({
       id: 'audio',
       status: 'degraded',
-      message: `Devices with errors: ${erroredAudio.map((device) => device.id).join(', ')}`
+      message: `Devices with errors: ${erroredAudio.map((device) => device.id).join(', ')}`,
     });
   } else {
     modules.push({ id: 'audio', status: 'healthy', message: null });
   }
 
   const layout = mockApi.layout();
-  const otherModules = new Set((layout.modules ?? []).map((module) => module.module).filter((name) => name && name !== 'audio'));
+  const otherModules = new Set(
+    (layout.modules ?? []).map((module) => module.module).filter((name) => name && name !== 'audio')
+  );
   for (const moduleId of otherModules) {
     modules.push({ id: moduleId, status: 'degraded', message: 'Awaiting backend integration' });
   }
@@ -115,7 +127,7 @@ const buildHealthSummary = () => {
   return {
     status,
     updatedAt: nowIso(),
-    modules
+    modules,
   };
 };
 
@@ -128,10 +140,10 @@ const getCameraStreams = () => {
       id: device.id,
       name: device.name,
       status: device.status,
-      module: 'camera'
+      module: 'camera',
     })),
     total: state.devices.length,
-    updatedAt: nowIso()
+    updatedAt: nowIso(),
   };
 };
 
@@ -146,7 +158,7 @@ const getCameraStreamStatus = (cameraId: string) => {
     name: device.name,
     status: device.status,
     reason: device.status === 'offline' ? 'Camera offline in mock data' : null,
-    timestamp: nowIso()
+    timestamp: nowIso(),
   };
 };
 
@@ -154,74 +166,74 @@ const buildRoutes = (): RouteDefinition[] => [
   {
     pattern: /^\/health\/summary$/,
     handlers: {
-      GET: () => buildHealthSummary()
-    }
+      GET: () => buildHealthSummary(),
+    },
   },
   {
     pattern: /^\/health\/events\/recent$/,
     handlers: {
-      GET: () => buildHealthEvents()
-    }
+      GET: () => buildHealthEvents(),
+    },
   },
   {
     pattern: /^\/logs$/,
     handlers: {
-      GET: () => mockApi.logsSnapshot()
-    }
+      GET: () => mockApi.logsSnapshot(),
+    },
   },
   {
     pattern: /^\/fleet\/layout$/,
     handlers: {
-      GET: () => mockApi.layout()
-    }
+      GET: () => mockApi.layout(),
+    },
   },
   {
     pattern: /^\/fleet\/state$/,
     handlers: {
-      GET: () => mockApi.state()
-    }
+      GET: () => mockApi.state(),
+    },
   },
   {
     pattern: /^\/fleet\/overview$/,
     handlers: {
-      GET: () => mockApi.fleetOverview()
-    }
+      GET: () => mockApi.fleetOverview(),
+    },
   },
   {
     pattern: /^\/fleet\/devices\/([^/]+)$/,
     handlers: {
-      GET: (_, match) => mockApi.fleetDevice(decode(match[1]))
-    }
+      GET: (_, match) => mockApi.fleetDevice(decode(match[1])),
+    },
   },
   {
     pattern: /^\/fleet\/devices\/([^/]+)\/actions\/([^/]+)$/,
     handlers: {
-      POST: (_, match) => mockApi.fleetExecuteAction(decode(match[1]), decode(match[2]))
-    }
+      POST: (_, match) => mockApi.fleetExecuteAction(decode(match[1]), decode(match[2])),
+    },
   },
   {
     pattern: /^\/audio$/,
     handlers: {
-      GET: () => audioStateResponse()
-    }
+      GET: () => audioStateResponse(),
+    },
   },
   {
     pattern: /^\/audio\/overview$/,
     handlers: {
-      GET: () => audioStateResponse()
-    }
+      GET: () => audioStateResponse(),
+    },
   },
   {
     pattern: /^\/audio\/devices$/,
     handlers: {
-      GET: () => listAudioDevices()
-    }
+      GET: () => listAudioDevices(),
+    },
   },
   {
     pattern: /^\/audio\/(?:devices\/)?([^/]+)$/,
     handlers: {
-      GET: (_, match) => toAudioDeviceStatus(ensureAudioDeviceSnapshot(decode(match[1])))
-    }
+      GET: (_, match) => toAudioDeviceStatus(ensureAudioDeviceSnapshot(decode(match[1]))),
+    },
   },
   {
     pattern: /^\/audio\/(?:devices\/)?([^/]+)\/volume$/,
@@ -233,8 +245,8 @@ const buildRoutes = (): RouteDefinition[] => [
         const percent = Math.round(Math.max(0, Math.min(2, volumeValue)) * 100);
         const snapshot = mockApi.audioSetVolume(deviceId, percent);
         return toAudioDeviceStatus(snapshot);
-      }
-    }
+      },
+    },
   },
   {
     pattern: /^\/audio\/(?:devices\/)?([^/]+)\/(pause|resume|stop|seek)$/,
@@ -254,8 +266,8 @@ const buildRoutes = (): RouteDefinition[] => [
         const body = (await ctx.json()) as { positionSeconds?: number } | null;
         const position = typeof body?.positionSeconds === 'number' ? body.positionSeconds : 0;
         return toAudioDeviceStatus(mockApi.audioSeek(deviceId, position));
-      }
-    }
+      },
+    },
   },
   {
     pattern: /^\/audio\/(?:devices\/)?([^/]+)\/play$/,
@@ -276,12 +288,14 @@ const buildRoutes = (): RouteDefinition[] => [
           syncMode: 'independent',
           resume: payload?.resume ?? false,
           startAtSeconds: payload?.startAtSeconds ?? 0,
-          loop: false
+          loop: false,
         });
-        const snapshot = state.devices.find((device) => device.id === deviceId) ?? ensureAudioDeviceSnapshot(deviceId);
+        const snapshot =
+          state.devices.find((device) => device.id === deviceId) ??
+          ensureAudioDeviceSnapshot(deviceId);
         return toAudioDeviceStatus(snapshot);
-      }
-    }
+      },
+    },
   },
   {
     pattern: /^\/audio\/playback$/,
@@ -305,14 +319,15 @@ const buildRoutes = (): RouteDefinition[] => [
           playlistId: payload.playlistId ?? null,
           trackId: payload.trackId ?? null,
           assignments: payload.assignments ?? [],
-          syncMode: (payload.syncMode ?? 'independent') as AudioState['sessions'][number]['syncMode'],
+          syncMode: (payload.syncMode ??
+            'independent') as AudioState['sessions'][number]['syncMode'],
           resume: payload.resume ?? false,
           startAtSeconds: payload.startAtSeconds ?? 0,
-          loop: payload.loop ?? false
+          loop: payload.loop ?? false,
         });
         return audioStateResponse();
-      }
-    }
+      },
+    },
   },
   {
     pattern: /^\/audio\/master-volume$/,
@@ -322,8 +337,8 @@ const buildRoutes = (): RouteDefinition[] => [
         const volumeValue = typeof body?.volume === 'number' ? body.volume : 1;
         const percent = Math.round(Math.max(0, Math.min(2, volumeValue)) * 100);
         return mockApi.audioSetMasterVolume(percent);
-      }
-    }
+      },
+    },
   },
   {
     pattern: /^\/audio\/playlists$/,
@@ -335,7 +350,12 @@ const buildRoutes = (): RouteDefinition[] => [
           description?: string | null;
           loop?: boolean;
           syncMode?: 'independent' | 'synced' | 'grouped';
-          tracks?: { trackId: string; order: number; startOffsetSeconds?: number; deviceOverrides?: Record<string, string> }[];
+          tracks?: {
+            trackId: string;
+            order: number;
+            startOffsetSeconds?: number;
+            deviceOverrides?: Record<string, string>;
+          }[];
         } | null;
 
         const draft = {
@@ -343,11 +363,11 @@ const buildRoutes = (): RouteDefinition[] => [
           description: payload?.description ?? null,
           loop: payload?.loop ?? false,
           syncMode: payload?.syncMode ?? 'independent',
-          tracks: payload?.tracks ?? []
+          tracks: payload?.tracks ?? [],
         };
         return mockApi.audioCreatePlaylist(draft);
-      }
-    }
+      },
+    },
   },
   {
     pattern: /^\/audio\/playlists\/([^/]+)$/,
@@ -361,20 +381,21 @@ const buildRoutes = (): RouteDefinition[] => [
         mockApi.audioDeletePlaylist(decode(match[1]));
         return new Response(null, { status: 204 });
       },
-      GET: (_, match) => mockApi.audio().playlists.find((playlist) => playlist.id === decode(match[1]))
-    }
+      GET: (_, match) =>
+        mockApi.audio().playlists.find((playlist) => playlist.id === decode(match[1])),
+    },
   },
   {
     pattern: /^\/audio\/library$/,
     handlers: {
-      POST: () => json({ message: 'Audio uploads are mocked only in UI' }, { status: 501 })
-    }
+      POST: () => json({ message: 'Audio uploads are mocked only in UI' }, { status: 501 }),
+    },
   },
   {
     pattern: /^\/video\/overview$/,
     handlers: {
-      GET: () => mockApi.video()
-    }
+      GET: () => mockApi.video(),
+    },
   },
   {
     pattern: /^\/video$/,
@@ -384,14 +405,14 @@ const buildRoutes = (): RouteDefinition[] => [
         const payload = (await ctx.json()) as { power?: 'on' | 'off' } | null;
         const next = payload?.power ?? 'on';
         return mockApi.videoSetPower(next === 'on' ? 'on' : 'off');
-      }
-    }
+      },
+    },
   },
   {
     pattern: /^\/video\/recordings$/,
     handlers: {
-      GET: () => mockApi.video().recordings
-    }
+      GET: () => mockApi.video().recordings,
+    },
   },
   {
     pattern: /^\/video\/power$/,
@@ -399,8 +420,8 @@ const buildRoutes = (): RouteDefinition[] => [
       POST: async (ctx) => {
         const payload = (await ctx.json()) as { on?: boolean } | null;
         return mockApi.videoSetPower(payload?.on ? 'on' : 'off');
-      }
-    }
+      },
+    },
   },
   {
     pattern: /^\/video\/input$/,
@@ -408,8 +429,8 @@ const buildRoutes = (): RouteDefinition[] => [
       POST: async (ctx) => {
         const payload = (await ctx.json()) as { input?: string } | null;
         return mockApi.videoSetInput(payload?.input ?? 'hdmi-1');
-      }
-    }
+      },
+    },
   },
   {
     pattern: /^\/video\/volume$/,
@@ -418,8 +439,8 @@ const buildRoutes = (): RouteDefinition[] => [
         const payload = (await ctx.json()) as { level?: number } | null;
         const level = typeof payload?.level === 'number' ? payload.level : 50;
         return mockApi.videoSetVolume(level);
-      }
-    }
+      },
+    },
   },
   {
     pattern: /^\/video\/mute$/,
@@ -427,8 +448,8 @@ const buildRoutes = (): RouteDefinition[] => [
       POST: async (ctx) => {
         const payload = (await ctx.json()) as { mute?: boolean } | null;
         return mockApi.videoSetMute(Boolean(payload?.mute));
-      }
-    }
+      },
+    },
   },
   {
     pattern: /^\/video\/preview$/,
@@ -439,20 +460,20 @@ const buildRoutes = (): RouteDefinition[] => [
           throw error(404, { message: 'Live preview unavailable in mock data' });
         }
         return { streamUrl: preview.streamUrl };
-      }
-    }
+      },
+    },
   },
   {
     pattern: /^\/zigbee$/,
     handlers: {
-      GET: () => mockApi.zigbee()
-    }
+      GET: () => mockApi.zigbee(),
+    },
   },
   {
     pattern: /^\/zigbee\/overview$/,
     handlers: {
-      GET: () => mockApi.zigbee()
-    }
+      GET: () => mockApi.zigbee(),
+    },
   },
   {
     pattern: /^\/zigbee\/devices\/([^/]+)\/action$/,
@@ -460,8 +481,8 @@ const buildRoutes = (): RouteDefinition[] => [
       POST: async (ctx, match) => {
         const payload = (await ctx.json()) as { actionId?: string } | null;
         return mockApi.zigbeeRunAction(decode(match[1]), payload?.actionId ?? 'toggle');
-      }
-    }
+      },
+    },
   },
   {
     pattern: /^\/zigbee\/pairing$/,
@@ -471,26 +492,26 @@ const buildRoutes = (): RouteDefinition[] => [
         mockApi.zigbeeStartPairing(payload?.durationSeconds ?? 60);
         return mockApi.zigbee();
       },
-      DELETE: () => mockApi.zigbeeStopPairing()
-    }
+      DELETE: () => mockApi.zigbeeStopPairing(),
+    },
   },
   {
     pattern: /^\/zigbee\/pairing\/discovered$/,
     handlers: {
-      GET: () => mockApi.zigbeeDiscoverCandidate()
-    }
+      GET: () => mockApi.zigbeeDiscoverCandidate(),
+    },
   },
   {
     pattern: /^\/zigbee\/pairing\/([^/]+)$/,
     handlers: {
-      POST: (_, match) => mockApi.zigbeeConfirmPairing(decode(match[1]))
-    }
+      POST: (_, match) => mockApi.zigbeeConfirmPairing(decode(match[1])),
+    },
   },
   {
     pattern: /^\/settings$/,
     handlers: {
-      GET: () => mockApi.settings()
-    }
+      GET: () => mockApi.settings(),
+    },
   },
   {
     pattern: /^\/settings\/proxy$/,
@@ -498,14 +519,14 @@ const buildRoutes = (): RouteDefinition[] => [
       PATCH: async (ctx) => {
         const payload = (await ctx.json()) as { proxy?: Partial<SettingsState['proxy']> } | null;
         return mockApi.settingsUpdateProxy(payload?.proxy ?? {});
-      }
-    }
+      },
+    },
   },
   {
     pattern: /^\/settings\/api-token$/,
     handlers: {
-      POST: () => mockApi.settingsRotateToken()
-    }
+      POST: () => mockApi.settingsRotateToken(),
+    },
   },
   {
     pattern: /^\/settings\/allowed-origins$/,
@@ -513,38 +534,49 @@ const buildRoutes = (): RouteDefinition[] => [
       PUT: async (ctx) => {
         const payload = (await ctx.json()) as { origins?: string[] } | null;
         return mockApi.settingsUpdateApi({ allowedOrigins: payload?.origins ?? [] });
-      }
-    }
+      },
+    },
   },
   {
     pattern: /^\/settings\/pairing\/start$/,
     handlers: {
       POST: async (ctx) => {
         const payload = (await ctx.json()) as { method?: string; durationSeconds?: number } | null;
-        return mockApi.settingsStartPairing((payload?.method as SettingsState['pairing']['method']) ?? 'manual', payload?.durationSeconds ?? 120);
-      }
-    }
+        return mockApi.settingsStartPairing(
+          (payload?.method as SettingsState['pairing']['method']) ?? 'manual',
+          payload?.durationSeconds ?? 120
+        );
+      },
+    },
   },
   {
     pattern: /^\/settings\/pairing\/cancel$/,
     handlers: {
-      POST: () => mockApi.settingsCancelPairing()
-    }
+      POST: () => mockApi.settingsCancelPairing(),
+    },
   },
   {
     pattern: /^\/settings\/pairing\/([^/]+)\/claim$/,
     handlers: {
       POST: async (ctx, match) => {
-        const payload = (await ctx.json()) as { deviceId?: string; note?: string; status?: 'success' | 'error' } | null;
+        const payload = (await ctx.json()) as {
+          deviceId?: string;
+          note?: string;
+          status?: 'success' | 'error';
+        } | null;
         return mockApi.settingsClaimDiscovered(decode(match[1]), payload ?? {});
-      }
-    }
+      },
+    },
   },
   {
     pattern: /^\/settings\/operators$/,
     handlers: {
       POST: async (ctx) => {
-        const payload = (await ctx.json()) as { name?: string; email?: string; roles?: string[] } | null;
+        const payload = (await ctx.json()) as {
+          name?: string;
+          email?: string;
+          roles?: string[];
+        } | null;
         const current = mockApi.settings();
         const operator = {
           id: `op-${Math.random().toString(16).slice(2, 8)}`,
@@ -552,11 +584,11 @@ const buildRoutes = (): RouteDefinition[] => [
           email: payload?.email ?? 'operator@example.com',
           roles: payload?.roles ?? ['viewer'],
           status: 'invited' as const,
-          lastActiveAt: null
+          lastActiveAt: null,
         };
         return mockApi.settingsUpdate({ operators: [...current.operators, operator] });
-      }
-    }
+      },
+    },
   },
   {
     pattern: /^\/settings\/operators\/([^/]+)$/,
@@ -566,45 +598,45 @@ const buildRoutes = (): RouteDefinition[] => [
         const remaining = current.operators.filter((operator) => operator.id !== decode(match[1]));
         mockApi.settingsUpdate({ operators: remaining });
         return new Response(null, { status: 204 });
-      }
-    }
+      },
+    },
   },
   {
     pattern: /^\/camera$/,
     handlers: {
-      GET: () => mockApi.camera()
-    }
+      GET: () => mockApi.camera(),
+    },
   },
   {
     pattern: /^\/camera\/overview$/,
     handlers: {
-      GET: () => mockApi.camera()
-    }
+      GET: () => mockApi.camera(),
+    },
   },
   {
     pattern: /^\/camera\/summary$/,
     handlers: {
-      GET: () => mockApi.cameraSummary()
-    }
+      GET: () => mockApi.cameraSummary(),
+    },
   },
   {
     pattern: /^\/camera\/streams$/,
     handlers: {
-      GET: () => getCameraStreams()
-    }
+      GET: () => getCameraStreams(),
+    },
   },
   {
     pattern: /^\/camera\/streams\/([^/]+)\/status$/,
     handlers: {
-      GET: (_, match) => getCameraStreamStatus(decode(match[1]))
-    }
+      GET: (_, match) => getCameraStreamStatus(decode(match[1])),
+    },
   },
   {
     pattern: /^\/camera\/events$/,
     handlers: {
-      GET: () => mockApi.cameraEvents()
-    }
-  }
+      GET: () => mockApi.cameraEvents(),
+    },
+  },
 ];
 
 const ROUTES = buildRoutes();
@@ -625,12 +657,14 @@ const getFallback = (path: string, method: HttpMethod): ProxyFallback => {
   };
 };
 
-const createHandler = (method: HttpMethod): RequestHandler => async (event) => {
-  const search = event.url.search ?? '';
-  const cleanPath = normalisePath(event.params.proxy ?? '');
-  const fallback = getFallback(cleanPath, method);
-  return proxyFleetRequest(event, `${cleanPath}${search}`, fallback);
-};
+const createHandler =
+  (method: HttpMethod): RequestHandler =>
+  async (event) => {
+    const search = event.url.search ?? '';
+    const cleanPath = normalisePath(event.params.proxy ?? '');
+    const fallback = getFallback(cleanPath, method);
+    return proxyFleetRequest(event, `${cleanPath}${search}`, fallback);
+  };
 
 export const GET = createHandler('GET');
 export const POST = createHandler('POST');

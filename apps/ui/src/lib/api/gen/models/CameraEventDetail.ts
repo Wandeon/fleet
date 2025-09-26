@@ -5,8 +5,7 @@
 import type { CameraEvent } from './CameraEvent';
 import type { CameraEventClip } from './CameraEventClip';
 
-export type CameraEventDetail = (CameraEvent & {
+export type CameraEventDetail = CameraEvent & {
   metadata: any;
   clip: CameraEventClip;
-});
-
+};

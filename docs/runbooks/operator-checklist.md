@@ -13,7 +13,7 @@ This checklist provides day-zero through disaster recovery tasks for the audio p
      ```
 2. **Assign roles in inventory.**
    - Edit [`inventory/devices.yaml`](../../inventory/devices.yaml):
-     ```yaml
+     `yaml
 devices:
   pi-audio-01:
     role: audio-player
@@ -23,7 +23,7 @@ devices:
     role: audio-player
     logs: true
     loki_source: pi-audio-02
-     ```
+     `
    - Commit and push to `main`.
 3. **Configure Icecast on the VPS.**
    - Copy env file and start the stack:

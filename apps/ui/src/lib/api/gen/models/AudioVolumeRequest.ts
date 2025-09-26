@@ -8,4 +8,3 @@ export type AudioVolumeRequest = {
    */
   volume: number;
 };
-

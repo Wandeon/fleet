@@ -10,4 +10,3 @@ export type ZigbeeDevice = {
   lastSeen: string;
   battery?: number | null;
 };
-

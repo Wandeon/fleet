@@ -34,7 +34,7 @@ This guide provisions the Raspberry Pi that runs the `camera` role. It captures 
    - `CAMERA_WIDTH`, `CAMERA_HEIGHT`, `CAMERA_FRAMERATE`
    - `CAMERA_BITRATE`
    - `CAMERA_AWB`, `CAMERA_EXPOSURE`
-   Use `sops roles/camera/.env.sops.enc` to edit.
+     Use `sops roles/camera/.env.sops.enc` to edit.
 2. Commit changes to `main`; the agent on the Pi will pull the update within ~2 minutes.
 3. Check container status:
    ```bash

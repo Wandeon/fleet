@@ -7,14 +7,8 @@
   "timestamp": "2025-09-24T21:03:35.071Z",
   "title": "",
   "headings": {
-    "h1": [
-      "Head Spa Control"
-    ],
-    "h2": [
-      "Video",
-      "Recent errors",
-      "Event feed"
-    ]
+    "h1": ["Head Spa Control"],
+    "h2": ["Video", "Recent errors", "Event feed"]
   },
   "forms": [],
   "controls": [

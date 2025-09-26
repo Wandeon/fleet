@@ -8,15 +8,15 @@ export const GET: RequestHandler = async () => {
       method: 'GET',
       headers: {
         'Content-Type': 'application/json',
-        'Authorization': 'Bearer mock-zigbee-01-token' // Replace with actual token from env
-      }
+        Authorization: 'Bearer mock-zigbee-01-token', // Replace with actual token from env
+      },
     });
 
     if (response.ok) {
       const result = await response.json();
       return json({
         devices: result.devices || [],
-        scanning: result.scanning || false
+        scanning: result.scanning || false,
       });
     } else {
       return json({ error: 'Zigbee device discovery failed' }, { status: 500 });

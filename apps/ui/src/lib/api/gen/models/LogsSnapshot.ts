@@ -11,4 +11,3 @@ export type LogsSnapshot = {
   cursor?: string | null;
   lastUpdated: string;
 };
-

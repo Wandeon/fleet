@@ -20,7 +20,6 @@ import { OpenAPI } from '../core/OpenAPI';
 import { request as __request } from '../core/request';
 
 export class SettingsService {
-
   /**
    * Retrieve operator settings, proxy configuration, and pairing status.
    * Retrieve operator settings, proxy configuration, and pairing status.
@@ -47,9 +46,7 @@ export class SettingsService {
    * @returns any Proxy update accepted.
    * @throws ApiError
    */
-  public static updateProxySettings(
-    requestBody: ProxyUpdateRequest,
-  ): CancelablePromise<{
+  public static updateProxySettings(requestBody: ProxyUpdateRequest): CancelablePromise<{
     proxy: ProxySettings;
     updatedAt: string;
   }> {
@@ -98,9 +95,7 @@ export class SettingsService {
    * @returns any Allowed origins updated.
    * @throws ApiError
    */
-  public static updateAllowedOrigins(
-    requestBody: AllowedOriginsRequest,
-  ): CancelablePromise<{
+  public static updateAllowedOrigins(requestBody: AllowedOriginsRequest): CancelablePromise<{
     allowedOrigins: Array<string>;
     updatedAt: string;
   }> {
@@ -127,7 +122,7 @@ export class SettingsService {
    * @throws ApiError
    */
   public static startSettingsPairing(
-    requestBody: PairingStartRequest,
+    requestBody: PairingStartRequest
   ): CancelablePromise<SettingsPairingState> {
     return __request(OpenAPI, {
       method: 'POST',
@@ -177,7 +172,7 @@ export class SettingsService {
    */
   public static claimPairingCandidate(
     candidateId: string,
-    requestBody?: PairingClaimRequest,
+    requestBody?: PairingClaimRequest
   ): CancelablePromise<{
     accepted: boolean;
     candidateId: string;
@@ -188,7 +183,7 @@ export class SettingsService {
       method: 'POST',
       url: '/settings/pairing/{candidateId}/claim',
       path: {
-        'candidateId': candidateId,
+        candidateId: candidateId,
       },
       body: requestBody,
       mediaType: 'application/json',
@@ -229,7 +224,7 @@ export class SettingsService {
    * @throws ApiError
    */
   public static inviteOperator(
-    requestBody: InviteOperatorRequest,
+    requestBody: InviteOperatorRequest
   ): CancelablePromise<OperatorAccount> {
     return __request(OpenAPI, {
       method: 'POST',
@@ -257,13 +252,13 @@ export class SettingsService {
    */
   public static updateOperator(
     operatorId: string,
-    requestBody: OperatorUpdateRequest,
+    requestBody: OperatorUpdateRequest
   ): CancelablePromise<OperatorAccount> {
     return __request(OpenAPI, {
       method: 'PUT',
       url: '/settings/operators/{operatorId}',
       path: {
-        'operatorId': operatorId,
+        operatorId: operatorId,
       },
       body: requestBody,
       mediaType: 'application/json',
@@ -285,9 +280,7 @@ export class SettingsService {
    * @returns any Operator removal accepted.
    * @throws ApiError
    */
-  public static removeOperator(
-    operatorId: string,
-  ): CancelablePromise<{
+  public static removeOperator(operatorId: string): CancelablePromise<{
     removed: boolean;
     operatorId: string;
     updatedAt: string;
@@ -296,7 +289,7 @@ export class SettingsService {
       method: 'DELETE',
       url: '/settings/operators/{operatorId}',
       path: {
-        'operatorId': operatorId,
+        operatorId: operatorId,
       },
       errors: {
         401: `Authentication failed or credentials missing.`,
@@ -335,7 +328,7 @@ export class SettingsService {
    * @throws ApiError
    */
   public static updateSecuritySettings(
-    requestBody: SecurityUpdateRequest,
+    requestBody: SecurityUpdateRequest
   ): CancelablePromise<SecuritySettings> {
     return __request(OpenAPI, {
       method: 'PATCH',
@@ -351,5 +344,4 @@ export class SettingsService {
       },
     });
   }
-
 }

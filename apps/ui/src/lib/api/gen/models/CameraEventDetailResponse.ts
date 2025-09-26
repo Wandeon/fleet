@@ -8,4 +8,3 @@ export type CameraEventDetailResponse = {
   event: CameraEventDetail;
   retrievedAt: string;
 };
-

@@ -10,4 +10,3 @@ export type VideoOverview = {
   online: number;
   updatedAt: string;
 };
-

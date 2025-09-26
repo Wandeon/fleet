@@ -5,4 +5,3 @@
 export type AllowedOriginsRequest = {
   origins: Array<string>;
 };
-

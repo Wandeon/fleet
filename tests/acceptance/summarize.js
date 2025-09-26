@@ -35,7 +35,12 @@ function summarizePlaywright(data) {
           counts.passed += 1;
         } else if (outcome === 'skipped') {
           counts.skipped += 1;
-        } else if (outcome === 'timedout' || outcome === 'failed' || outcome === 'unexpected' || outcome === 'interrupted') {
+        } else if (
+          outcome === 'timedout' ||
+          outcome === 'failed' ||
+          outcome === 'unexpected' ||
+          outcome === 'interrupted'
+        ) {
           counts.failed += 1;
         } else {
           counts.passed += 1;

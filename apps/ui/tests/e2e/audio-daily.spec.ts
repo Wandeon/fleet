@@ -41,7 +41,10 @@ test.describe('Audio daily operations', () => {
 
     // Single-device playback.
     await page.getByRole('button', { name: 'Select' }).first().click();
-    await page.getByRole('row', { name: /Soft Rain/ }).getByRole('button', { name: 'Play on selected' }).click();
+    await page
+      .getByRole('row', { name: /Soft Rain/ })
+      .getByRole('button', { name: 'Play on selected' })
+      .click();
     await expect(page.getByRole('button', { name: 'Pause' }).first()).toBeVisible();
     await expect(page.getByText('Playing')).toBeVisible();
 
@@ -105,7 +108,7 @@ test.describe('Audio daily operations', () => {
         'POST /ui/audio/master-volume',
         'POST /ui/audio/playlists',
         'POST /ui/audio/devices/pi-audio-01/stop',
-      ]),
+      ])
     );
   });
 });

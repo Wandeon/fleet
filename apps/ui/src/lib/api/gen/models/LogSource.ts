@@ -11,4 +11,3 @@ export type LogSource = {
   deviceId?: string | null;
   active?: boolean | null;
 };
-

@@ -18,6 +18,7 @@ The agent supports deterministic deploys, safe rollback to the previous commit, 
 ## Installation
 
 1. **Deploy the repo**
+
    ```bash
    sudo mkdir -p /opt
    sudo chown root:root /opt
@@ -25,6 +26,7 @@ The agent supports deterministic deploys, safe rollback to the previous commit, 
    ```
 
 2. **Install agent prerequisites**
+
    - Docker Engine with Compose plugin (`docker compose`).
    - `git`, `jq`, `python3`, `sops` (only needed when roles use encrypted envs).
    - Copy your AGE private key to `/etc/fleet/age.key` (permissions `0600`, owner `root`).
@@ -40,6 +42,7 @@ The agent supports deterministic deploys, safe rollback to the previous commit, 
 ## Systemd setup
 
 1. Copy the unit files:
+
    ```bash
    sudo install -D -m 0644 /opt/fleet/agent/systemd/fleet-role-agent.service /etc/systemd/system/fleet-role-agent.service
    sudo install -D -m 0644 /opt/fleet/agent/systemd/fleet-role-agent.timer /etc/systemd/system/fleet-role-agent.timer
@@ -48,6 +51,7 @@ The agent supports deterministic deploys, safe rollback to the previous commit, 
    ```
 
 2. Reload and enable:
+
    ```bash
    sudo systemctl daemon-reload
    sudo systemctl enable --now fleet-role-agent.timer
@@ -76,12 +80,15 @@ The service runs as `Type=oneshot`. The timer executes every 5 minutes with a 60
 ### Dry-run planning
 
 Preview the plan without touching containers:
+
 ```bash
 sudo /opt/fleet/agent/role-agent.sh --dry-run --log-json
 ```
+
 The agent still validates prerequisites, decrypts secrets, and writes `health.json` with `"dryRun": true`.
 
 For a quick compose file listing without agent state, use:
+
 ```bash
 fleet-plan --host <hostname>
 ```
@@ -89,6 +96,7 @@ fleet-plan --host <hostname>
 ### Reading health signals
 
 The agent writes:
+
 - `/var/run/fleet/health.json` – latest run summary:
   ```json
   {
@@ -115,9 +123,11 @@ The watchdog service (`fleet-role-agent-watchdog.timer`) polls the health file. 
 The agent keeps the last two successful compose stacks per role. When an upgrade fails during `docker compose up`, it rebuilds the previous stack using the recorded compose plan from the last success.
 
 To manually revert, locate the prior commit and run:
+
 ```bash
 sudo docker compose -p ${ROLE}_$(cat /var/run/fleet/commit.sha) ls
 ```
+
 (Or rerun the agent after removing the faulty change from Git.)
 
 ### Disk hygiene
@@ -128,14 +138,14 @@ sudo docker compose -p ${ROLE}_$(cat /var/run/fleet/commit.sha) ls
 
 ## Troubleshooting
 
-| Exit code | Meaning | Action |
-|-----------|---------|--------|
-| `10` | Host missing from `inventory/devices.yaml`. | Add the hostname with a role definition, then rerun. |
-| `11` | SOPS/AGE tooling missing or key unreadable. | Install `sops`, ensure `/etc/fleet/age.key` exists with `0600` permissions (owner root). |
-| `12` | Secret decryption failure. | Validate AGE key contents, run `sops --decrypt roles/<role>/.env.sops.enc` manually. |
-| `20` | `docker compose up` failed. Agent attempted rollback; inspect `health.json` errors and `journalctl -u fleet-role-agent.service`. |
-| `21` | Rollback attempt failed. Immediate manual intervention required—consider reverting the commit and running with `--force-rebuild`. |
-| `30` | Prerequisite missing (repo path, commands, compose binary). | Verify Docker/CLI availability and `/opt/fleet` checkout. |
+| Exit code | Meaning                                                                                                                           | Action                                                                                   |
+| --------- | --------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------- |
+| `10`      | Host missing from `inventory/devices.yaml`.                                                                                       | Add the hostname with a role definition, then rerun.                                     |
+| `11`      | SOPS/AGE tooling missing or key unreadable.                                                                                       | Install `sops`, ensure `/etc/fleet/age.key` exists with `0600` permissions (owner root). |
+| `12`      | Secret decryption failure.                                                                                                        | Validate AGE key contents, run `sops --decrypt roles/<role>/.env.sops.enc` manually.     |
+| `20`      | `docker compose up` failed. Agent attempted rollback; inspect `health.json` errors and `journalctl -u fleet-role-agent.service`.  |
+| `21`      | Rollback attempt failed. Immediate manual intervention required—consider reverting the commit and running with `--force-rebuild`. |
+| `30`      | Prerequisite missing (repo path, commands, compose binary).                                                                       | Verify Docker/CLI availability and `/opt/fleet` checkout.                                |
 
 ### Common commands
 

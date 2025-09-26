@@ -15,4 +15,3 @@ export type AudioPlaylist = {
   updatedAt: string;
   tracks: Array<AudioPlaylistTrack>;
 };
-

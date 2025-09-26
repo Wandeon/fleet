@@ -16,6 +16,8 @@
   "devDependencies": {
     "@stoplight/spectral-cli": "^6.11.0",
     "@stoplight/spectral-rulesets": "^1.22.0",
-    "openapi-typescript-codegen": "^0.23.0"
+    "openapi-typescript-codegen": "^0.23.0",
+    "prettier": "3.3.3",
+    "prettier-plugin-svelte": "^3.4.0"
   }
 }

@@ -11,7 +11,6 @@ import { OpenAPI } from '../core/OpenAPI';
 import { request as __request } from '../core/request';
 
 export class LogsService {
-
   /**
    * Retrieve a snapshot of recent logs with optional filtering.
    * Retrieve a snapshot of recent logs with optional filtering.
@@ -28,17 +27,17 @@ export class LogsService {
     level?: 'trace' | 'debug' | 'info' | 'warn' | 'error' | 'fatal',
     q?: string,
     limit: number = 50,
-    cursor?: string,
+    cursor?: string
   ): CancelablePromise<LogsSnapshot> {
     return __request(OpenAPI, {
       method: 'GET',
       url: '/logs',
       query: {
-        'source': source,
-        'level': level,
-        'q': q,
-        'limit': limit,
-        'cursor': cursor,
+        source: source,
+        level: level,
+        q: q,
+        limit: limit,
+        cursor: cursor,
       },
       errors: {
         401: `Authentication failed or credentials missing.`,
@@ -63,18 +62,18 @@ export class LogsService {
     source?: string,
     level?: 'trace' | 'debug' | 'info' | 'warn' | 'error' | 'fatal',
     q?: string,
-    accept?: string,
+    accept?: string
   ): CancelablePromise<string> {
     return __request(OpenAPI, {
       method: 'GET',
       url: '/logs/stream',
       headers: {
-        'accept': accept,
+        accept: accept,
       },
       query: {
-        'source': source,
-        'level': level,
-        'q': q,
+        source: source,
+        level: level,
+        q: q,
       },
       errors: {
         401: `Authentication failed or credentials missing.`,
@@ -99,7 +98,7 @@ export class LogsService {
     level?: 'trace' | 'debug' | 'info' | 'warn' | 'error' | 'fatal',
     deviceId?: string,
     correlationId?: string,
-    limit: number = 100,
+    limit: number = 100
   ): CancelablePromise<{
     items: Array<LogEntry>;
     total: number;
@@ -109,10 +108,10 @@ export class LogsService {
       method: 'GET',
       url: '/logs/query',
       query: {
-        'level': level,
-        'deviceId': deviceId,
-        'correlationId': correlationId,
-        'limit': limit,
+        level: level,
+        deviceId: deviceId,
+        correlationId: correlationId,
+        limit: limit,
       },
       errors: {
         400: `One or more request parameters failed validation.`,
@@ -130,9 +129,7 @@ export class LogsService {
    * @returns LogsExportResponse Export scheduled.
    * @throws ApiError
    */
-  public static exportLogs(
-    requestBody?: LogsExportRequest,
-  ): CancelablePromise<LogsExportResponse> {
+  public static exportLogs(requestBody?: LogsExportRequest): CancelablePromise<LogsExportResponse> {
     return __request(OpenAPI, {
       method: 'POST',
       url: '/logs/export',
@@ -147,5 +144,4 @@ export class LogsService {
       },
     });
   }
-
 }

@@ -10,7 +10,6 @@ import { OpenAPI } from '../core/OpenAPI';
 import { request as __request } from '../core/request';
 
 export class FleetService {
-
   /**
    * Retrieve fleet layout metadata for UI composition.
    * Retrieve fleet layout metadata for UI composition.
@@ -60,14 +59,12 @@ export class FleetService {
    * @returns FleetDeviceDetail Detailed device view for operator troubleshooting.
    * @throws ApiError
    */
-  public static getFleetDeviceDetail(
-    deviceId: string,
-  ): CancelablePromise<FleetDeviceDetail> {
+  public static getFleetDeviceDetail(deviceId: string): CancelablePromise<FleetDeviceDetail> {
     return __request(OpenAPI, {
       method: 'GET',
       url: '/fleet/devices/{deviceId}',
       path: {
-        'deviceId': deviceId,
+        deviceId: deviceId,
       },
       errors: {
         401: `Authentication failed or credentials missing.`,
@@ -91,14 +88,14 @@ export class FleetService {
    */
   public static triggerFleetDeviceAction(
     deviceId: string,
-    actionId: string,
+    actionId: string
   ): CancelablePromise<string> {
     return __request(OpenAPI, {
       method: 'POST',
       url: '/fleet/devices/{deviceId}/actions/{actionId}',
       path: {
-        'deviceId': deviceId,
-        'actionId': actionId,
+        deviceId: deviceId,
+        actionId: actionId,
       },
       responseHeader: 'x-correlation-id',
       errors: {
@@ -113,5 +110,4 @@ export class FleetService {
       },
     });
   }
-
 }

@@ -26,7 +26,9 @@ export interface ProxyFallbackContext {
   formData: () => Promise<FormData>;
 }
 
-type ProxyFallback = (context: ProxyFallbackContext) => Promise<Response | unknown> | Response | unknown;
+type ProxyFallback = (
+  context: ProxyFallbackContext
+) => Promise<Response | unknown> | Response | unknown;
 
 function resolveAuthorization(): string | null {
   if (!AUTH_TOKEN) return null;
@@ -70,7 +72,10 @@ async function readErrorDetail(response: Response): Promise<unknown> {
 }
 
 function copyAllowedHeaders(source: Headers, target: Headers, extra: string[] = []) {
-  const allowed = new Set([...BASE_RESPONSE_HEADERS, ...extra.map((header) => header.toLowerCase())]);
+  const allowed = new Set([
+    ...BASE_RESPONSE_HEADERS,
+    ...extra.map((header) => header.toLowerCase()),
+  ]);
   for (const [key, value] of source.entries()) {
     if (allowed.has(key.toLowerCase())) {
       target.set(key, value);
@@ -82,7 +87,7 @@ export async function proxyFleetRequest(
   event: RequestEvent,
   path: string,
   fallback: ProxyFallback,
-  options: ProxyOptions = {},
+  options: ProxyOptions = {}
 ): Promise<Response> {
   const method = (event.request.method?.toUpperCase() ?? 'GET') as HttpMethod;
   const targetPath = path.startsWith('/') ? path : `/${path}`;
@@ -112,7 +117,7 @@ export async function proxyFleetRequest(
         return new FormData();
       }
       return event.request.clone().formData();
-    }
+    },
   };
 
   const respondWithMock = async () => {
@@ -158,7 +163,7 @@ export async function proxyFleetRequest(
     upstream = await event.fetch(target, {
       method,
       headers,
-      body: rawBody ? rawBody.slice(0) : undefined
+      body: rawBody ? rawBody.slice(0) : undefined,
     });
   } catch (err) {
     const detail = err instanceof Error ? err.message : String(err);
@@ -171,7 +176,8 @@ export async function proxyFleetRequest(
 
   if (!upstream.ok) {
     const detail = await readErrorDetail(upstream.clone());
-    const detailMessage = typeof detail === 'string' ? detail : detail != null ? JSON.stringify(detail) : undefined;
+    const detailMessage =
+      typeof detail === 'string' ? detail : detail != null ? JSON.stringify(detail) : undefined;
     logError(`${method} ${targetPath} -> ${upstream.status}`, {
       requestId,
       detail: detailMessage,
@@ -189,7 +195,10 @@ export async function proxyFleetRequest(
       status: upstream.status,
       headers: new Headers(),
     });
-    copyAllowedHeaders(upstream.headers, response.headers, [...(options.forwardHeaders ?? []), 'content-type']);
+    copyAllowedHeaders(upstream.headers, response.headers, [
+      ...(options.forwardHeaders ?? []),
+      'content-type',
+    ]);
   } else {
     const payload = await upstream.json();
     response = json(payload, { status: upstream.status });

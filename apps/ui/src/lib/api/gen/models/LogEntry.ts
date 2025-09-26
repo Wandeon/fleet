@@ -10,4 +10,3 @@ export type LogEntry = {
   correlationId?: string | null;
   context?: any;
 };
-

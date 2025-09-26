@@ -13,4 +13,3 @@ export type ZigbeeRuleScheduleTrigger = {
    */
   timezone?: string;
 };
-

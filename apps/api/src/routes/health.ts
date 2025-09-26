@@ -9,7 +9,10 @@ const router = Router();
 
 router.get('/summary', async (req, res) => {
   res.locals.routePath = '/health/summary';
-  const modules = new Map<string, { module: string; total: number; online: number; devices: unknown[] }>();
+  const modules = new Map<
+    string,
+    { module: string; total: number; online: number; devices: unknown[] }
+  >();
 
   const audioDevices = deviceRegistry.listByRole('audio');
   const audioSummaries = await Promise.all(
@@ -28,7 +31,7 @@ router.get('/summary', async (req, res) => {
     module: 'audio',
     total: audioSummaries.length,
     online: audioSummaries.filter((entry) => entry.status === 'online').length,
-    devices: audioSummaries
+    devices: audioSummaries,
   });
 
   for (const device of deviceRegistry.list()) {
@@ -39,7 +42,7 @@ router.get('/summary', async (req, res) => {
       module: device.module,
       total: 0,
       online: 0,
-      devices: [] as unknown[]
+      devices: [] as unknown[],
     };
     entry.total += 1;
     entry.devices.push({ id: device.id, status: 'unknown' });
@@ -48,12 +51,12 @@ router.get('/summary', async (req, res) => {
 
   res.json({
     modules: Array.from(modules.values()),
-    updatedAt: new Date().toISOString()
+    updatedAt: new Date().toISOString(),
   });
 });
 
 const eventsQuerySchema = z.object({
-  limit: z.coerce.number().int().min(1).max(200).optional()
+  limit: z.coerce.number().int().min(1).max(200).optional(),
 });
 
 router.get('/events/recent', (req, res, next) => {

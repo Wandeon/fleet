@@ -17,7 +17,7 @@ export const getFleetOverview = async (options: FleetFetchOptions = {}): Promise
   const fetchImpl = ensureFetch(options.fetch);
   return rawRequest<FleetOverview>('/fleet/overview', {
     method: 'GET',
-    fetch: fetchImpl as RequestOptions['fetch']
+    fetch: fetchImpl as RequestOptions['fetch'],
   });
 };
 
@@ -32,7 +32,7 @@ export const getFleetDeviceDetail = async (
   const fetchImpl = ensureFetch(options.fetch);
   return rawRequest<FleetDeviceDetail>(`/fleet/devices/${encodeURIComponent(deviceId)}`, {
     method: 'GET',
-    fetch: fetchImpl as RequestOptions['fetch']
+    fetch: fetchImpl as RequestOptions['fetch'],
   });
 };
 
@@ -46,9 +46,12 @@ export const triggerDeviceAction = async (
   }
 
   const fetchImpl = ensureFetch(options.fetch);
-  await rawRequest(`/fleet/devices/${encodeURIComponent(deviceId)}/actions/${encodeURIComponent(actionId)}`, {
-    method: 'POST',
-    fetch: fetchImpl as RequestOptions['fetch']
-  });
+  await rawRequest(
+    `/fleet/devices/${encodeURIComponent(deviceId)}/actions/${encodeURIComponent(actionId)}`,
+    {
+      method: 'POST',
+      fetch: fetchImpl as RequestOptions['fetch'],
+    }
+  );
   return getFleetDeviceDetail(deviceId, options);
 };

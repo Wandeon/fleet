@@ -35,17 +35,17 @@ All non-2xx responses return the `Error` object:
 
 Error codes of note:
 
-| HTTP | Code                     | When it occurs                                               |
-| ---- | ------------------------ | ------------------------------------------------------------ |
-| 401  | `AUTH_REQUIRED`          | Missing or malformed bearer token.                          |
-| 403  | `AUTH_FORBIDDEN`         | Token lacks required scope (e.g. attempting write with `:ro`). |
-| 404  | `RESOURCE_NOT_FOUND`     | Unknown device / route.                                      |
-| 409  | `RESOURCE_BUSY` / domain specific | Device is busy (e.g. switching source) or conflicting command. |
-| 422  | `VALIDATION_FAILED`      | Input body or query parameter fails validation.              |
-| 429  | `RATE_LIMIT_EXCEEDED`    | Rate limit triggered; retry after the specified delay.       |
-| 502  | `UPSTREAM_UNAVAILABLE`   | Device proxy unreachable or returned a bad response.         |
-| 504  | `AUDIO_DEVICE_TIMEOUT` (or similar) | Device did not respond before timeout (default 4s).           |
-| 500  | `INTERNAL_ERROR`         | Unexpected backend failure.                                  |
+| HTTP | Code                                | When it occurs                                                 |
+| ---- | ----------------------------------- | -------------------------------------------------------------- |
+| 401  | `AUTH_REQUIRED`                     | Missing or malformed bearer token.                             |
+| 403  | `AUTH_FORBIDDEN`                    | Token lacks required scope (e.g. attempting write with `:ro`). |
+| 404  | `RESOURCE_NOT_FOUND`                | Unknown device / route.                                        |
+| 409  | `RESOURCE_BUSY` / domain specific   | Device is busy (e.g. switching source) or conflicting command. |
+| 422  | `VALIDATION_FAILED`                 | Input body or query parameter fails validation.                |
+| 429  | `RATE_LIMIT_EXCEEDED`               | Rate limit triggered; retry after the specified delay.         |
+| 502  | `UPSTREAM_UNAVAILABLE`              | Device proxy unreachable or returned a bad response.           |
+| 504  | `AUDIO_DEVICE_TIMEOUT` (or similar) | Device did not respond before timeout (default 4s).            |
+| 500  | `INTERNAL_ERROR`                    | Unexpected backend failure.                                    |
 
 ## Resources
 

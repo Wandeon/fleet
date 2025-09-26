@@ -203,7 +203,9 @@
                   <strong>{connection.name}</strong>
                   <span>{connection.status}</span>
                 </div>
-                <time datetime={connection.lastChecked}>Updated {new Date(connection.lastChecked).toLocaleTimeString()}</time>
+                <time datetime={connection.lastChecked}
+                  >Updated {new Date(connection.lastChecked).toLocaleTimeString()}</time
+                >
               </li>
             {/each}
           </ul>

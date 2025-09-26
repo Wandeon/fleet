@@ -15,7 +15,7 @@
     setVideoInput,
     setVideoMute,
     setVideoPower,
-    setVideoVolume
+    setVideoVolume,
   } from '$lib/api/video-operations';
   import { mockApi } from '$lib/api/mock';
   import { USE_MOCKS } from '$lib/api/client';
@@ -46,12 +46,19 @@
   let segmentPosition = 0;
 
   $: timeline = data?.recordings ?? timeline;
-  $: selectedSegmentId = selectedSegmentId && timeline.every((item) => item.id !== selectedSegmentId)
-    ? timeline[0]?.id ?? null
-    : selectedSegmentId;
+  $: selectedSegmentId =
+    selectedSegmentId && timeline.every((item) => item.id !== selectedSegmentId)
+      ? (timeline[0]?.id ?? null)
+      : selectedSegmentId;
   $: selectedSegment = timeline.find((item) => item.id === selectedSegmentId) ?? null;
   $: segmentDuration = selectedSegment
-    ? Math.max(0, Math.round((new Date(selectedSegment.end).valueOf() - new Date(selectedSegment.start).valueOf()) / 1000))
+    ? Math.max(
+        0,
+        Math.round(
+          (new Date(selectedSegment.end).valueOf() - new Date(selectedSegment.start).valueOf()) /
+            1000
+        )
+      )
     : 0;
 
   const broadcastRefresh = () => {
@@ -185,7 +192,7 @@
   }
 </script>
 
-<Card title={title} subtitle={variant === 'compact' ? 'Live display health' : 'Display orchestration'}>
+<Card {title} subtitle={variant === 'compact' ? 'Live display health' : 'Display orchestration'}>
   {#if state === 'loading'}
     <div class="stack">
       <Skeleton variant="block" height="9rem" />
@@ -197,7 +204,10 @@
       <Button variant="primary" on:click={loadLatest}>Retry</Button>
     </div>
   {:else if !data}
-    <EmptyState title="No video telemetry" description="Bring a display online to configure playback.">
+    <EmptyState
+      title="No video telemetry"
+      description="Bring a display online to configure playback."
+    >
       <svelte:fragment slot="icon">📺</svelte:fragment>
       <svelte:fragment slot="action">
         <Button variant="secondary" on:click={loadLatest}>Refresh</Button>
@@ -206,7 +216,11 @@
   {:else if variant === 'compact'}
     <div class="compact">
       <div class="preview-thumb">
-        <img src={data.livePreview?.thumbnailUrl ?? 'https://dummyimage.com/320x180/1d2b46/ffffff&text=Video'} alt="Video preview" />
+        <img
+          src={data.livePreview?.thumbnailUrl ??
+            'https://dummyimage.com/320x180/1d2b46/ffffff&text=Video'}
+          alt="Video preview"
+        />
         <StatusPill status={statusToPill(data)} />
       </div>
       <div class="compact-meta">
@@ -234,9 +248,20 @@
         </header>
         <div class="live-body">
           {#if liveUrl}
-            <video controls autoplay muted playsinline poster={data.livePreview?.thumbnailUrl} src={liveUrl}></video>
+            <video
+              controls
+              autoplay
+              muted
+              playsinline
+              poster={data.livePreview?.thumbnailUrl}
+              src={liveUrl}
+            ></video>
           {:else}
-            <img src={data.livePreview?.thumbnailUrl ?? 'https://dummyimage.com/640x360/0f172a/ffffff&text=Preview'} alt="Video preview" />
+            <img
+              src={data.livePreview?.thumbnailUrl ??
+                'https://dummyimage.com/640x360/0f172a/ffffff&text=Preview'}
+              alt="Video preview"
+            />
           {/if}
           <div class="live-meta">
             <div>
@@ -261,10 +286,18 @@
         </header>
         <div class="controls-grid">
           <div class="power">
-            <Button variant={data.power === 'on' ? 'primary' : 'secondary'} disabled={busy} on:click={() => handlePower('on')}>
+            <Button
+              variant={data.power === 'on' ? 'primary' : 'secondary'}
+              disabled={busy}
+              on:click={() => handlePower('on')}
+            >
               Power on
             </Button>
-            <Button variant={data.power === 'off' ? 'primary' : 'secondary'} disabled={busy} on:click={() => handlePower('off')}>
+            <Button
+              variant={data.power === 'off' ? 'primary' : 'secondary'}
+              disabled={busy}
+              on:click={() => handlePower('off')}
+            >
               Power off
             </Button>
           </div>
@@ -310,7 +343,11 @@
                 <li class:selected={segment.id === selectedSegmentId}>
                   <button type="button" on:click={() => playSegment(segment)}>
                     <strong>{segment.label ?? segment.id}</strong>
-                    <span>{new Date(segment.start).toLocaleTimeString()} → {new Date(segment.end).toLocaleTimeString()}</span>
+                    <span
+                      >{new Date(segment.start).toLocaleTimeString()} → {new Date(
+                        segment.end
+                      ).toLocaleTimeString()}</span
+                    >
                   </button>
                 </li>
               {/each}
@@ -330,7 +367,9 @@
                   displayValue={false}
                   on:change={(event) => handleSegmentScrub(event.detail)}
                 />
-                <Button variant="ghost" on:click={() => playSegment(selectedSegment)}>Play segment</Button>
+                <Button variant="ghost" on:click={() => playSegment(selectedSegment)}
+                  >Play segment</Button
+                >
               </div>
             {/if}
           </div>

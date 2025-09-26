@@ -1,0 +1,9 @@
+# Ignore malformed deployment workflow (not part of main CI)
+.github/workflows/deploy-vps.yml
+
+# Ignore generated/build files
+**/node_modules
+**/dist
+**/build
+**/.svelte-kit
+**/coverage

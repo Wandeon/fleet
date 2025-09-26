@@ -71,7 +71,7 @@ function normalizeOperations(source: unknown): RawOperation[] {
 export async function executeOperation(
   deviceId: string,
   operationId: string,
-  override: unknown,
+  override: unknown
 ): Promise<OperationResult> {
   const device = await prisma.device.findUnique({ where: { id: deviceId } });
   if (!device) {
@@ -140,7 +140,10 @@ export async function executeOperation(
       ok: response.status >= 200 && response.status < 300,
       data: response.data ?? null,
       headers: Object.fromEntries(
-        Object.entries(response.headers || {}).map(([key, value]) => [key, Array.isArray(value) ? value.join(', ') : String(value)]),
+        Object.entries(response.headers || {}).map(([key, value]) => [
+          key,
+          Array.isArray(value) ? value.join(', ') : String(value),
+        ])
       ),
     };
 

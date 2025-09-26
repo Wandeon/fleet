@@ -14,4 +14,3 @@ export type CameraOverviewSummary = {
     reason?: string | null;
   }>;
 };
-

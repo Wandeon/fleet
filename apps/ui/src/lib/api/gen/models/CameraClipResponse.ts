@@ -5,4 +5,3 @@
 export type CameraClipResponse = {
   url: string;
 };
-

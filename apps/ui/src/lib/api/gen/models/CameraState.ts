@@ -30,4 +30,3 @@ export type CameraState = {
    */
   preview?: CameraPreviewState | null;
 };
-

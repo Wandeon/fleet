@@ -6,4 +6,3 @@ export type PairingStartRequest = {
   networkRole: 'audio' | 'video' | 'lighting' | 'sensor';
   expiresInSeconds: number;
 };
-

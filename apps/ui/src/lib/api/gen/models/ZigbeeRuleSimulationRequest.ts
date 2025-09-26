@@ -12,4 +12,3 @@ export type ZigbeeRuleSimulationRequest = {
   definition?: ZigbeeRuleDefinition;
   input?: Record<string, any>;
 };
-

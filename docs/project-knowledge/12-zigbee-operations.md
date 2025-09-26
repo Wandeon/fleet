@@ -11,9 +11,9 @@ Zigbee coordination lives on `pi-video-01` alongside the video role. This docume
 ## Pairing workflow
 
 1. Set `ZIGBEE_PERMIT_JOIN=true` (or use UI toggle once implemented). Keep permit window short (60s) to reduce risk.【F:vps/fleet.env.example†L39-L45】
-2. Place sensor into pairing mode. Zigbee2MQTT UI shows join progress; backend should log event to `/zigbee/actions` when implemented. 
-3. After pairing, revert `ZIGBEE_PERMIT_JOIN=false`, verify device appears in inventory table, and annotate metadata in `inventory/device-interfaces.yaml` for UI operations. 
-4. Regenerate Prometheus targets if new Zigbee metrics endpoints are introduced. 
+2. Place sensor into pairing mode. Zigbee2MQTT UI shows join progress; backend should log event to `/zigbee/actions` when implemented.
+3. After pairing, revert `ZIGBEE_PERMIT_JOIN=false`, verify device appears in inventory table, and annotate metadata in `inventory/device-interfaces.yaml` for UI operations.
+4. Regenerate Prometheus targets if new Zigbee metrics endpoints are introduced.
 
 ## Automation rules (future)
 

@@ -12,4 +12,3 @@ export type OperatorAccount = {
   status: 'active' | 'pending' | 'suspended';
   lastUpdatedAt: string;
 };
-

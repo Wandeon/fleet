@@ -87,7 +87,7 @@ const normaliseApiError = (error: unknown, fallbackMessage: string): UiApiError 
 const callAudioApi = async <T>(
   options: { fetch?: typeof fetch },
   fallbackMessage: string,
-  action: (apiOptions: { fetch?: typeof fetch }) => Promise<T>,
+  action: (apiOptions: { fetch?: typeof fetch }) => Promise<T>
 ): Promise<T> => {
   try {
     return await action(options);
@@ -97,7 +97,7 @@ const callAudioApi = async <T>(
 };
 
 const normalisePlayback = (
-  playback: ApiAudioDeviceSnapshot['playback'],
+  playback: ApiAudioDeviceSnapshot['playback']
 ): AudioDeviceSnapshot['playback'] => ({
   state: playback.state,
   trackId: playback.trackId ?? null,
@@ -132,9 +132,7 @@ const normaliseTrack = (track: ApiAudioLibraryTrack): AudioLibraryTrack => ({
   uploadedAt: track.uploadedAt,
 });
 
-const normalisePlaylistTrack = (
-  track: ApiAudioPlaylistTrack,
-): AudioPlaylistTrack => ({
+const normalisePlaylistTrack = (track: ApiAudioPlaylistTrack): AudioPlaylistTrack => ({
   trackId: track.trackId,
   order: track.order,
   startOffsetSeconds: track.startOffsetSeconds ?? undefined,
@@ -173,7 +171,7 @@ const toApiPlaylistTrack = (track: AudioPlaylistTrack): ApiAudioPlaylistTrack =>
 
 const toApiPlaylist = (
   draft: PlaylistDraft,
-  overrides: Partial<ApiAudioPlaylist> = {},
+  overrides: Partial<ApiAudioPlaylist> = {}
 ): ApiAudioPlaylist => ({
   id: overrides.id ?? 'temp',
   name: draft.name,
@@ -187,25 +185,23 @@ const toApiPlaylist = (
 
 const refreshDevice = async (
   deviceId: string,
-  options: { fetch?: typeof fetch },
+  options: { fetch?: typeof fetch }
 ): Promise<AudioDeviceSnapshot> => {
-  const snapshot = await callAudioApi(
-    options,
-    'Failed to load device snapshot',
-    () => AudioApi.getDevice(deviceId),
+  const snapshot = await callAudioApi(options, 'Failed to load device snapshot', () =>
+    AudioApi.getDevice(deviceId)
   );
   return normaliseDevice(snapshot);
 };
 
-export const getAudioOverview = async (options: { fetch?: typeof fetch } = {}): Promise<AudioState> => {
+export const getAudioOverview = async (
+  options: { fetch?: typeof fetch } = {}
+): Promise<AudioState> => {
   if (USE_MOCKS) {
     return mockApi.audio();
   }
 
-  const state = await callAudioApi(
-    options,
-    'Failed to load audio overview',
-    () => AudioApi.getOverview(),
+  const state = await callAudioApi(options, 'Failed to load audio overview', () =>
+    AudioApi.getOverview()
   );
   return normaliseState(state);
 };
@@ -230,17 +226,14 @@ export const uploadTrack = async (options: UploadTrackOptions): Promise<AudioLib
     throw new UiApiError('Audio uploads must be initiated from the browser runtime', 400);
   }
 
-  const track = await callAudioApi(
-    {},
-    'Failed to upload track',
-    () =>
-      AudioApi.uploadAudioTrack({
-        file: options.file,
-        title: options.title,
-        artist: options.artist,
-        tags: options.tags?.join(',') ?? undefined,
-        durationSeconds: options.durationSeconds,
-      }),
+  const track = await callAudioApi({}, 'Failed to upload track', () =>
+    AudioApi.uploadAudioTrack({
+      file: options.file,
+      title: options.title,
+      artist: options.artist,
+      tags: options.tags?.join(',') ?? undefined,
+      durationSeconds: options.durationSeconds,
+    })
   );
 
   return normaliseTrack(track);
@@ -248,16 +241,14 @@ export const uploadTrack = async (options: UploadTrackOptions): Promise<AudioLib
 
 export const createPlaylist = async (
   draft: PlaylistDraft,
-  options: { fetch?: typeof fetch } = {},
+  options: { fetch?: typeof fetch } = {}
 ): Promise<AudioPlaylist> => {
   if (USE_MOCKS) {
     return mockApi.audioCreatePlaylist(draft);
   }
 
-  const playlist = await callAudioApi(
-    options,
-    'Failed to create playlist',
-    () => AudioApi.createPlaylist(toApiPlaylist(draft)),
+  const playlist = await callAudioApi(options, 'Failed to create playlist', () =>
+    AudioApi.createPlaylist(toApiPlaylist(draft))
   );
   return normalisePlaylist(playlist);
 };
@@ -265,40 +256,36 @@ export const createPlaylist = async (
 export const updatePlaylist = async (
   playlistId: string,
   draft: PlaylistDraft,
-  options: { fetch?: typeof fetch } = {},
+  options: { fetch?: typeof fetch } = {}
 ): Promise<AudioPlaylist> => {
   if (USE_MOCKS) {
     return mockApi.audioUpdatePlaylist(playlistId, draft);
   }
 
   const payload = toApiPlaylist(draft, { id: playlistId });
-  const playlist = await callAudioApi(
-    options,
-    'Failed to update playlist',
-    () => AudioApi.updatePlaylist(playlistId, payload),
+  const playlist = await callAudioApi(options, 'Failed to update playlist', () =>
+    AudioApi.updatePlaylist(playlistId, payload)
   );
   return normalisePlaylist(playlist);
 };
 
 export const deletePlaylist = async (
   playlistId: string,
-  options: { fetch?: typeof fetch } = {},
+  options: { fetch?: typeof fetch } = {}
 ): Promise<void> => {
   if (USE_MOCKS) {
     mockApi.audioDeletePlaylist(playlistId);
     return;
   }
 
-  await callAudioApi(
-    options,
-    'Failed to delete playlist',
-    () => AudioApi.deletePlaylist(playlistId),
+  await callAudioApi(options, 'Failed to delete playlist', () =>
+    AudioApi.deletePlaylist(playlistId)
   );
 };
 
 export const playOnDevices = async (
   payload: PlayDevicesOptions,
-  options: { fetch?: typeof fetch } = {},
+  options: { fetch?: typeof fetch } = {}
 ): Promise<AudioState> => {
   if (USE_MOCKS) {
     return mockApi.audioPlay(payload);
@@ -316,7 +303,7 @@ export const playOnDevices = async (
           trackId: assignment.trackId,
           startOffsetSeconds: assignment.startOffsetSeconds ?? null,
         })),
-    }),
+    })
   );
 
   return getAudioOverview(options);
@@ -324,50 +311,44 @@ export const playOnDevices = async (
 
 export const pauseDevice = async (
   deviceId: string,
-  options: { fetch?: typeof fetch } = {},
+  options: { fetch?: typeof fetch } = {}
 ): Promise<AudioDeviceSnapshot> => {
   if (USE_MOCKS) {
     return mockApi.audioPause(deviceId);
   }
 
-  await callAudioApi(options, 'Unable to pause device', () =>
-    AudioApi.pauseDevice(deviceId),
-  );
+  await callAudioApi(options, 'Unable to pause device', () => AudioApi.pauseDevice(deviceId));
   return refreshDevice(deviceId, options);
 };
 
 export const resumeDevice = async (
   deviceId: string,
-  options: { fetch?: typeof fetch } = {},
+  options: { fetch?: typeof fetch } = {}
 ): Promise<AudioDeviceSnapshot> => {
   if (USE_MOCKS) {
     return mockApi.audioResume(deviceId);
   }
 
-  await callAudioApi(options, 'Unable to resume device', () =>
-    AudioApi.resumeDevice(deviceId),
-  );
+  await callAudioApi(options, 'Unable to resume device', () => AudioApi.resumeDevice(deviceId));
   return refreshDevice(deviceId, options);
 };
 
 export const stopDevice = async (
   deviceId: string,
-  options: { fetch?: typeof fetch } = {},
+  options: { fetch?: typeof fetch } = {}
 ): Promise<AudioDeviceSnapshot> => {
   if (USE_MOCKS) {
     return mockApi.audioStop(deviceId);
   }
 
-  await callAudioApi(options, 'Unable to stop device', () =>
-    AudioApi.stopDevice(deviceId),
-  );
+  await callAudioApi(options, 'Unable to stop device', () => AudioApi.stopDevice(deviceId));
   return refreshDevice(deviceId, options);
 };
 
 export const seekDevice = async (
   deviceId: string,
   positionSeconds: number,
-  options: { fetch?: typeof fetch } = {},
+  options: { fetch?: typeof fetch } = {}
 ): Promise<AudioDeviceSnapshot> => {
   if (USE_MOCKS) {
     return mockApi.audioSeek(deviceId, positionSeconds);
@@ -375,16 +356,17 @@ export const seekDevice = async (
 
   try {
     await callAudioApi(options, 'Unable to seek device', () =>
-      AudioApi.seekDevice(
-        deviceId,
-        {
-          positionSeconds,
-        },
-      ),
+      AudioApi.seekDevice(deviceId, {
+        positionSeconds,
+      })
     );
   } catch (error) {
     if (error instanceof UiApiError && [400, 409, 422].includes(error.status)) {
-      throw new UiApiError('Seek request rejected by device. Check target position and retry.', error.status, error.detail);
+      throw new UiApiError(
+        'Seek request rejected by device. Check target position and retry.',
+        error.status,
+        error.detail
+      );
     }
     throw error;
   }
@@ -395,7 +377,7 @@ export const seekDevice = async (
 export const setDeviceVolume = async (
   deviceId: string,
   volumePercent: number,
-  options: { fetch?: typeof fetch } = {},
+  options: { fetch?: typeof fetch } = {}
 ): Promise<AudioDeviceSnapshot> => {
   if (USE_MOCKS) {
     return mockApi.audioSetVolume(deviceId, volumePercent);
@@ -403,12 +385,9 @@ export const setDeviceVolume = async (
 
   const normalised = Math.max(0, Math.min(2, volumePercent / 100));
   await callAudioApi(options, 'Unable to update volume', () =>
-    AudioApi.setDeviceVolume(
-      deviceId,
-      {
-        volume: Number.isFinite(normalised) ? normalised : 0,
-      },
-    ),
+    AudioApi.setDeviceVolume(deviceId, {
+      volume: Number.isFinite(normalised) ? normalised : 0,
+    })
   );
 
   return refreshDevice(deviceId, options);
@@ -416,18 +395,16 @@ export const setDeviceVolume = async (
 
 export const setMasterVolume = async (
   masterPercent: number,
-  options: { fetch?: typeof fetch } = {},
+  options: { fetch?: typeof fetch } = {}
 ): Promise<AudioState> => {
   if (USE_MOCKS) {
     return mockApi.audioSetMasterVolume(masterPercent);
   }
 
   await callAudioApi(options, 'Unable to update master volume', () =>
-    AudioApi.setMasterVolume(
-      {
-        volumePercent: Math.round(masterPercent),
-      },
-    ),
+    AudioApi.setMasterVolume({
+      volumePercent: Math.round(masterPercent),
+    })
   );
 
   return getAudioOverview(options);

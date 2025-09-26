@@ -14,7 +14,6 @@ import { OpenAPI } from '../core/OpenAPI';
 import { request as __request } from '../core/request';
 
 export class VideoService {
-
   /**
    * Retrieve consolidated video device status.
    * Retrieve consolidated video device status.
@@ -71,7 +70,7 @@ export class VideoService {
     deviceId: string,
     requestBody: {
       power: VideoPowerState;
-    },
+    }
   ): CancelablePromise<{
     deviceId: string;
     power: VideoPowerState;
@@ -81,7 +80,7 @@ export class VideoService {
       method: 'POST',
       url: '/video/devices/{deviceId}/power',
       path: {
-        'deviceId': deviceId,
+        deviceId: deviceId,
       },
       body: requestBody,
       mediaType: 'application/json',
@@ -108,7 +107,7 @@ export class VideoService {
     deviceId: string,
     requestBody: {
       mute: boolean;
-    },
+    }
   ): CancelablePromise<{
     deviceId: string;
     mute: boolean;
@@ -118,7 +117,7 @@ export class VideoService {
       method: 'POST',
       url: '/video/devices/{deviceId}/mute',
       path: {
-        'deviceId': deviceId,
+        deviceId: deviceId,
       },
       body: requestBody,
       mediaType: 'application/json',
@@ -145,7 +144,7 @@ export class VideoService {
     deviceId: string,
     requestBody: {
       input: string;
-    },
+    }
   ): CancelablePromise<{
     deviceId: string;
     input: string;
@@ -155,7 +154,7 @@ export class VideoService {
       method: 'POST',
       url: '/video/devices/{deviceId}/input',
       path: {
-        'deviceId': deviceId,
+        deviceId: deviceId,
       },
       body: requestBody,
       mediaType: 'application/json',
@@ -183,13 +182,13 @@ export class VideoService {
     requestBody: {
       startOffsetSeconds: number;
       endOffsetSeconds: number;
-    },
+    }
   ): CancelablePromise<VideoClipExport> {
     return __request(OpenAPI, {
       method: 'POST',
       url: '/video/recordings/{recordingId}/export',
       path: {
-        'recordingId': recordingId,
+        recordingId: recordingId,
       },
       body: requestBody,
       mediaType: 'application/json',
@@ -238,7 +237,7 @@ export class VideoService {
    * @throws ApiError
    */
   public static generateVideoPreview(
-    requestBody?: VideoPreviewRequest,
+    requestBody?: VideoPreviewRequest
   ): CancelablePromise<VideoPreviewSession> {
     return __request(OpenAPI, {
       method: 'POST',
@@ -257,5 +256,4 @@ export class VideoService {
       },
     });
   }
-
 }

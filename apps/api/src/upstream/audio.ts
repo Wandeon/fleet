@@ -27,14 +27,17 @@ export interface UploadResult {
 export async function fetchStatus(device: Device, correlationId?: string): Promise<AudioStatus> {
   return httpRequestJson<AudioStatus>(device, '/status', {
     method: 'GET',
-    correlationId
+    correlationId,
   });
 }
 
-export async function fetchConfig(device: Device, correlationId?: string): Promise<AudioConfigPayload> {
+export async function fetchConfig(
+  device: Device,
+  correlationId?: string
+): Promise<AudioConfigPayload> {
   return httpRequestJson<AudioConfigPayload>(device, '/config', {
     method: 'GET',
-    correlationId
+    correlationId,
   });
 }
 
@@ -46,7 +49,7 @@ export async function updateConfig(
   return httpRequestJson<AudioConfigPayload>(device, '/config', {
     method: 'PUT',
     body: JSON.stringify(payload),
-    correlationId
+    correlationId,
   });
 }
 
@@ -58,7 +61,7 @@ export async function setVolume(
   return httpRequestJson<AudioConfigPayload>(device, '/volume', {
     method: 'POST',
     body: JSON.stringify({ volume }),
-    correlationId
+    correlationId,
   });
 }
 
@@ -70,14 +73,14 @@ export async function play(
   return httpRequestJson<AudioConfigPayload>(device, '/play', {
     method: 'POST',
     body: JSON.stringify(payload),
-    correlationId
+    correlationId,
   });
 }
 
 export async function stop(device: Device, correlationId?: string): Promise<AudioConfigPayload> {
   return httpRequestJson<AudioConfigPayload>(device, '/stop', {
     method: 'POST',
-    correlationId
+    correlationId,
   });
 }
 
@@ -100,14 +103,14 @@ export async function uploadFallback(
   return httpRequestJson<UploadResult>(device, '/upload', {
     method: 'POST',
     body: form,
-    correlationId
+    correlationId,
   });
 }
 
 export async function triggerHealth(device: Device, correlationId?: string): Promise<string> {
   const response = await httpRequest(device, '/healthz', {
     method: 'GET',
-    correlationId
+    correlationId,
   });
 
   return response.text();

@@ -16,7 +16,7 @@
     setModuleState,
     type ModuleKey,
     type PanelState,
-    useMocks
+    useMocks,
   } from '$lib/stores/app';
   import type { HealthTile, LayoutData, RoutePath } from '$lib/types';
 
@@ -41,7 +41,7 @@
   const connectionCopy = {
     online: 'Online',
     degraded: 'Degraded',
-    offline: 'Offline'
+    offline: 'Offline',
   } as const;
 
   const stateOptions: PanelState[] = ['success', 'loading', 'empty', 'error'];
@@ -52,12 +52,13 @@
   const health = data.layout?.health;
   const errors = data.layout?.errors ?? [];
   const events = data.layout?.events ?? [];
-  const isRouteLink = (href: NonNullable<HealthTile['link']>['href']): href is RoutePath => href.startsWith('/');
+  const isRouteLink = (href: NonNullable<HealthTile['link']>['href']): href is RoutePath =>
+    href.startsWith('/');
 
   $: formattedUpdated = new Date(data.lastUpdated).toLocaleTimeString([], {
     hour: '2-digit',
     minute: '2-digit',
-    second: '2-digit'
+    second: '2-digit',
   });
 
   function changeModuleState(key: ModuleKey, value: PanelState) {
@@ -72,7 +73,10 @@
       <span class="version">v{data.version}</span>
     </div>
     <div class="top-actions">
-      <span class={`env env-${data.envLabel.toLowerCase()}`} aria-label={`Environment: ${data.envLabel}`}>
+      <span
+        class={`env env-${data.envLabel.toLowerCase()}`}
+        aria-label={`Environment: ${data.envLabel}`}
+      >
         {data.envLabel}
       </span>
       <span class={`connection connection-${connectivityStatus}`}>
@@ -82,7 +86,11 @@
       </span>
       <span class="updated">Last updated: {formattedUpdated}</span>
       {#if allowMockPanel}
-        <Button variant="ghost" on:click={() => (mockPanelOpen = !mockPanelOpen)} aria-pressed={mockPanelOpen}>
+        <Button
+          variant="ghost"
+          on:click={() => (mockPanelOpen = !mockPanelOpen)}
+          aria-pressed={mockPanelOpen}
+        >
           {mockPanelOpen ? 'Hide mock states' : 'Mock states'}
         </Button>
       {/if}
@@ -123,7 +131,12 @@
                   {/if}
                   {#if metric.link}
                     {#if isRouteLink(metric.link.href)}
-                      <a class="tile-link" href={resolve(metric.link.href)} target="_blank" rel="noreferrer">
+                      <a
+                        class="tile-link"
+                        href={resolve(metric.link.href)}
+                        target="_blank"
+                        rel="noreferrer"
+                      >
                         {metric.link.label}
                       </a>
                     {:else}
@@ -150,7 +163,12 @@
                   <span class={`severity ${item.severity}`}>{item.severity}</span>
                   <div>
                     <p>{item.message}</p>
-                    <time>{new Date(item.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</time>
+                    <time
+                      >{new Date(item.timestamp).toLocaleTimeString([], {
+                        hour: '2-digit',
+                        minute: '2-digit',
+                      })}</time
+                    >
                   </div>
                   {#if item.actionLabel}
                     <span class="chip">{item.actionLabel}</span>
@@ -167,7 +185,12 @@
                 <span class={`severity ${event.severity}`}>{event.severity}</span>
                 <div>
                   <p>{event.message}</p>
-                  <time>{new Date(event.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</time>
+                  <time
+                    >{new Date(event.timestamp).toLocaleTimeString([], {
+                      hour: '2-digit',
+                      minute: '2-digit',
+                    })}</time
+                  >
                 </div>
               </li>
             {/each}
@@ -197,7 +220,13 @@
         {#each Object.entries(moduleStateSnapshot) as [key, value] (key)}
           <label>
             <span class="state-label">{key}</span>
-            <select on:change={(event) => changeModuleState(key as ModuleKey, (event.target as HTMLSelectElement).value as PanelState)}>
+            <select
+              on:change={(event) =>
+                changeModuleState(
+                  key as ModuleKey,
+                  (event.target as HTMLSelectElement).value as PanelState
+                )}
+            >
               {#each stateOptions as option (option)}
                 <option value={option} selected={option === value}>{option}</option>
               {/each}
@@ -205,7 +234,8 @@
           </label>
         {/each}
       </div>
-      <Button variant="secondary" fullWidth on:click={resetModuleStates}>Reset module states</Button>
+      <Button variant="secondary" fullWidth on:click={resetModuleStates}>Reset module states</Button
+      >
     </div>
   </aside>
 {/if}
@@ -314,7 +344,10 @@
     border-radius: var(--radius-md);
     border: 1px solid transparent;
     color: var(--color-text-muted);
-    transition: background var(--transition-fast), color var(--transition-fast), border var(--transition-fast);
+    transition:
+      background var(--transition-fast),
+      color var(--transition-fast),
+      border var(--transition-fast);
   }
 
   .primary-nav a:hover,

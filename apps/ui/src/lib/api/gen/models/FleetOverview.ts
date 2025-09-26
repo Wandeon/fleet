@@ -21,4 +21,3 @@ export type FleetOverview = {
   devices: Array<FleetDeviceSummary>;
   updatedAt: string;
 };
-

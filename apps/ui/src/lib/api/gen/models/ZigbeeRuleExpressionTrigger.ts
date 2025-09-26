@@ -11,4 +11,3 @@ export type ZigbeeRuleExpressionTrigger = {
   language?: 'js';
   description?: string;
 };
-

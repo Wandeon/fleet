@@ -18,6 +18,7 @@
 ```
 
 **Notes**
+
 - Skeleton placeholders indicate asynchronous loading for each content block.
 - Progress dots animate horizontally to show activity.
 - Quick actions remain disabled until device data is returned.

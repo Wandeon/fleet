@@ -9,4 +9,3 @@ export type FleetDeviceAlert = {
   createdAt: string;
   acknowledged: boolean;
 };
-

@@ -46,7 +46,7 @@ function serializeError(error: unknown) {
 async function checkHealth(
   baseUrl: string,
   headers: Record<string, string>,
-  paths: string[],
+  paths: string[]
 ): Promise<HealthResult> {
   const attempted: string[] = [];
   let lastError: unknown;
@@ -81,7 +81,7 @@ async function checkHealth(
 async function fetchStatus(
   baseUrl: string,
   headers: Record<string, string>,
-  path: string,
+  path: string
 ): Promise<StatusResult> {
   const url = joinDeviceUrl(baseUrl, path);
   try {
@@ -159,6 +159,6 @@ export async function pollOnce() {
       }
 
       await upsertDeviceState(device.id, patch);
-    }),
+    })
   );
 }

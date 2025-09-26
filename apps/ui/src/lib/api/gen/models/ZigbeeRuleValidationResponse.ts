@@ -9,4 +9,3 @@ export type ZigbeeRuleValidationResponse = {
   normalized: ZigbeeRuleDefinition;
   evaluatedAt: string;
 };
-

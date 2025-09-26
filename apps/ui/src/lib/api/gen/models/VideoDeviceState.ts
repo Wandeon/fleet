@@ -15,4 +15,3 @@ export type VideoDeviceState = {
   input: string;
   lastUpdated: string;
 };
-

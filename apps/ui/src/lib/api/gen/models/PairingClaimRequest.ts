@@ -7,4 +7,3 @@ export type PairingClaimRequest = {
   location?: string | null;
   metadata?: Record<string, string>;
 };
-

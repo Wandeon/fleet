@@ -21,4 +21,3 @@ export type AudioDeviceSnapshot = {
   playback: AudioDevicePlayback;
   lastUpdated: string;
 };
-

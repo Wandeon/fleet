@@ -27,7 +27,7 @@ function ensureState(deviceId: string): VideoDeviceState {
     power: 'standby',
     mute: false,
     input: 'hdmi1',
-    lastUpdated: now
+    lastUpdated: now,
   };
   deviceStateStore.set(deviceId, state);
   return state;
@@ -48,7 +48,7 @@ export function listVideoDevices() {
         power: state.power,
         mute: state.mute,
         input: state.input,
-        lastUpdated: state.lastUpdated
+        lastUpdated: state.lastUpdated,
       };
     });
 }
@@ -58,7 +58,7 @@ export function setDevicePower(deviceId: string, power: PowerState) {
   const updated: VideoDeviceState = {
     ...state,
     power,
-    lastUpdated: new Date().toISOString()
+    lastUpdated: new Date().toISOString(),
   };
   deviceStateStore.set(deviceId, updated);
   return updated;
@@ -69,7 +69,7 @@ export function setDeviceMute(deviceId: string, mute: boolean) {
   const updated: VideoDeviceState = {
     ...state,
     mute,
-    lastUpdated: new Date().toISOString()
+    lastUpdated: new Date().toISOString(),
   };
   deviceStateStore.set(deviceId, updated);
   return updated;
@@ -80,7 +80,7 @@ export function setDeviceInput(deviceId: string, input: string) {
   const updated: VideoDeviceState = {
     ...state,
     input,
-    lastUpdated: new Date().toISOString()
+    lastUpdated: new Date().toISOString(),
   };
   deviceStateStore.set(deviceId, updated);
   return updated;
@@ -98,9 +98,9 @@ export function requestPreviewSession(deviceId?: string) {
       ? {
           id: targetDevice.deviceId,
           name: targetDevice.name,
-          input: targetDevice.input
+          input: targetDevice.input,
         }
-      : null
+      : null,
   };
 }
 
@@ -112,7 +112,7 @@ export function listRecordingSegments() {
       startedAt: new Date(Date.now() - 3600 * 1000).toISOString(),
       endedAt: new Date(Date.now() - 3500 * 1000).toISOString(),
       durationSeconds: 600,
-      status: 'available'
+      status: 'available',
     },
     {
       id: 'segment-002',
@@ -120,12 +120,15 @@ export function listRecordingSegments() {
       startedAt: new Date(Date.now() - 1800 * 1000).toISOString(),
       endedAt: new Date(Date.now() - 1500 * 1000).toISOString(),
       durationSeconds: 300,
-      status: 'processing'
-    }
+      status: 'processing',
+    },
   ];
 }
 
-export function createClipExport(recordingId: string, payload: { startOffsetSeconds: number; endOffsetSeconds: number }) {
+export function createClipExport(
+  recordingId: string,
+  payload: { startOffsetSeconds: number; endOffsetSeconds: number }
+) {
   const exportId = randomUUID();
   return {
     exportId,
@@ -134,6 +137,6 @@ export function createClipExport(recordingId: string, payload: { startOffsetSeco
     startOffsetSeconds: payload.startOffsetSeconds,
     endOffsetSeconds: payload.endOffsetSeconds,
     requestedAt: new Date().toISOString(),
-    downloadUrl: `https://video.example/exports/${exportId}.mp4`
+    downloadUrl: `https://video.example/exports/${exportId}.mp4`,
   };
 }

@@ -9,4 +9,3 @@ export type OperatorListResponse = {
   total: number;
   updatedAt: string;
 };
-

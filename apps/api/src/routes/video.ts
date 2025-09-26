@@ -7,7 +7,7 @@ import {
   setDeviceInput,
   requestPreviewSession,
   listRecordingSegments,
-  createClipExport
+  createClipExport,
 } from '../services/video.js';
 
 const router = Router();
@@ -18,7 +18,7 @@ const inputSchema = z.object({ input: z.string().min(1) });
 const previewSchema = z.object({ deviceId: z.string().min(1).optional() });
 const clipExportSchema = z.object({
   startOffsetSeconds: z.coerce.number().min(0),
-  endOffsetSeconds: z.coerce.number().min(0)
+  endOffsetSeconds: z.coerce.number().min(0),
 });
 
 router.get('/', (_req, res) => {
@@ -29,7 +29,7 @@ router.get('/', (_req, res) => {
     status: 'active',
     timestamp: new Date().toISOString(),
     total: devices.length,
-    devices
+    devices,
   });
 });
 
@@ -41,7 +41,7 @@ router.get('/overview', (_req, res) => {
     devices,
     total: devices.length,
     online,
-    updatedAt: new Date().toISOString()
+    updatedAt: new Date().toISOString(),
   });
 });
 
@@ -53,13 +53,13 @@ router.get('/displays', (_req, res) => {
     name: device.name,
     role: device.role,
     module: device.module,
-    status: device.status
+    status: device.status,
   }));
 
   res.json({
     displays,
     total: displays.length,
-    updatedAt: new Date().toISOString()
+    updatedAt: new Date().toISOString(),
   });
 });
 
@@ -71,7 +71,7 @@ router.get('/displays/:id/status', (req, res) => {
   if (!device) {
     return res.status(404).json({
       error: 'Display not found',
-      id
+      id,
     });
   }
 
@@ -80,7 +80,7 @@ router.get('/displays/:id/status', (req, res) => {
     name: device.name,
     status: device.status,
     power: device.power,
-    timestamp: new Date().toISOString()
+    timestamp: new Date().toISOString(),
   });
 });
 
@@ -96,7 +96,7 @@ router.post('/devices/:deviceId/commands', (req, res) => {
   res.json({
     deviceId,
     accepted: false,
-    message: 'Video control coming soon'
+    message: 'Video control coming soon',
   });
 });
 
@@ -106,7 +106,9 @@ router.post('/devices/:deviceId/power', (req, res, next) => {
     const { deviceId } = req.params;
     const payload = powerSchema.parse(req.body);
     const updated = setDevicePower(deviceId, payload.power);
-    res.status(202).json({ deviceId: updated.deviceId, power: updated.power, lastUpdated: updated.lastUpdated });
+    res
+      .status(202)
+      .json({ deviceId: updated.deviceId, power: updated.power, lastUpdated: updated.lastUpdated });
   } catch (error) {
     next(error);
   }
@@ -118,7 +120,9 @@ router.post('/devices/:deviceId/mute', (req, res, next) => {
     const { deviceId } = req.params;
     const payload = muteSchema.parse(req.body);
     const updated = setDeviceMute(deviceId, payload.mute);
-    res.status(202).json({ deviceId: updated.deviceId, mute: updated.mute, lastUpdated: updated.lastUpdated });
+    res
+      .status(202)
+      .json({ deviceId: updated.deviceId, mute: updated.mute, lastUpdated: updated.lastUpdated });
   } catch (error) {
     next(error);
   }
@@ -130,7 +134,9 @@ router.post('/devices/:deviceId/input', (req, res, next) => {
     const { deviceId } = req.params;
     const payload = inputSchema.parse(req.body);
     const updated = setDeviceInput(deviceId, payload.input);
-    res.status(202).json({ deviceId: updated.deviceId, input: updated.input, lastUpdated: updated.lastUpdated });
+    res
+      .status(202)
+      .json({ deviceId: updated.deviceId, input: updated.input, lastUpdated: updated.lastUpdated });
   } catch (error) {
     next(error);
   }

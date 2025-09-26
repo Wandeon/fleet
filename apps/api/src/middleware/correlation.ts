@@ -12,7 +12,9 @@ declare module 'express-serve-static-core' {
 }
 
 export function correlationIdMiddleware(req: Request, res: Response, next: NextFunction): void {
-  const incoming = (req.headers['x-correlation-id'] || req.headers['x-request-id']) as string | undefined;
+  const incoming = (req.headers['x-correlation-id'] || req.headers['x-request-id']) as
+    | string
+    | undefined;
   const correlationId = incoming && incoming.length > 0 ? incoming : randomUUID();
 
   req.correlationId = correlationId;

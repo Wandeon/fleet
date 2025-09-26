@@ -66,14 +66,14 @@ not loaded successfully.
 
 ## Error mapping
 
-| Scenario | Response |
-| --- | --- |
-| Validation (Zod) | `422 validation_failed` |
-| Upstream timeout/Abort | `504 upstream_timeout` |
+| Scenario                                | Response                   |
+| --------------------------------------- | -------------------------- |
+| Validation (Zod)                        | `422 validation_failed`    |
+| Upstream timeout/Abort                  | `504 upstream_timeout`     |
 | Network errors (ECONNREFUSED/ENOTFOUND) | `502 upstream_unreachable` |
-| Upstream 5xx/unknown | `502 upstream_error` |
-| Upstream 409 | `409 conflict` |
-| Circuit open | `503 circuit_open` |
+| Upstream 5xx/unknown                    | `502 upstream_error`       |
+| Upstream 409                            | `409 conflict`             |
+| Circuit open                            | `503 circuit_open`         |
 
 All error payloads include the correlation ID to simplify tracing across
 services.

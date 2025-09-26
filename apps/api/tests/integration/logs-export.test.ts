@@ -25,7 +25,7 @@ describe('Logs export endpoint', () => {
         level: 'error',
         start: '2024-03-01T00:00:00Z',
         end: '2024-03-02T00:00:00Z',
-        format: 'csv'
+        format: 'csv',
       })
       .expect(202);
 

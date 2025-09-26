@@ -8,4 +8,3 @@ export type OperatorUpdateRequest = {
   roles?: Array<OperatorRole>;
   status?: 'pending' | 'active' | 'suspended';
 };
-

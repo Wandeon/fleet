@@ -8,4 +8,3 @@ export type VideoPreviewRequest = {
    */
   deviceId?: string;
 };
-

@@ -18,7 +18,6 @@ import { OpenAPI } from '../core/OpenAPI';
 import { request as __request } from '../core/request';
 
 export class ZigbeeService {
-
   /**
    * List Zigbee automation rules.
    * Retrieve all configured Zigbee automation rules with trigger and action metadata.
@@ -45,9 +44,7 @@ export class ZigbeeService {
    * @returns ZigbeeRule Automation rule created.
    * @throws ApiError
    */
-  public static createZigbeeRule(
-    requestBody: ZigbeeRuleDefinition,
-  ): CancelablePromise<ZigbeeRule> {
+  public static createZigbeeRule(requestBody: ZigbeeRuleDefinition): CancelablePromise<ZigbeeRule> {
     return __request(OpenAPI, {
       method: 'POST',
       url: '/zigbee/rules',
@@ -71,7 +68,7 @@ export class ZigbeeService {
    * @throws ApiError
    */
   public static validateZigbeeRule(
-    requestBody: ZigbeeRuleDefinition,
+    requestBody: ZigbeeRuleDefinition
   ): CancelablePromise<ZigbeeRuleValidationResponse> {
     return __request(OpenAPI, {
       method: 'POST',
@@ -96,7 +93,7 @@ export class ZigbeeService {
    * @throws ApiError
    */
   public static simulateZigbeeRule(
-    requestBody: ZigbeeRuleSimulationRequest,
+    requestBody: ZigbeeRuleSimulationRequest
   ): CancelablePromise<ZigbeeRuleSimulationResponse> {
     return __request(OpenAPI, {
       method: 'POST',
@@ -121,14 +118,12 @@ export class ZigbeeService {
    * @returns ZigbeeRule Automation rule detail.
    * @throws ApiError
    */
-  public static getZigbeeRule(
-    ruleId: string,
-  ): CancelablePromise<ZigbeeRule> {
+  public static getZigbeeRule(ruleId: string): CancelablePromise<ZigbeeRule> {
     return __request(OpenAPI, {
       method: 'GET',
       url: '/zigbee/rules/{ruleId}',
       path: {
-        'ruleId': ruleId,
+        ruleId: ruleId,
       },
       errors: {
         401: `Authentication failed or credentials missing.`,
@@ -150,13 +145,13 @@ export class ZigbeeService {
    */
   public static updateZigbeeRule(
     ruleId: string,
-    requestBody: ZigbeeRuleUpdateRequest,
+    requestBody: ZigbeeRuleUpdateRequest
   ): CancelablePromise<ZigbeeRule> {
     return __request(OpenAPI, {
       method: 'PUT',
       url: '/zigbee/rules/{ruleId}',
       path: {
-        'ruleId': ruleId,
+        ruleId: ruleId,
       },
       body: requestBody,
       mediaType: 'application/json',
@@ -178,14 +173,12 @@ export class ZigbeeService {
    * @returns void
    * @throws ApiError
    */
-  public static deleteZigbeeRule(
-    ruleId: string,
-  ): CancelablePromise<void> {
+  public static deleteZigbeeRule(ruleId: string): CancelablePromise<void> {
     return __request(OpenAPI, {
       method: 'DELETE',
       url: '/zigbee/rules/{ruleId}',
       path: {
-        'ruleId': ruleId,
+        ruleId: ruleId,
       },
       errors: {
         401: `Authentication failed or credentials missing.`,
@@ -209,13 +202,13 @@ export class ZigbeeService {
     ruleId: string,
     requestBody?: {
       enabled?: boolean;
-    },
+    }
   ): CancelablePromise<ZigbeeRule> {
     return __request(OpenAPI, {
       method: 'PATCH',
       url: '/zigbee/rules/{ruleId}/enable',
       path: {
-        'ruleId': ruleId,
+        ruleId: ruleId,
       },
       body: requestBody,
       mediaType: 'application/json',
@@ -261,13 +254,13 @@ export class ZigbeeService {
    */
   public static runZigbeeAction(
     deviceId: string,
-    requestBody: ZigbeeActionRequest,
+    requestBody: ZigbeeActionRequest
   ): CancelablePromise<any> {
     return __request(OpenAPI, {
       method: 'POST',
       url: '/zigbee/devices/{deviceId}/action',
       path: {
-        'deviceId': deviceId,
+        deviceId: deviceId,
       },
       body: requestBody,
       mediaType: 'application/json',
@@ -291,7 +284,7 @@ export class ZigbeeService {
    * @throws ApiError
    */
   public static startZigbeePairing(
-    requestBody?: ZigbeePairingStartRequest,
+    requestBody?: ZigbeePairingStartRequest
   ): CancelablePromise<ZigbeePairingState> {
     return __request(OpenAPI, {
       method: 'POST',
@@ -356,14 +349,12 @@ export class ZigbeeService {
    * @returns any Pairing confirmation accepted.
    * @throws ApiError
    */
-  public static confirmZigbeePairing(
-    deviceId: string,
-  ): CancelablePromise<any> {
+  public static confirmZigbeePairing(deviceId: string): CancelablePromise<any> {
     return __request(OpenAPI, {
       method: 'POST',
       url: '/zigbee/pairing/{deviceId}',
       path: {
-        'deviceId': deviceId,
+        deviceId: deviceId,
       },
       errors: {
         401: `Authentication failed or credentials missing.`,
@@ -375,5 +366,4 @@ export class ZigbeeService {
       },
     });
   }
-
 }

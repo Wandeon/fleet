@@ -14,11 +14,11 @@ const deviceSchema = z.object({
   token: z.string().optional(),
   tokenEnv: z.string().optional(),
   capabilities: z.array(z.string()).optional(),
-  metadata: z.record(z.string(), z.unknown()).optional()
+  metadata: z.record(z.string(), z.unknown()).optional(),
 });
 
 const registrySchema = z.object({
-  devices: z.array(deviceSchema)
+  devices: z.array(deviceSchema),
 });
 
 export type DeviceDocument = z.infer<typeof deviceSchema>;
@@ -44,7 +44,7 @@ class DeviceRegistry {
         ...item,
         module: item.module ?? item.role,
         capabilities: item.capabilities ?? [],
-        authToken
+        authToken,
       };
       this.devices.set(device.id, device);
     }

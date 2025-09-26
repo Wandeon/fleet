@@ -7,4 +7,3 @@ export type ProxySettingsPatch = {
   authMode?: 'none' | 'basic' | 'token';
   heartbeatIntervalSeconds?: number;
 };
-

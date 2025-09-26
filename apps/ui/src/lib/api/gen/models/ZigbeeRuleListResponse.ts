@@ -8,4 +8,3 @@ export type ZigbeeRuleListResponse = {
   items: Array<ZigbeeRule>;
   total: number;
 };
-

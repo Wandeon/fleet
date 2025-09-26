@@ -25,25 +25,34 @@ export const load: PageLoad = async ({ fetch, depends }) => {
   const audioPromise = toResult(getAudioOverview({ fetch }));
   const videoPromise = featureFlags.video
     ? toResult(apiClient.fetchVideo({ fetch }))
-    : Promise.resolve<ModuleResult<Awaited<ReturnType<typeof apiClient.fetchVideo>>>>({ data: null, error: null });
+    : Promise.resolve<ModuleResult<Awaited<ReturnType<typeof apiClient.fetchVideo>>>>({
+        data: null,
+        error: null,
+      });
   const zigbeePromise = featureFlags.zigbee
     ? toResult(apiClient.fetchZigbee({ fetch }))
-    : Promise.resolve<ModuleResult<Awaited<ReturnType<typeof apiClient.fetchZigbee>>>>({ data: null, error: null });
+    : Promise.resolve<ModuleResult<Awaited<ReturnType<typeof apiClient.fetchZigbee>>>>({
+        data: null,
+        error: null,
+      });
   const cameraPromise = featureFlags.camera
     ? toResult(loadCameraState({ fetch }))
-    : Promise.resolve<ModuleResult<Awaited<ReturnType<typeof loadCameraState>>>>({ data: null, error: null });
+    : Promise.resolve<ModuleResult<Awaited<ReturnType<typeof loadCameraState>>>>({
+        data: null,
+        error: null,
+      });
 
   const [audio, video, zigbee, camera] = await Promise.all([
     audioPromise,
     videoPromise,
     zigbeePromise,
-    cameraPromise
+    cameraPromise,
   ]);
 
   return {
     audio,
     video,
     zigbee,
-    camera
+    camera,
   };
 };

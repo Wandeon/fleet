@@ -1,3 +1,6 @@
 [
-  { "labels": {"job": "media-control", "role": "hdmi-media", "instance": "pi-video-01"}, "targets": ["pi-video-01:8082"] }
+  {
+    "labels": { "job": "media-control", "role": "hdmi-media", "instance": "pi-video-01" },
+    "targets": ["pi-video-01:8082"]
+  }
 ]

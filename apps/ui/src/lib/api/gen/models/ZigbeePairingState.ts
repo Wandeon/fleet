@@ -11,4 +11,3 @@ export type ZigbeePairingState = {
   discovered: Array<ZigbeePairingCandidate>;
   confirmed?: Array<string>;
 };
-

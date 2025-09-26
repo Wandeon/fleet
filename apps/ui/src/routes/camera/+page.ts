@@ -7,7 +7,10 @@ export const load: PageLoad = async ({ fetch, depends }) => {
 
   try {
     const camera = await loadCameraState({ fetch });
-    return { camera, error: null as string | null } satisfies { camera: CameraState; error: string | null };
+    return { camera, error: null as string | null } satisfies {
+      camera: CameraState;
+      error: string | null;
+    };
   } catch (error) {
     const message = error instanceof Error ? error.message : 'Unable to load camera state';
     return { camera: null, error: message };

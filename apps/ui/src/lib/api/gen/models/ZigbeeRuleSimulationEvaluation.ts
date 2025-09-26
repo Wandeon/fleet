@@ -10,4 +10,3 @@ export type ZigbeeRuleSimulationEvaluation = {
   completedAt: string;
   durationMs: number;
 };
-

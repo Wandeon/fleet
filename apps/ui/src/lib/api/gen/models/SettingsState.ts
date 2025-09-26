@@ -16,4 +16,3 @@ export type SettingsState = {
   security: SecuritySettings;
   updatedAt: string | null;
 };
-

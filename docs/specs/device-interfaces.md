@@ -11,12 +11,12 @@
 
 ```yaml
 devices:
-  - id: pi-audio-01              # Matches inventory/devices.yaml key
-    name: "Audio Player 01"      # Display name in the UI
-    role: audio-player            # Role applied by the agent
-    kind: audio                   # UI grouping (audio | video | camera)
+  - id: pi-audio-01 # Matches inventory/devices.yaml key
+    name: 'Audio Player 01' # Display name in the UI
+    role: audio-player # Role applied by the agent
+    kind: audio # UI grouping (audio | video | camera)
     management:
-      summary: "Primary feed"
+      summary: 'Primary feed'
       host: pi-audio-01
     api:
       base_url: http://pi-audio-01:8081
@@ -26,7 +26,7 @@ devices:
       auth:
         type: bearer
         token_env: AUDIO_PI_AUDIO_01_TOKEN
-    endpoints:                    # Additional URLs to surface in the UI
+    endpoints: # Additional URLs to surface in the UI
       - label: RTSP stream
         url: rtsp://pi-audio-01:8554/camera
     monitoring:

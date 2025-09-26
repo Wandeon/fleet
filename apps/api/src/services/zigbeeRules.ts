@@ -10,7 +10,16 @@ import { createHttpError } from '../util/errors';
 
 const allowedAlertChannels = ['slack', 'email', 'sms'] as const;
 
-const comparisonOperators = ['eq', 'neq', 'gt', 'gte', 'lt', 'lte', 'includes', 'excludes'] as const;
+const comparisonOperators = [
+  'eq',
+  'neq',
+  'gt',
+  'gte',
+  'lt',
+  'lte',
+  'includes',
+  'excludes',
+] as const;
 
 const conditionSchema = z.object({
   field: z.string().min(1),
@@ -19,8 +28,8 @@ const conditionSchema = z.object({
     z.string(),
     z.number(),
     z.boolean(),
-    z.array(z.union([z.string(), z.number(), z.boolean()]))
-  ])
+    z.array(z.union([z.string(), z.number(), z.boolean()])),
+  ]),
 });
 
 const triggerSchema = z.discriminatedUnion('type', [
@@ -29,19 +38,19 @@ const triggerSchema = z.discriminatedUnion('type', [
     sensorId: z.string().min(1),
     event: z.string().min(1),
     condition: conditionSchema.optional(),
-    cooldownSeconds: z.coerce.number().int().min(0).max(86400).optional()
+    cooldownSeconds: z.coerce.number().int().min(0).max(86400).optional(),
   }),
   z.object({
     type: z.literal('schedule'),
     cron: z.string().min(4),
-    timezone: z.string().min(2).optional()
+    timezone: z.string().min(2).optional(),
   }),
   z.object({
     type: z.literal('expression'),
     expression: z.string().min(1),
     language: z.literal('js').default('js'),
-    description: z.string().optional()
-  })
+    description: z.string().optional(),
+  }),
 ]);
 
 const actionSchema = z.discriminatedUnion('type', [
@@ -49,23 +58,27 @@ const actionSchema = z.discriminatedUnion('type', [
     type: z.literal('device_command'),
     deviceId: z.string().min(1),
     command: z.string().min(1),
-    payload: z.record(z.string(), z.unknown()).optional()
+    payload: z.record(z.string(), z.unknown()).optional(),
   }),
   z.object({
     type: z.literal('notify'),
     channel: z.enum(allowedAlertChannels),
     message: z.string().min(1),
-    metadata: z.record(z.string(), z.unknown()).optional()
+    metadata: z.record(z.string(), z.unknown()).optional(),
   }),
   z.object({
     type: z.literal('delay'),
-    durationSeconds: z.coerce.number().int().min(1).max(3600)
-  })
+    durationSeconds: z.coerce.number().int().min(1).max(3600),
+  }),
 ]);
 
 const ruleDefinitionSchema = z.object({
   name: z.string().min(1).max(120),
-  description: z.string().max(500).optional().transform((value) => value?.trim() ?? undefined),
+  description: z
+    .string()
+    .max(500)
+    .optional()
+    .transform((value) => value?.trim() ?? undefined),
   trigger: triggerSchema,
   actions: z.array(actionSchema).min(1).max(10),
   tags: z
@@ -74,7 +87,7 @@ const ruleDefinitionSchema = z.object({
     .optional()
     .transform((tags) => tags?.map((tag) => tag.trim()).filter((tag) => tag.length > 0)),
   metadata: z.record(z.string(), z.unknown()).optional(),
-  enabled: z.boolean().optional()
+  enabled: z.boolean().optional(),
 });
 
 const ruleUpdateSchema = z.object({
@@ -91,7 +104,7 @@ const ruleUpdateSchema = z.object({
     .optional()
     .transform((tags) => tags?.map((tag) => tag.trim()).filter((tag) => tag.length > 0)),
   metadata: z.record(z.string(), z.unknown()).optional(),
-  enabled: z.boolean().optional()
+  enabled: z.boolean().optional(),
 });
 
 const ruleSimulationSchema = z
@@ -102,13 +115,13 @@ const ruleSimulationSchema = z
       .object({
         context: z.record(z.string(), z.unknown()).optional(),
         event: z.record(z.string(), z.unknown()).optional(),
-        sensor: z.record(z.string(), z.unknown()).optional()
+        sensor: z.record(z.string(), z.unknown()).optional(),
       })
       .catchall(z.unknown())
-      .default({})
+      .default({}),
   })
   .refine((payload) => payload.ruleId || payload.definition, {
-    message: 'Provide a ruleId or inline definition to simulate.'
+    message: 'Provide a ruleId or inline definition to simulate.',
   });
 
 export type ZigbeeRuleTrigger = z.infer<typeof triggerSchema>;
@@ -148,7 +161,8 @@ const RULES_PATH = resolve(
   config.ZIGBEE_RULES_PATH ?? resolve(process.cwd(), '../backups/zigbee-rules.json')
 );
 const FALLBACK_RULES_PATH = resolve(
-  config.ZIGBEE_RULES_FALLBACK_PATH ?? resolve(__dirname, '../../../api-mock/fixtures/zigbee.rules.json')
+  config.ZIGBEE_RULES_FALLBACK_PATH ??
+    resolve(__dirname, '../../../api-mock/fixtures/zigbee.rules.json')
 );
 
 let cache: ZigbeeRuleRecord[] | null = null;
@@ -247,7 +261,7 @@ function coerceRuleRecord(value: unknown): ZigbeeRuleRecord | null {
     actions: record.actions,
     tags: record.tags,
     metadata: record.metadata,
-    enabled: record.enabled
+    enabled: record.enabled,
   });
   return {
     id,
@@ -259,7 +273,7 @@ function coerceRuleRecord(value: unknown): ZigbeeRuleRecord | null {
     metadata: base.metadata ?? {},
     enabled: base.enabled ?? true,
     createdAt: typeof record.createdAt === 'string' ? record.createdAt : now,
-    updatedAt: typeof record.updatedAt === 'string' ? record.updatedAt : now
+    updatedAt: typeof record.updatedAt === 'string' ? record.updatedAt : now,
   };
 }
 
@@ -296,7 +310,7 @@ export async function createZigbeeRule(input: ZigbeeRuleInput): Promise<ZigbeeRu
     metadata: normalized.metadata ?? {},
     enabled: normalized.enabled ?? true,
     createdAt: now,
-    updatedAt: now
+    updatedAt: now,
   };
   const rules = await loadRules();
   rules.push(rule);
@@ -304,7 +318,10 @@ export async function createZigbeeRule(input: ZigbeeRuleInput): Promise<ZigbeeRu
   return structuredClone(rule);
 }
 
-export async function updateZigbeeRule(ruleId: string, input: ZigbeeRuleUpdateInput): Promise<ZigbeeRuleRecord> {
+export async function updateZigbeeRule(
+  ruleId: string,
+  input: ZigbeeRuleUpdateInput
+): Promise<ZigbeeRuleRecord> {
   const rules = await loadRules();
   const index = rules.findIndex((rule) => rule.id === ruleId);
   if (index === -1) {
@@ -328,7 +345,7 @@ export async function updateZigbeeRule(ruleId: string, input: ZigbeeRuleUpdateIn
     tags: updates.tags ? uniqueTags(updates.tags) : existing.tags,
     metadata: updates.metadata ?? existing.metadata,
     enabled: updates.enabled ?? existing.enabled,
-    updatedAt: new Date().toISOString()
+    updatedAt: new Date().toISOString(),
   };
   rules[index] = next;
   await persist(rules);
@@ -374,7 +391,11 @@ function getByPath(source: Record<string, unknown>, path: string): unknown {
   return current;
 }
 
-function compareValues(operator: (typeof comparisonOperators)[number], left: unknown, right: unknown): boolean {
+function compareValues(
+  operator: (typeof comparisonOperators)[number],
+  left: unknown,
+  right: unknown
+): boolean {
   switch (operator) {
     case 'eq':
       return left === right;
@@ -422,21 +443,25 @@ function evaluateTrigger(
 ): { matched: boolean; reason: string; error?: string } {
   if (trigger.type === 'sensor_event') {
     const event = (input.event as Record<string, unknown>) ?? {};
-    const sensorId = typeof event.sensorId === 'string' ? event.sensorId : (input.sensor as any)?.id;
+    const sensorId =
+      typeof event.sensorId === 'string' ? event.sensorId : (input.sensor as any)?.id;
     const eventType = typeof event.type === 'string' ? event.type : (input.event as any)?.event;
     if (sensorId !== trigger.sensorId || eventType !== trigger.event) {
       return {
         matched: false,
-        reason: 'Sensor or event type did not match.'
+        reason: 'Sensor or event type did not match.',
       };
     }
     if (trigger.condition) {
-      const payload = (event.payload as Record<string, unknown>) ?? (input.context as Record<string, unknown>) ?? {};
+      const payload =
+        (event.payload as Record<string, unknown>) ??
+        (input.context as Record<string, unknown>) ??
+        {};
       const value = getByPath(payload, trigger.condition.field);
       const matched = compareValues(trigger.condition.operator, value, trigger.condition.value);
       return {
         matched,
-        reason: matched ? 'Condition matched.' : 'Condition did not match.'
+        reason: matched ? 'Condition matched.' : 'Condition did not match.',
       };
     }
     return { matched: true, reason: 'Sensor and event matched.' };
@@ -448,29 +473,31 @@ function evaluateTrigger(
     const matched = cron ? cron === trigger.cron : Boolean(ctx.scheduled === true);
     return {
       matched,
-      reason: matched ? 'Schedule matched context.' : 'Schedule context did not match.'
+      reason: matched ? 'Schedule matched context.' : 'Schedule context did not match.',
     };
   }
 
   if (trigger.type === 'expression') {
     try {
       const ctx: Record<string, unknown> = {
-        ...(((input.context as Record<string, unknown>) ?? {})),
+        ...((input.context as Record<string, unknown>) ?? {}),
         event: input.event ?? {},
         sensor: input.sensor ?? {},
         context: input.context ?? {},
-        now: new Date().toISOString()
+        now: new Date().toISOString(),
       };
       const matched = runExpression(trigger.expression, ctx);
       return {
         matched,
-        reason: matched ? 'Expression evaluated to truthy value.' : 'Expression evaluated to falsy value.'
+        reason: matched
+          ? 'Expression evaluated to truthy value.'
+          : 'Expression evaluated to falsy value.',
       };
     } catch (error) {
       return {
         matched: false,
         reason: 'Expression evaluation failed.',
-        error: error instanceof Error ? error.message : 'Unknown error'
+        error: error instanceof Error ? error.message : 'Unknown error',
       };
     }
   }
@@ -497,7 +524,7 @@ export async function simulateZigbeeRule(
       metadata: normalized.metadata ?? {},
       enabled: normalized.enabled ?? true,
       createdAt: startedAt.toISOString(),
-      updatedAt: startedAt.toISOString()
+      updatedAt: startedAt.toISOString(),
     };
   } else {
     rule = await getZigbeeRule(parsed.ruleId!);
@@ -516,8 +543,8 @@ export async function simulateZigbeeRule(
       error: evaluation.error,
       startedAt: startedAt.toISOString(),
       completedAt: completedAt.toISOString(),
-      durationMs: completedAt.getTime() - startedAt.getTime()
-    }
+      durationMs: completedAt.getTime() - startedAt.getTime(),
+    },
   };
 }
 
@@ -525,7 +552,7 @@ export function getZigbeeRuleSchemas() {
   return {
     definition: ruleDefinitionSchema,
     update: ruleUpdateSchema,
-    simulation: ruleSimulationSchema
+    simulation: ruleSimulationSchema,
   };
 }
 
@@ -533,4 +560,3 @@ export function __clearZigbeeRuleCacheForTests() {
   cache = null;
   cacheLoaded = false;
 }
-

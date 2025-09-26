@@ -12,4 +12,3 @@ export type ZigbeeRuleSimulationResponse = {
   rule: ZigbeeRule;
   evaluation: ZigbeeRuleSimulationEvaluation;
 };
-

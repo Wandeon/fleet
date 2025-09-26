@@ -22,4 +22,3 @@ export type CameraEventListResponse = {
   } | null;
   generatedAt: string;
 };
-

@@ -20,7 +20,8 @@ mkdirSync(tmpDir, { recursive: true });
 process.env.ZIGBEE_RULES_PATH =
   process.env.ZIGBEE_RULES_PATH ?? resolve(tmpDir, 'zigbee-rules.json');
 process.env.ZIGBEE_RULES_FALLBACK_PATH =
-  process.env.ZIGBEE_RULES_FALLBACK_PATH ?? resolve(__dirname, '../../api-mock/fixtures/zigbee.rules.json');
+  process.env.ZIGBEE_RULES_FALLBACK_PATH ??
+  resolve(__dirname, '../../api-mock/fixtures/zigbee.rules.json');
 process.env.DEVICE_REGISTRY_JSON =
   process.env.DEVICE_REGISTRY_JSON ??
   JSON.stringify({
@@ -31,15 +32,15 @@ process.env.DEVICE_REGISTRY_JSON =
         role: 'audio',
         baseUrl: 'http://127.0.0.1:0',
         token: 'device-token',
-        capabilities: ['status', 'play', 'stop']
-      }
-    ]
+        capabilities: ['status', 'play', 'stop'],
+      },
+    ],
   });
 
 if (!process.env.PRISMA_MIGRATED) {
   const env = {
     ...process.env,
-    DATABASE_URL: process.env.DATABASE_URL ?? 'file:./test.db'
+    DATABASE_URL: process.env.DATABASE_URL ?? 'file:./test.db',
   };
   execSync('npx prisma migrate deploy', { stdio: 'ignore', env });
   process.env.PRISMA_MIGRATED = 'true';

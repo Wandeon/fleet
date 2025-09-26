@@ -7,4 +7,3 @@ export type ZigbeeActionRequest = {
   command: string;
   payload?: Record<string, string>;
 };
-

@@ -6,4 +6,3 @@ export type ZigbeeRuleDelayAction = {
   type: 'ZigbeeRuleDelayAction';
   durationSeconds: number;
 };
-

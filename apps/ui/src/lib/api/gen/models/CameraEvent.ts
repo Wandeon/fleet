@@ -17,4 +17,3 @@ export type CameraEvent = {
   acknowledged: boolean;
   acknowledgedAt?: string | null;
 };
-

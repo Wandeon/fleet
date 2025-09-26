@@ -11,4 +11,3 @@ export type ZigbeeRuleSensorTrigger = {
   condition?: ZigbeeRuleCondition;
   cooldownSeconds?: number;
 };
-

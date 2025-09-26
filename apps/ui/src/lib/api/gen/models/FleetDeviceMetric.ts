@@ -12,4 +12,3 @@ export type FleetDeviceMetric = {
   updatedAt?: string | null;
   description?: string | null;
 };
-

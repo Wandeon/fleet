@@ -14,4 +14,3 @@ export type ZigbeeRuleDefinition = {
   metadata?: Record<string, any>;
   enabled?: boolean;
 };
-

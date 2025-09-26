@@ -21,15 +21,15 @@
     setMasterVolume,
     stopDevice,
     updatePlaylist,
-    uploadTrack
+    uploadTrack,
   } from '$lib/api/audio-operations';
   import type { PanelState } from '$lib/stores/app';
-import type {
+  import type {
     AudioDeviceSnapshot,
     AudioPlaylist,
     AudioPlaylistTrack,
     AudioState,
-    AudioSyncMode
+    AudioSyncMode,
   } from '$lib/types';
 
   export let data: AudioState | null = null;
@@ -84,7 +84,7 @@ import type {
   let deviceAssignments: Record<string, string | null> = {};
   $: assignmentList = Array.from(selectedDevices).map((deviceId) => ({
     deviceId,
-    trackId: deviceAssignments[deviceId] ?? null
+    trackId: deviceAssignments[deviceId] ?? null,
   }));
 
   $: library = data?.library ?? [];
@@ -172,7 +172,7 @@ import type {
     if (!data) return;
     data = {
       ...data,
-      devices: data.devices.map((item) => (item.id === snapshot.id ? snapshot : item))
+      devices: data.devices.map((item) => (item.id === snapshot.id ? snapshot : item)),
     };
   };
 
@@ -225,11 +225,14 @@ import type {
         deviceIds: Array.from(selectedDevices),
         trackId: playbackMode === 'single' ? selectedTrackId : null,
         playlistId: playbackMode === 'playlist' ? selectedPlaylistId : null,
-        assignments: playbackMode === 'perDevice' ? assignmentList.map(({ deviceId, trackId }) => ({ deviceId, trackId: trackId! })) : undefined,
+        assignments:
+          playbackMode === 'perDevice'
+            ? assignmentList.map(({ deviceId, trackId }) => ({ deviceId, trackId: trackId! }))
+            : undefined,
         syncMode,
         resume: resumePlayback,
         loop: loopPlayback,
-        startAtSeconds
+        startAtSeconds,
       });
       updateState(state);
       showSuccess('Playback started');
@@ -245,7 +248,9 @@ import type {
     if (!data) return;
     try {
       const updated =
-        device.playback.state === 'playing' ? await pauseDevice(device.id) : await resumeDevice(device.id);
+        device.playback.state === 'playing'
+          ? await pauseDevice(device.id)
+          : await resumeDevice(device.id);
       updateDevice(updated);
     } catch (error) {
       console.error('toggle playback', error);
@@ -278,7 +283,7 @@ import type {
         syncMode: 'synced',
         resume: true,
         startAtSeconds: device.playback.positionSeconds ?? 0,
-        loop: false
+        loop: false,
       });
       updateState(state);
       showSuccess(`Re-synced ${device.name}`);
@@ -345,11 +350,14 @@ import type {
         file: uploadFile,
         title,
         artist: uploadArtist.trim() || undefined,
-        tags: uploadTags.split(',').map((tag) => tag.trim()).filter(Boolean)
+        tags: uploadTags
+          .split(',')
+          .map((tag) => tag.trim())
+          .filter(Boolean),
       });
       data = {
         ...data,
-        library: [...data.library, track]
+        library: [...data.library, track],
       };
       showSuccess(`Uploaded ${track.title}`);
       uploadModalOpen = false;
@@ -412,11 +420,13 @@ import type {
           description: playlistDescription.trim() || null,
           loop: playlistLoop,
           syncMode: playlistSyncMode,
-          tracks
+          tracks,
         });
         data = {
           ...data,
-          playlists: data.playlists.map((playlist) => (playlist.id === updated.id ? updated : playlist))
+          playlists: data.playlists.map((playlist) =>
+            playlist.id === updated.id ? updated : playlist
+          ),
         };
         showSuccess(`Updated playlist “${updated.name}”`);
       } else {
@@ -425,11 +435,11 @@ import type {
           description: playlistDescription.trim() || null,
           loop: playlistLoop,
           syncMode: playlistSyncMode,
-          tracks
+          tracks,
         });
         data = {
           ...data,
-          playlists: [...data.playlists, created]
+          playlists: [...data.playlists, created],
         };
         showSuccess(`Playlist “${created.name}” created`);
       }
@@ -450,7 +460,7 @@ import type {
       await deletePlaylist(playlist.id);
       data = {
         ...data,
-        playlists: data.playlists.filter((item) => item.id !== playlist.id)
+        playlists: data.playlists.filter((item) => item.id !== playlist.id),
       };
       showSuccess('Playlist removed');
       broadcastRefresh();
@@ -472,7 +482,10 @@ import type {
   };
 </script>
 
-<Card title={title} subtitle={variant === 'compact' ? 'Fleet-wide audio health' : 'Distributed audio orchestration'}>
+<Card
+  {title}
+  subtitle={variant === 'compact' ? 'Fleet-wide audio health' : 'Distributed audio orchestration'}
+>
   {#if state === 'loading'}
     <div class="loading">
       <Skeleton variant="block" height="7rem" />
@@ -484,7 +497,10 @@ import type {
       <Button variant="primary" on:click={() => onRetry?.()}>Retry</Button>
     </div>
   {:else if !data || data.devices.length === 0}
-    <EmptyState title="No audio devices discovered" description="Bring a player online or pair a Pi to begin.">
+    <EmptyState
+      title="No audio devices discovered"
+      description="Bring a player online or pair a Pi to begin."
+    >
       <svelte:fragment slot="icon">🔈</svelte:fragment>
       <svelte:fragment slot="actions">
         <Button variant="secondary" on:click={() => onRetry?.()}>Refresh</Button>
@@ -500,7 +516,8 @@ import type {
         <div class="metric">
           <span>Online devices</span>
           <strong>
-            {data.devices.filter((device) => device.status === 'online').length}/{data.devices.length}
+            {data.devices.filter((device) => device.status === 'online').length}/{data.devices
+              .length}
           </strong>
         </div>
         <div class="metric">
@@ -515,7 +532,9 @@ import type {
             <span class="device-name">{device.name}</span>
             <span class="device-extra">
               {#if device.playback.state === 'playing'}
-                ▶ {device.playback.trackTitle ?? 'Unknown track'} ({formatDuration(device.playback.positionSeconds)})
+                ▶ {device.playback.trackTitle ?? 'Unknown track'} ({formatDuration(
+                  device.playback.positionSeconds
+                )})
               {:else if device.playback.state === 'paused'}
                 ❚❚ {device.playback.trackTitle ?? 'Paused'}
               {:else}
@@ -577,20 +596,27 @@ import type {
                     {device.playback.state === 'playing'
                       ? 'Playing'
                       : device.playback.state === 'paused'
-                      ? 'Paused'
-                      : device.playback.state === 'buffering'
-                      ? 'Buffering'
-                      : device.playback.state === 'error'
-                      ? 'Error'
-                      : 'Idle'}
+                        ? 'Paused'
+                        : device.playback.state === 'buffering'
+                          ? 'Buffering'
+                          : device.playback.state === 'error'
+                            ? 'Error'
+                            : 'Idle'}
                   </span>
                   <span class="position">
-                    {formatDuration(device.playback.positionSeconds)} / {formatDuration(device.playback.durationSeconds)}
+                    {formatDuration(device.playback.positionSeconds)} / {formatDuration(
+                      device.playback.durationSeconds
+                    )}
                   </span>
                   <span class="updated">{formatRelative(device.lastUpdated)}</span>
                 </div>
                 <div class="device-actions">
-                  <Button variant="ghost" size="sm" on:click={() => toggleDeviceSelection(device.id)} aria-pressed={selectedDevices.has(device.id)}>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    on:click={() => toggleDeviceSelection(device.id)}
+                    aria-pressed={selectedDevices.has(device.id)}
+                  >
                     {selectedDevices.has(device.id) ? 'Selected' : 'Select'}
                   </Button>
                   <Button variant="primary" size="sm" on:click={() => handleDeviceToggle(device)}>
@@ -617,7 +643,10 @@ import type {
                   <Slider
                     label="Seek"
                     min={0}
-                    max={Math.max(device.playback.durationSeconds, device.playback.positionSeconds + 1)}
+                    max={Math.max(
+                      device.playback.durationSeconds,
+                      device.playback.positionSeconds + 1
+                    )}
                     value={device.playback.positionSeconds}
                     step={1}
                     on:change={(event) => handleSeek(device, event.detail)}
@@ -686,8 +715,14 @@ import type {
               {:else}
                 {#each assignmentList as assignment (assignment.deviceId)}
                   <label>
-                    <span>{devices.find((item) => item.id === assignment.deviceId)?.name ?? assignment.deviceId}</span>
-                    <select value={assignment.trackId ?? ''} on:change={createAssignmentChangeHandler(assignment.deviceId)}>
+                    <span
+                      >{devices.find((item) => item.id === assignment.deviceId)?.name ??
+                        assignment.deviceId}</span
+                    >
+                    <select
+                      value={assignment.trackId ?? ''}
+                      on:change={createAssignmentChangeHandler(assignment.deviceId)}
+                    >
                       <option value="">Choose track</option>
                       {#each library as track (track.id)}
                         <option value={track.id}>{track.title}</option>
@@ -736,7 +771,9 @@ import type {
             <p class="form-error" role="alert">{playbackError}</p>
           {/if}
           <div class="orchestrator-actions">
-            <Button variant="secondary" on:click={() => setSelectedDevices([])}>Clear selection</Button>
+            <Button variant="secondary" on:click={() => setSelectedDevices([])}
+              >Clear selection</Button
+            >
             <Button variant="primary" disabled={playbackBusy} on:click={handlePlayback}>
               {playbackBusy ? 'Starting…' : 'Start playback'}
             </Button>
@@ -769,11 +806,15 @@ import type {
                 <td>{formatDuration(track.durationSeconds)}</td>
                 <td>{track.tags?.join(', ') ?? '—'}</td>
                 <td class="library-actions">
-                  <Button variant="ghost" size="sm" on:click={() => {
-                    selectedTrackId = track.id;
-                    playbackMode = 'single';
-                    handlePlayback();
-                  }}>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    on:click={() => {
+                      selectedTrackId = track.id;
+                      playbackMode = 'single';
+                      handlePlayback();
+                    }}
+                  >
                     Play on selected
                   </Button>
                 </td>
@@ -833,15 +874,21 @@ import type {
       <div class="modal-content">
         <header>
           <h3>Upload audio</h3>
-          <button type="button" on:click={() => (uploadModalOpen = false)} aria-label="Close">×</button>
+          <button type="button" on:click={() => (uploadModalOpen = false)} aria-label="Close"
+            >×</button
+          >
         </header>
         <div class="modal-body">
           <label>
             <span>Audio file</span>
-            <input type="file" accept="audio/*" on:change={(event) => {
-              const target = event.target as HTMLInputElement;
-              uploadFile = target.files?.[0] ?? null;
-            }} />
+            <input
+              type="file"
+              accept="audio/*"
+              on:change={(event) => {
+                const target = event.target as HTMLInputElement;
+                uploadFile = target.files?.[0] ?? null;
+              }}
+            />
           </label>
           <label>
             <span>Title</span>
@@ -870,11 +917,18 @@ import type {
   {/if}
 
   {#if playlistModalOpen}
-    <div class="modal" role="dialog" aria-modal="true" aria-label={playlistEditingId ? 'Edit playlist' : 'Create playlist'}>
+    <div
+      class="modal"
+      role="dialog"
+      aria-modal="true"
+      aria-label={playlistEditingId ? 'Edit playlist' : 'Create playlist'}
+    >
       <div class="modal-content wide">
         <header>
           <h3>{playlistEditingId ? 'Edit playlist' : 'New playlist'}</h3>
-          <button type="button" on:click={() => (playlistModalOpen = false)} aria-label="Close">×</button>
+          <button type="button" on:click={() => (playlistModalOpen = false)} aria-label="Close"
+            >×</button
+          >
         </header>
         <div class="modal-body playlist-form">
           <label>
@@ -883,7 +937,8 @@ import type {
           </label>
           <label>
             <span>Description</span>
-            <textarea rows="3" bind:value={playlistDescription} placeholder="Optional notes"></textarea>
+            <textarea rows="3" bind:value={playlistDescription} placeholder="Optional notes"
+            ></textarea>
           </label>
           <label>
             <span>Sync mode</span>
@@ -909,7 +964,7 @@ import type {
                       const target = event.target as HTMLInputElement;
                       playlistTrackSelections = {
                         ...playlistTrackSelections,
-                        [track.id]: target.checked
+                        [track.id]: target.checked,
                       };
                     }}
                   />
@@ -1099,11 +1154,26 @@ import type {
     text-transform: uppercase;
   }
 
-  .state-playing { background: rgba(34, 197, 94, 0.15); color: rgb(34, 197, 94); }
-  .state-paused { background: rgba(250, 204, 21, 0.15); color: rgb(250, 204, 21); }
-  .state-buffering { background: rgba(251, 191, 36, 0.15); color: rgb(251, 191, 36); }
-  .state-error { background: rgba(248, 113, 113, 0.15); color: rgb(248, 113, 113); }
-  .state-idle { background: rgba(148, 163, 184, 0.15); color: rgba(148, 163, 184, 0.9); }
+  .state-playing {
+    background: rgba(34, 197, 94, 0.15);
+    color: rgb(34, 197, 94);
+  }
+  .state-paused {
+    background: rgba(250, 204, 21, 0.15);
+    color: rgb(250, 204, 21);
+  }
+  .state-buffering {
+    background: rgba(251, 191, 36, 0.15);
+    color: rgb(251, 191, 36);
+  }
+  .state-error {
+    background: rgba(248, 113, 113, 0.15);
+    color: rgb(248, 113, 113);
+  }
+  .state-idle {
+    background: rgba(148, 163, 184, 0.15);
+    color: rgba(148, 163, 184, 0.9);
+  }
 
   .position {
     color: var(--color-text-muted);

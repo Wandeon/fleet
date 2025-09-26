@@ -9,4 +9,3 @@ export type ZigbeePairingCandidate = {
   signal: number;
   lastSeen: string;
 };
-

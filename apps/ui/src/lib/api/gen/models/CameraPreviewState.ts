@@ -10,4 +10,3 @@ export type CameraPreviewState = {
   reason?: string | null;
   updatedAt: string;
 };
-

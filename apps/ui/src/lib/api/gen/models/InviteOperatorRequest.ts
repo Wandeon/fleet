@@ -8,4 +8,3 @@ export type InviteOperatorRequest = {
   email: string;
   roles: Array<OperatorRole>;
 };
-

@@ -3,10 +3,7 @@
     "bearerTokenMasked": "sk_live_****2318",
     "lastRotatedAt": "2025-09-24T22:41:12Z",
     "expiresAt": "2025-10-08T22:41:12Z",
-    "allowedOrigins": [
-      "https://ops.headspa.example",
-      "https://staging.headspa.example"
-    ],
+    "allowedOrigins": ["https://ops.headspa.example", "https://staging.headspa.example"],
     "webhookUrl": "https://ops.headspa.example/hooks/events"
   },
   "proxy": {

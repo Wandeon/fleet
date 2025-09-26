@@ -10,4 +10,3 @@ export type VideoRecordingSegment = {
   durationSeconds: number;
   status: 'available' | 'processing' | 'failed';
 };
-

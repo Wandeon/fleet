@@ -11,4 +11,3 @@ export type CameraClip = {
   thumbnailUrl?: string | null;
   label?: string | null;
 };
-

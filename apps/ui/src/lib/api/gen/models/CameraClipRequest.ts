@@ -5,4 +5,3 @@
 export type CameraClipRequest = {
   cameraId: string;
 };
-

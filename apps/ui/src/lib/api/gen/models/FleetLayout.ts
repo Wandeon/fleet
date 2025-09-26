@@ -8,4 +8,3 @@ export type FleetLayout = {
   updatedAt: string;
   modules: Array<FleetLayoutModule>;
 };
-

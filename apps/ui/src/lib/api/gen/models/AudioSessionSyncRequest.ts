@@ -8,4 +8,3 @@ export type AudioSessionSyncRequest = {
   perDevice: Record<string, number>;
   correctionsApplied?: boolean;
 };
-

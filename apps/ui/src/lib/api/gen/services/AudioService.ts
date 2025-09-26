@@ -21,7 +21,6 @@ import { OpenAPI } from '../core/OpenAPI';
 import { request as __request } from '../core/request';
 
 export class AudioService {
-
   /**
    * Retrieve consolidated audio state including devices, playlists, and sessions.
    * Retrieve consolidated audio state including devices, playlists, and sessions.
@@ -50,18 +49,16 @@ export class AudioService {
    * @returns AudioLibraryTrack Track successfully uploaded.
    * @throws ApiError
    */
-  public static uploadAudioTrack(
-    formData: {
-      file: Blob;
-      title: string;
-      artist?: string;
-      /**
-       * Comma-separated tags applied to the track.
-       */
-      tags?: string;
-      durationSeconds?: number;
-    },
-  ): CancelablePromise<AudioLibraryTrack> {
+  public static uploadAudioTrack(formData: {
+    file: Blob;
+    title: string;
+    artist?: string;
+    /**
+     * Comma-separated tags applied to the track.
+     */
+    tags?: string;
+    durationSeconds?: number;
+  }): CancelablePromise<AudioLibraryTrack> {
     return __request(OpenAPI, {
       method: 'POST',
       url: '/audio/library',
@@ -89,7 +86,7 @@ export class AudioService {
    * @throws ApiError
    */
   public static registerAudioUpload(
-    requestBody: AudioLibraryUploadRegistrationRequest,
+    requestBody: AudioLibraryUploadRegistrationRequest
   ): CancelablePromise<AudioLibraryUploadRegistration> {
     return __request(OpenAPI, {
       method: 'POST',
@@ -134,9 +131,7 @@ export class AudioService {
    * @returns AudioPlaylist Playlist created.
    * @throws ApiError
    */
-  public static createAudioPlaylist(
-    requestBody: AudioPlaylist,
-  ): CancelablePromise<AudioPlaylist> {
+  public static createAudioPlaylist(requestBody: AudioPlaylist): CancelablePromise<AudioPlaylist> {
     return __request(OpenAPI, {
       method: 'POST',
       url: '/audio/playlists',
@@ -163,13 +158,13 @@ export class AudioService {
    */
   public static updateAudioPlaylist(
     playlistId: string,
-    requestBody: AudioPlaylist,
+    requestBody: AudioPlaylist
   ): CancelablePromise<AudioPlaylist> {
     return __request(OpenAPI, {
       method: 'PUT',
       url: '/audio/playlists/{playlistId}',
       path: {
-        'playlistId': playlistId,
+        playlistId: playlistId,
       },
       body: requestBody,
       mediaType: 'application/json',
@@ -195,13 +190,13 @@ export class AudioService {
    */
   public static reorderAudioPlaylist(
     playlistId: string,
-    requestBody: AudioPlaylistReorderRequest,
+    requestBody: AudioPlaylistReorderRequest
   ): CancelablePromise<AudioPlaylist> {
     return __request(OpenAPI, {
       method: 'POST',
       url: '/audio/playlists/{playlistId}/reorder',
       path: {
-        'playlistId': playlistId,
+        playlistId: playlistId,
       },
       body: requestBody,
       mediaType: 'application/json',
@@ -223,14 +218,12 @@ export class AudioService {
    * @returns void
    * @throws ApiError
    */
-  public static deleteAudioPlaylist(
-    playlistId: string,
-  ): CancelablePromise<void> {
+  public static deleteAudioPlaylist(playlistId: string): CancelablePromise<void> {
     return __request(OpenAPI, {
       method: 'DELETE',
       url: '/audio/playlists/{playlistId}/reorder',
       path: {
-        'playlistId': playlistId,
+        playlistId: playlistId,
       },
       errors: {
         401: `Authentication failed or credentials missing.`,
@@ -250,9 +243,7 @@ export class AudioService {
    * @returns any Playback request accepted.
    * @throws ApiError
    */
-  public static startAudioPlayback(
-    requestBody: AudioPlaybackRequest,
-  ): CancelablePromise<any> {
+  public static startAudioPlayback(requestBody: AudioPlaybackRequest): CancelablePromise<any> {
     return __request(OpenAPI, {
       method: 'POST',
       url: '/audio/playback',
@@ -279,14 +270,12 @@ export class AudioService {
    * @returns AudioDeviceSnapshot Current device snapshot.
    * @throws ApiError
    */
-  public static getAudioDevice(
-    deviceId: string,
-  ): CancelablePromise<AudioDeviceSnapshot> {
+  public static getAudioDevice(deviceId: string): CancelablePromise<AudioDeviceSnapshot> {
     return __request(OpenAPI, {
       method: 'GET',
       url: '/audio/devices/{deviceId}',
       path: {
-        'deviceId': deviceId,
+        deviceId: deviceId,
       },
       errors: {
         401: `Authentication failed or credentials missing.`,
@@ -307,14 +296,12 @@ export class AudioService {
    * @returns any Pause command accepted.
    * @throws ApiError
    */
-  public static pauseAudioDevice(
-    deviceId: string,
-  ): CancelablePromise<any> {
+  public static pauseAudioDevice(deviceId: string): CancelablePromise<any> {
     return __request(OpenAPI, {
       method: 'POST',
       url: '/audio/devices/{deviceId}/pause',
       path: {
-        'deviceId': deviceId,
+        deviceId: deviceId,
       },
       errors: {
         401: `Authentication failed or credentials missing.`,
@@ -357,7 +344,7 @@ export class AudioService {
    * @throws ApiError
    */
   public static createAudioPlaybackSession(
-    requestBody: AudioPlaybackSessionCreateRequest,
+    requestBody: AudioPlaybackSessionCreateRequest
   ): CancelablePromise<AudioSession> {
     return __request(OpenAPI, {
       method: 'POST',
@@ -384,7 +371,7 @@ export class AudioService {
    */
   public static syncAudioPlaybackSession(
     sessionId: string,
-    requestBody: AudioSessionSyncRequest,
+    requestBody: AudioSessionSyncRequest
   ): CancelablePromise<{
     sessions: Array<AudioSession>;
     updatedAt: string;
@@ -393,7 +380,7 @@ export class AudioService {
       method: 'POST',
       url: '/audio/playback/sessions/{sessionId}/sync',
       path: {
-        'sessionId': sessionId,
+        sessionId: sessionId,
       },
       body: requestBody,
       mediaType: 'application/json',
@@ -415,14 +402,12 @@ export class AudioService {
    * @returns any Resume command accepted.
    * @throws ApiError
    */
-  public static resumeAudioDevice(
-    deviceId: string,
-  ): CancelablePromise<any> {
+  public static resumeAudioDevice(deviceId: string): CancelablePromise<any> {
     return __request(OpenAPI, {
       method: 'POST',
       url: '/audio/devices/{deviceId}/resume',
       path: {
-        'deviceId': deviceId,
+        deviceId: deviceId,
       },
       errors: {
         401: `Authentication failed or credentials missing.`,
@@ -442,14 +427,12 @@ export class AudioService {
    * @returns any Stop command accepted.
    * @throws ApiError
    */
-  public static stopAudioDevice(
-    deviceId: string,
-  ): CancelablePromise<any> {
+  public static stopAudioDevice(deviceId: string): CancelablePromise<any> {
     return __request(OpenAPI, {
       method: 'POST',
       url: '/audio/devices/{deviceId}/stop',
       path: {
-        'deviceId': deviceId,
+        deviceId: deviceId,
       },
       errors: {
         401: `Authentication failed or credentials missing.`,
@@ -472,13 +455,13 @@ export class AudioService {
    */
   public static seekAudioDevice(
     deviceId: string,
-    requestBody: AudioSeekRequest,
+    requestBody: AudioSeekRequest
   ): CancelablePromise<any> {
     return __request(OpenAPI, {
       method: 'POST',
       url: '/audio/devices/{deviceId}/seek',
       path: {
-        'deviceId': deviceId,
+        deviceId: deviceId,
       },
       body: requestBody,
       mediaType: 'application/json',
@@ -504,13 +487,13 @@ export class AudioService {
    */
   public static setAudioDeviceVolume(
     deviceId: string,
-    requestBody: AudioVolumeRequest,
+    requestBody: AudioVolumeRequest
   ): CancelablePromise<any> {
     return __request(OpenAPI, {
       method: 'POST',
       url: '/audio/devices/{deviceId}/volume',
       path: {
-        'deviceId': deviceId,
+        deviceId: deviceId,
       },
       body: requestBody,
       mediaType: 'application/json',
@@ -534,7 +517,7 @@ export class AudioService {
    * @throws ApiError
    */
   public static setAudioMasterVolume(
-    requestBody: AudioMasterVolumeRequest,
+    requestBody: AudioMasterVolumeRequest
   ): CancelablePromise<any> {
     return __request(OpenAPI, {
       method: 'POST',
@@ -551,5 +534,4 @@ export class AudioService {
       },
     });
   }
-
 }

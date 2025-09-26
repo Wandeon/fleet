@@ -8,4 +8,3 @@ export type SecurityUpdateRequest = {
     alertChannels?: Array<'slack' | 'email' | 'sms'>;
   };
 };
-

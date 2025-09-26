@@ -5,9 +5,9 @@ services:
       dockerfile: audio-player.Dockerfile
     restart: unless-stopped
     devices:
-      - "/dev/snd:/dev/snd"
+      - '/dev/snd:/dev/snd'
     group_add:
-      - "audio"
+      - 'audio'
     environment:
       - AUDIO_OUTPUT_DEVICE=${AUDIO_OUTPUT_DEVICE:-plughw:0,0}
       - AUDIO_VOLUME=${AUDIO_VOLUME:-1.0}
@@ -60,7 +60,7 @@ services:
       dockerfile: audio-control.Dockerfile
     restart: unless-stopped
     ports:
-      - "8081:8081"
+      - '8081:8081'
     environment:
       - CONTROL_BIND=0.0.0.0
       - CONTROL_PORT=8081
@@ -77,7 +77,11 @@ services:
     volumes:
       - audio_data:/data
     healthcheck:
-      test: ["CMD-SHELL", "python3 - <<'PY'\nimport urllib.request,sys; urllib.request.urlopen('http://127.0.0.1:8081/healthz', timeout=2); sys.exit(0)\nPY"]
+      test:
+        [
+          'CMD-SHELL',
+          "python3 - <<'PY'\nimport urllib.request,sys; urllib.request.urlopen('http://127.0.0.1:8081/healthz', timeout=2); sys.exit(0)\nPY",
+        ]
       interval: 10s
       timeout: 3s
       retries: 5

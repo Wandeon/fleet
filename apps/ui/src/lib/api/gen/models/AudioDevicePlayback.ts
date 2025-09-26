@@ -15,4 +15,3 @@ export type AudioDevicePlayback = {
   syncGroup: string | null;
   lastError?: string | null;
 };
-

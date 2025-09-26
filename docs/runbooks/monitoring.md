@@ -24,7 +24,7 @@ Alert states are visible in the Prometheus UI (`http://<host>:9090/alerts`) and 
 
 ## Wiring Slack notifications
 
-1. **Create a Slack webhook.** In Slack → *App Directory* → *Incoming Webhooks*, create a webhook that posts into your `#ops-alerts` (or preferred) channel.
+1. **Create a Slack webhook.** In Slack → _App Directory_ → _Incoming Webhooks_, create a webhook that posts into your `#ops-alerts` (or preferred) channel.
 2. **Store the secret locally.** Create `infra/vps/secrets/slack-webhook.url` (excluded from git) containing only the webhook URL.
 3. **Review the Alertmanager config.** `infra/vps/alertmanager.yml` routes every alert to Slack. Adjust the `channel` name or add more receivers as needed.
 4. **Start Alertmanager alongside Prometheus.** Include the promtail overlay when composing so log collection is enabled.
@@ -51,4 +51,3 @@ When a device stops responding to `/metrics`, the `DeviceOffline` rule flips to 
 - Grafana auto-provisions dashboards from `grafana/dashboards/` – start with `fleet-overview.json`, `audio-player.json`, and
   `agent.json` before cloning panels for HDMI/camera metrics.
 - Budgets for the UI remain: Lighthouse Performance ≥ 0.80, Accessibility ≥ 0.95, JS ≤ 200 KB, CSS ≤ 50 KB, CLS ≤ 0.1, LCP ≤ 2.5s on LAN.
-

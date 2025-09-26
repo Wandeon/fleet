@@ -8,4 +8,3 @@ export type ZigbeeRuleNotifyAction = {
   message: string;
   metadata?: Record<string, any>;
 };
-

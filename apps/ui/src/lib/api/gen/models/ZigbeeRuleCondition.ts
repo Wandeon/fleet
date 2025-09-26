@@ -8,6 +8,5 @@ export type ZigbeeRuleCondition = {
    */
   field: string;
   operator: 'eq' | 'neq' | 'gt' | 'gte' | 'lt' | 'lte' | 'includes' | 'excludes';
-  value: (string | number | boolean);
+  value: string | number | boolean;
 };
-

@@ -8,4 +8,3 @@ export type ZigbeeRuleDeviceCommandAction = {
   command: string;
   payload?: Record<string, any>;
 };
-

@@ -9,4 +9,3 @@ export type FleetLayoutModule = {
   description?: string | null;
   capabilities: Array<string>;
 };
-

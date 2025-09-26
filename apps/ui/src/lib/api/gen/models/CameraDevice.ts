@@ -17,4 +17,3 @@ export type CameraDevice = {
    */
   capabilities: Array<string>;
 };
-

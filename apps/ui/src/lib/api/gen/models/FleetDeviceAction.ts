@@ -11,4 +11,3 @@ export type FleetDeviceAction = {
   endpoint: string;
   requiresConfirmation?: boolean | null;
 };
-

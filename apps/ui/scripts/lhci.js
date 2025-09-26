@@ -11,7 +11,7 @@ import lighthouse from 'lighthouse';
 const budgets = {
   performance: 0.9,
   accessibility: 0.95,
-  'best-practices': 0.95
+  'best-practices': 0.95,
 };
 
 function run(command, args = []) {
@@ -35,27 +35,27 @@ async function main() {
   preview = spawn('npm', ['run', 'preview', '--', '--host', '127.0.0.1', '--port', '4173'], {
     stdio: 'inherit',
     shell: false,
-    env: { ...process.env }
+    env: { ...process.env },
   });
   await delay(2000);
 
   const chrome = await launchChrome({
     chromePath: chromium.executablePath(),
-    chromeFlags: ['--headless', '--no-sandbox', '--disable-gpu']
+    chromeFlags: ['--headless', '--no-sandbox', '--disable-gpu'],
   });
 
   try {
     const result = await lighthouse('http://127.0.0.1:4173/', {
       port: chrome.port,
       logLevel: 'error',
-      output: 'json'
+      output: 'json',
     });
     const scores = result.lhr.categories;
     const summary = {
       performance: scores.performance.score,
       accessibility: scores.accessibility.score,
       'best-practices': scores['best-practices'].score,
-      seo: scores.seo.score
+      seo: scores.seo.score,
     };
 
     console.log('Lighthouse scores:', summary);

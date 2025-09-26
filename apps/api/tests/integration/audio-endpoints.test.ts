@@ -10,7 +10,7 @@ async function resetAudioTables() {
     prisma.audioSession.deleteMany(),
     prisma.audioDeviceStatus.deleteMany(),
     prisma.audioTrack.deleteMany(),
-    prisma.audioSetting.deleteMany()
+    prisma.audioSetting.deleteMany(),
   ]);
 }
 
@@ -59,7 +59,7 @@ describe('Audio API endpoints', () => {
         name: 'Morning Playlist',
         loop: false,
         syncMode: 'synced',
-        tracks: [{ trackId, order: 0 }]
+        tracks: [{ trackId, order: 0 }],
       })
       .expect(201);
 

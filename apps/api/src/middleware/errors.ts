@@ -9,11 +9,11 @@ export const errorHandler: ErrorRequestHandler = (err, req, res, _next) => {
   if (!httpError) {
     if (err instanceof ZodError) {
       httpError = createHttpError(422, 'validation_failed', 'Request validation failed', {
-        details: err.flatten()
+        details: err.flatten(),
       });
     } else {
       httpError = createHttpError(500, 'internal_error', 'Unexpected error occurred', {
-        cause: err
+        cause: err,
       });
     }
   }
@@ -34,7 +34,7 @@ export const errorHandler: ErrorRequestHandler = (err, req, res, _next) => {
     code: httpError.code,
     message: httpError.message,
     hint: httpError.hint,
-    correlationId
+    correlationId,
   };
 
   logger.error({
@@ -46,8 +46,8 @@ export const errorHandler: ErrorRequestHandler = (err, req, res, _next) => {
     correlationId,
     error: {
       message: err instanceof Error ? err.message : String(err),
-      stack: err instanceof Error ? err.stack : undefined
-    }
+      stack: err instanceof Error ? err.stack : undefined,
+    },
   });
 
   res.status(httpError.status).json(payload);

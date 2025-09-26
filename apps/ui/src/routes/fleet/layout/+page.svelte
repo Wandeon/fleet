@@ -55,9 +55,7 @@
     <div class="space-y-6">
       <div class="text-sm text-gray-600 mb-4">
         Generated at:
-        {fleetLayout.generatedAt
-          ? new Date(fleetLayout.generatedAt).toLocaleString()
-          : 'Unknown'}
+        {fleetLayout.generatedAt ? new Date(fleetLayout.generatedAt).toLocaleString() : 'Unknown'}
       </div>
 
       {#if fleetLayout.modules && fleetLayout.modules.length > 0}

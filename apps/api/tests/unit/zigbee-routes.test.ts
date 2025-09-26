@@ -31,10 +31,7 @@ describe('Zigbee automation rules routes', () => {
   });
 
   it('lists rules from fallback fixture', async () => {
-    const response = await supertest(app)
-      .get('/zigbee/rules')
-      .set(AUTH_HEADER)
-      .expect(200);
+    const response = await supertest(app).get('/zigbee/rules').set(AUTH_HEADER).expect(200);
 
     expect(response.body).toHaveProperty('items');
     expect(response.body.items.length).toBeGreaterThan(0);
@@ -53,18 +50,18 @@ describe('Zigbee automation rules routes', () => {
         condition: {
           field: 'confidence',
           operator: 'gte',
-          value: 0.5
-        }
+          value: 0.5,
+        },
       },
       actions: [
         {
           type: 'device_command',
           deviceId: 'zig-test-light-01',
           command: 'turn_on',
-          payload: { brightness: 75 }
-        }
+          payload: { brightness: 75 },
+        },
       ],
-      tags: ['lab', 'lighting']
+      tags: ['lab', 'lighting'],
     };
 
     const created = await supertest(app)
@@ -75,7 +72,7 @@ describe('Zigbee automation rules routes', () => {
 
     expect(created.body).toMatchObject({
       name: 'Test motion automation',
-      enabled: true
+      enabled: true,
     });
 
     const ruleId = created.body.id as string;
@@ -85,14 +82,14 @@ describe('Zigbee automation rules routes', () => {
       .set(AUTH_HEADER)
       .send({
         name: 'Updated motion automation',
-        enabled: false
+        enabled: false,
       })
       .expect(200);
 
     expect(updated.body).toMatchObject({
       id: ruleId,
       name: 'Updated motion automation',
-      enabled: false
+      enabled: false,
     });
 
     const toggled = await supertest(app)
@@ -103,15 +100,9 @@ describe('Zigbee automation rules routes', () => {
 
     expect(toggled.body.enabled).toBe(true);
 
-    await supertest(app)
-      .delete(`/zigbee/rules/${ruleId}`)
-      .set(AUTH_HEADER)
-      .expect(204);
+    await supertest(app).delete(`/zigbee/rules/${ruleId}`).set(AUTH_HEADER).expect(204);
 
-    await supertest(app)
-      .get(`/zigbee/rules/${ruleId}`)
-      .set(AUTH_HEADER)
-      .expect(404);
+    await supertest(app).get(`/zigbee/rules/${ruleId}`).set(AUTH_HEADER).expect(404);
   });
 
   it('simulates a rule definition and returns evaluation metadata', async () => {
@@ -123,24 +114,24 @@ describe('Zigbee automation rules routes', () => {
           name: 'Simulated night escalation',
           trigger: {
             type: 'expression',
-            expression: "context.mode === 'night' && context.event.type === 'open'"
+            expression: "context.mode === 'night' && context.event.type === 'open'",
           },
           actions: [
             { type: 'delay', durationSeconds: 5 },
-            { type: 'notify', channel: 'slack', message: 'Night door opened' }
-          ]
+            { type: 'notify', channel: 'slack', message: 'Night door opened' },
+          ],
         },
         input: {
           context: { mode: 'night' },
-          event: { type: 'open' }
-        }
+          event: { type: 'open' },
+        },
       })
       .expect(200);
 
     expect(simulation.body).toMatchObject({
       matched: true,
       actions: expect.any(Array),
-      evaluation: expect.objectContaining({ triggerType: 'expression' })
+      evaluation: expect.objectContaining({ triggerType: 'expression' }),
     });
   });
 });

@@ -8,4 +8,3 @@ export type CameraEventClip = {
   durationSeconds: number | null;
   format: string | null;
 };
-
