@@ -152,13 +152,6 @@ export interface ZigbeeState {
 
 export type LogSeverity = 'debug' | 'info' | 'warning' | 'error' | 'critical';
 
-export interface CameraEventDetection {
-  id: string;
-  label: string;
-  confidence: number;
-  boundingBox?: { x: number; y: number; width: number; height: number };
-}
-
 export type CameraEventSeverity = 'info' | 'warning' | 'alert' | 'error';
 
 export interface CameraEvent {
@@ -170,7 +163,6 @@ export interface CameraEvent {
   clipUrl?: string | null;
   snapshotUrl?: string | null;
   acknowledged?: boolean;
-  detections?: CameraEventDetection[];
   tags?: string[];
 }
 

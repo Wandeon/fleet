@@ -749,7 +749,6 @@ const mockApiExtensions: MockApiExtensions = {
       timestamp: event.timestamp ?? nowIso(),
       acknowledged: false,
       tags: [],
-      detections: [],
       ...event
     };
     state.events.unshift(entry);

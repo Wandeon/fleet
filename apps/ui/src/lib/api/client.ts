@@ -46,7 +46,6 @@ export type {
   CameraClipResponse,
   CameraDevice,
   CameraEvent,
-  CameraEventDetection,
   CameraPreviewState,
   CameraSelectionRequest,
   CameraState,
