@@ -20,7 +20,7 @@ import {
   listSessions,
   createPlaybackSession,
   recordSessionSync,
-  registerLibraryUpload
+  registerLibraryUpload,
 } from '../services/audio.js';
 import {
   audioPlaybackRequestSchema,
@@ -32,7 +32,7 @@ import {
   audioPlaylistReorderSchema,
   audioPlaybackSessionSchema,
   audioSessionSyncSchema,
-  audioLibraryUploadRegistrationSchema
+  audioLibraryUploadRegistrationSchema,
 } from '../util/schema/audio.js';
 import { createHttpError } from '../util/errors.js';
 
@@ -61,7 +61,7 @@ router.post('/library', upload.single('file'), async (req, res, next) => {
       artist: z.string().optional(),
       tags: z.string().optional(),
       durationSeconds: z.coerce.number().min(0).optional(),
-      format: z.string().min(1).optional()
+      format: z.string().min(1).optional(),
     });
     const payload = schema.parse(req.body ?? {});
     const track = await createLibraryTrack({
@@ -70,9 +70,14 @@ router.post('/library', upload.single('file'), async (req, res, next) => {
       durationSeconds: payload.durationSeconds ?? Number((file.size / 128000).toFixed(2)),
       format: payload.format ?? file.mimetype ?? 'application/octet-stream',
       sizeBytes: file.size,
-      tags: payload.tags ? payload.tags.split(',').map((value) => value.trim()).filter(Boolean) : [],
+      tags: payload.tags
+        ? payload.tags
+            .split(',')
+            .map((value) => value.trim())
+            .filter(Boolean)
+        : [],
       buffer: file.buffer,
-      filename: file.originalname
+      filename: file.originalname,
     });
     res.status(201).json(track);
   } catch (error) {

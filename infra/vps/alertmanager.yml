@@ -12,8 +12,8 @@ receivers:
   - name: slack-fleet
     slack_configs:
       - api_url_file: /etc/alertmanager/slack_webhook.url
-        channel: "#ops-alerts"
-        icon_emoji: ":rotating_light:"
+        channel: '#ops-alerts'
+        icon_emoji: ':rotating_light:'
         username: Fleet Alertmanager
         send_resolved: true
         link_names: true

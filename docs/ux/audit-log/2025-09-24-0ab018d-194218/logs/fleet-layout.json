@@ -7,14 +7,8 @@
   "timestamp": "2025-09-24T17:43:52.415Z",
   "title": "Head Spa Control – Error",
   "headings": {
-    "h1": [
-      "Head Spa Control",
-      "Something went wrong"
-    ],
-    "h2": [
-      "Recent errors",
-      "Event feed"
-    ]
+    "h1": ["Head Spa Control", "Something went wrong"],
+    "h2": ["Recent errors", "Event feed"]
   },
   "forms": [],
   "controls": [

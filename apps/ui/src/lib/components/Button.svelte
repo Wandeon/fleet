@@ -14,7 +14,7 @@
 
 <button
   {...restProps}
-  type={type}
+  {type}
   class={`button ${variant} ${loading ? 'is-loading' : ''} ${fullWidth ? 'full' : ''} ${className}`.trim()}
   disabled={disabled || loading}
   aria-busy={loading}
@@ -39,7 +39,9 @@
     font-weight: 600;
     letter-spacing: 0.01em;
     cursor: pointer;
-    transition: transform var(--transition-fast), box-shadow var(--transition-fast),
+    transition:
+      transform var(--transition-fast),
+      box-shadow var(--transition-fast),
       background var(--transition-fast);
     background: var(--color-panel);
     color: var(--color-text);

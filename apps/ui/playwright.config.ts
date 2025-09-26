@@ -6,7 +6,8 @@ export default defineConfig({
   retries: process.env.CI ? 2 : 0,
   use: {
     baseURL: 'http://127.0.0.1:5173',
-    trace: 'on-first-retry'
+    trace: 'on-first-retry',
+    headless: true,
   },
   webServer: {
     command: 'npm run dev -- --host --port 5173',
@@ -15,17 +16,17 @@ export default defineConfig({
     stdout: 'ignore',
     stderr: 'pipe',
     env: {
-      VITE_USE_MOCKS: '0'
-    }
+      VITE_USE_MOCKS: '1',
+    },
   },
   projects: [
     {
       name: 'chromium',
-      use: { ...devices['Desktop Chrome'] }
+      use: { ...devices['Desktop Chrome'] },
     },
     {
       name: 'firefox',
-      use: { ...devices['Desktop Firefox'] }
-    }
-  ]
+      use: { ...devices['Desktop Firefox'] },
+    },
+  ],
 });

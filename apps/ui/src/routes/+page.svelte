@@ -29,7 +29,12 @@
 </script>
 
 <div class="modules">
-  <AudioModule data={data.audio.data} state={audioPanelState} variant="compact" onRetry={refreshDashboard} />
+  <AudioModule
+    data={data.audio.data}
+    state={audioPanelState}
+    variant="compact"
+    onRetry={refreshDashboard}
+  />
   {#if featureFlags.video}
     <VideoModule data={data.video.data} state={videoPanelState} onRetry={refreshDashboard} />
   {/if}

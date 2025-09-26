@@ -8,7 +8,7 @@ describe('logExport service', () => {
         deviceId: 'cam-1',
         level: 'error',
         start: new Date('2024-04-01T10:00:00Z'),
-        end: new Date('2024-04-01T11:00:00Z')
+        end: new Date('2024-04-01T11:00:00Z'),
       },
       'csv',
       'corr-1234'

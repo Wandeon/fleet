@@ -19,6 +19,7 @@
 ```
 
 **Notes**
+
 - Error blocks use high-contrast banner with iconography and provide immediate recovery actions.
 - Device retry is prioritized; health panel links to status page for transparency.
 - Logs area explains absence of data and keeps troubleshooting links visible.

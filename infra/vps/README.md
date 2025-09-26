@@ -18,25 +18,25 @@ cp monitoring.env.example monitoring.env
 
 Run an Icecast server to accept audio streams from Raspberry Pi audio clients.
 
-1) Create env file from the example and set strong passwords:
+1. Create env file from the example and set strong passwords:
 
 ```bash
 cp infra/vps/icecast.env.example infra/vps/icecast.env
 # edit infra/vps/icecast.env
 ```
 
-2) Start Icecast on the VPS:
+2. Start Icecast on the VPS:
 
 ```bash
 docker compose -f infra/vps/compose.icecast.yml --env-file infra/vps/icecast.env up -d
 ```
 
-3) Verify:
+3. Verify:
 
 - Visit `http://<vps-host>:8000` to see the Icecast status page.
 - When a Pi connects, a mount (e.g., `/pi-audio-01.opus`) appears.
 
-4) Verify effective config inside container (passwords match env):
+4. Verify effective config inside container (passwords match env):
 
 ```bash
 docker exec icecast sh -lc "grep -o '<source-password>.*</source-password>' /etc/icecast.xml || true"
@@ -90,7 +90,6 @@ Health checks:
 - Camera control service: `GET /healthz` on :8083 (also probes HLS and RTSP)
 - Blackbox exporter (`infra/vps/blackbox.yml`) now ships with a `http_any_2xx_3xx_4xx_ok` module to tolerate the rare endpoints that still answer with 401/404; wherever possible, keep `/healthz` public so probes receive a clean 200.
 
-
 ### Alerting & Slack notifications
 
 1. Create a Slack Incoming Webhook that posts into your operations channel.
@@ -116,7 +115,7 @@ Health checks:
 
 If you prefer to access a Pi’s control API via the VPS hostname, set up an Nginx proxy (single target example):
 
-1) Create `infra/vps/audio-proxy.conf` from the example below and set your Pi’s Tailscale IP.
+1. Create `infra/vps/audio-proxy.conf` from the example below and set your Pi’s Tailscale IP.
 
 ```nginx
 server {
@@ -129,7 +128,7 @@ server {
 }
 ```
 
-2) Run a simple proxy container:
+2. Run a simple proxy container:
 
 ```bash
 docker run -d --name audio-proxy --restart unless-stopped -p 8082:8082 \

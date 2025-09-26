@@ -5,6 +5,7 @@ This document enumerates the primary operator goals for the fleet control surfac
 ## Audio
 
 ### Story: Play a single audio file on a selected device
+
 - **Goal:** Play a specific audio asset on an individual device on demand.
 - **Actor:** Fleet operator with playback permissions.
 - **Preconditions:** Operator is authenticated, device is online and associated with the account, audio file exists in the library.
@@ -16,6 +17,7 @@ This document enumerates the primary operator goals for the fleet control surfac
 - **D1 Notes:** Seek, pause, resume, stop, and master volume controls all return refreshed snapshots so the tile stays in sync with backend telemetry.
 
 ### Story: Play different tracks on two audio Pis
+
 - **Goal:** Stage unique tracks on multiple audio devices without conflict.
 - **Actor:** Operations specialist orchestrating zone-specific music.
 - **Preconditions:** Both devices are online; required files uploaded; operator has zone-level permissions.
@@ -27,6 +29,7 @@ This document enumerates the primary operator goals for the fleet control surfac
 - **D1 Notes:** The orchestrator keeps device selections sticky, supports resume/loop toggles, and surfaces toast feedback from the D1 API.
 
 ### Story: Create a playlist and play it across multiple devices (same track or different)
+
 - **Goal:** Arrange a playlist and deploy it across multiple audio endpoints with optional sync.
 - **Actor:** Audio curator.
 - **Preconditions:** Library populated, devices online, operator granted playlist management rights.
@@ -38,6 +41,7 @@ This document enumerates the primary operator goals for the fleet control surfac
 - **D1 Notes:** Operators can deploy playlists across cohorts with loop/resume controls, and sync group badges render on device tiles for quick validation.
 
 ### Story: Sync-check and drift measurement
+
 - **Goal:** Verify synchronization state and correct drift across the fleet.
 - **Actor:** Reliability engineer.
 - **Preconditions:** Sync-capable devices online and part of group playback session.
@@ -50,6 +54,7 @@ This document enumerates the primary operator goals for the fleet control surfac
 - **D2 Notes:** The UI now records drift reports through `/ui/audio/playback/sessions/{sessionId}/sync`, keeping the session list (`/ui/audio/playback/sessions`) fresh without reloading.
 
 ### Story: Manage library assets
+
 - **Goal:** Maintain audio assets and metadata for deployment.
 - **Actor:** Content manager.
 - **Preconditions:** Operator authenticated with library management role.
@@ -64,6 +69,7 @@ This document enumerates the primary operator goals for the fleet control surfac
 ## Video
 
 ### Story: Stream a live video feed to a control station
+
 - **Goal:** View real-time feed from a selected video device with minimal latency.
 - **Actor:** Security operator.
 - **Preconditions:** Device registered with streaming endpoint, operator on secure network segment, video codecs supported by browser.
@@ -73,6 +79,7 @@ This document enumerates the primary operator goals for the fleet control surfac
 - **Security Considerations:** Enforce TLS, tokenized stream URLs, hide stream URLs from DOM inspection where possible.
 
 ### Story: Review recorded footage with timeline scrubbing
+
 - **Goal:** Investigate recorded video events with precise timeline control.
 - **Actor:** Incident responder.
 - **Preconditions:** Recording retention available for device, operator has incident review permissions.
@@ -85,6 +92,7 @@ This document enumerates the primary operator goals for the fleet control surfac
 ## Zigbee
 
 ### Story: Commission a new Zigbee sensor
+
 - **Goal:** Pair a new Zigbee sensor with the fleet hub and verify telemetry.
 - **Actor:** Field technician.
 - **Preconditions:** Technician on-site with pairing code; hub online in commissioning mode.
@@ -94,6 +102,7 @@ This document enumerates the primary operator goals for the fleet control surfac
 - **Security Considerations:** Rotate pairing keys post-onboarding; limit commissioning rights; record device provenance.
 
 ### Story: Configure Zigbee automation rule
+
 - **Goal:** Define a rule linking sensor events to actuator responses.
 - **Actor:** Automation engineer.
 - **Preconditions:** Relevant sensors/actuators online; user has automation edit rights.
@@ -107,6 +116,7 @@ This document enumerates the primary operator goals for the fleet control surfac
 ## Camera (AI)
 
 ### Story: View last 24h AI camera detections and open associated video
+
 - **Goal:** Triage camera events and inspect associated video evidence.
 - **Actor:** Security analyst.
 - **Preconditions:** AI detections generated and stored; user has camera review permissions.
@@ -117,6 +127,7 @@ This document enumerates the primary operator goals for the fleet control surfac
 - **D3 Notes:** Operators query `/camera/events` with correlation IDs for filtered feeds and fetch detail via `/camera/events/{eventId}` to retrieve clip metadata and AI context.
 
 ### Story: Configure night mode escalation
+
 - **Goal:** Adjust detection handling during night mode windows.
 - **Actor:** Security operations lead.
 - **Preconditions:** Night mode schedules defined; integrations (Slack, email) configured.
@@ -126,6 +137,7 @@ This document enumerates the primary operator goals for the fleet control surfac
 - **Security Considerations:** Secure webhooks with signatures; restrict access to escalation settings; log acknowledgements.
 
 ### Story: Acknowledge & archive events
+
 - **Goal:** Confirm review of events and remove them from active queue.
 - **Actor:** Monitoring specialist.
 - **Preconditions:** Event feed accessible; operator has acknowledgement rights.
@@ -137,6 +149,7 @@ This document enumerates the primary operator goals for the fleet control surfac
 ## Fleet Management
 
 ### Story: View fleet health dashboard
+
 - **Goal:** Understand overall device status at a glance.
 - **Actor:** Fleet manager.
 - **Preconditions:** Telemetry aggregator operational; operator has dashboard access.
@@ -146,6 +159,7 @@ This document enumerates the primary operator goals for the fleet control surfac
 - **Security Considerations:** Restrict sensitive metadata; enforce least privilege on alert acknowledgements.
 
 ### Story: Acknowledge device offline and requeue retry
+
 - **Goal:** Track incident response for offline devices and schedule reconnect attempts.
 - **Actor:** Support engineer.
 - **Preconditions:** Device flagged offline; operator in incident response role.
@@ -155,6 +169,7 @@ This document enumerates the primary operator goals for the fleet control surfac
 - **Security Considerations:** Prevent unauthorized retry scheduling; log acknowledgements and changes.
 
 ### Story: Deploy firmware update to cohort
+
 - **Goal:** Roll out firmware updates safely to selected devices.
 - **Actor:** Release engineer.
 - **Preconditions:** Firmware artifact uploaded; devices meet prerequisites; maintenance window set.
@@ -166,6 +181,7 @@ This document enumerates the primary operator goals for the fleet control surfac
 ## Logs
 
 ### Story: Monitor real-time logs with filters
+
 - **Goal:** Observe live log stream with the ability to isolate noise.
 - **Actor:** Support engineer.
 - **Preconditions:** Log ingestion service connected; operator has log viewing permissions.
@@ -175,6 +191,7 @@ This document enumerates the primary operator goals for the fleet control surfac
 - **Security Considerations:** Mask sensitive fields; respect data retention policies; restrict export.
 
 ### Story: Export filtered logs for audit
+
 - **Goal:** Provide auditors with scoped log data.
 - **Actor:** Compliance officer.
 - **Preconditions:** Saved filters defined; export permissions granted.
@@ -187,6 +204,7 @@ This document enumerates the primary operator goals for the fleet control surfac
 ## Settings
 
 ### Story: Manage device pairing and network info
+
 - **Goal:** Configure device connectivity parameters.
 - **Actor:** Network administrator.
 - **Preconditions:** Operator authenticated with admin role; devices reachable.
@@ -196,6 +214,7 @@ This document enumerates the primary operator goals for the fleet control surfac
 - **Security Considerations:** Mask sensitive fields; enforce confirmation dialogs; audit network changes.
 
 ### Story: Configure user access and roles
+
 - **Goal:** Manage operator permissions for the platform.
 - **Actor:** System administrator.
 - **Preconditions:** Admin authenticated; role definitions available.
@@ -203,4 +222,3 @@ This document enumerates the primary operator goals for the fleet control surfac
 - **Success Criteria:** Permission changes propagate immediately; invitations send email with activation link; `/settings/operators` GET shows updated roster; `/settings/operators/{id}` PUT persists role/status edits.
 - **Failure Modes:** Duplicate invitations, role conflicts, directory sync failures. UI surfaces errors and suggests corrective actions.
 - **Security Considerations:** Enforce least privilege; require MFA for role elevation; track changes in immutable audit log and persist night mode escalations via `/settings/security` patches.
-

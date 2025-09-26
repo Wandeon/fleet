@@ -6,11 +6,11 @@ describe('correlationIdMiddleware', () => {
   const createContext = (incoming?: string) => {
     const req = {
       headers: incoming ? { 'x-correlation-id': incoming } : {},
-      correlationId: undefined
+      correlationId: undefined,
     } as unknown as Request;
     const res = {
       locals: {},
-      setHeader: vi.fn()
+      setHeader: vi.fn(),
     } as unknown as Response;
     return { req, res };
   };

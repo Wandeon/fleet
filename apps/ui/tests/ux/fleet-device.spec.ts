@@ -18,10 +18,7 @@ test.describe('Fleet device detail', () => {
 
     const logLink = page.locator('a.link');
     await expect(logLink).toBeVisible();
-    await Promise.all([
-      page.waitForURL(/\/logs/),
-      logLink.click()
-    ]);
+    await Promise.all([page.waitForURL(/\/logs/), logLink.click()]);
     await expect(page).toHaveURL(/\/logs/);
   });
 });

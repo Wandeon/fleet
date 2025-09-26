@@ -3,11 +3,13 @@
 This briefing walks a new frontend or full-stack developer through the moving parts of the fleet platform so they can confidently ship UI and API changes without breaking device orchestration.
 
 ## 1. How the fleet is managed
+
 - **GitOps source of truth.** Every Raspberry Pi runs the `agent/role-agent.sh` convergence script on a systemd timer. It pulls `main`, merges the `baseline/` stack with the role declared in `inventory/devices.yaml`, applies host env overrides from `/etc/fleet/agent.env`, and keeps role services running.【F:README.md†L1-L139】【F:agent/role-agent.sh†L4-L200】
 - **Device registry.** `inventory/device-interfaces.yaml` provides display names, control endpoints, Prometheus targets, and UI-friendly operation metadata. The API seeds Prisma’s `Device` table from this file so the UI sees a consistent schema.【F:README.md†L7-L160】【F:api/src/scripts/seed-from-yaml.ts†L6-L126】
 - **Baseline services everywhere.** Netdata and Promtail are composed on every host, exporting metrics and logs centrally; configure `LOKI_ENDPOINT`, `LOG_SOURCE_HOST`, and related labels in `/etc/fleet/agent.env` before convergence.【F:baseline/docker-compose.yml†L1-L59】【F:docs/runbooks/logging.md†L5-L82】
 
 ## 2. Device catalog & capabilities
+
 - **Inventory overview.** Four devices are currently declared: two audio players, one HDMI/Zigbee controller, and one camera. `logs: true` with `loki_source` enables centralized log discovery for each host.【F:inventory/devices.yaml†L1-L20】
 - **Audio players (`pi-audio-01`, `pi-audio-02`).** Control API on `:8081` with bearer tokens (`AUDIO_PI_AUDIO_0*_TOKEN`). Operations include health/status probes, play (stream/file/stop), and a 0–2 volume slider. Prometheus scrapes `/metrics` on the same port.【F:inventory/device-interfaces.yaml†L2-L165】【F:docs/runbooks/audio.md†L66-L100】
 - **HDMI media & Zigbee hub (`pi-video-01`).** FastAPI control service on `:8082` with `/healthz`, `/status`, `/metrics`, playback controls, and TV CEC operations; Zigbee2MQTT UI lives on `:8084`. Bearer token comes from `HDMI_PI_VIDEO_01_TOKEN`. Prometheus job name `media-control` scrapes this host.【F:inventory/device-interfaces.yaml†L166-L245】【F:roles/hdmi-media/README.md†L1-L90】
@@ -15,38 +17,47 @@ This briefing walks a new frontend or full-stack developer through the moving pa
 - **UI metadata.** Operation definitions include `ui.group`, button/slider types, and slider `body_key` so the frontend can render without hand-coded layouts. Keep registry IDs stable; `scripts/validate-device-registry.mjs` flags duplicates or missing Prometheus targets.【F:inventory/device-interfaces.yaml†L28-L165】【F:scripts/validate-device-registry.mjs†L18-L102】
 
 ## 3. Express API & worker
+
 ### 3.1 Bootstrapping & configuration
+
 - Install dependencies, then run `npm run migrate`, `npm run generate`, and `npm run seed:yaml` to sync Prisma with the YAML registry. The dev server runs on port 3005 (`npm run dev`). Production compose services run the same sequence before `npm run start` / `npm run worker` and set `API_BEARER` for auth.【F:apps/api/package.json†L9-L17】【F:infra/vps/compose.fleet.yml†L1-L37】
 - `DEVICE_YAML` defaults to the repository inventory; override via env if you need a staged config. Tokens referenced by `token_env` must exist in the API container environment so proxy requests can be authenticated.【F:api/src/scripts/seed-from-yaml.ts†L52-L125】
 
 ### 3.2 HTTP surface today
+
 - `/api/devices`, `/api/device_states`, `/api/devices/:id/state`, `/api/device_events`, `/api/jobs/:id`, and `/api/logs` provide the REST data the UI consumes. All `/api/*` routes require the bearer token when `API_BEARER` is set.【F:api/src/http/routes.ts†L9-L110】
 - Only three command endpoints exist: `/api/video/devices/:id/tv/power_on`, `/power_off`, and `/input`, each enqueuing a `tv.*` job. There are no audio or camera operation proxies yet; callers must add new routes before wiring UI controls.【F:api/src/http/routes.ts†L93-L106】
 - `/stream` (root-level) exposes Server-Sent Events; `/metrics` exports Prometheus gauges and counters. When `API_BEARER` is configured, both the `/api` router and `/stream` enforce it (query param for SSE clients).【F:api/src/index.ts†L1-L24】【F:api/src/http/util-auth.ts†L1-L12】【F:api/src/lib/metrics.ts†L1-L33】
 
 ### 3.3 Job queue & worker loop
+
 - `enqueueJob` persists a pending row, emits `command.accepted` events, and pushes an SSE `job` event so the UI can show optimistic feedback.【F:api/src/services/jobs.ts†L1-L25】
 - The worker polls pending jobs, resolves device base URLs and bearer tokens, and currently supports only `tv.power_on`, `tv.power_off`, and `tv.input`; anything else throws `unsupported command`. Add branches here when you introduce new operations (audio volume, camera probe, etc.).【F:api/src/workers/executor.ts†L7-L54】
 - `updateJob` records status transitions, appends device events, and emits SSE job updates; metrics counters track success/failure and durations.【F:api/src/services/jobs.ts†L27-L78】【F:api/src/lib/metrics.ts†L7-L33】
 
 ### 3.4 Device polling & persistence
+
 - `pollOnce` iterates managed devices (`managed: true` from the seed), resolves `/healthz` (with `/health` fallback) and `/status`, merges snapshots, and writes a new `DeviceState` row with `poller` metadata. Successful polls refresh `lastSeen` and raise `fleet_device_online` gauges.【F:api/src/workers/poller.ts†L103-L148】【F:api/src/lib/device-address.ts†L11-L82】【F:api/src/services/devices.ts†L1-L36】【F:api/src/lib/metrics.ts†L15-L20】
 - Prisma schema captures `Device`, `DeviceState`, `DeviceEvent`, and `Job` tables, providing append-only history for debugging and audit trails.【F:api/prisma/schema.prisma†L10-L64】
 
 ### 3.5 Logs facade
+
 - The API reads `inventory/devices.yaml` to build Loki source descriptors (`All Devices`, individual hosts, optional VPS entry) and constructs label selectors for `host` plus any custom labels. Results are normalized for severity, include optional Loki stats, and stream back to the UI.【F:api/src/lib/inventory.ts†L1-L139】【F:api/src/services/logs.ts†L1-L200】【F:api/src/services/logs.ts†L200-L320】
 
 ## 4. Logging, monitoring, and reverse proxy
+
 - **Device shipping.** Promtail runs on every Pi with configurable Loki endpoint, host/environment/site labels, and journal/Docker scrapes. Use the logging runbook to ensure `/etc/fleet/agent.env` has the right sink before convergence.【F:baseline/docker-compose.yml†L27-L54】【F:docs/runbooks/logging.md†L12-L82】
 - **Central stack.** `infra/vps/compose.prom-grafana-blackbox.yml` + `infra/vps/compose.promtail.yml` start Prometheus, Grafana, Loki, Alertmanager, and a promtail collector. Targets are generated from the device registry; re-run `scripts/validate-device-registry.mjs` and redeploy when inventory changes.【F:infra/vps/README.md†L50-L113】【F:scripts/validate-device-registry.mjs†L18-L102】
 - **Reverse proxy.** The `fleet-ui` and `fleet-api` containers are published through Caddy at `log.beautyheadspabymartina.hr`, forwarding `/api`, `/metrics`, and `/stream` to port 3005 and everything else to the SvelteKit Node adapter on port 3000.【F:infra/vps/compose.fleet.yml†L1-L48】【F:infra/vps/caddy.fleet.Caddyfile†L1-L19】
 
 ## 5. SvelteKit UI overview
+
 - **Global SSE connection.** `+layout.svelte` opens an `EventSource` to `/stream` on mount, updating the `deviceStates` and `jobs` stores in `lib/stores/deviceStates.ts`. The `$lib/api/client.ts` helper reads `API_BASE_URL`/`API_BEARER` and attaches the bearer token to the SSE query string when required.【F:apps/ui/src/routes/+layout.svelte†L1-L39】【F:apps/ui/src/lib/stores/deviceStates.ts†L1-L18】【F:apps/ui/src/lib/api/client.ts†L150-L216】
 - **Operations page status.** `/operations` currently filters for `kind === 'video'` devices and drives only the TV power/input endpoints, persisting selection and last source in `localStorage`. Audio and camera operations from the registry are ignored until new API routes exist.【F:apps/ui/src/routes/operations/+page.svelte†L1-L232】
 - **Logs console.** `LogConsole.svelte` polls `/api/logs` every 5 seconds by default, renders source chips, severity badges, pause/clear/download controls, and supports multiline expansion; no extra polishing is required—the component is already feature-complete.【F:apps/ui/src/lib/components/LogConsole.svelte†L1-L323】
 
 ## 6. Development workflow
+
 - **API:**
   1. `cd api && npm install`
   2. `npm run migrate` → `npm run generate` → `npm run seed:yaml`
@@ -56,11 +67,13 @@ This briefing walks a new frontend or full-stack developer through the moving pa
 - **Device smoke test:** Use `scripts/acceptance.sh` with `SSH_USER`, `AUDIOCTL_TOKEN`, and optional `ICECAST_URL` to verify `/healthz`, `/status`, ALSA devices, and stream reachability for audio Pis.【F:scripts/acceptance.sh†L1-L77】
 
 ## 7. Hardware & role runbooks
+
 - Audio hardware prep, fallback uploads, and control API usage live in `docs/runbooks/audio.md`. Follow these steps when adding playback hosts or debugging output issues.【F:docs/runbooks/audio.md†L1-L109】
 - HDMI/Zigbee details—including environment variables, Zigbee recovery workflow, and API reference—are documented in `roles/hdmi-media/README.md`. Use it when wiring Zigbee dashboards or TV controls.【F:roles/hdmi-media/README.md†L1-L198】
 - Camera streaming requirements, control endpoints, and troubleshooting steps are documented in `roles/camera/README.md` for RTSP/HLS ingest debugging.【F:roles/camera/README.md†L1-L53】
 
 ## 8. Current gaps & priorities for UI/API work
+
 1. **Audio & camera command proxies.** The Express router exposes only video TV endpoints; create `/api/audio/...` and `/api/camera/...` routes (plus worker branches) that honor the operation definitions in the registry.【F:api/src/http/routes.ts†L93-L106】【F:api/src/workers/executor.ts†L7-L54】
 2. **Operations grid generalization.** `/operations` ignores non-video devices. Adapt it to render audio sliders/buttons and camera probes using the seeded `capabilities.operations` data once the backend exposes matching endpoints.【F:apps/ui/src/routes/operations/+page.svelte†L41-L188】
 3. **API README refresh.** Documentation still references `npm run seed:devices` and endpoints that are not implemented; update it after adding real routes so new contributors do not rely on stale instructions.【F:api/README.md†L5-L98】【F:api/package.json†L9-L17】

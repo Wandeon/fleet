@@ -38,7 +38,7 @@ export function createApp() {
         }
         callback(null, false);
       },
-      credentials: true
+      credentials: true,
     })
   );
 

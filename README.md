@@ -50,6 +50,7 @@ To add more devices, insert hostnames under `devices:` and set their roles.
 ## Roles
 
 - Baseline (all devices): `baseline/docker-compose.yml:1`
+
   - Includes Netdata for local monitoring and Promtail for centralized logging to Loki.
   - Installs and maintains Claude Code CLI plus Slack/Playwright MCP servers (see `docs/runbooks/claude-code.md`).
 
@@ -96,7 +97,7 @@ To add more devices, insert hostnames under `devices:` and set their roles.
   - Audio: `vps/targets-audio.json:1`
   - HDMI/Zigbee: `vps/targets-hdmi-media.json:1`
   - Camera: `vps/targets-camera.json:1`
-  These files are generated from the device interface registry—update `inventory/device-interfaces.yaml:1` and run the validation script.
+    These files are generated from the device interface registry—update `inventory/device-interfaces.yaml:1` and run the validation script.
 - Dashboard: import `vps/grafana-dashboard-audio.json:1` in Grafana.
 - Unified logging: `baseline/promtail` ships systemd journal + Docker logs from every Pi to Loki. Configure the Loki push URL by setting `LOKI_ENDPOINT` (and optional `LOG_SITE`) in `/etc/fleet/agent.env`; the agent exports those variables before composing. Mark devices with `logs: true` and `loki_source: <hostname>` in `inventory/devices.yaml` so the API/UI can surface host filters automatically.
 - Grafana auto-loads a Loki data source (`vps/grafana/provisioning/datasources/loki.yml`). Use Grafana → Explore → Loki to query cross-fleet logs or build dashboards that mix metrics with log panels.
@@ -119,16 +120,16 @@ To add more devices, insert hostnames under `devices:` and set their roles.
 
 ### GitHub Actions secrets
 
-| Secret | Required | Purpose |
-| --- | :---: | --- |
-| `GHCR_PAT` | ✅ | Personal access token with `write:packages` to push images to `ghcr.io`. |
-| `VPS_HOST` | ✅ | Hostname or IP of the Debian VPS that hosts `/opt/fleet`. |
-| `VPS_USER` | ✅ | SSH user with permission to manage Docker on the VPS. |
-| `VPS_SSH_KEY` | ✅ | Private key for the SSH user (PEM/ed25519). |
-| `ACCEPTANCE_HOSTS` | ⛔ optional | Space-separated Raspberry Pi hostnames for post-deploy smoke tests (defaults to `pi-audio-01 pi-audio-02`). |
-| `ACCEPTANCE_SSH_USER` | ⛔ optional | SSH user for acceptance checks (defaults to `admin`). |
-| `ACCEPTANCE_ICECAST` | ⛔ optional | Icecast mount URL used during acceptance checks (defaults to `http://localhost:8000/mount`). |
-| `ACCEPTANCE_AUDIOCTL_TOKEN` | ⛔ optional | Bearer token for authenticated acceptance checks (omit if unauthenticated). |
+| Secret                      |  Required   | Purpose                                                                                                     |
+| --------------------------- | :---------: | ----------------------------------------------------------------------------------------------------------- |
+| `GHCR_PAT`                  |     ✅      | Personal access token with `write:packages` to push images to `ghcr.io`.                                    |
+| `VPS_HOST`                  |     ✅      | Hostname or IP of the Debian VPS that hosts `/opt/fleet`.                                                   |
+| `VPS_USER`                  |     ✅      | SSH user with permission to manage Docker on the VPS.                                                       |
+| `VPS_SSH_KEY`               |     ✅      | Private key for the SSH user (PEM/ed25519).                                                                 |
+| `ACCEPTANCE_HOSTS`          | ⛔ optional | Space-separated Raspberry Pi hostnames for post-deploy smoke tests (defaults to `pi-audio-01 pi-audio-02`). |
+| `ACCEPTANCE_SSH_USER`       | ⛔ optional | SSH user for acceptance checks (defaults to `admin`).                                                       |
+| `ACCEPTANCE_ICECAST`        | ⛔ optional | Icecast mount URL used during acceptance checks (defaults to `http://localhost:8000/mount`).                |
+| `ACCEPTANCE_AUDIOCTL_TOKEN` | ⛔ optional | Bearer token for authenticated acceptance checks (omit if unauthenticated).                                 |
 
 The deploy workflow writes an environment file to `/tmp/fleet-deploy.env` on the VPS containing the GHCR image tags and acceptance settings; it is consumed by both deploy and rollback scripts. The `.deploy/` directory is excluded from `rsync` so historical state survives subsequent releases.
 
@@ -146,6 +147,7 @@ The deploy workflow writes an environment file to `/tmp/fleet-deploy.env` on the
 - Monitoring: create `vps/targets-audio.json` and restart Prometheus service from the compose stack.
 
 Tips:
+
 - Containers are project-keyed by commit (no fixed `container_name`). Use filters to inspect:
   - `docker compose ls` and `docker ps | grep audio-`
 - Control API health endpoint: `curl -fsS http://<pi>:8081/healthz` (container has an internal healthcheck too).
@@ -169,6 +171,7 @@ Tips:
 ---
 
 Change history and design notes live under `docs/changelog.md:1` and `docs/adr/:1`.
+
 ## Unified UI & Hardening
 
 - Reverse proxy (NGINX) with CSP nonce, HSTS preload, WS upgrades: see `vps/nginx.conf`.
@@ -188,6 +191,7 @@ Change history and design notes live under `docs/changelog.md:1` and `docs/adr/:
 - See `docs/specs/device-interfaces.md:1` for the schema, examples, and onboarding steps.
 
 ### Ops Commands
+
 ```bash
 cd /opt/app
 docker compose up -d --build

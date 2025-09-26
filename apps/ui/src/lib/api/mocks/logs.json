@@ -1,9 +1,32 @@
 {
   "sources": [
-    { "id": "all", "label": "All Devices", "kind": "group", "description": "Combined fleet log stream" },
-    { "id": "pi-audio-01", "label": "Audio Pi 01", "kind": "device", "module": "audio", "deviceId": "pi-audio-01" },
-    { "id": "pi-audio-02", "label": "Audio Pi 02", "kind": "device", "module": "audio", "deviceId": "pi-audio-02" },
-    { "id": "pi-video-01", "label": "Video Pi 01", "kind": "device", "module": "video", "deviceId": "pi-video-01" },
+    {
+      "id": "all",
+      "label": "All Devices",
+      "kind": "group",
+      "description": "Combined fleet log stream"
+    },
+    {
+      "id": "pi-audio-01",
+      "label": "Audio Pi 01",
+      "kind": "device",
+      "module": "audio",
+      "deviceId": "pi-audio-01"
+    },
+    {
+      "id": "pi-audio-02",
+      "label": "Audio Pi 02",
+      "kind": "device",
+      "module": "audio",
+      "deviceId": "pi-audio-02"
+    },
+    {
+      "id": "pi-video-01",
+      "label": "Video Pi 01",
+      "kind": "device",
+      "module": "video",
+      "deviceId": "pi-video-01"
+    },
     { "id": "control-plane", "label": "Control Plane", "kind": "service", "module": "system" }
   ],
   "entries": [

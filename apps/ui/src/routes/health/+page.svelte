@@ -9,11 +9,15 @@
   const health = data.layout.health;
   const errors = data.layout.errors;
   const events = data.layout.events;
-  const isRouteLink = (href: NonNullable<HealthTile['link']>['href']): href is RoutePath => href.startsWith('/');
+  const isRouteLink = (href: NonNullable<HealthTile['link']>['href']): href is RoutePath =>
+    href.startsWith('/');
 </script>
 
 <div class="health-page">
-  <Card title="Subsystem uptime" subtitle={`Last updated ${new Date(health.updatedAt).toLocaleString()}`}>
+  <Card
+    title="Subsystem uptime"
+    subtitle={`Last updated ${new Date(health.updatedAt).toLocaleString()}`}
+  >
     <div class="grid">
       {#each health.metrics as metric (metric.id)}
         <div class="tile">

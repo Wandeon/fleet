@@ -20,7 +20,8 @@ function readBodyPreview(response: Response): Promise<unknown | null> {
 export const handle: Handle = async ({ event, resolve }) => {
   const headerRequestId =
     event.request.headers.get('x-request-id') ?? event.request.headers.get('x-correlation-id');
-  const requestId = headerRequestId && headerRequestId.trim() ? headerRequestId.trim() : crypto.randomUUID();
+  const requestId =
+    headerRequestId && headerRequestId.trim() ? headerRequestId.trim() : crypto.randomUUID();
   event.locals.requestId = requestId;
 
   const response = await resolve(event);
@@ -53,4 +54,3 @@ export const handleFetch: HandleFetch = async ({ event, request, fetch }) => {
 
   return response;
 };
-

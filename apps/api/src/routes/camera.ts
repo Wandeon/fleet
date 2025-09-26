@@ -16,11 +16,11 @@ router.get('/', (req, res) => {
     timestamp: new Date().toISOString(),
     total: devices.length,
     online: 0,
-    devices: devices.map(device => ({
+    devices: devices.map((device) => ({
       id: device.id,
       name: device.name,
-      status: 'offline'
-    }))
+      status: 'offline',
+    })),
   });
 });
 
@@ -35,13 +35,13 @@ router.get('/streams', (req, res) => {
       name: device.name,
       role: device.role,
       module: device.module,
-      status: 'offline'
+      status: 'offline',
     }));
 
   res.json({
     streams,
     total: streams.length,
-    updatedAt: new Date().toISOString()
+    updatedAt: new Date().toISOString(),
   });
 });
 
@@ -53,7 +53,7 @@ router.get('/streams/:id/status', (req, res) => {
   if (!device || (device.module !== 'camera' && !device.role.includes('camera'))) {
     return res.status(404).json({
       error: 'Camera stream not found',
-      id
+      id,
     });
   }
 
@@ -62,7 +62,7 @@ router.get('/streams/:id/status', (req, res) => {
     name: device.name,
     status: 'offline',
     reason: 'Camera stream not implemented',
-    timestamp: new Date().toISOString()
+    timestamp: new Date().toISOString(),
   });
 });
 
@@ -76,7 +76,7 @@ router.get('/summary', (req, res) => {
       name: device.name,
       role: device.role,
       module: device.module,
-      status: 'unimplemented'
+      status: 'unimplemented',
     }));
 
   res.json({ cameras, updatedAt: new Date().toISOString() });
@@ -94,7 +94,7 @@ router.get('/events', (req, res, next) => {
       maxConfidence: params.maxConfidence,
       tags: params.tags,
       limit: params.limit,
-      cursor: params.cursor
+      cursor: params.cursor,
     });
 
     res.json({
@@ -103,7 +103,7 @@ router.get('/events', (req, res, next) => {
         total: result.totalCount,
         limit: params.limit,
         nextCursor: result.nextCursor,
-        hasMore: result.hasMore
+        hasMore: result.hasMore,
       },
       filters: {
         cameraId: params.cameraId ?? null,
@@ -111,9 +111,9 @@ router.get('/events', (req, res, next) => {
         end: params.end ?? null,
         tags: params.tags,
         minConfidence: params.minConfidence ?? null,
-        maxConfidence: params.maxConfidence ?? null
+        maxConfidence: params.maxConfidence ?? null,
       },
-      generatedAt: new Date().toISOString()
+      generatedAt: new Date().toISOString(),
     });
   } catch (error) {
     next(error);
@@ -129,13 +129,13 @@ router.get('/events/:eventId', (req, res, next) => {
       res.status(404).json({
         code: 'not_found',
         message: 'Camera event not found',
-        eventId
+        eventId,
       });
       return;
     }
     res.json({
       event,
-      retrievedAt: new Date().toISOString()
+      retrievedAt: new Date().toISOString(),
     });
   } catch (error) {
     next(error);

@@ -52,7 +52,6 @@ export function startTracing() {
 export async function shutdownTracing() {
   if (!sdk) return;
   await sdk.shutdown().catch((error) => {
-     
     console.error('failed to shutdown tracing', error);
   });
   sdk = null;

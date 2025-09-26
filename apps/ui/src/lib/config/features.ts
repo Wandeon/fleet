@@ -8,7 +8,7 @@ function resolveFlag(value: string | undefined): boolean {
 export const featureFlags = {
   video: resolveFlag(import.meta.env.VITE_FEATURE_VIDEO),
   zigbee: resolveFlag(import.meta.env.VITE_FEATURE_ZIGBEE),
-  camera: resolveFlag(import.meta.env.VITE_FEATURE_CAMERA)
+  camera: resolveFlag(import.meta.env.VITE_FEATURE_CAMERA),
 } as const;
 
 export type FeatureFlagKey = keyof typeof featureFlags;

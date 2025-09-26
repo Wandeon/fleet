@@ -1,4 +1,3 @@
-
 import {
   AudioService,
   CameraService,
@@ -221,13 +220,13 @@ export const LogsApi = {
     level?: Parameters<typeof LogsService.getLogs>[1],
     q?: string,
     limit?: number,
-    cursor?: string,
+    cursor?: string
   ) => LogsService.getLogs(source, level, q, limit ?? 50, cursor),
   stream: (
     source?: string,
     level?: Parameters<typeof LogsService.streamLogs>[1],
     q?: string,
-    accept?: string,
+    accept?: string
   ) => LogsService.streamLogs(source, level, q, accept),
 };
 
@@ -253,7 +252,7 @@ import type {
   FleetOverviewState,
   LayoutData,
   VideoState,
-  ZigbeeState
+  ZigbeeState,
 } from '$lib/types';
 
 const trimTrailingSlash = (value: string | null | undefined): string => {
@@ -430,7 +429,7 @@ export const apiClient = {
   },
   async fetchCamera(options?: RequestOptions): Promise<CameraState> {
     return request('/camera', options);
-  }
+  },
 };
 
 export type ApiClient = typeof apiClient;

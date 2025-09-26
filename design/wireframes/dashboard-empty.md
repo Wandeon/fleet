@@ -20,6 +20,7 @@
 ```
 
 **Notes**
+
 - Empty state educates users on next steps with inline guidance and CTA.
 - Health module remains accessible to confirm platform readiness.
 - Logs and quick actions show disabled placeholders for clarity.

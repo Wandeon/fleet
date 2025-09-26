@@ -21,7 +21,7 @@ describe('Settings routes', () => {
     expect(invite.body).toMatchObject({
       email: 'new.operator@example.com',
       roles: ['automation', 'viewer'],
-      status: 'pending'
+      status: 'pending',
     });
 
     const operatorId = invite.body.id as string;
@@ -35,10 +35,13 @@ describe('Settings routes', () => {
     expect(updated.body).toMatchObject({
       id: operatorId,
       status: 'active',
-      roles: ['automation', 'security']
+      roles: ['automation', 'security'],
     });
 
-    const afterInvite = await supertest(app).get('/settings/operators').set(AUTH_HEADER).expect(200);
+    const afterInvite = await supertest(app)
+      .get('/settings/operators')
+      .set(AUTH_HEADER)
+      .expect(200);
     expect(afterInvite.body.total).toBe(initialTotal + 1);
 
     await supertest(app).delete(`/settings/operators/${operatorId}`).set(AUTH_HEADER).expect(202);
@@ -55,6 +58,9 @@ describe('Settings routes', () => {
       .send({ nightMode: { escalationEnabled: false, alertChannels: ['email', 'sms'] } })
       .expect(200);
 
-    expect(patched.body.nightMode).toMatchObject({ escalationEnabled: false, alertChannels: ['email', 'sms'] });
+    expect(patched.body.nightMode).toMatchObject({
+      escalationEnabled: false,
+      alertChannels: ['email', 'sms'],
+    });
   });
 });

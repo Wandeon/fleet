@@ -14,7 +14,7 @@ services:
       CAMERA_HLS_URL: ${CAMERA_HLS_URL:-http://127.0.0.1:8888/camera/index.m3u8}
       CAMERA_RTSP_URL: ${CAMERA_RTSP_URL:-rtsp://127.0.0.1:8554/camera}
     healthcheck:
-      test: ["CMD", "curl", "-fsS", "http://127.0.0.1:8083/healthz"]
+      test: ['CMD', 'curl', '-fsS', 'http://127.0.0.1:8083/healthz']
       interval: 15s
       timeout: 5s
       retries: 3
@@ -29,7 +29,7 @@ services:
     environment:
       MTX_PROTOCOLS: tcp
     healthcheck:
-      test: ["CMD", "mediamtx", "--version"]
+      test: ['CMD', 'mediamtx', '--version']
       interval: 30s
       timeout: 5s
       retries: 3
@@ -57,9 +57,8 @@ services:
       CAMERA_AWB: ${CAMERA_AWB:-auto}
       CAMERA_EXPOSURE: ${CAMERA_EXPOSURE:-normal}
     healthcheck:
-      test: ["CMD", "pgrep", "-f", "libcamera-vid"]
+      test: ['CMD', 'pgrep', '-f', 'libcamera-vid']
       interval: 30s
       timeout: 5s
       retries: 3
       start_period: 15s
-

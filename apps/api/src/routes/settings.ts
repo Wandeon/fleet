@@ -8,36 +8,36 @@ const operatorRoleSchema = z.enum(['admin', 'automation', 'viewer', 'incident', 
 const proxySchema = z.object({
   upstreamUrl: z.string().url().optional(),
   authMode: z.enum(['none', 'basic', 'token']).optional(),
-  heartbeatIntervalSeconds: z.coerce.number().int().min(5).max(3600).optional()
+  heartbeatIntervalSeconds: z.coerce.number().int().min(5).max(3600).optional(),
 });
 
 const allowedOriginsSchema = z.object({
-  origins: z.array(z.string().min(1)).min(1)
+  origins: z.array(z.string().min(1)).min(1),
 });
 
 const pairingStartSchema = z.object({
   networkRole: z.enum(['audio', 'video', 'lighting', 'sensor']),
-  expiresInSeconds: z.coerce.number().int().min(60).max(3600)
+  expiresInSeconds: z.coerce.number().int().min(60).max(3600),
 });
 
 const pairingClaimSchema = z.object({
   alias: z.string().optional(),
   location: z.string().optional(),
-  metadata: z.record(z.string(), z.unknown()).optional()
+  metadata: z.record(z.string(), z.unknown()).optional(),
 });
 
 const inviteSchema = z.object({
   email: z.string().email(),
-  roles: z.array(operatorRoleSchema).default(['viewer'])
+  roles: z.array(operatorRoleSchema).default(['viewer']),
 });
 
 const operatorUpdateSchema = z
   .object({
     roles: z.array(operatorRoleSchema).min(1).optional(),
-    status: z.enum(['pending', 'active', 'suspended']).optional()
+    status: z.enum(['pending', 'active', 'suspended']).optional(),
   })
   .refine((value) => Object.keys(value).length > 0, {
-    message: 'Provide at least one field to update.'
+    message: 'Provide at least one field to update.',
   });
 
 const alertChannelSchema = z.enum(['slack', 'email', 'sms']);
@@ -47,12 +47,12 @@ const securityUpdateSchema = z
     nightMode: z
       .object({
         escalationEnabled: z.boolean().optional(),
-        alertChannels: z.array(alertChannelSchema).min(1).optional()
+        alertChannels: z.array(alertChannelSchema).min(1).optional(),
       })
-      .optional()
+      .optional(),
   })
   .refine((value) => value.nightMode && Object.keys(value.nightMode).length > 0, {
-    message: 'nightMode update is required.'
+    message: 'nightMode update is required.',
   });
 
 const operatorState: {
@@ -88,7 +88,7 @@ const operatorState: {
   proxy: {
     upstreamUrl: 'https://proxy.example.internal',
     authMode: 'token',
-    heartbeatIntervalSeconds: 60
+    heartbeatIntervalSeconds: 60,
   },
   allowedOrigins: ['https://ui.fleet.local'],
   operators: [
@@ -98,23 +98,23 @@ const operatorState: {
       roles: ['admin'],
       invitedAt: new Date().toISOString(),
       status: 'active',
-      lastUpdatedAt: new Date().toISOString()
-    }
+      lastUpdatedAt: new Date().toISOString(),
+    },
   ],
   pairing: {
     active: false,
     expiresAt: null,
     ticketId: null,
-    candidates: []
+    candidates: [],
   },
   apiTokenPreview: 'tok-live-****',
   security: {
     nightMode: {
       escalationEnabled: true,
       alertChannels: ['slack'],
-      updatedAt: new Date().toISOString()
-    }
-  }
+      updatedAt: new Date().toISOString(),
+    },
+  },
 };
 
 router.get('/', (_req, res) => {
@@ -126,7 +126,7 @@ router.get('/', (_req, res) => {
     pairing: operatorState.pairing,
     apiTokenPreview: operatorState.apiTokenPreview,
     security: operatorState.security,
-    updatedAt: new Date().toISOString()
+    updatedAt: new Date().toISOString(),
   });
 });
 
@@ -145,7 +145,11 @@ router.post('/api-token', (_req, res) => {
   res.locals.routePath = '/settings/api-token';
   const newToken = `tok-${randomUUID()}`;
   operatorState.apiTokenPreview = `${newToken.slice(0, 8)}****`;
-  res.status(202).json({ status: 'rotating', tokenPreview: operatorState.apiTokenPreview, rotatedAt: new Date().toISOString() });
+  res.status(202).json({
+    status: 'rotating',
+    tokenPreview: operatorState.apiTokenPreview,
+    rotatedAt: new Date().toISOString(),
+  });
 });
 
 router.put('/allowed-origins', (req, res, next) => {
@@ -153,7 +157,9 @@ router.put('/allowed-origins', (req, res, next) => {
   try {
     const payload = allowedOriginsSchema.parse(req.body);
     operatorState.allowedOrigins = payload.origins;
-    res.status(202).json({ allowedOrigins: operatorState.allowedOrigins, updatedAt: new Date().toISOString() });
+    res
+      .status(202)
+      .json({ allowedOrigins: operatorState.allowedOrigins, updatedAt: new Date().toISOString() });
   } catch (error) {
     next(error);
   }
@@ -170,8 +176,8 @@ router.post('/pairing/start', (req, res, next) => {
       expiresAt,
       ticketId,
       candidates: [
-        { id: `cand-${ticketId.slice(0, 6)}`, model: `${payload.networkRole}-sensor`, signal: -45 }
-      ]
+        { id: `cand-${ticketId.slice(0, 6)}`, model: `${payload.networkRole}-sensor`, signal: -45 },
+      ],
     };
     res.status(202).json(operatorState.pairing);
   } catch (error) {
@@ -190,8 +196,15 @@ router.post('/pairing/:candidateId/claim', (req, res, next) => {
   try {
     const payload = pairingClaimSchema.parse(req.body ?? {});
     const { candidateId } = req.params;
-    operatorState.pairing.candidates = operatorState.pairing.candidates.filter((candidate) => candidate.id !== candidateId);
-    res.status(202).json({ accepted: true, candidateId, metadata: payload, updatedAt: new Date().toISOString() });
+    operatorState.pairing.candidates = operatorState.pairing.candidates.filter(
+      (candidate) => candidate.id !== candidateId
+    );
+    res.status(202).json({
+      accepted: true,
+      candidateId,
+      metadata: payload,
+      updatedAt: new Date().toISOString(),
+    });
   } catch (error) {
     next(error);
   }
@@ -213,7 +226,7 @@ router.post('/operators', (req, res, next) => {
       roles: Array.from(new Set(payload.roles)),
       invitedAt: now,
       status: 'pending' as const,
-      lastUpdatedAt: now
+      lastUpdatedAt: now,
     };
     operatorState.operators.push(operator);
     res.status(201).json(operator);
@@ -224,7 +237,11 @@ router.post('/operators', (req, res, next) => {
 
 router.get('/operators', (_req, res) => {
   res.locals.routePath = '/settings/operators';
-  res.json({ items: operatorState.operators, total: operatorState.operators.length, updatedAt: new Date().toISOString() });
+  res.json({
+    items: operatorState.operators,
+    total: operatorState.operators.length,
+    updatedAt: new Date().toISOString(),
+  });
 });
 
 router.put('/operators/:operatorId', (req, res, next) => {
@@ -252,7 +269,9 @@ router.put('/operators/:operatorId', (req, res, next) => {
 router.delete('/operators/:operatorId', (req, res) => {
   res.locals.routePath = '/settings/operators/:operatorId';
   const { operatorId } = req.params;
-  operatorState.operators = operatorState.operators.filter((operator) => operator.id !== operatorId);
+  operatorState.operators = operatorState.operators.filter(
+    (operator) => operator.id !== operatorId
+  );
   res.status(202).json({ removed: true, operatorId, updatedAt: new Date().toISOString() });
 });
 
@@ -270,7 +289,9 @@ router.patch('/security', (req, res, next) => {
       operatorState.security.nightMode.escalationEnabled = payload.nightMode.escalationEnabled;
     }
     if (payload.nightMode?.alertChannels) {
-      operatorState.security.nightMode.alertChannels = Array.from(new Set(payload.nightMode.alertChannels));
+      operatorState.security.nightMode.alertChannels = Array.from(
+        new Set(payload.nightMode.alertChannels)
+      );
     }
     operatorState.security.nightMode.updatedAt = now;
     res.json({ nightMode: operatorState.security.nightMode, updatedAt: now });

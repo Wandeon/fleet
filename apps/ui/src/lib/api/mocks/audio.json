@@ -113,9 +113,7 @@
       "syncMode": "independent",
       "createdAt": "2025-09-12T10:30:00Z",
       "updatedAt": "2025-09-22T07:45:00Z",
-      "tracks": [
-        { "trackId": "track-forest-light", "order": 1 }
-      ]
+      "tracks": [{ "trackId": "track-forest-light", "order": 1 }]
     }
   ],
   "sessions": [

@@ -1,4 +1,3 @@
-
 # Fleet UI API client
 
 This directory contains the generated TypeScript client used by the Fleet web UI
@@ -52,10 +51,10 @@ The dev server runs on [http://localhost:5173](http://localhost:5173). The mock 
 
 ### Local development (Vite)
 
-| Name | Description | Default |
-| --- | --- | --- |
-| `VITE_API_BASE` | Base path for Fleet API requests during development | `/api` |
-| `VITE_USE_MOCKS` | Serve mock JSON (`"1"`) instead of calling the live API | `1` |
+| Name             | Description                                             | Default |
+| ---------------- | ------------------------------------------------------- | ------- |
+| `VITE_API_BASE`  | Base path for Fleet API requests during development     | `/api`  |
+| `VITE_USE_MOCKS` | Serve mock JSON (`"1"`) instead of calling the live API | `1`     |
 
 Copy `.env.example` to `.env` to customise local settings before running `npm run dev`.
 
@@ -63,32 +62,32 @@ Copy `.env.example` to `.env` to customise local settings before running `npm ru
 
 These values are injected by `infra/vps/compose.fleet.yml` and mirrored in `vps/fleet.env`.
 
-| Name | Required | Description | Example |
-| --- | --- | --- | --- |
-| `HOST` | ✓ | Interface the Node adapter binds to | `0.0.0.0` |
-| `PORT` | ✓ | Port exposed by the SvelteKit server | `3000` |
-| `ORIGIN` | ✓ | Public HTTPS origin served via Caddy | `https://app.headspamartina.hr` |
-| `API_BASE_URL` | ✓ | Internal API base URL for SSR/proxy fetches | `http://fleet-api:3015` |
-| `API_BEARER` | ✓ | Server-only bearer token injected into proxy/SSR requests | `<redacted>` |
-| `VITE_API_BASE` | ✓ | Compile-time base path for SSR fallback requests | `/api` |
-| `VITE_USE_MOCKS` | ✓ | Set to `0` in production to enable live data | `0` |
+| Name             | Required | Description                                               | Example                         |
+| ---------------- | -------- | --------------------------------------------------------- | ------------------------------- |
+| `HOST`           | ✓        | Interface the Node adapter binds to                       | `0.0.0.0`                       |
+| `PORT`           | ✓        | Port exposed by the SvelteKit server                      | `3000`                          |
+| `ORIGIN`         | ✓        | Public HTTPS origin served via Caddy                      | `https://app.headspamartina.hr` |
+| `API_BASE_URL`   | ✓        | Internal API base URL for SSR/proxy fetches               | `http://fleet-api:3015`         |
+| `API_BEARER`     | ✓        | Server-only bearer token injected into proxy/SSR requests | `<redacted>`                    |
+| `VITE_API_BASE`  | ✓        | Compile-time base path for SSR fallback requests          | `/api`                          |
+| `VITE_USE_MOCKS` | ✓        | Set to `0` in production to enable live data              | `0`                             |
 
 See `vps/fleet.env.example` for an up-to-date template of the production secrets/values required during deployment.
 
 ## Scripts
 
-| Command | Description |
-| --- | --- |
-| `npm run dev` | Start SvelteKit in dev mode |
-| `npm run build` | Build the production bundle |
-| `npm run preview` | Serve the built bundle locally |
-| `npm run lint` | Run ESLint with Svelte + TypeScript rules |
-| `npm run typecheck` | Run `svelte-check` over the project |
-| `npm run test` | Execute Vitest unit tests |
-| `npm run test:ui` | Run Playwright smoke tests |
-| `npm run lighthouse` | Build, start preview, and run Lighthouse budgets |
+| Command                    | Description                                                     |
+| -------------------------- | --------------------------------------------------------------- |
+| `npm run dev`              | Start SvelteKit in dev mode                                     |
+| `npm run build`            | Build the production bundle                                     |
+| `npm run preview`          | Serve the built bundle locally                                  |
+| `npm run lint`             | Run ESLint with Svelte + TypeScript rules                       |
+| `npm run typecheck`        | Run `svelte-check` over the project                             |
+| `npm run test`             | Execute Vitest unit tests                                       |
+| `npm run test:ui`          | Run Playwright smoke tests                                      |
+| `npm run lighthouse`       | Build, start preview, and run Lighthouse budgets                |
 | `npm run generate:openapi` | Generate typed API bindings when `apps/api/openapi.yaml` exists |
-| `npm run check` | Lint + typecheck + unit test combo |
+| `npm run check`            | Lint + typecheck + unit test combo                              |
 
 ## Mock data & feature flags
 
@@ -101,7 +100,7 @@ through the server-side `/ui` proxy which injects the required bearer token.
 1. Drop or symlink `apps/api/openapi.yaml` into the repo.
 2. Run `npm run generate:openapi`.
 3. The script writes strongly typed definitions to `src/lib/api/generated`. The API client will automatically pick up the generated
-types on the next build.
+   types on the next build.
 
 ## Project layout
 

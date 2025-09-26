@@ -52,16 +52,22 @@ type InventoryDevice = {
 
 function selectAddress(device: InventoryDevice) {
   const baseUrl =
-    device.api?.base_url ||
-    device.address?.baseUrl ||
-    device.address?.base_url ||
-    undefined;
+    device.api?.base_url || device.address?.baseUrl || device.address?.base_url || undefined;
   const healthPath =
-    device.api?.health_path || device.address?.healthPath || device.address?.health_path || undefined;
+    device.api?.health_path ||
+    device.address?.healthPath ||
+    device.address?.health_path ||
+    undefined;
   const statusPath =
-    device.api?.status_path || device.address?.statusPath || device.address?.status_path || undefined;
+    device.api?.status_path ||
+    device.address?.statusPath ||
+    device.address?.status_path ||
+    undefined;
   const metricsPath =
-    device.api?.metrics_path || device.address?.metricsPath || device.address?.metrics_path || undefined;
+    device.api?.metrics_path ||
+    device.address?.metricsPath ||
+    device.address?.metrics_path ||
+    undefined;
 
   const tokenEnv =
     device.api?.auth?.token_env ||
@@ -121,10 +127,10 @@ function buildCapabilities(device: InventoryDevice) {
       },
     });
   }
-   
+
   console.log('Seed complete');
   process.exit(0);
-})().catch(error => {
+})().catch((error) => {
   console.error('Seed failed:', error);
   process.exit(1);
 });

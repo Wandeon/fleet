@@ -1,10 +1,7 @@
 import supertest from 'supertest';
 import { beforeEach, afterEach, describe, expect, it } from 'vitest';
 import { createApp } from '../../src/index.js';
-import {
-  resetCameraEvents,
-  setCameraEventsForTests
-} from '../../src/services/cameraEvents.js';
+import { resetCameraEvents, setCameraEventsForTests } from '../../src/services/cameraEvents.js';
 import { setRegistryForTests } from '../../src/upstream/devices.js';
 
 describe('Camera events endpoints', () => {
@@ -15,15 +12,15 @@ describe('Camera events endpoints', () => {
           id: 'cam-lobby',
           name: 'Lobby Camera',
           role: 'camera',
-          baseUrl: 'http://127.0.0.1:3102'
+          baseUrl: 'http://127.0.0.1:3102',
         },
         {
           id: 'cam-dock',
           name: 'Dock Camera',
           role: 'camera',
-          baseUrl: 'http://127.0.0.1:3103'
-        }
-      ]
+          baseUrl: 'http://127.0.0.1:3103',
+        },
+      ],
     });
     setCameraEventsForTests([
       {
@@ -34,7 +31,7 @@ describe('Camera events endpoints', () => {
         timestamp: '2024-03-20T08:00:00Z',
         synopsis: 'Person detected near reception desk',
         tags: ['lobby'],
-        confidence: 0.42
+        confidence: 0.42,
       },
       {
         id: 'evt-dock-1',
@@ -44,8 +41,8 @@ describe('Camera events endpoints', () => {
         timestamp: '2024-03-20T08:05:00Z',
         synopsis: 'Unauthorized entry at dock door',
         tags: ['dock', 'intrusion'],
-        confidence: 0.93
-      }
+        confidence: 0.93,
+      },
     ]);
   });
 

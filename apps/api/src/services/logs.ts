@@ -56,9 +56,14 @@ export interface FetchLogsResult {
 
 const DEFAULT_LIMIT = Number.parseInt(process.env.LOGS_DEFAULT_LIMIT ?? '200', 10) || 200;
 const MAX_LIMIT = Number.parseInt(process.env.LOGS_MAX_LIMIT ?? '1000', 10) || 1000;
-const DEFAULT_RANGE_MINUTES = Number.parseInt(process.env.LOGS_DEFAULT_RANGE_MINUTES ?? '60', 10) || 60;
+const DEFAULT_RANGE_MINUTES =
+  Number.parseInt(process.env.LOGS_DEFAULT_RANGE_MINUTES ?? '60', 10) || 60;
 const LOKI_TIMEOUT_MS = Number.parseInt(process.env.LOKI_QUERY_TIMEOUT_MS ?? '10000', 10) || 10000;
-const LOKI_BASE_URL = (process.env.LOKI_QUERY_URL || process.env.LOKI_BASE_URL || 'http://fleet-vps:3100').replace(/\/$/, '');
+const LOKI_BASE_URL = (
+  process.env.LOKI_QUERY_URL ||
+  process.env.LOKI_BASE_URL ||
+  'http://fleet-vps:3100'
+).replace(/\/$/, '');
 const EXTRA_VPS_HOST = (process.env.LOKI_VPS_SOURCE || process.env.VPS_HOST || 'fleet-vps').trim();
 
 function uniqueHosts(sources: InventoryLogSource[]): string[] {
@@ -108,7 +113,10 @@ function buildSources(): LogSourceDescriptor[] {
   return sources;
 }
 
-function resolveSource(sourceId?: string): { sources: LogSourceDescriptor[]; active: LogSourceDescriptor } {
+function resolveSource(sourceId?: string): {
+  sources: LogSourceDescriptor[];
+  active: LogSourceDescriptor;
+} {
   const sources = buildSources();
   if (!sources.length) {
     const fallback: LogSourceDescriptor = {
@@ -217,7 +225,7 @@ function normalizeSeverity(input: unknown): LogSeverity | null {
 function deriveSeverity(
   labels: Record<string, string>,
   candidate: unknown,
-  message: string,
+  message: string
 ): LogSeverity {
   const fromCandidate = normalizeSeverity(candidate);
   if (fromCandidate) return fromCandidate;
@@ -229,7 +237,9 @@ function deriveSeverity(
     normalizeSeverity((labels as Record<string, unknown>).syslog_priority);
   if (fromLabels) return fromLabels;
 
-  const match = message.match(/^[\s[]*(TRACE|DEBUG|INFO|NOTICE|WARN|WARNING|ERR|ERROR|CRIT|CRITICAL|ALERT|EMERG|FATAL)\b/i);
+  const match = message.match(
+    /^[\s[]*(TRACE|DEBUG|INFO|NOTICE|WARN|WARNING|ERR|ERROR|CRIT|CRITICAL|ALERT|EMERG|FATAL)\b/i
+  );
   if (match) {
     const fromMessage = normalizeSeverity(match[1]);
     if (fromMessage) return fromMessage;
@@ -248,7 +258,10 @@ function parseLogLine(raw: string): {
   let fields: Record<string, unknown> | undefined;
 
   const trimmed = message.trimEnd();
-  if ((trimmed.startsWith('{') && trimmed.endsWith('}')) || (trimmed.startsWith('[') && trimmed.endsWith(']'))) {
+  if (
+    (trimmed.startsWith('{') && trimmed.endsWith('}')) ||
+    (trimmed.startsWith('[') && trimmed.endsWith(']'))
+  ) {
     try {
       const parsed = JSON.parse(trimmed) as Record<string, unknown>;
       if (parsed && typeof parsed === 'object') {
@@ -294,7 +307,7 @@ function dateToNs(date: Date): string {
 
 function transformStreams(
   streams: Array<{ stream: Record<string, string>; values: [string, string][] }>,
-  active: LogSourceDescriptor,
+  active: LogSourceDescriptor
 ): LogEntry[] {
   const entries: LogEntry[] = [];
   let sequence = 0;
@@ -370,7 +383,7 @@ export async function fetchLogs(options: FetchLogsOptions = {}): Promise<FetchLo
     });
 
     const data = response.data?.data;
-    const streams = Array.isArray(data?.result) ? (data.result) : [];
+    const streams = Array.isArray(data?.result) ? data.result : [];
     const entries = transformStreams(streams, active);
     return {
       source: active.id,

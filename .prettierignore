@@ -1,0 +1,4 @@
+node_modules
+apps/api/node_modules
+apps/ui/node_modules
+.github/workflows/deploy-vps.yml

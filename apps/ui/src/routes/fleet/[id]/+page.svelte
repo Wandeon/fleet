@@ -4,6 +4,8 @@
   import StatusPill from '$lib/components/StatusPill.svelte';
   import Skeleton from '$lib/components/Skeleton.svelte';
   import EmptyState from '$lib/components/EmptyState.svelte';
+  import { SvelteSet } from 'svelte/reactivity';
+  import { resolve } from '$app/paths';
   import type { PageData } from './$types';
   import type { FleetDeviceAction, FleetDeviceDetail, FleetDeviceMetric } from '$lib/types';
   import { getFleetDeviceDetail, triggerDeviceAction } from '$lib/api/fleet-operations';
@@ -12,7 +14,7 @@
 
   let detail: FleetDeviceDetail | null = data.device ?? null;
   let loading = false;
-  let actionLoading = new Set<string>();
+  let actionLoading = new SvelteSet<string>();
   let error: string | null = null;
 
   const refresh = async () => {
@@ -28,16 +30,29 @@
     }
   };
 
+  const addActionLoading = (actionId: string) => {
+    const next = new SvelteSet(actionLoading);
+    next.add(actionId);
+    actionLoading = next;
+  };
+
+  const removeActionLoading = (actionId: string) => {
+    if (!actionLoading.has(actionId)) return;
+    const next = new SvelteSet(actionLoading);
+    next.delete(actionId);
+    actionLoading = next;
+  };
+
   const runAction = async (action: FleetDeviceAction) => {
     if (!detail || actionLoading.has(action.id)) return;
-    actionLoading.add(action.id);
+    addActionLoading(action.id);
     try {
       detail = await triggerDeviceAction(detail.summary.id, action.id, { fetch });
       error = null;
     } catch (err) {
       error = err instanceof Error ? err.message : `Unable to execute ${action.label}`;
     } finally {
-      actionLoading.delete(action.id);
+      removeActionLoading(action.id);
     }
   };
 
@@ -50,6 +65,8 @@
     if (detail.summary.status === 'error') return 'error';
     return 'warn';
   };
+
+  const toLogsLink = (sourceId: string) => `${resolve('/logs')}?source=${encodeURIComponent(sourceId)}`;
 </script>
 
 <svelte:head>
@@ -70,7 +87,7 @@
 {:else}
   <div class="device">
     <div class="breadcrumb">
-      <a href="/fleet">Fleet</a>
+      <a href={resolve('/fleet')}>Fleet</a>
       <span>›</span>
       <span>{detail.summary.name}</span>
     </div>
@@ -169,7 +186,12 @@
               </li>
             {/each}
           </ul>
-          <a class="link" href={`/logs?source=${detail.summary.id}`}>Open in logs console →</a>
+          <a
+            class="link"
+            href={toLogsLink(detail.summary.id)}
+          >
+            Open in logs console →
+          </a>
         {/if}
       </Card>
 
@@ -203,7 +225,9 @@
                   <strong>{connection.name}</strong>
                   <span>{connection.status}</span>
                 </div>
-                <time datetime={connection.lastChecked}>Updated {new Date(connection.lastChecked).toLocaleTimeString()}</time>
+                <time datetime={connection.lastChecked}
+                  >Updated {new Date(connection.lastChecked).toLocaleTimeString()}</time
+                >
               </li>
             {/each}
           </ul>

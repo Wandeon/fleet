@@ -4,6 +4,7 @@
   import StatusPill from '$lib/components/StatusPill.svelte';
   import Skeleton from '$lib/components/Skeleton.svelte';
   import EmptyState from '$lib/components/EmptyState.svelte';
+  import { resolve } from '$app/paths';
   import type { PageData } from './$types';
   import type { FleetDeviceSummary, FleetOverview } from '$lib/types';
   import { getFleetOverview } from '$lib/api/fleet-operations';
@@ -75,7 +76,10 @@
     </EmptyState>
   {:else if overview}
     <div class="summary-grid">
-      <Card title="Totals" subtitle={`Last updated ${new Date(overview.updatedAt).toLocaleString()}`}>
+      <Card
+        title="Totals"
+        subtitle={`Last updated ${new Date(overview.updatedAt).toLocaleString()}`}
+      >
         <div class="totals">
           <div>
             <span class="label">Devices</span>
@@ -98,7 +102,7 @@
 
       <Card title="Modules" subtitle="Coverage by role">
         <ul class="modules">
-          {#each overview.modules as module}
+          {#each overview.modules as module (module.id)}
             <li>
               <span class="name">{module.label}</span>
               <span class="counts">
@@ -106,7 +110,10 @@
                 <span class="warn">{module.degraded} degraded</span>
                 <span class="error">{module.offline} offline</span>
               </span>
-              <button class:active={filterModule === module.id} on:click={() => filterModule = filterModule === module.id ? 'all' : module.id}>
+              <button
+                class:active={filterModule === module.id}
+                on:click={() => (filterModule = filterModule === module.id ? 'all' : module.id)}
+              >
                 {filterModule === module.id ? 'Clear filter' : 'Filter'}
               </button>
             </li>
@@ -133,7 +140,10 @@
       {:else}
         <div class="device-grid">
           {#each filteredDevices() as device (device.id)}
-            <a class="device-card" href={`/fleet/${device.id}`}>
+            <a
+              class="device-card"
+              href={resolve('/fleet/[id]', { id: device.id })}
+            >
               <div class="device-header">
                 <h3>{device.name}</h3>
                 <StatusPill status={statusToPill(device.status)} label={device.status} />
@@ -298,7 +308,9 @@
     padding: var(--spacing-4);
     background: rgba(15, 23, 42, 0.35);
     color: inherit;
-    transition: border-color 0.2s ease, transform 0.2s ease;
+    transition:
+      border-color 0.2s ease,
+      transform 0.2s ease;
   }
 
   .device-card:hover {
