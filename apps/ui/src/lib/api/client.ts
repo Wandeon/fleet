@@ -13,6 +13,8 @@ import type {
   AllowedOriginsRequest,
   AudioMasterVolumeRequest,
   AudioPlaybackRequest,
+  AudioPlaylist,
+  AudioPlaylistTrack,
   AudioSeekRequest,
   AudioVolumeRequest,
   CameraClipRequest,
@@ -35,6 +37,7 @@ export type {
   AudioPlaybackAssignment,
   AudioPlaybackRequest,
   AudioPlaylist,
+  AudioPlaylistTrack,
   AudioSeekRequest,
   AudioSession,
   AudioState,
@@ -132,6 +135,13 @@ export const FleetApi = {
 export const AudioApi = {
   getOverview: () => AudioService.getAudioOverview(),
   getDevice: (deviceId: string) => AudioService.getAudioDevice(deviceId),
+  uploadAudioTrack: (
+    formData: Parameters<typeof AudioService.uploadAudioTrack>[0],
+  ) => AudioService.uploadAudioTrack(formData),
+  createPlaylist: (payload: AudioPlaylist) => AudioService.createAudioPlaylist(payload),
+  updatePlaylist: (playlistId: string, payload: AudioPlaylist) =>
+    AudioService.updateAudioPlaylist(playlistId, payload),
+  deletePlaylist: (playlistId: string) => AudioService.deleteAudioPlaylist(playlistId),
   startPlayback: (payload: AudioPlaybackRequest) => AudioService.startAudioPlayback(payload),
   pauseDevice: (deviceId: string) => AudioService.pauseAudioDevice(deviceId),
   resumeDevice: (deviceId: string) => AudioService.resumeAudioDevice(deviceId),

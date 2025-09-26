@@ -12,6 +12,8 @@ This document enumerates the primary operator goals for the fleet control surfac
 - **Success Criteria:** API call `POST /device/:id/play` returns 202/200 and UI shows playing state within 2 seconds with elapsed/remaining time updating.
 - **Failure Modes:** Device offline, file unsupported, playback command rejected. UI surfaces toast with actionable retry or diagnostics.
 - **Security Considerations:** Enforce RBAC for playback commands; audit log contains operator, device, and asset identifiers.
+- **Status:** ✅ Implemented (Phase D1). UI now issues `/ui/audio/devices/{id}` commands via the generated OpenAPI client, shows busy states while awaiting D1 confirmation, and renders inline error banners on rejection.
+- **D1 Notes:** Seek, pause, resume, stop, and master volume controls all return refreshed snapshots so the tile stays in sync with backend telemetry.
 
 ### Story: Play different tracks on two audio Pis
 - **Goal:** Stage unique tracks on multiple audio devices without conflict.
@@ -21,6 +23,8 @@ This document enumerates the primary operator goals for the fleet control surfac
 - **Success Criteria:** Separate `/device/:id/play` commands succeed for each target. UI displays independent playback cards with correct track metadata.
 - **Failure Modes:** Resource contention (device busy), missing assets, network timeout. Provide per-device error banners and option to queue retry.
 - **Security Considerations:** Validate that operator cannot control devices outside assigned groups; encrypt asset paths in transit.
+- **Status:** ✅ Implemented (Phase D1). “Per device” mode packages assignments into a single `/ui/audio/playback` request with `syncMode=independent`, and validation prevents missing track mappings before dispatch.
+- **D1 Notes:** The orchestrator keeps device selections sticky, supports resume/loop toggles, and surfaces toast feedback from the D1 API.
 
 ### Story: Create a playlist and play it across multiple devices (same track or different)
 - **Goal:** Arrange a playlist and deploy it across multiple audio endpoints with optional sync.
@@ -30,6 +34,8 @@ This document enumerates the primary operator goals for the fleet control surfac
 - **Success Criteria:** Playlist starts and UI shows per-device playback position; if “synced” selected, per-device drift under 100 ms with sync indicator.
 - **Failure Modes:** Sync negotiation fails, missing devices mid-playback, playlist validation errors. UI flags drift beyond threshold and offers re-sync.
 - **Security Considerations:** Playlist modifications logged; enforce write permissions; protect sync tokens.
+- **Status:** ✅ Implemented (Phase D1). Playlist CRUD flows call `/ui/audio/playlists` endpoints directly and refresh lists without page reloads.
+- **D1 Notes:** Operators can deploy playlists across cohorts with loop/resume controls, and sync group badges render on device tiles for quick validation.
 
 ### Story: Sync-check and drift measurement
 - **Goal:** Verify synchronization state and correct drift across the fleet.
@@ -39,6 +45,8 @@ This document enumerates the primary operator goals for the fleet control surfac
 - **Success Criteria:** Drift metrics update in real time; re-sync command produces confirmation within 5 seconds.
 - **Failure Modes:** Device fails to report clock, re-sync command rejected. UI highlights device in error with remediation tips.
 - **Security Considerations:** Ensure diagnostics endpoints are read-only for view-only roles; protect nudge commands behind elevated permissions.
+- **Status:** ✅ Implemented (Phase D1). Device tiles expose drift alerts from `playback.lastError` and provide a “Re-sync” button that replays the active source through `/ui/audio/playback` with `syncMode=synced`.
+- **D1 Notes:** Toasts confirm both successful and failed re-sync attempts, and sync group identifiers remain visible beside each device.
 
 ### Story: Manage library assets
 - **Goal:** Maintain audio assets and metadata for deployment.
@@ -48,6 +56,8 @@ This document enumerates the primary operator goals for the fleet control surfac
 - **Success Criteria:** Upload API returns 201 with asset ID; UI reflects metadata instantly and playlists reorder without full refresh.
 - **Failure Modes:** Upload fails (size, format), metadata validation errors, conflicting edits. Present inline form errors and rollback partial uploads.
 - **Security Considerations:** Virus scan uploads; permission gate delete/restore; audit asset changes.
+- **Status:** ✅ Implemented (Phase D1). The upload modal now posts multipart payloads to `/ui/audio/library` with inline validation and error handling.
+- **D1 Notes:** Newly uploaded tracks appear immediately in the library table and can be slotted into playlists without refreshing the page.
 
 ## Video
 

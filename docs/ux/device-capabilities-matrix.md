@@ -2,7 +2,7 @@
 
 | Device Type | Supported Media (Files) | Supported Streams | Volume Control | Seek Support | Sync Endpoints | Pairing Method | Notes |
 |-------------|-------------------------|-------------------|----------------|--------------|----------------|----------------|-------|
-| Audio Pi (v3) | MP3, AAC, FLAC up to 96 kHz; playlists via library | RTP, HLS (audio-only) | Master volume + per-zone trim; 1 dB steps | Yes (±1 second scrub, fine-grain 100 ms) | PTP-based clock sync; responds to `/sync/nudge` | QR provisioning + token handshake | Primary audio endpoint in production locations. |
+| Audio Pi (v3) | MP3, AAC, FLAC up to 96 kHz; playlists via library | RTP, HLS (audio-only) | Master volume + per-zone trim; 1 dB steps | Yes (±1 second scrub, fine-grain 100 ms) | PTP-based clock sync; responds to `/sync/nudge` | QR provisioning + token handshake | Primary audio endpoint in production locations. D1 control-plane surfaces drift telemetry and supports UI-triggered re-sync/nudge. |
 | Audio Pi (legacy v2) | MP3, AAC | RTP only | Master volume only | Partial (jump to markers) | Legacy NTP sync; manual drift correction | PIN-based pairing | Limited to single-zone playback; avoid for critical sync. |
 | Video Node | MP4 (H.264), MKV (H.265) | RTSP, WebRTC | N/A | Yes (keyframe aligned) | Syncs via media timeline with ±250 ms tolerance | Device management portal registration | Requires GPU driver 1.4+. |
 | AI Camera | MP4 clip export (H.264) | RTSP live, WebRTC preview | N/A | Clip seek with 1-second granularity | Syncs detections via event timestamp service | Auto-enroll through secure boot | Supports on-device inference; night mode configurable. |

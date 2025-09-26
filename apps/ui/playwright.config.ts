@@ -15,7 +15,7 @@ export default defineConfig({
     stdout: 'ignore',
     stderr: 'pipe',
     env: {
-      VITE_USE_MOCKS: '1'
+      VITE_USE_MOCKS: '0'
     }
   },
   projects: [

@@ -263,6 +263,31 @@ import type {
     }
   };
 
+  const handleDeviceResync = async (device: AudioDeviceSnapshot) => {
+    if (!device.playback.trackId && !device.playback.playlistId) {
+      showError('No active source to re-sync');
+      return;
+    }
+
+    try {
+      const state = await playOnDevices({
+        deviceIds: [device.id],
+        trackId: device.playback.trackId,
+        playlistId: device.playback.playlistId,
+        assignments: undefined,
+        syncMode: 'synced',
+        resume: true,
+        startAtSeconds: device.playback.positionSeconds ?? 0,
+        loop: false
+      });
+      updateState(state);
+      showSuccess(`Re-synced ${device.name}`);
+    } catch (error) {
+      console.error('resync device', error);
+      showError('Unable to re-sync device');
+    }
+  };
+
   const handleVolume = async (device: AudioDeviceSnapshot, value: number) => {
     try {
       const updated = await setDeviceVolume(device.id, value);
@@ -574,6 +599,11 @@ import type {
                   <Button variant="ghost" size="sm" on:click={() => handleDeviceStop(device)}>
                     Stop
                   </Button>
+                  {#if device.playback.syncGroup && (device.playback.trackId || device.playback.playlistId)}
+                    <Button variant="ghost" size="sm" on:click={() => handleDeviceResync(device)}>
+                      Re-sync
+                    </Button>
+                  {/if}
                 </div>
                 <div class="device-sliders">
                   <Slider
@@ -601,6 +631,9 @@ import type {
                 {/if}
                 {#if device.playback.syncGroup}
                   <span class="pill">Sync · {device.playback.syncGroup}</span>
+                {/if}
+                {#if device.playback.lastError}
+                  <span class="pill alert" role="status">⚠ {device.playback.lastError}</span>
                 {/if}
               </svelte:fragment>
             </DeviceTile>
@@ -1101,6 +1134,11 @@ import type {
     border-radius: 999px;
     font-size: var(--font-size-xs);
     background: rgba(148, 163, 184, 0.12);
+  }
+
+  .pill.alert {
+    background: rgba(248, 113, 113, 0.18);
+    color: var(--color-red-200);
   }
 
   .orchestrator-body {
