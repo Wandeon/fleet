@@ -47,28 +47,36 @@ const mockDeviceStates = () => ({
 
 test.describe('Fleet UI acceptance', () => {
   test('dashboard loads with mocked API responses', async ({ page }) => {
-    await page.route('**/api/health', (route) => route.fulfill({
-      status: 200,
-      headers: { 'content-type': 'application/json' },
-      body: JSON.stringify(mockHealth()),
-    }));
-    await page.route('**/api/healthz', (route) => route.fulfill({
-      status: 200,
-      headers: { 'content-type': 'application/json' },
-      body: JSON.stringify(mockHealth()),
-    }));
-    await page.route('**/api/devices', (route) => route.fulfill({
-      status: 200,
-      headers: { 'content-type': 'application/json' },
-      body: JSON.stringify(mockDevices()),
-    }));
-    await page.route('**/api/device_states', (route) => route.fulfill({
-      status: 200,
-      headers: { 'content-type': 'application/json' },
-      body: JSON.stringify(mockDeviceStates()),
-    }));
+    await page.route('**/api/health', (route) =>
+      route.fulfill({
+        status: 200,
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify(mockHealth()),
+      })
+    );
+    await page.route('**/api/healthz', (route) =>
+      route.fulfill({
+        status: 200,
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify(mockHealth()),
+      })
+    );
+    await page.route('**/api/devices', (route) =>
+      route.fulfill({
+        status: 200,
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify(mockDevices()),
+      })
+    );
+    await page.route('**/api/device_states', (route) =>
+      route.fulfill({
+        status: 200,
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify(mockDeviceStates()),
+      })
+    );
     await page.route('**/api/stream**', (route) =>
-      route.fulfill({ status: 200, headers: { 'content-type': 'text/event-stream' }, body: '' }),
+      route.fulfill({ status: 200, headers: { 'content-type': 'text/event-stream' }, body: '' })
     );
 
     await page.goto(uiBase, { waitUntil: 'networkidle' });

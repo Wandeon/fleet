@@ -1,7 +1,9 @@
 # Fleet Operations Console — Information Architecture
 
 ## Navigation Structure
+
 - **Dashboard (default landing)**
+
   - Device List (left column)
     - Global search (name, ID, site)
     - Filters
@@ -47,15 +49,18 @@
       - Link to historical reports
 
 - **Alerts Center**
+
   - Active incidents list
   - Incident detail page with timeline and related devices
 
 - **Reports**
+
   - Health trends (weekly/monthly)
   - Device utilization (audio/video stream counts)
   - Export scheduler
 
 - **Settings**
+
   - Device Groups
     - CRUD groupings, assign devices
   - Access Control
@@ -72,6 +77,7 @@
   - Contact escalation paths
 
 ## Operator-First Flow
+
 1. Operator logs in and lands on Dashboard.
 2. Device list auto-selects highest priority alert or most recently active device.
 3. Health tab displays heartbeat, CPU, memory, and alert banners.
@@ -81,12 +87,14 @@
 7. Contextual help link surfaces relevant runbook snippet.
 
 ## Contextual Navigation Patterns
+
 - Left column persists across dashboard subpages to maintain situational awareness.
 - Right column swaps between Health and Logs split view; other tabs overlay in place.
 - Breadcrumbs appear for Settings, Reports, Alerts to aid admins/technicians.
 - Global command palette (⌘/Ctrl+K) provides quick navigation to devices, alerts, or settings.
 
 ## Data Hierarchy
+
 1. **Critical Alerts:** red badges and banners at top of device list.
 2. **Device Health KPIs:** large cards in Health tab with thresholds.
 3. **Control Actions:** primary buttons grouped near relevant metrics.
@@ -94,12 +102,14 @@
 5. **Historical & Reports:** accessible secondary navigation, not in primary flow.
 
 ## Metadata & State Indicators
+
 - Status colors: Green (online), Amber (degraded), Red (offline), Grey (maintenance).
 - Loading skeletons for device tiles, metrics cards, and log rows.
 - Empty states include guidance copy and CTA (e.g., "No logs in last hour – broaden filter").
 - Error states show icon, message, retry button, and support link.
 
 ## Responsive Considerations
+
 - ≥1280px: two-column layout with fixed device list (35% width) and detail panel (65%).
 - 1024–1279px: collapsible device list, detail panel full width when expanded.
 - ≤1023px: stacked layout, device list top accordion, detail panels slide-in.

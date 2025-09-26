@@ -4,7 +4,6 @@ Fleet agents now install multiple safety nets to heal Pi nodes if they drift or 
 
 ## Systemd watchdog chain
 
-
 - `role-agent.timer` runs every 10 minutes with up to 90s jitter to prevent overlapping converger jobs.
 - `role-agent-watchdog.timer` (optional) runs every 60 minutes and checks for a recent `Converged` journal entry.
 - If no success within 60 minutes (configurable via `WATCHDOG_THRESHOLD_MINUTES`), it restarts `role-agent.service` and reboots the host after 3 failed attempts.
@@ -16,7 +15,6 @@ Fleet agents now install multiple safety nets to heal Pi nodes if they drift or 
 - Check the current cadence with `systemctl list-timers --all | grep role-agent`.
 
 - Override the convergence window if your converge cycle regularly exceeds 60 minutes:
-
 
 ```
 sudo systemctl edit role-agent-watchdog.service
@@ -48,8 +46,10 @@ Environment=WATCHDOG_THRESHOLD_MINUTES=90
 - To unblock a locked repo and re-run the converger:
 
 ```
+
 sudo rm -f /opt/fleet/.git/{index,shallow,packed-refs}.lock
 sudo systemctl start role-agent.service
+
 ```
 
 - Locks younger than a minute are left in place automatically; if you see repeated failures, verify no `git` processes are running before removing the files manually.
@@ -59,3 +59,4 @@ sudo systemctl start role-agent.service
 - Each convergence run writes Prometheus textfile metrics: `role_agent_last_run_timestamp` and `role_agent_last_run_success` (labelled by `host`).
 - By default the agent copies metrics into `/var/lib/node_exporter/textfile_collector/role-agent.prom` when that collector directory exists. Override the path with `ROLE_AGENT_TEXTFILE_DIR` if your node exporter uses a different location.
 - Alerting examples are defined in `infra/vps/prometheus/alerts.yml` (`RoleAgentStale` after 15m without success, `RoleAgentFailure` when the last run failed for 5m).
+```

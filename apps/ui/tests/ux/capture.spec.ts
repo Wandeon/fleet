@@ -12,7 +12,7 @@ const routes = [
   { slug: 'fleet-device-sample', path: '/fleet/pi-audio-01' },
   { slug: 'logs', path: '/logs' },
   { slug: 'settings', path: '/settings' },
-  { slug: 'health', path: '/health' }
+  { slug: 'health', path: '/health' },
 ];
 
 const timestamp = new Date().toISOString().replace(/[-:]/g, '').slice(0, 15);
@@ -37,7 +37,10 @@ function normaliseText(value: string | null | undefined): string {
 test.describe('UX capture', () => {
   for (const route of routes) {
     test(`capture ${route.slug}`, async ({ page }) => {
-      const target = new URL(route.path, test.info().project.use?.baseURL ?? 'http://127.0.0.1:5173');
+      const target = new URL(
+        route.path,
+        test.info().project.use?.baseURL ?? 'http://127.0.0.1:5173'
+      );
       await page.goto(target.toString(), { waitUntil: 'networkidle' });
       await page.waitForTimeout(1500);
 
@@ -65,8 +68,8 @@ test.describe('UX capture', () => {
               x: rect.x,
               y: rect.y,
               width: rect.width,
-              height: rect.height
-            }
+              height: rect.height,
+            },
           };
         });
       });
@@ -74,7 +77,7 @@ test.describe('UX capture', () => {
       const headings = await page.evaluate(() => ({
         title: document.title,
         h1: Array.from(document.querySelectorAll('h1')).map((el) => el.textContent),
-        h2: Array.from(document.querySelectorAll('h2')).map((el) => el.textContent)
+        h2: Array.from(document.querySelectorAll('h2')).map((el) => el.textContent),
       }));
 
       const logPath = path.join(logDir, `${route.slug}.json`);
@@ -86,13 +89,13 @@ test.describe('UX capture', () => {
             title: headings.title,
             headings: {
               h1: headings.h1?.map((value) => normaliseText(value)),
-              h2: headings.h2?.map((value) => normaliseText(value))
+              h2: headings.h2?.map((value) => normaliseText(value)),
             },
             controls: controls.map((control) => ({
               ...control,
               text: normaliseText(control.text),
-              ariaLabel: normaliseText(control.ariaLabel ?? undefined)
-            }))
+              ariaLabel: normaliseText(control.ariaLabel ?? undefined),
+            })),
           },
           null,
           2
@@ -102,7 +105,7 @@ test.describe('UX capture', () => {
       test.info().attachments.push({
         name: `${route.slug}-screenshot`,
         contentType: 'image/png',
-        path: screenshotPath
+        path: screenshotPath,
       });
     });
   }

@@ -94,7 +94,7 @@ router.get('/logs', async (req, res) => {
     });
     res.json(result);
   } catch (err) {
-    const status = typeof (err)?.status === 'number' ? (err).status : 502;
+    const status = typeof err?.status === 'number' ? err.status : 502;
     const message = err instanceof Error ? err.message : 'Failed to query logs';
     log.error({ err: message, status }, 'logs endpoint error');
     res.status(status).json({ error: message });
@@ -227,7 +227,10 @@ router.post('/operations/:deviceId/:operationId', async (req, res) => {
       res.status(error.status).json({ error: error.message, data: error.data ?? null });
       return;
     }
-    log.error({ err: error instanceof Error ? error.message : error }, 'operation execution failed');
+    log.error(
+      { err: error instanceof Error ? error.message : error },
+      'operation execution failed'
+    );
     res.status(500).json({ error: 'internal error' });
   }
 });

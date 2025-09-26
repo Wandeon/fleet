@@ -6,7 +6,7 @@
     default: 'ℹ️',
     success: '✅',
     warning: '⚠️',
-    error: '⛔️'
+    error: '⛔️',
   } as const;
 </script>
 

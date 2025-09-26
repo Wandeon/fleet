@@ -24,6 +24,6 @@ High-level priorities for the next phases of Fleet development. Update as initia
 
 ## Process goals
 
-- Enforce documentation updates for every architecture change via CI. 
-- Schedule quarterly UX audits and postmortem reviews to feed roadmap updates. 
+- Enforce documentation updates for every architecture change via CI.
+- Schedule quarterly UX audits and postmortem reviews to feed roadmap updates.
 - Track progress in sprint planning; update this roadmap file at the end of each release cycle.

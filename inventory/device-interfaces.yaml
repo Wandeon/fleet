@@ -1,10 +1,10 @@
 devices:
   - id: pi-audio-01
-    name: "Audio Player 01"
+    name: 'Audio Player 01'
     role: audio-player
     kind: audio
     management:
-      summary: "Primary program audio feed (HiFiBerry)"
+      summary: 'Primary program audio feed (HiFiBerry)'
       host: pi-audio-01
     api:
       base_url: http://pi-audio-01:8081
@@ -82,11 +82,11 @@ devices:
           default: 1
           body_key: volume
   - id: pi-audio-02
-    name: "Audio Player 02"
+    name: 'Audio Player 02'
     role: audio-player
     kind: audio
     management:
-      summary: "Secondary program audio feed (redundant playback)"
+      summary: 'Secondary program audio feed (redundant playback)'
       host: pi-audio-02
     api:
       base_url: http://pi-audio-02:8081
@@ -164,11 +164,11 @@ devices:
           default: 1
           body_key: volume
   - id: pi-video-01
-    name: "Media Hub & Zigbee"
+    name: 'Media Hub & Zigbee'
     role: hdmi-media
     kind: video
     management:
-      summary: "HDMI signage controller and Zigbee coordinator"
+      summary: 'HDMI signage controller and Zigbee coordinator'
       host: pi-video-01
     api:
       base_url: http://pi-video-01:8082
@@ -244,11 +244,11 @@ devices:
           type: button
           group: control
   - id: pi-camera-01
-    name: "Camera"
+    name: 'Camera'
     role: camera
     kind: camera
     management:
-      summary: "Primary video camera feeding MediaMTX"
+      summary: 'Primary video camera feeding MediaMTX'
       host: pi-camera-01
     api:
       base_url: http://pi-camera-01:8083

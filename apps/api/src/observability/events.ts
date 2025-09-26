@@ -15,7 +15,7 @@ const events: FleetEvent[] = [];
 export function recordEvent(event: Omit<FleetEvent, 'timestamp'> & { timestamp?: string }): void {
   const enriched: FleetEvent = {
     ...event,
-    timestamp: event.timestamp ?? new Date().toISOString()
+    timestamp: event.timestamp ?? new Date().toISOString(),
   };
 
   events.push(enriched);

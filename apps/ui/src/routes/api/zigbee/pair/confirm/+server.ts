@@ -14,9 +14,9 @@ export const POST: RequestHandler = async ({ request }) => {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        'Authorization': 'Bearer mock-zigbee-01-token' // Replace with actual token from env
+        Authorization: 'Bearer mock-zigbee-01-token', // Replace with actual token from env
       },
-      body: JSON.stringify({ deviceId })
+      body: JSON.stringify({ deviceId }),
     });
 
     if (response.ok) {
@@ -25,11 +25,14 @@ export const POST: RequestHandler = async ({ request }) => {
         success: true,
         deviceId: result.deviceId,
         name: result.name,
-        type: result.type
+        type: result.type,
       });
     } else {
       const error = await response.json();
-      return json({ error: error.message || 'Device pairing confirmation failed' }, { status: 500 });
+      return json(
+        { error: error.message || 'Device pairing confirmation failed' },
+        { status: 500 }
+      );
     }
   } catch (error) {
     console.error('Zigbee pairing confirmation error:', error);

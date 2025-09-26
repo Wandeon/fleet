@@ -4,7 +4,12 @@ import Slider from '../Slider.svelte';
 
 describe('Slider', () => {
   it('renders with label and value', () => {
-    const { getByLabelText } = render(Slider, { label: 'Master volume', value: 50, unit: '%', max: 200 });
+    const { getByLabelText } = render(Slider, {
+      label: 'Master volume',
+      value: 50,
+      unit: '%',
+      max: 200,
+    });
     const slider = getByLabelText(/Master volume/);
     expect(slider).toHaveAttribute('aria-valuemax', '200');
   });

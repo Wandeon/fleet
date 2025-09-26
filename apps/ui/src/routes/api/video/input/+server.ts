@@ -14,9 +14,9 @@ export const POST: RequestHandler = async ({ request }) => {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        'Authorization': 'Bearer mock-video-01-token' // Replace with actual token from env
+        Authorization: 'Bearer mock-video-01-token', // Replace with actual token from env
       },
-      body: JSON.stringify({ source })
+      body: JSON.stringify({ source }),
     });
 
     if (response.ok) {

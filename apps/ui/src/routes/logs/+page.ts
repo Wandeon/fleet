@@ -7,7 +7,10 @@ export const load: PageLoad = async ({ fetch, depends }) => {
 
   try {
     const snapshot = await fetchLogSnapshot({ fetch });
-    return { snapshot, error: null as string | null } satisfies { snapshot: LogsSnapshot; error: string | null };
+    return { snapshot, error: null as string | null } satisfies {
+      snapshot: LogsSnapshot;
+      error: string | null;
+    };
   } catch (error) {
     const message = error instanceof Error ? error.message : 'Unable to load logs';
     return { snapshot: null, error: message };

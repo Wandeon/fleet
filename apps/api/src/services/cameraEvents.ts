@@ -97,7 +97,7 @@ export interface CameraEventSeed {
 const DEFAULT_CONFIDENCE_BY_SEVERITY: Record<CameraEventSeverity, number> = {
   info: 0.42,
   warning: 0.68,
-  critical: 0.9
+  critical: 0.9,
 };
 
 const STOP_WORDS = new Set([
@@ -122,7 +122,7 @@ const STOP_WORDS = new Set([
   'the',
   'to',
   'with',
-  'without'
+  'without',
 ]);
 
 let cachedEvents: CameraEventRecord[] | null = null;
@@ -197,13 +197,16 @@ function deriveTags(event: FixtureCameraEvent, provided?: string[]): string[] {
   return Array.from(tags.values()).filter((tag) => tag.length > 0);
 }
 
-function normalizeMetadata(event: FixtureCameraEvent, overrides?: Record<string, unknown>): Record<string, unknown> {
+function normalizeMetadata(
+  event: FixtureCameraEvent,
+  overrides?: Record<string, unknown>
+): Record<string, unknown> {
   const metadata: Record<string, unknown> = {
     severity: event.severity,
     synopsis: event.synopsis ?? null,
     source: 'ai-camera-pipeline',
     cameraId: event.cameraId,
-    type: event.type
+    type: event.type,
   };
   if (overrides) {
     for (const [key, value] of Object.entries(overrides)) {
@@ -235,7 +238,7 @@ function loadFixture(): CameraEventRecord[] {
       acknowledged: false,
       acknowledgedAt: null,
       durationSeconds: deriveDuration(event.id),
-      metadata: normalizeMetadata(event)
+      metadata: normalizeMetadata(event),
     }));
   } catch {
     return [];
@@ -279,7 +282,7 @@ function toSummary(record: CameraEventRecord): CameraEventSummary {
     clipUrl: record.clipUrl,
     clipAvailable: Boolean(record.clipUrl),
     acknowledged: record.acknowledged,
-    acknowledgedAt: record.acknowledgedAt
+    acknowledgedAt: record.acknowledgedAt,
   };
 }
 
@@ -301,8 +304,8 @@ function toDetail(record: CameraEventRecord): CameraEventDetail {
       url: record.clipUrl,
       expiresAt: record.clipUrl ? expiresAt : null,
       durationSeconds: record.durationSeconds,
-      format: detectFormat(record.clipUrl)
-    }
+      format: detectFormat(record.clipUrl),
+    },
   };
 }
 
@@ -391,7 +394,7 @@ export function listCameraEvents(options: CameraEventListOptions = {}): CameraEv
     events: items.map(toSummary),
     totalCount: events.length,
     hasMore,
-    nextCursor
+    nextCursor,
   };
 }
 
@@ -418,8 +421,9 @@ export function setCameraEventsForTests(events: CameraEventSeed[]): void {
     tags: deriveTags(event, event.tags),
     acknowledged: event.acknowledged ?? false,
     acknowledgedAt: event.acknowledgedAt ?? null,
-    durationSeconds: event.durationSeconds ?? deriveDuration(event.id, event.durationSeconds ?? undefined),
-    metadata: normalizeMetadata(event, event.metadata)
+    durationSeconds:
+      event.durationSeconds ?? deriveDuration(event.id, event.durationSeconds ?? undefined),
+    metadata: normalizeMetadata(event, event.metadata),
   }));
 }
 

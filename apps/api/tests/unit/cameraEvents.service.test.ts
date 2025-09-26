@@ -3,7 +3,7 @@ import {
   getCameraEvent,
   listCameraEvents,
   resetCameraEvents,
-  setCameraEventsForTests
+  setCameraEventsForTests,
 } from '../../src/services/cameraEvents.js';
 import { setRegistryForTests } from '../../src/upstream/devices.js';
 
@@ -13,15 +13,15 @@ const registryDocument = {
       id: 'cam-1',
       name: 'Lobby Camera',
       role: 'camera',
-      baseUrl: 'http://127.0.0.1:3100'
+      baseUrl: 'http://127.0.0.1:3100',
     },
     {
       id: 'cam-2',
       name: 'Dock Camera',
       role: 'camera',
-      baseUrl: 'http://127.0.0.1:3101'
-    }
-  ]
+      baseUrl: 'http://127.0.0.1:3101',
+    },
+  ],
 };
 
 describe('cameraEvents service', () => {
@@ -38,7 +38,7 @@ describe('cameraEvents service', () => {
         tags: ['person', 'lobby'],
         confidence: 0.34,
         acknowledged: true,
-        acknowledgedAt: '2024-04-01T10:05:00Z'
+        acknowledgedAt: '2024-04-01T10:05:00Z',
       },
       {
         id: 'evt-002',
@@ -49,7 +49,7 @@ describe('cameraEvents service', () => {
         synopsis: 'Extended presence near dock entrance',
         tags: ['dock', 'vehicle'],
         confidence: 0.78,
-        clipUrl: 'https://cdn.example.com/cam-dock/evt-002.mp4'
+        clipUrl: 'https://cdn.example.com/cam-dock/evt-002.mp4',
       },
       {
         id: 'evt-003',
@@ -59,8 +59,8 @@ describe('cameraEvents service', () => {
         timestamp: '2024-04-01T12:00:00Z',
         synopsis: 'Unauthorized access at dock door',
         tags: ['dock', 'intrusion'],
-        confidence: 0.92
-      }
+        confidence: 0.92,
+      },
     ]);
   });
 
@@ -90,7 +90,7 @@ describe('cameraEvents service', () => {
     const filtered = listCameraEvents({
       minConfidence: 0.7,
       tags: ['dock'],
-      start: new Date('2024-04-01T11:00:00Z')
+      start: new Date('2024-04-01T11:00:00Z'),
     });
     expect(filtered.events).toHaveLength(2);
     expect(filtered.events.every((event) => event.tags.includes('dock'))).toBe(true);

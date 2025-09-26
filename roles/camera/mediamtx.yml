@@ -6,8 +6,7 @@ hlsAddress: :8888
 hlsAlwaysRemux: true
 paths:
   camera:
-    publishUser: ""
-    publishPass: ""
-    readUser: ""
-    readPass: ""
-
+    publishUser: ''
+    publishPass: ''
+    readUser: ''
+    readPass: ''

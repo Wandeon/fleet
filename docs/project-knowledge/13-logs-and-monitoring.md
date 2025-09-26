@@ -26,9 +26,9 @@ Fleet uses Prometheus, Grafana, Loki, and Blackbox to monitor device health and 
 
 ## Operational playbook
 
-1. **Triaging incidents** – Start with Grafana dashboard to identify failing module, then use Loki query with correlation ID to correlate API/device logs. 
+1. **Triaging incidents** – Start with Grafana dashboard to identify failing module, then use Loki query with correlation ID to correlate API/device logs.
 2. **Validating deployments** – After `deploy-vps.yml`, confirm `/api/healthz`, `/health/events/recent`, and new logs via `/api/logs`. Review `.deploy/last-acceptance.log` for audio smoke tests.【F:scripts/vps-deploy.sh†L1-L200】
 3. **Device-specific checks** – Use `journalctl -u role-agent.service` on Pis, `docker logs` for containers, and `curl http://<device>:8081/metrics` to spot anomalies.
-4. **Retention** – Loki keeps seven days of logs (default). Adjust `infra/vps/loki-config.yml` if retention policies change. 
+4. **Retention** – Loki keeps seven days of logs (default). Adjust `infra/vps/loki-config.yml` if retention policies change.
 
 For alert routing details, see [23-alerting-and-integrations](./23-alerting-and-integrations.md); for recovery patterns, reference [15-error-recovery](./15-error-recovery.md).

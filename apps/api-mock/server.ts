@@ -287,7 +287,12 @@ app.use(API_PREFIX, async (req, res, next) => {
     return;
   }
   if (token.endsWith(':ro') && req.method !== 'GET') {
-    await sendError(res, 403, 'AUTH_FORBIDDEN', 'Token lacks the required scope for write operations.');
+    await sendError(
+      res,
+      403,
+      'AUTH_FORBIDDEN',
+      'Token lacks the required scope for write operations.'
+    );
     return;
   }
   if (token.toLowerCase() === 'forbidden') {
@@ -307,312 +312,319 @@ app.use(API_PREFIX, ...validatorMiddleware);
 
 const router = express.Router();
 
-router.get('/fleet/layout', asyncHandler(async (req, res) => {
-  if (await maybeSimulate(res, req)) {
-    return;
-  }
-  await sendJson(res, 200, clone(layoutFixture));
-}));
-
-router.get('/fleet/state', asyncHandler(async (req, res) => {
-  if (await maybeSimulate(res, req)) {
-    return;
-  }
-  const state = buildFleetState();
-  await sendJson(res, 200, state);
-}));
-
-router.get('/audio/devices', asyncHandler(async (req, res) => {
-  if (await maybeSimulate(res, req)) {
-    return;
-  }
-  const devices = Array.from(audioDevices.values()).map((device) => clone(device));
-  const paged = paginate(devices, req);
-  await sendJson(res, 200, paged);
-}));
-
-router.get('/audio/:id', asyncHandler(async (req, res) => {
-  if (await maybeSimulate(res, req)) {
-    return;
-  }
-  const device = audioDevices.get(req.params.id);
-  if (!device) {
-    await sendError(res, 404, 'RESOURCE_NOT_FOUND', `Audio device ${req.params.id} was not found.`);
-    return;
-  }
-  await sendJson(res, 200, clone(device));
-}));
-
-router.post('/audio/:id/play', asyncHandler(async (req, res) => {
-  if (await maybeSimulate(res, req)) {
-    return;
-  }
-  const device = audioDevices.get(req.params.id);
-  if (!device) {
-    await sendError(res, 404, 'RESOURCE_NOT_FOUND', `Audio device ${req.params.id} was not found.`);
-    return;
-  }
-  if (!device.online) {
-    await sendError(res, 409, 'AUDIO_DEVICE_BUSY', `Device ${req.params.id} is offline.`);
-    return;
-  }
-  device.playback.state = 'playing';
-  device.playback.source = req.body.source;
-  device.playback.trackTitle = device.playback.trackTitle ?? (req.body.source === 'stream' ? 'Live Stream' : 'Fallback File');
-  device.playback.since = new Date().toISOString();
-  device.volume.lastChangedBy = 'ui';
-  device.lastSeen = new Date().toISOString();
-  await sendJson(res, 200, clone(device));
-}));
-
-router.post('/audio/:id/stop', asyncHandler(async (req, res) => {
-  if (await maybeSimulate(res, req)) {
-    return;
-  }
-  const device = audioDevices.get(req.params.id);
-  if (!device) {
-    await sendError(res, 404, 'RESOURCE_NOT_FOUND', `Audio device ${req.params.id} was not found.`);
-    return;
-  }
-  device.playback.state = 'idle';
-  device.playback.since = new Date().toISOString();
-  device.playback.trackTitle = null;
-  device.volume.lastChangedBy = 'ui';
-  await sendJson(res, 200, { id: device.id, playback: clone(device.playback) });
-}));
-
-router.post('/audio/:id/volume', asyncHandler(async (req, res) => {
-  if (await maybeSimulate(res, req)) {
-    return;
-  }
-  const device = audioDevices.get(req.params.id);
-  if (!device) {
-    await sendError(res, 404, 'RESOURCE_NOT_FOUND', `Audio device ${req.params.id} was not found.`);
-    return;
-  }
-  device.volume.level = req.body.volume;
-  device.volume.lastChangedBy = 'ui';
-  device.lastSeen = new Date().toISOString();
-  await sendJson(res, 200, clone(device));
-}));
-
-router.put('/audio/:id/config', asyncHandler(async (req, res) => {
-  if (await maybeSimulate(res, req)) {
-    return;
-  }
-  const device = audioDevices.get(req.params.id);
-  if (!device) {
-    await sendError(res, 404, 'RESOURCE_NOT_FOUND', `Audio device ${req.params.id} was not found.`);
-    return;
-  }
-  if (!device.config) {
-    device.config = {};
-  }
-  if (typeof req.body.streamUrl !== 'undefined') {
-    device.config.streamUrl = req.body.streamUrl;
-  }
-  if (typeof req.body.mode !== 'undefined') {
-    device.config.mode = req.body.mode;
-  }
-  if (typeof req.body.source !== 'undefined') {
-    device.config.defaultSource = req.body.source;
-  }
-  device.lastSeen = new Date().toISOString();
-  await sendJson(res, 200, clone(device));
-}));
-
-router.get('/video/tv', asyncHandler(async (req, res) => {
-  if (await maybeSimulate(res, req)) {
-    return;
-  }
-  await sendJson(res, 200, clone(tvStatus));
-}));
-
-router.post('/video/tv/power', asyncHandler(async (req, res) => {
-  if (await maybeSimulate(res, req)) {
-    return;
-  }
-  tvStatus.power = req.body.on ? 'on' : 'off';
-  tvStatus.online = req.body.on;
-  tvStatus.lastSeen = new Date().toISOString();
-  await sendJson(res, 200, clone(tvStatus));
-}));
-
-router.post('/video/tv/input', asyncHandler(async (req, res) => {
-  if (await maybeSimulate(res, req)) {
-    return;
-  }
-  if (tvStatus.availableInputs && !tvStatus.availableInputs.includes(req.body.input)) {
-    await sendError(res, 422, 'VALIDATION_FAILED', `Input ${req.body.input} is not available.`, { details: { availableInputs: tvStatus.availableInputs } });
-    return;
-  }
-  tvStatus.input = req.body.input;
-  tvStatus.lastSeen = new Date().toISOString();
-  await sendJson(res, 200, clone(tvStatus));
-}));
-
-router.post('/video/tv/volume', asyncHandler(async (req, res) => {
-  if (await maybeSimulate(res, req)) {
-    return;
-  }
-  tvStatus.volume = req.body.level;
-  tvStatus.lastSeen = new Date().toISOString();
-  await sendJson(res, 200, clone(tvStatus));
-}));
-
-router.post('/video/tv/mute', asyncHandler(async (req, res) => {
-  if (await maybeSimulate(res, req)) {
-    return;
-  }
-  tvStatus.mute = req.body.mute;
-  tvStatus.lastSeen = new Date().toISOString();
-  await sendJson(res, 200, clone(tvStatus));
-}));
-
-router.get('/zigbee/devices', asyncHandler(async (req, res) => {
-  if (await maybeSimulate(res, req)) {
-    return;
-  }
-  const devices = Array.from(zigbeeDevices.values()).map((device) => clone(device));
-  const paged = paginate(devices, req);
-  await sendJson(res, 200, paged);
-}));
-
-router.post('/zigbee/devices/:id/action', asyncHandler(async (req, res) => {
-  if (await maybeSimulate(res, req)) {
-    return;
-  }
-  const device = zigbeeDevices.get(req.params.id);
-  if (!device) {
-    await sendError(res, 404, 'RESOURCE_NOT_FOUND', `Zigbee device ${req.params.id} was not found.`);
-    return;
-  }
-  const action: string = req.body.action;
-  if (action === 'toggle') {
-    device.state = device.state === 'on' ? 'off' : 'on';
-  } else if (action === 'on') {
-    device.state = 'on';
-  } else if (action === 'off') {
-    device.state = 'off';
-  } else if (action === 'scene') {
-    if (!req.body.scene) {
-      await sendError(res, 422, 'VALIDATION_FAILED', 'Scene name is required for scene actions.');
+router.get(
+  '/fleet/layout',
+  asyncHandler(async (req, res) => {
+    if (await maybeSimulate(res, req)) {
       return;
     }
-    device.state = `scene:${req.body.scene}`;
-  }
-  device.lastSeen = new Date().toISOString();
-  await sendJson(res, 202, clone(device));
-}));
+    await sendJson(res, 200, clone(layoutFixture));
+  })
+);
 
-router.get('/zigbee/rules', asyncHandler(async (req, res) => {
-  if (await maybeSimulate(res, req)) {
-    return;
-  }
-  const items = Array.from(zigbeeRules.values()).map((rule) => clone(rule));
-  await sendJson(res, 200, { items, total: items.length });
-}));
+router.get(
+  '/fleet/state',
+  asyncHandler(async (req, res) => {
+    if (await maybeSimulate(res, req)) {
+      return;
+    }
+    const state = buildFleetState();
+    await sendJson(res, 200, state);
+  })
+);
 
-router.get('/zigbee/rules/:id', asyncHandler(async (req, res) => {
-  if (await maybeSimulate(res, req)) {
-    return;
-  }
-  const rule = zigbeeRules.get(req.params.id);
-  if (!rule) {
-    await sendError(res, 404, 'RESOURCE_NOT_FOUND', 'Rule not found.');
-    return;
-  }
-  await sendJson(res, 200, clone(rule));
-}));
+router.get(
+  '/audio/devices',
+  asyncHandler(async (req, res) => {
+    if (await maybeSimulate(res, req)) {
+      return;
+    }
+    const devices = Array.from(audioDevices.values()).map((device) => clone(device));
+    const paged = paginate(devices, req);
+    await sendJson(res, 200, paged);
+  })
+);
 
-router.post('/zigbee/rules', asyncHandler(async (req, res) => {
-  if (await maybeSimulate(res, req)) {
-    return;
-  }
-  const normalized = normalizeRuleDefinition(req.body);
-  const now = new Date().toISOString();
-  const rule: ZigbeeRuleRecord = {
-    id: randomUUID(),
-    name: normalized.name,
-    description: normalized.description ?? null,
-    trigger: normalized.trigger,
-    actions: normalized.actions,
-    tags: normalized.tags ?? [],
-    metadata: normalized.metadata ?? {},
-    enabled: normalized.enabled ?? true,
-    createdAt: now,
-    updatedAt: now
-  };
-  zigbeeRules.set(rule.id, rule);
-  await sendJson(res, 201, clone(rule));
-}));
+router.get(
+  '/audio/:id',
+  asyncHandler(async (req, res) => {
+    if (await maybeSimulate(res, req)) {
+      return;
+    }
+    const device = audioDevices.get(req.params.id);
+    if (!device) {
+      await sendError(
+        res,
+        404,
+        'RESOURCE_NOT_FOUND',
+        `Audio device ${req.params.id} was not found.`
+      );
+      return;
+    }
+    await sendJson(res, 200, clone(device));
+  })
+);
 
-router.put('/zigbee/rules/:id', asyncHandler(async (req, res) => {
-  if (await maybeSimulate(res, req)) {
-    return;
-  }
-  const rule = zigbeeRules.get(req.params.id);
-  if (!rule) {
-    await sendError(res, 404, 'RESOURCE_NOT_FOUND', 'Rule not found.');
-    return;
-  }
-  const updates = req.body ?? {};
-  if (!updates || Object.keys(updates).length === 0) {
-    await sendError(res, 400, 'VALIDATION_FAILED', 'No fields provided for update.');
-    return;
-  }
-  const normalized = normalizeRuleUpdate(rule, updates);
-  zigbeeRules.set(rule.id, normalized);
-  await sendJson(res, 200, clone(normalized));
-}));
+router.post(
+  '/audio/:id/play',
+  asyncHandler(async (req, res) => {
+    if (await maybeSimulate(res, req)) {
+      return;
+    }
+    const device = audioDevices.get(req.params.id);
+    if (!device) {
+      await sendError(
+        res,
+        404,
+        'RESOURCE_NOT_FOUND',
+        `Audio device ${req.params.id} was not found.`
+      );
+      return;
+    }
+    if (!device.online) {
+      await sendError(res, 409, 'AUDIO_DEVICE_BUSY', `Device ${req.params.id} is offline.`);
+      return;
+    }
+    device.playback.state = 'playing';
+    device.playback.source = req.body.source;
+    device.playback.trackTitle =
+      device.playback.trackTitle ??
+      (req.body.source === 'stream' ? 'Live Stream' : 'Fallback File');
+    device.playback.since = new Date().toISOString();
+    device.volume.lastChangedBy = 'ui';
+    device.lastSeen = new Date().toISOString();
+    await sendJson(res, 200, clone(device));
+  })
+);
 
-router.delete('/zigbee/rules/:id', asyncHandler(async (req, res) => {
-  if (await maybeSimulate(res, req)) {
-    return;
-  }
-  const existed = zigbeeRules.delete(req.params.id);
-  if (!existed) {
-    await sendError(res, 404, 'RESOURCE_NOT_FOUND', 'Rule not found.');
-    return;
-  }
-  res.status(204).send();
-}));
+router.post(
+  '/audio/:id/stop',
+  asyncHandler(async (req, res) => {
+    if (await maybeSimulate(res, req)) {
+      return;
+    }
+    const device = audioDevices.get(req.params.id);
+    if (!device) {
+      await sendError(
+        res,
+        404,
+        'RESOURCE_NOT_FOUND',
+        `Audio device ${req.params.id} was not found.`
+      );
+      return;
+    }
+    device.playback.state = 'idle';
+    device.playback.since = new Date().toISOString();
+    device.playback.trackTitle = null;
+    device.volume.lastChangedBy = 'ui';
+    await sendJson(res, 200, { id: device.id, playback: clone(device.playback) });
+  })
+);
 
-router.patch('/zigbee/rules/:id/enable', asyncHandler(async (req, res) => {
-  if (await maybeSimulate(res, req)) {
-    return;
-  }
-  const rule = zigbeeRules.get(req.params.id);
-  if (!rule) {
-    await sendError(res, 404, 'RESOURCE_NOT_FOUND', 'Rule not found.');
-    return;
-  }
-  const enabled = typeof req.body?.enabled === 'boolean' ? req.body.enabled : true;
-  rule.enabled = enabled;
-  rule.updatedAt = new Date().toISOString();
-  zigbeeRules.set(rule.id, rule);
-  await sendJson(res, 200, clone(rule));
-}));
+router.post(
+  '/audio/:id/volume',
+  asyncHandler(async (req, res) => {
+    if (await maybeSimulate(res, req)) {
+      return;
+    }
+    const device = audioDevices.get(req.params.id);
+    if (!device) {
+      await sendError(
+        res,
+        404,
+        'RESOURCE_NOT_FOUND',
+        `Audio device ${req.params.id} was not found.`
+      );
+      return;
+    }
+    device.volume.level = req.body.volume;
+    device.volume.lastChangedBy = 'ui';
+    device.lastSeen = new Date().toISOString();
+    await sendJson(res, 200, clone(device));
+  })
+);
 
-router.post('/zigbee/rules/validate', asyncHandler(async (req, res) => {
-  if (await maybeSimulate(res, req)) {
-    return;
-  }
-  const normalized = normalizeRuleDefinition(req.body);
-  await sendJson(res, 200, { valid: true, normalized, evaluatedAt: new Date().toISOString() });
-}));
+router.put(
+  '/audio/:id/config',
+  asyncHandler(async (req, res) => {
+    if (await maybeSimulate(res, req)) {
+      return;
+    }
+    const device = audioDevices.get(req.params.id);
+    if (!device) {
+      await sendError(
+        res,
+        404,
+        'RESOURCE_NOT_FOUND',
+        `Audio device ${req.params.id} was not found.`
+      );
+      return;
+    }
+    if (!device.config) {
+      device.config = {};
+    }
+    if (typeof req.body.streamUrl !== 'undefined') {
+      device.config.streamUrl = req.body.streamUrl;
+    }
+    if (typeof req.body.mode !== 'undefined') {
+      device.config.mode = req.body.mode;
+    }
+    if (typeof req.body.source !== 'undefined') {
+      device.config.defaultSource = req.body.source;
+    }
+    device.lastSeen = new Date().toISOString();
+    await sendJson(res, 200, clone(device));
+  })
+);
 
-router.post('/zigbee/rules/simulate', asyncHandler(async (req, res) => {
-  if (await maybeSimulate(res, req)) {
-    return;
-  }
-  const payload = req.body ?? {};
-  let rule: ZigbeeRuleRecord | undefined;
-  if (payload.definition) {
-    const normalized = normalizeRuleDefinition(payload.definition);
+router.get(
+  '/video/tv',
+  asyncHandler(async (req, res) => {
+    if (await maybeSimulate(res, req)) {
+      return;
+    }
+    await sendJson(res, 200, clone(tvStatus));
+  })
+);
+
+router.post(
+  '/video/tv/power',
+  asyncHandler(async (req, res) => {
+    if (await maybeSimulate(res, req)) {
+      return;
+    }
+    tvStatus.power = req.body.on ? 'on' : 'off';
+    tvStatus.online = req.body.on;
+    tvStatus.lastSeen = new Date().toISOString();
+    await sendJson(res, 200, clone(tvStatus));
+  })
+);
+
+router.post(
+  '/video/tv/input',
+  asyncHandler(async (req, res) => {
+    if (await maybeSimulate(res, req)) {
+      return;
+    }
+    if (tvStatus.availableInputs && !tvStatus.availableInputs.includes(req.body.input)) {
+      await sendError(res, 422, 'VALIDATION_FAILED', `Input ${req.body.input} is not available.`, {
+        details: { availableInputs: tvStatus.availableInputs },
+      });
+      return;
+    }
+    tvStatus.input = req.body.input;
+    tvStatus.lastSeen = new Date().toISOString();
+    await sendJson(res, 200, clone(tvStatus));
+  })
+);
+
+router.post(
+  '/video/tv/volume',
+  asyncHandler(async (req, res) => {
+    if (await maybeSimulate(res, req)) {
+      return;
+    }
+    tvStatus.volume = req.body.level;
+    tvStatus.lastSeen = new Date().toISOString();
+    await sendJson(res, 200, clone(tvStatus));
+  })
+);
+
+router.post(
+  '/video/tv/mute',
+  asyncHandler(async (req, res) => {
+    if (await maybeSimulate(res, req)) {
+      return;
+    }
+    tvStatus.mute = req.body.mute;
+    tvStatus.lastSeen = new Date().toISOString();
+    await sendJson(res, 200, clone(tvStatus));
+  })
+);
+
+router.get(
+  '/zigbee/devices',
+  asyncHandler(async (req, res) => {
+    if (await maybeSimulate(res, req)) {
+      return;
+    }
+    const devices = Array.from(zigbeeDevices.values()).map((device) => clone(device));
+    const paged = paginate(devices, req);
+    await sendJson(res, 200, paged);
+  })
+);
+
+router.post(
+  '/zigbee/devices/:id/action',
+  asyncHandler(async (req, res) => {
+    if (await maybeSimulate(res, req)) {
+      return;
+    }
+    const device = zigbeeDevices.get(req.params.id);
+    if (!device) {
+      await sendError(
+        res,
+        404,
+        'RESOURCE_NOT_FOUND',
+        `Zigbee device ${req.params.id} was not found.`
+      );
+      return;
+    }
+    const action: string = req.body.action;
+    if (action === 'toggle') {
+      device.state = device.state === 'on' ? 'off' : 'on';
+    } else if (action === 'on') {
+      device.state = 'on';
+    } else if (action === 'off') {
+      device.state = 'off';
+    } else if (action === 'scene') {
+      if (!req.body.scene) {
+        await sendError(res, 422, 'VALIDATION_FAILED', 'Scene name is required for scene actions.');
+        return;
+      }
+      device.state = `scene:${req.body.scene}`;
+    }
+    device.lastSeen = new Date().toISOString();
+    await sendJson(res, 202, clone(device));
+  })
+);
+
+router.get(
+  '/zigbee/rules',
+  asyncHandler(async (req, res) => {
+    if (await maybeSimulate(res, req)) {
+      return;
+    }
+    const items = Array.from(zigbeeRules.values()).map((rule) => clone(rule));
+    await sendJson(res, 200, { items, total: items.length });
+  })
+);
+
+router.get(
+  '/zigbee/rules/:id',
+  asyncHandler(async (req, res) => {
+    if (await maybeSimulate(res, req)) {
+      return;
+    }
+    const rule = zigbeeRules.get(req.params.id);
+    if (!rule) {
+      await sendError(res, 404, 'RESOURCE_NOT_FOUND', 'Rule not found.');
+      return;
+    }
+    await sendJson(res, 200, clone(rule));
+  })
+);
+
+router.post(
+  '/zigbee/rules',
+  asyncHandler(async (req, res) => {
+    if (await maybeSimulate(res, req)) {
+      return;
+    }
+    const normalized = normalizeRuleDefinition(req.body);
     const now = new Date().toISOString();
-    rule = {
-      id: payload.ruleId ?? `sim-${randomUUID()}`,
+    const rule: ZigbeeRuleRecord = {
+      id: randomUUID(),
       name: normalized.name,
       description: normalized.description ?? null,
       trigger: normalized.trigger,
@@ -621,84 +633,203 @@ router.post('/zigbee/rules/simulate', asyncHandler(async (req, res) => {
       metadata: normalized.metadata ?? {},
       enabled: normalized.enabled ?? true,
       createdAt: now,
-      updatedAt: now
+      updatedAt: now,
     };
-  } else if (payload.ruleId) {
-    rule = zigbeeRules.get(payload.ruleId);
-  }
+    zigbeeRules.set(rule.id, rule);
+    await sendJson(res, 201, clone(rule));
+  })
+);
 
-  if (!rule) {
-    await sendError(res, 404, 'RESOURCE_NOT_FOUND', 'Rule not found for simulation.');
-    return;
-  }
-
-  const started = new Date();
-  const evaluation = evaluateRule(rule, payload.input ?? {});
-  const completed = new Date();
-  await sendJson(res, 200, {
-    matched: evaluation.matched,
-    actions: evaluation.matched ? clone(rule.actions) : [],
-    rule: clone(rule),
-    evaluation: {
-      triggerType: rule.trigger.type,
-      reason: evaluation.reason,
-      error: evaluation.error,
-      startedAt: started.toISOString(),
-      completedAt: completed.toISOString(),
-      durationMs: completed.getTime() - started.getTime()
+router.put(
+  '/zigbee/rules/:id',
+  asyncHandler(async (req, res) => {
+    if (await maybeSimulate(res, req)) {
+      return;
     }
-  });
-}));
+    const rule = zigbeeRules.get(req.params.id);
+    if (!rule) {
+      await sendError(res, 404, 'RESOURCE_NOT_FOUND', 'Rule not found.');
+      return;
+    }
+    const updates = req.body ?? {};
+    if (!updates || Object.keys(updates).length === 0) {
+      await sendError(res, 400, 'VALIDATION_FAILED', 'No fields provided for update.');
+      return;
+    }
+    const normalized = normalizeRuleUpdate(rule, updates);
+    zigbeeRules.set(rule.id, normalized);
+    await sendJson(res, 200, clone(normalized));
+  })
+);
 
-router.get('/camera/summary', asyncHandler(async (req, res) => {
-  if (await maybeSimulate(res, req)) {
-    return;
-  }
-  await sendJson(res, 200, clone(cameraSummary));
-}));
+router.delete(
+  '/zigbee/rules/:id',
+  asyncHandler(async (req, res) => {
+    if (await maybeSimulate(res, req)) {
+      return;
+    }
+    const existed = zigbeeRules.delete(req.params.id);
+    if (!existed) {
+      await sendError(res, 404, 'RESOURCE_NOT_FOUND', 'Rule not found.');
+      return;
+    }
+    res.status(204).send();
+  })
+);
 
-router.get('/camera/events', asyncHandler(async (req, res) => {
-  if (await maybeSimulate(res, req)) {
-    return;
-  }
-  let events = cameraEvents.slice();
-  const since = req.query.since as string | undefined;
-  if (since) {
-    const sinceTs = new Date(since).getTime();
-    events = events.filter((evt) => new Date(evt.timestamp).getTime() >= sinceTs);
-  }
-  const paged = paginate(events.map((evt) => clone(evt)), req);
-  await sendJson(res, 200, paged);
-}));
+router.patch(
+  '/zigbee/rules/:id/enable',
+  asyncHandler(async (req, res) => {
+    if (await maybeSimulate(res, req)) {
+      return;
+    }
+    const rule = zigbeeRules.get(req.params.id);
+    if (!rule) {
+      await sendError(res, 404, 'RESOURCE_NOT_FOUND', 'Rule not found.');
+      return;
+    }
+    const enabled = typeof req.body?.enabled === 'boolean' ? req.body.enabled : true;
+    rule.enabled = enabled;
+    rule.updatedAt = new Date().toISOString();
+    zigbeeRules.set(rule.id, rule);
+    await sendJson(res, 200, clone(rule));
+  })
+);
 
-router.get('/camera/preview/:id', asyncHandler(async (req, res) => {
-  if (await maybeSimulate(res, req)) {
-    return;
-  }
-  const preview = cameraPreviewMap.get(req.params.id);
-  if (!preview) {
-    await sendError(res, 404, 'RESOURCE_NOT_FOUND', `Preview for camera ${req.params.id} is not available.`);
-    return;
-  }
-  await sendJson(res, 200, clone(preview));
-}));
+router.post(
+  '/zigbee/rules/validate',
+  asyncHandler(async (req, res) => {
+    if (await maybeSimulate(res, req)) {
+      return;
+    }
+    const normalized = normalizeRuleDefinition(req.body);
+    await sendJson(res, 200, { valid: true, normalized, evaluatedAt: new Date().toISOString() });
+  })
+);
 
-router.get('/health/summary', asyncHandler(async (req, res) => {
-  if (await maybeSimulate(res, req)) {
-    return;
-  }
-  const summary = buildHealthSummary();
-  await sendJson(res, 200, summary);
-}));
+router.post(
+  '/zigbee/rules/simulate',
+  asyncHandler(async (req, res) => {
+    if (await maybeSimulate(res, req)) {
+      return;
+    }
+    const payload = req.body ?? {};
+    let rule: ZigbeeRuleRecord | undefined;
+    if (payload.definition) {
+      const normalized = normalizeRuleDefinition(payload.definition);
+      const now = new Date().toISOString();
+      rule = {
+        id: payload.ruleId ?? `sim-${randomUUID()}`,
+        name: normalized.name,
+        description: normalized.description ?? null,
+        trigger: normalized.trigger,
+        actions: normalized.actions,
+        tags: normalized.tags ?? [],
+        metadata: normalized.metadata ?? {},
+        enabled: normalized.enabled ?? true,
+        createdAt: now,
+        updatedAt: now,
+      };
+    } else if (payload.ruleId) {
+      rule = zigbeeRules.get(payload.ruleId);
+    }
 
-router.get('/events/recent', asyncHandler(async (req, res) => {
-  if (await maybeSimulate(res, req)) {
-    return;
-  }
-  const events = recentEvents.map((event) => clone(event));
-  const paged = paginate(events, req);
-  await sendJson(res, 200, paged);
-}));
+    if (!rule) {
+      await sendError(res, 404, 'RESOURCE_NOT_FOUND', 'Rule not found for simulation.');
+      return;
+    }
+
+    const started = new Date();
+    const evaluation = evaluateRule(rule, payload.input ?? {});
+    const completed = new Date();
+    await sendJson(res, 200, {
+      matched: evaluation.matched,
+      actions: evaluation.matched ? clone(rule.actions) : [],
+      rule: clone(rule),
+      evaluation: {
+        triggerType: rule.trigger.type,
+        reason: evaluation.reason,
+        error: evaluation.error,
+        startedAt: started.toISOString(),
+        completedAt: completed.toISOString(),
+        durationMs: completed.getTime() - started.getTime(),
+      },
+    });
+  })
+);
+
+router.get(
+  '/camera/summary',
+  asyncHandler(async (req, res) => {
+    if (await maybeSimulate(res, req)) {
+      return;
+    }
+    await sendJson(res, 200, clone(cameraSummary));
+  })
+);
+
+router.get(
+  '/camera/events',
+  asyncHandler(async (req, res) => {
+    if (await maybeSimulate(res, req)) {
+      return;
+    }
+    let events = cameraEvents.slice();
+    const since = req.query.since as string | undefined;
+    if (since) {
+      const sinceTs = new Date(since).getTime();
+      events = events.filter((evt) => new Date(evt.timestamp).getTime() >= sinceTs);
+    }
+    const paged = paginate(
+      events.map((evt) => clone(evt)),
+      req
+    );
+    await sendJson(res, 200, paged);
+  })
+);
+
+router.get(
+  '/camera/preview/:id',
+  asyncHandler(async (req, res) => {
+    if (await maybeSimulate(res, req)) {
+      return;
+    }
+    const preview = cameraPreviewMap.get(req.params.id);
+    if (!preview) {
+      await sendError(
+        res,
+        404,
+        'RESOURCE_NOT_FOUND',
+        `Preview for camera ${req.params.id} is not available.`
+      );
+      return;
+    }
+    await sendJson(res, 200, clone(preview));
+  })
+);
+
+router.get(
+  '/health/summary',
+  asyncHandler(async (req, res) => {
+    if (await maybeSimulate(res, req)) {
+      return;
+    }
+    const summary = buildHealthSummary();
+    await sendJson(res, 200, summary);
+  })
+);
+
+router.get(
+  '/events/recent',
+  asyncHandler(async (req, res) => {
+    if (await maybeSimulate(res, req)) {
+      return;
+    }
+    const events = recentEvents.map((event) => clone(event));
+    const paged = paginate(events, req);
+    await sendJson(res, 200, paged);
+  })
+);
 
 app.use(API_PREFIX, router);
 
@@ -722,7 +853,10 @@ function normalizeRuleDefinition(input: any): {
     throw new Error('trigger and actions are required');
   }
   const tags = Array.isArray(input?.tags) ? uniqueTags(input.tags as string[]) : undefined;
-  const metadata = input?.metadata && typeof input.metadata === 'object' ? (input.metadata as Record<string, unknown>) : undefined;
+  const metadata =
+    input?.metadata && typeof input.metadata === 'object'
+      ? (input.metadata as Record<string, unknown>)
+      : undefined;
   const enabled = typeof input?.enabled === 'boolean' ? input.enabled : undefined;
   return {
     name,
@@ -731,12 +865,16 @@ function normalizeRuleDefinition(input: any): {
     actions,
     ...(tags && tags.length ? { tags } : {}),
     ...(metadata ? { metadata } : {}),
-    ...(typeof enabled === 'boolean' ? { enabled } : {})
+    ...(typeof enabled === 'boolean' ? { enabled } : {}),
   };
 }
 
 function normalizeRuleUpdate(existing: ZigbeeRuleRecord, updates: any): ZigbeeRuleRecord {
-  const normalized = normalizeRuleDefinition({ ...existing, ...updates, name: updates?.name ?? existing.name });
+  const normalized = normalizeRuleDefinition({
+    ...existing,
+    ...updates,
+    name: updates?.name ?? existing.name,
+  });
   return {
     ...existing,
     name: normalized.name,
@@ -746,7 +884,7 @@ function normalizeRuleUpdate(existing: ZigbeeRuleRecord, updates: any): ZigbeeRu
     tags: normalized.tags ?? [],
     metadata: normalized.metadata ?? {},
     enabled: normalized.enabled ?? existing.enabled,
-    updatedAt: new Date().toISOString()
+    updatedAt: new Date().toISOString(),
   };
 }
 
@@ -830,7 +968,11 @@ function runRuleExpression(expression: string, context: Record<string, unknown>)
 
 function evaluateRule(
   rule: ZigbeeRuleRecord,
-  input: { event?: Record<string, unknown>; context?: Record<string, unknown>; sensor?: Record<string, unknown> }
+  input: {
+    event?: Record<string, unknown>;
+    context?: Record<string, unknown>;
+    sensor?: Record<string, unknown>;
+  }
 ): { matched: boolean; reason: string; error?: string } {
   if (rule.trigger.type === 'sensor_event') {
     const event = input.event ?? {};
@@ -842,7 +984,11 @@ function evaluateRule(
     if (rule.trigger.condition) {
       const payload = (event.payload as Record<string, unknown>) ?? input.context ?? {};
       const value = getByPath(payload, rule.trigger.condition.field);
-      const matched = compareValues(rule.trigger.condition.operator, value, rule.trigger.condition.value);
+      const matched = compareValues(
+        rule.trigger.condition.operator,
+        value,
+        rule.trigger.condition.value
+      );
       return { matched, reason: matched ? 'Condition matched.' : 'Condition did not match.' };
     }
     return { matched: true, reason: 'Sensor event matched.' };
@@ -867,11 +1013,20 @@ function evaluateRule(
         event: input.event ?? {},
         sensor: input.sensor ?? {},
         context: contextInput,
-        now: new Date().toISOString()
+        now: new Date().toISOString(),
       });
-      return { matched, reason: matched ? 'Expression evaluated to truthy value.' : 'Expression evaluated to falsy value.' };
+      return {
+        matched,
+        reason: matched
+          ? 'Expression evaluated to truthy value.'
+          : 'Expression evaluated to falsy value.',
+      };
     } catch (error: any) {
-      return { matched: false, reason: 'Expression evaluation failed.', error: error?.message ?? 'Unknown error' };
+      return {
+        matched: false,
+        reason: 'Expression evaluation failed.',
+        error: error?.message ?? 'Unknown error',
+      };
     }
   }
 
@@ -899,12 +1054,19 @@ app.use(async (err: any, req: Request, res: Response, _next: NextFunction) => {
     return;
   }
   if (err && err.status && Array.isArray(err.errors)) {
-    await sendError(res, 422, 'VALIDATION_FAILED', 'Request validation failed.', { details: err.errors });
+    await sendError(res, 422, 'VALIDATION_FAILED', 'Request validation failed.', {
+      details: err.errors,
+    });
     return;
   }
   // eslint-disable-next-line no-console
   console.error('Mock server error', err);
-  await sendError(res, err?.status ?? 500, 'INTERNAL_ERROR', err?.message ?? 'Unexpected error occurred.');
+  await sendError(
+    res,
+    err?.status ?? 500,
+    'INTERNAL_ERROR',
+    err?.message ?? 'Unexpected error occurred.'
+  );
 });
 
 const port = Number(process.env.PORT ?? '3015');
@@ -928,7 +1090,13 @@ async function sendJson(res: Response, status: number, payload: unknown) {
   res.status(status).json(payload);
 }
 
-async function sendError(res: Response, status: number, code: string, message: string, extras: Partial<ErrorPayload> = {}) {
+async function sendError(
+  res: Response,
+  status: number,
+  code: string,
+  message: string,
+  extras: Partial<ErrorPayload> = {}
+) {
   await applyDelay();
   const correlationId: string = res.locals.correlationId ?? randomUUID();
   const response: ErrorPayload = {
@@ -1025,7 +1193,9 @@ function buildFleetState() {
   state.video.tv = clone(tvStatus);
   state.zigbee = state.zigbee ?? {};
   state.zigbee.totalDevices = zigbeeDevices.size;
-  state.zigbee.devicesOnline = Array.from(zigbeeDevices.values()).filter((device) => device.state !== 'offline').length;
+  state.zigbee.devicesOnline = Array.from(zigbeeDevices.values()).filter(
+    (device) => device.state !== 'offline'
+  ).length;
   state.camera = state.camera ?? {};
   state.camera.totalCameras = cameraSummary.cameras.length;
   state.camera.onlineCameras = cameraSummary.cameras.filter((camera) => camera.online).length;
@@ -1033,8 +1203,12 @@ function buildFleetState() {
   const latestEvent = cameraEvents[0];
   state.camera.lastEventAt = latestEvent ? latestEvent.timestamp : null;
   const today = new Date();
-  const startOfDay = new Date(Date.UTC(today.getUTCFullYear(), today.getUTCMonth(), today.getUTCDate()));
-  state.camera.motionEventsToday = cameraEvents.filter((evt) => evt.type === 'motion' && new Date(evt.timestamp).getTime() >= startOfDay.getTime()).length;
+  const startOfDay = new Date(
+    Date.UTC(today.getUTCFullYear(), today.getUTCMonth(), today.getUTCDate())
+  );
+  state.camera.motionEventsToday = cameraEvents.filter(
+    (evt) => evt.type === 'motion' && new Date(evt.timestamp).getTime() >= startOfDay.getTime()
+  ).length;
   return state;
 }
 
@@ -1076,7 +1250,9 @@ function buildHealthSummary(): HealthSummary {
   }
   const zigbeeModule = summary.modules.find((module) => module.id === 'zigbee');
   if (zigbeeModule) {
-    const offline = Array.from(zigbeeDevices.values()).filter((device) => device.state === 'offline');
+    const offline = Array.from(zigbeeDevices.values()).filter(
+      (device) => device.state === 'offline'
+    );
     if (offline.length > 0) {
       zigbeeModule.status = 'degraded';
       zigbeeModule.message = `${offline.length} device${offline.length > 1 ? 's' : ''} offline`;
@@ -1085,6 +1261,8 @@ function buildHealthSummary(): HealthSummary {
       zigbeeModule.message = null;
     }
   }
-  summary.status = summary.modules.every((module) => module.status === 'healthy') ? 'healthy' : 'degraded';
+  summary.status = summary.modules.every((module) => module.status === 'healthy')
+    ? 'healthy'
+    : 'degraded';
   return summary;
 }

@@ -9,7 +9,7 @@ import {
   audioVolumeSchema,
   deviceIdParamSchema,
   audioSessionSyncSchema,
-  audioLibraryUploadRegistrationSchema
+  audioLibraryUploadRegistrationSchema,
 } from '../../src/util/schema/audio.js';
 
 describe('audio schemas', () => {
@@ -32,7 +32,7 @@ describe('audio schemas', () => {
       name: 'Morning',
       loop: true,
       syncMode: 'synced',
-      tracks: [{ trackId: 'trk_1', order: 0 }]
+      tracks: [{ trackId: 'trk_1', order: 0 }],
     });
     expect(parsed.tracks[0].trackId).toBe('trk_1');
   });
@@ -41,21 +41,23 @@ describe('audio schemas', () => {
     const parsed = audioPlaylistReorderSchema.parse({
       ordering: [
         { trackId: 'trk_2', position: 0 },
-        { trackId: 'trk_1', position: 1 }
-      ]
+        { trackId: 'trk_1', position: 1 },
+      ],
     });
     expect(parsed.ordering[0].position).toBe(0);
   });
 
   it('rejects playlist without name', () => {
-    expect(() => audioPlaylistSchema.parse({ loop: false, syncMode: 'independent', tracks: [] })).toThrow();
+    expect(() =>
+      audioPlaylistSchema.parse({ loop: false, syncMode: 'independent', tracks: [] })
+    ).toThrow();
   });
 
   it('validates playback request with playlist', () => {
     const parsed = audioPlaybackRequestSchema.parse({
       deviceIds: ['pi-audio-01'],
       playlistId: 'pl_1',
-      syncMode: 'synced'
+      syncMode: 'synced',
     });
     expect(parsed.deviceIds).toHaveLength(1);
   });
@@ -71,7 +73,7 @@ describe('audio schemas', () => {
       deviceIds: ['pi-audio-01'],
       trackId: 'track-1',
       syncMode: 'grouped',
-      label: 'Evening'
+      label: 'Evening',
     });
     expect(parsed.label).toBe('Evening');
   });
@@ -95,7 +97,7 @@ describe('audio schemas', () => {
       referenceTimestamp: new Date().toISOString(),
       maxDriftSeconds: 0.12,
       perDevice: { 'pi-audio-01': 0.04 },
-      correctionsApplied: true
+      correctionsApplied: true,
     });
     expect(parsed.maxDriftSeconds).toBeCloseTo(0.12);
   });

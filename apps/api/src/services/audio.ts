@@ -66,7 +66,17 @@ export interface LibraryTrack {
   uploadedAt: Date;
 }
 
-function mapTrack(record: { id: string; title: string; artist: string | null; durationSeconds: number; format: string; sizeBytes: bigint | null; tagsJson: string | null; uploadedAt: Date; metadataJson: string | null }): LibraryTrack {
+function mapTrack(record: {
+  id: string;
+  title: string;
+  artist: string | null;
+  durationSeconds: number;
+  format: string;
+  sizeBytes: bigint | null;
+  tagsJson: string | null;
+  uploadedAt: Date;
+  metadataJson: string | null;
+}): LibraryTrack {
   return {
     id: record.id,
     title: record.title,
@@ -75,7 +85,7 @@ function mapTrack(record: { id: string; title: string; artist: string | null; du
     format: record.format,
     sizeBytes: record.sizeBytes ? Number(record.sizeBytes) : null,
     tags: parseJsonArray(record.tagsJson),
-    uploadedAt: record.uploadedAt
+    uploadedAt: record.uploadedAt,
   };
 }
 
@@ -101,8 +111,8 @@ export async function createLibraryTrack(input: LibraryTrackInput) {
       sizeBytes: input.sizeBytes ? BigInt(Math.max(0, Math.trunc(input.sizeBytes))) : null,
       tagsJson: serializeJson(input.tags ?? []),
       metadataJson: serializeJson(input.metadata ?? {}),
-      filePath: storagePath
-    }
+      filePath: storagePath,
+    },
   });
 
   return mapTrack(record);
@@ -128,12 +138,17 @@ export interface PlaylistInput {
   tracks: PlaylistTrackInput[];
 }
 
-function mapPlaylistTrack(record: { trackId: string; order: number; startOffsetSeconds: number | null; deviceOverridesJson: string | null }): PlaylistTrackInput {
+function mapPlaylistTrack(record: {
+  trackId: string;
+  order: number;
+  startOffsetSeconds: number | null;
+  deviceOverridesJson: string | null;
+}): PlaylistTrackInput {
   return {
     trackId: record.trackId,
     order: record.order,
     startOffsetSeconds: record.startOffsetSeconds ?? undefined,
-    deviceOverrides: parseJsonObject<Record<string, string>>(record.deviceOverridesJson, {})
+    deviceOverrides: parseJsonObject<Record<string, string>>(record.deviceOverridesJson, {}),
   };
 }
 
@@ -153,11 +168,11 @@ export async function createPlaylist(input: PlaylistInput) {
             trackId: track.trackId,
             order: track.order ?? index,
             startOffsetSeconds: track.startOffsetSeconds ?? null,
-            deviceOverridesJson: serializeJson(track.deviceOverrides ?? {})
-          }))
-        }
+            deviceOverridesJson: serializeJson(track.deviceOverrides ?? {}),
+          })),
+        },
       },
-      include: { tracks: { orderBy: { order: 'asc' } } }
+      include: { tracks: { orderBy: { order: 'asc' } } },
     });
     return created;
   });
@@ -170,7 +185,7 @@ export async function createPlaylist(input: PlaylistInput) {
     syncMode: playlist.syncMode,
     createdAt: playlist.createdAt,
     updatedAt: playlist.updatedAt,
-    tracks: playlist.tracks.map(mapPlaylistTrack)
+    tracks: playlist.tracks.map(mapPlaylistTrack),
   };
 }
 
@@ -190,11 +205,11 @@ export async function updatePlaylist(playlistId: string, input: PlaylistInput) {
             trackId: track.trackId,
             order: track.order ?? index,
             startOffsetSeconds: track.startOffsetSeconds ?? null,
-            deviceOverridesJson: serializeJson(track.deviceOverrides ?? {})
-          }))
-        }
+            deviceOverridesJson: serializeJson(track.deviceOverrides ?? {}),
+          })),
+        },
       },
-      include: { tracks: { orderBy: { order: 'asc' } } }
+      include: { tracks: { orderBy: { order: 'asc' } } },
     });
     return updated;
   });
@@ -207,7 +222,7 @@ export async function updatePlaylist(playlistId: string, input: PlaylistInput) {
     syncMode: playlist.syncMode,
     createdAt: playlist.createdAt,
     updatedAt: playlist.updatedAt,
-    tracks: playlist.tracks.map(mapPlaylistTrack)
+    tracks: playlist.tracks.map(mapPlaylistTrack),
   };
 }
 
@@ -218,7 +233,7 @@ export async function deletePlaylist(playlistId: string): Promise<void> {
 export async function reorderPlaylistTracks(playlistId: string, input: AudioPlaylistReorderInput) {
   const playlist = await prisma.audioPlaylist.findUnique({
     where: { id: playlistId },
-    include: { tracks: { orderBy: { order: 'asc' } } }
+    include: { tracks: { orderBy: { order: 'asc' } } },
   });
 
   if (!playlist) {
@@ -240,14 +255,17 @@ export async function reorderPlaylistTracks(playlistId: string, input: AudioPlay
     await Promise.all(
       input.ordering.map((entry) => {
         const track = trackMap.get(entry.trackId)!;
-        return tx.audioPlaylistTrack.update({ where: { id: track.id }, data: { order: entry.position } });
+        return tx.audioPlaylistTrack.update({
+          where: { id: track.id },
+          data: { order: entry.position },
+        });
       })
     );
   });
 
   const updated = await prisma.audioPlaylist.findUniqueOrThrow({
     where: { id: playlistId },
-    include: { tracks: { orderBy: { order: 'asc' } } }
+    include: { tracks: { orderBy: { order: 'asc' } } },
   });
 
   return {
@@ -258,7 +276,7 @@ export async function reorderPlaylistTracks(playlistId: string, input: AudioPlay
     syncMode: updated.syncMode,
     createdAt: updated.createdAt,
     updatedAt: updated.updatedAt,
-    tracks: updated.tracks.map(mapPlaylistTrack)
+    tracks: updated.tracks.map(mapPlaylistTrack),
   };
 }
 
@@ -302,17 +320,20 @@ async function ensureDeviceStatus(deviceId: string): Promise<void> {
       status: 'online',
       group: registryDevice?.module,
       volumePercent: 50,
-      capabilitiesJson: serializeJson(registryDevice?.capabilities ?? ['playback', 'seek', 'sync', 'upload', 'volume']) ?? '[]',
+      capabilitiesJson:
+        serializeJson(
+          registryDevice?.capabilities ?? ['playback', 'seek', 'sync', 'upload', 'volume']
+        ) ?? '[]',
       playbackJson: JSON.stringify({
         state: 'idle',
         positionSeconds: 0,
         durationSeconds: 0,
         startedAt: null,
-        syncGroup: null
+        syncGroup: null,
       }),
       lastUpdated: new Date(),
-      timelineJson: serializeJson([])
-    }
+      timelineJson: serializeJson([]),
+    },
   });
 }
 
@@ -322,7 +343,11 @@ function appendTimeline(timelineJson: string | null, entry: Record<string, unkno
   return JSON.stringify(timeline.slice(-50));
 }
 
-async function updateDevicePlayback(deviceId: string, playback: Partial<DevicePlaybackState>, extraTimeline?: Record<string, unknown>) {
+async function updateDevicePlayback(
+  deviceId: string,
+  playback: Partial<DevicePlaybackState>,
+  extraTimeline?: Record<string, unknown>
+) {
   await ensureDeviceStatus(deviceId);
   const current = await prisma.audioDeviceStatus.findUniqueOrThrow({ where: { deviceId } });
   const existingPlayback = parseJsonObject<DevicePlaybackState>(current.playbackJson, {
@@ -331,22 +356,22 @@ async function updateDevicePlayback(deviceId: string, playback: Partial<DevicePl
     durationSeconds: 0,
     startedAt: null,
     syncGroup: null,
-    driftSeconds: 0
+    driftSeconds: 0,
   });
   const updatedPlayback: DevicePlaybackState = {
     ...existingPlayback,
     ...playback,
     positionSeconds: playback.positionSeconds ?? existingPlayback.positionSeconds ?? 0,
     durationSeconds: playback.durationSeconds ?? existingPlayback.durationSeconds ?? 0,
-    driftSeconds: playback.driftSeconds ?? existingPlayback.driftSeconds ?? 0
+    driftSeconds: playback.driftSeconds ?? existingPlayback.driftSeconds ?? 0,
   };
 
   await prisma.audioDeviceStatus.update({
     where: { deviceId },
     data: {
       playbackJson: JSON.stringify(updatedPlayback),
-      timelineJson: appendTimeline(current.timelineJson, extraTimeline ?? playback)
-    }
+      timelineJson: appendTimeline(current.timelineJson, extraTimeline ?? playback),
+    },
   });
 }
 
@@ -357,16 +382,21 @@ export async function startPlayback(request: PlaybackRequest): Promise<string> {
     throw new Error('No device IDs provided');
   }
 
-  const assignmentMap = new Map<string, { trackId: string; startOffsetSeconds: number; trackTitle: string; durationSeconds: number }>();
+  const assignmentMap = new Map<
+    string,
+    { trackId: string; startOffsetSeconds: number; trackTitle: string; durationSeconds: number }
+  >();
 
   if (request.assignments?.length) {
     for (const assignment of request.assignments) {
-      const track = await prisma.audioTrack.findUniqueOrThrow({ where: { id: assignment.trackId } });
+      const track = await prisma.audioTrack.findUniqueOrThrow({
+        where: { id: assignment.trackId },
+      });
       assignmentMap.set(assignment.deviceId, {
         trackId: track.id,
         startOffsetSeconds: assignment.startOffsetSeconds ?? 0,
         trackTitle: track.title,
-        durationSeconds: track.durationSeconds
+        durationSeconds: track.durationSeconds,
       });
     }
   }
@@ -385,7 +415,7 @@ export async function startPlayback(request: PlaybackRequest): Promise<string> {
   if (request.playlistId) {
     const playlist = await prisma.audioPlaylist.findUnique({
       where: { id: request.playlistId },
-      include: { tracks: { orderBy: { order: 'asc' }, include: { track: true } } }
+      include: { tracks: { orderBy: { order: 'asc' }, include: { track: true } } },
     });
     if (!playlist) {
       throw createHttpError(404, 'not_found', 'Playlist not found');
@@ -409,9 +439,9 @@ export async function startPlayback(request: PlaybackRequest): Promise<string> {
       state: 'playing',
       driftJson: JSON.stringify({
         maxDriftSeconds: 0,
-        perDevice: Object.fromEntries(deviceIds.map((id) => [id, 0]))
-      })
-    }
+        perDevice: Object.fromEntries(deviceIds.map((id) => [id, 0])),
+      }),
+    },
   });
 
   await Promise.all(
@@ -420,21 +450,25 @@ export async function startPlayback(request: PlaybackRequest): Promise<string> {
       if (!assignment && !defaultTrackId) {
         throw new Error('No track assigned for device');
       }
-      await updateDevicePlayback(deviceId, {
-        state: 'playing',
-        trackId: assignment?.trackId ?? defaultTrackId ?? null,
-        trackTitle: assignment?.trackTitle ?? defaultTrackTitle ?? null,
-        playlistId: request.playlistId ?? null,
-        positionSeconds: assignment?.startOffsetSeconds ?? 0,
-        durationSeconds: assignment?.durationSeconds ?? defaultDuration,
-        startedAt: new Date().toISOString(),
-        syncGroup: request.syncMode !== 'independent' ? sessionId : null,
-        driftSeconds: 0
-      }, {
-        event: 'play',
-        sessionId,
-        order: index
-      });
+      await updateDevicePlayback(
+        deviceId,
+        {
+          state: 'playing',
+          trackId: assignment?.trackId ?? defaultTrackId ?? null,
+          trackTitle: assignment?.trackTitle ?? defaultTrackTitle ?? null,
+          playlistId: request.playlistId ?? null,
+          positionSeconds: assignment?.startOffsetSeconds ?? 0,
+          durationSeconds: assignment?.durationSeconds ?? defaultDuration,
+          startedAt: new Date().toISOString(),
+          syncGroup: request.syncMode !== 'independent' ? sessionId : null,
+          driftSeconds: 0,
+        },
+        {
+          event: 'play',
+          sessionId,
+          order: index,
+        }
+      );
     })
   );
 
@@ -453,7 +487,7 @@ export async function createPlaybackSession(request: PlaybackRequest) {
     state: created.state,
     startedAt: created.startedAt,
     lastError: created.lastError ?? null,
-    drift: parseJsonObject(created.driftJson, { maxDriftSeconds: 0, perDevice: {} })
+    drift: parseJsonObject(created.driftJson, { maxDriftSeconds: 0, perDevice: {} }),
   };
 }
 
@@ -462,7 +496,11 @@ export async function pauseDevice(deviceId: string) {
 }
 
 export async function resumeDevice(deviceId: string) {
-  await updateDevicePlayback(deviceId, { state: 'playing', startedAt: new Date().toISOString() }, { event: 'resume' });
+  await updateDevicePlayback(
+    deviceId,
+    { state: 'playing', startedAt: new Date().toISOString() },
+    { event: 'resume' }
+  );
 }
 
 export async function stopDevice(deviceId: string) {
@@ -484,8 +522,8 @@ export async function setDeviceVolume(deviceId: string, volumePercent: number) {
     where: { deviceId },
     data: {
       volumePercent,
-      timelineJson: appendTimeline(current.timelineJson, { event: 'volume', volumePercent })
-    }
+      timelineJson: appendTimeline(current.timelineJson, { event: 'volume', volumePercent }),
+    },
   });
 }
 
@@ -493,7 +531,7 @@ export async function setMasterVolume(volumePercent: number) {
   await prisma.audioSetting.upsert({
     where: { key: 'masterVolume' },
     create: { key: 'masterVolume', value: String(volumePercent) },
-    update: { value: String(volumePercent) }
+    update: { value: String(volumePercent) },
   });
 }
 
@@ -511,7 +549,7 @@ export async function getDeviceSnapshot(deviceId: string) {
     durationSeconds: 0,
     startedAt: null,
     syncGroup: null,
-    driftSeconds: 0
+    driftSeconds: 0,
   });
   return {
     id: record.deviceId,
@@ -523,7 +561,7 @@ export async function getDeviceSnapshot(deviceId: string) {
     playback,
     lastUpdated: record.lastUpdated,
     lastError: record.lastError ?? null,
-    timeline: parseJsonObject(record.timelineJson, [])
+    timeline: parseJsonObject(record.timelineJson, []),
   };
 }
 
@@ -535,7 +573,7 @@ export async function listDeviceSnapshots() {
 export async function listPlaylists() {
   const playlists = await prisma.audioPlaylist.findMany({
     orderBy: { updatedAt: 'desc' },
-    include: { tracks: { orderBy: { order: 'asc' } } }
+    include: { tracks: { orderBy: { order: 'asc' } } },
   });
   return playlists.map((playlist) => ({
     id: playlist.id,
@@ -545,7 +583,7 @@ export async function listPlaylists() {
     syncMode: playlist.syncMode,
     createdAt: playlist.createdAt,
     updatedAt: playlist.updatedAt,
-    tracks: playlist.tracks.map(mapPlaylistTrack)
+    tracks: playlist.tracks.map(mapPlaylistTrack),
   }));
 }
 
@@ -560,13 +598,18 @@ export async function listSessions() {
     state: session.state,
     startedAt: session.startedAt,
     lastError: session.lastError ?? null,
-    drift: parseJsonObject(session.driftJson, { maxDriftSeconds: 0, perDevice: {} })
+    drift: parseJsonObject(session.driftJson, { maxDriftSeconds: 0, perDevice: {} }),
   }));
 }
 
 export async function recordSessionSync(
   sessionId: string,
-  payload: { referenceTimestamp: string; maxDriftSeconds: number; perDevice: Record<string, number>; correctionsApplied: boolean }
+  payload: {
+    referenceTimestamp: string;
+    maxDriftSeconds: number;
+    perDevice: Record<string, number>;
+    correctionsApplied: boolean;
+  }
 ) {
   const existing = await prisma.audioSession.findUnique({ where: { id: sessionId } });
   if (!existing) {
@@ -580,9 +623,9 @@ export async function recordSessionSync(
         referenceTimestamp: payload.referenceTimestamp,
         maxDriftSeconds: payload.maxDriftSeconds,
         perDevice: payload.perDevice,
-        correctionsApplied: payload.correctionsApplied
-      })
-    }
+        correctionsApplied: payload.correctionsApplied,
+      }),
+    },
   });
 
   return listSessions();
@@ -613,10 +656,12 @@ export function registerLibraryUpload(input: {
     uploadUrl: `https://uploads.example/${uploadId}`,
     expiresAt: expiresAt.toISOString(),
     fields: {
-      policy: Buffer.from(JSON.stringify({ bucket: 'audio-library', key: uploadId })).toString('base64'),
+      policy: Buffer.from(JSON.stringify({ bucket: 'audio-library', key: uploadId })).toString(
+        'base64'
+      ),
       algorithm: 'AWS4-HMAC-SHA256',
-      credential: `mock/${now.toISOString().slice(0, 10).replace(/-/g, '')}/auto/s3/aws4_request`
-    }
+      credential: `mock/${now.toISOString().slice(0, 10).replace(/-/g, '')}/auto/s3/aws4_request`,
+    },
   };
 }
 
@@ -626,7 +671,7 @@ export async function getAudioOverview() {
     listDeviceSnapshots(),
     listLibraryTracks(),
     listPlaylists(),
-    listSessions()
+    listSessions(),
   ]);
 
   return {
@@ -634,7 +679,7 @@ export async function getAudioOverview() {
     devices,
     library,
     playlists,
-    sessions
+    sessions,
   };
 }
 
@@ -646,7 +691,7 @@ export async function recordDeviceError(deviceId: string, message: string) {
     data: {
       status: 'degraded',
       lastError: message,
-      timelineJson: appendTimeline(current.timelineJson, { event: 'error', message })
-    }
+      timelineJson: appendTimeline(current.timelineJson, { event: 'error', message }),
+    },
   });
 }

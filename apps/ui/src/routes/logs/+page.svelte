@@ -3,6 +3,7 @@
   import Button from '$lib/components/Button.svelte';
   import Card from '$lib/components/Card.svelte';
   import StatusPill from '$lib/components/StatusPill.svelte';
+  import { resolve } from '$app/paths';
   import type { PageData } from './$types';
   import type { LogEntry, LogSeverity, LogsSnapshot } from '$lib/types';
   import {
@@ -10,7 +11,7 @@
     fetchLogSnapshot,
     subscribeToLogStream,
     type LogQueryOptions,
-    type LogStreamSubscription
+    type LogStreamSubscription,
   } from '$lib/api/logs-operations';
 
   export let data: PageData;
@@ -38,7 +39,7 @@
     { value: 'error', label: 'Errors' },
     { value: 'warning', label: 'Warnings' },
     { value: 'info', label: 'Info' },
-    { value: 'debug', label: 'Debug' }
+    { value: 'debug', label: 'Debug' },
   ];
 
   $: sources = resolveSources(snapshot);
@@ -62,7 +63,7 @@
         severity,
         search: search.trim(),
         limit,
-        ...options
+        ...options,
       });
       applySnapshot(result);
     } catch (err) {
@@ -78,14 +79,14 @@
       ? {
           ...snapshot,
           entries,
-          lastUpdated: new Date().toISOString()
+          lastUpdated: new Date().toISOString(),
         }
-      : {
+      : ({
           entries,
           sources,
           cursor: entry.id,
-          lastUpdated: new Date().toISOString()
-        } satisfies LogsSnapshot;
+          lastUpdated: new Date().toISOString(),
+        } satisfies LogsSnapshot);
   };
 
   const stopStream = () => {
@@ -99,7 +100,7 @@
       filters: {
         sourceId,
         severity,
-        search: search.trim()
+        search: search.trim(),
       },
       onEvent: handleStreamEvent,
       onError: (streamError) => {
@@ -107,7 +108,7 @@
         error = streamError.message;
         autoRefresh = false;
         stopStream();
-      }
+      },
     });
   };
 
@@ -167,7 +168,14 @@
   const download = async (format: 'json' | 'text') => {
     downloading = true;
     try {
-      const blob = await exportLogs({ fetch, sourceId, severity, search: search.trim(), limit, format });
+      const blob = await exportLogs({
+        fetch,
+        sourceId,
+        severity,
+        search: search.trim(),
+        limit,
+        format,
+      });
       const url = URL.createObjectURL(blob);
       const anchor = document.createElement('a');
       anchor.href = url;
@@ -210,7 +218,7 @@
       <label>
         <span>Source</span>
         <select bind:value={sourceId} on:change={handleSourceChange}>
-          {#each sources as source}
+          {#each sources as source (source.id)}
             <option value={source.id}>{source.label}</option>
           {/each}
           <option value="all">All sources</option>
@@ -219,7 +227,7 @@
       <label>
         <span>Severity</span>
         <select bind:value={severity} on:change={handleSeverityChange}>
-          {#each severityOptions as option}
+          {#each severityOptions as option (option.value)}
             <option value={option.value}>{option.label}</option>
           {/each}
         </select>
@@ -253,25 +261,34 @@
       <Button variant="secondary" on:click={() => download('json')} disabled={downloading}>
         Export JSON
       </Button>
-      <Button variant="primary" on:click={refresh} disabled={loading}>
-        Refresh
-      </Button>
+      <Button variant="primary" on:click={refresh} disabled={loading}>Refresh</Button>
     </div>
   </div>
 
   {#if error}
     <div class="error" role="alert">
-      <strong>Log stream unavailable:</strong> {error}
+      <strong>Log stream unavailable:</strong>
+      {error}
     </div>
   {/if}
 
-  <Card title="Live log stream" subtitle={`Last updated ${snapshot?.lastUpdated ? formatTimestamp(snapshot.lastUpdated) : '–'}`}>
+  <Card
+    title="Live log stream"
+    subtitle={`Last updated ${snapshot?.lastUpdated ? formatTimestamp(snapshot.lastUpdated) : '–'}`}
+  >
     {#if loading && !entries.length}
       <p class="loading">Loading log entries…</p>
     {:else if !entries.length}
       <div class="empty">
         <p>No log entries match the current filters.</p>
-        <Button variant="ghost" on:click={() => { search = ''; severity = 'all'; sourceId = 'all'; }}>Reset filters</Button>
+        <Button
+          variant="ghost"
+          on:click={() => {
+            search = '';
+            severity = 'all';
+            sourceId = 'all';
+          }}>Reset filters</Button
+        >
       </div>
     {:else}
       <ul class="log-list">
@@ -282,13 +299,17 @@
               <StatusPill status={severityToStatus(entry.severity)} label={entry.severity} />
               <span class="source">{entry.source}</span>
               {#if entry.deviceId}
-                <a class="device" href={`/fleet/${entry.deviceId}`}>{entry.deviceId}</a>
+                <a class="device" href={resolve('/fleet/[id]', { id: entry.deviceId })}>
+                  {entry.deviceId}
+                </a>
               {/if}
               {#if entry.correlationId}
                 <span class="correlation">{entry.correlationId}</span>
               {/if}
             </div>
-            <pre class="message">{entry.message.length > maxContextPreview ? `${entry.message.slice(0, maxContextPreview)}…` : entry.message}</pre>
+            <pre class="message">{entry.message.length > maxContextPreview
+                ? `${entry.message.slice(0, maxContextPreview)}…`
+                : entry.message}</pre>
             {#if entry.context}
               <details class="context">
                 <summary>Context</summary>

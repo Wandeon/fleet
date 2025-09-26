@@ -12,7 +12,7 @@ import {
   listPlaylists,
   createPlaybackSession,
   listSessions,
-  registerLibraryUpload
+  registerLibraryUpload,
 } from '../../src/services/audio.js';
 
 async function reset() {
@@ -22,7 +22,7 @@ async function reset() {
     prisma.audioSession.deleteMany(),
     prisma.audioDeviceStatus.deleteMany(),
     prisma.audioTrack.deleteMany(),
-    prisma.audioSetting.deleteMany()
+    prisma.audioSetting.deleteMany(),
   ]);
 }
 
@@ -43,7 +43,7 @@ describe('Audio services', () => {
       format: 'audio/mp3',
       buffer: Buffer.from('audio-data'),
       filename: 'sample.mp3',
-      tags: ['ambient']
+      tags: ['ambient'],
     });
 
     const tracks = await listLibraryTracks();
@@ -58,13 +58,13 @@ describe('Audio services', () => {
       durationSeconds: 90,
       format: 'audio/mp3',
       buffer: Buffer.from('audio'),
-      filename: 'loop.mp3'
+      filename: 'loop.mp3',
     });
 
     await startPlayback({
       deviceIds: ['pi-audio-test'],
       trackId: track.id,
-      syncMode: 'independent'
+      syncMode: 'independent',
     });
 
     const snapshot = await getDeviceSnapshot('pi-audio-test');
@@ -84,14 +84,14 @@ describe('Audio services', () => {
       durationSeconds: 45,
       format: 'audio/mp3',
       buffer: Buffer.from('first'),
-      filename: 'first.mp3'
+      filename: 'first.mp3',
     });
     const second = await createLibraryTrack({
       title: 'Second',
       durationSeconds: 30,
       format: 'audio/mp3',
       buffer: Buffer.from('second'),
-      filename: 'second.mp3'
+      filename: 'second.mp3',
     });
 
     const playlist = await createPlaylist({
@@ -100,15 +100,15 @@ describe('Audio services', () => {
       syncMode: 'synced',
       tracks: [
         { trackId: first.id, order: 0 },
-        { trackId: second.id, order: 1 }
-      ]
+        { trackId: second.id, order: 1 },
+      ],
     });
 
     await reorderPlaylistTracks(playlist.id, {
       ordering: [
         { trackId: second.id, position: 0 },
-        { trackId: first.id, position: 1 }
-      ]
+        { trackId: first.id, position: 1 },
+      ],
     });
 
     const playlists = await listPlaylists();
@@ -122,13 +122,13 @@ describe('Audio services', () => {
       durationSeconds: 120,
       format: 'audio/mp3',
       buffer: Buffer.from('session'),
-      filename: 'session.mp3'
+      filename: 'session.mp3',
     });
 
     const session = await createPlaybackSession({
       deviceIds: ['pi-sync-a', 'pi-sync-b'],
       trackId: track.id,
-      syncMode: 'synced'
+      syncMode: 'synced',
     });
 
     expect(session.deviceIds).toHaveLength(2);
@@ -144,7 +144,7 @@ describe('Audio services', () => {
       contentType: 'audio/flac',
       sizeBytes: 2048,
       title: 'Ambient Loop',
-      tags: ['calm']
+      tags: ['calm'],
     });
 
     expect(registration.uploadUrl).toContain('https://uploads.example/');

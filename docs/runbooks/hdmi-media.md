@@ -12,6 +12,7 @@ This Pi drives the TV over HDMI (`hdmi-media` role) and simultaneously hosts the
 
 1. Install OS and base packages per `docs/runbooks/provisioning.md`.
 2. Record the stable serial path the OS assigns to the Zigbee coordinator and persist it in `/etc/fleet/agent.env` so the role always receives the same value:
+
    ```bash
    ls -l /dev/serial/by-id
    sudo install -m 0755 -d /etc/fleet
@@ -24,8 +25,10 @@ This Pi drives the TV over HDMI (`hdmi-media` role) and simultaneously hosts the
    ZIGBEE_MQTT_PASSWORD=please-change-me
    ENV
    ```
+
    Update the serial path and credentials to match your hardware/secrets. The agent exports `ZIGBEE_SERIAL` as `ZIGBEE_SERIAL_PORT` for the compose file.
    (Optional) If you prefer a custom symlink name you can still drop a udev rule similar to the old instructions.
+
 3. (Optional) Install the HDMI helper units:
    ```bash
    sudo ./roles/hdmi-media/install.sh

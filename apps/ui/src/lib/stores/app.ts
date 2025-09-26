@@ -19,13 +19,13 @@ const defaultModuleStates: Record<ModuleKey, PanelState> = {
   zigbee: 'success',
   camera: 'success',
   health: 'success',
-  logs: 'success'
+  logs: 'success',
 };
 
 export const connectivity = writable<ConnectivityStatus>('online');
 export const toasts = writable<ToastMessage[]>([]);
 export const moduleStates = writable<Record<ModuleKey, PanelState>>({
-  ...defaultModuleStates
+  ...defaultModuleStates,
 });
 
 export const useMocks = writable(import.meta.env.VITE_USE_MOCKS === '1');

@@ -4,7 +4,7 @@ import {
   createLibraryTrack,
   createPlaylist,
   startPlayback,
-  setMasterVolume
+  setMasterVolume,
 } from '../services/audio.js';
 
 export async function seedAudioFixtures() {
@@ -14,7 +14,7 @@ export async function seedAudioFixtures() {
     prisma.audioSession.deleteMany(),
     prisma.audioDeviceStatus.deleteMany(),
     prisma.audioTrack.deleteMany(),
-    prisma.audioSetting.deleteMany()
+    prisma.audioSetting.deleteMany(),
   ]);
 
   const ambiance = await createLibraryTrack({
@@ -24,7 +24,7 @@ export async function seedAudioFixtures() {
     format: 'audio/mp3',
     buffer: Buffer.from('ambient-audio'),
     filename: `${randomUUID()}.mp3`,
-    tags: ['ambient', 'welcome']
+    tags: ['ambient', 'welcome'],
   });
 
   const paging = await createLibraryTrack({
@@ -33,7 +33,7 @@ export async function seedAudioFixtures() {
     format: 'audio/wav',
     buffer: Buffer.from('paging-tone'),
     filename: `${randomUUID()}.wav`,
-    tags: ['alert']
+    tags: ['alert'],
   });
 
   const playlist = await createPlaylist({
@@ -42,8 +42,8 @@ export async function seedAudioFixtures() {
     syncMode: 'synced',
     tracks: [
       { trackId: ambiance.id, order: 0 },
-      { trackId: paging.id, order: 1, startOffsetSeconds: 2 }
-    ]
+      { trackId: paging.id, order: 1, startOffsetSeconds: 2 },
+    ],
   });
 
   await setMasterVolume(55);
@@ -51,7 +51,7 @@ export async function seedAudioFixtures() {
   await startPlayback({
     deviceIds: ['pi-audio-test', 'pi-audio-lounge'],
     playlistId: playlist.id,
-    syncMode: 'synced'
+    syncMode: 'synced',
   });
 }
 

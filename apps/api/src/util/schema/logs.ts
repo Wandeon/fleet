@@ -8,7 +8,7 @@ export const logsExportRequestSchema = z
     level: logLevelEnum.optional(),
     start: z.string().datetime().optional(),
     end: z.string().datetime().optional(),
-    format: z.enum(['json', 'csv']).default('json')
+    format: z.enum(['json', 'csv']).default('json'),
   })
   .superRefine((value, ctx) => {
     if (value.start && value.end) {
@@ -18,7 +18,7 @@ export const logsExportRequestSchema = z
         ctx.addIssue({
           code: z.ZodIssueCode.custom,
           message: 'start must be before end',
-          path: ['start']
+          path: ['start'],
         });
       }
     }

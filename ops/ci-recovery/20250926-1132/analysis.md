@@ -10,12 +10,14 @@ Date: Thu Sep 26 11:32:20 CEST 2025
 ## Recent CI Run Analysis
 
 **Latest Main CI Run**: 18033606018 (12 minutes ago)
+
 - Status: FAILED
 - Error: "This run likely failed because of a workflow file issue"
 - Branch: main (commit 477ca1b)
 - Affected: PR #86 merge (D3b: Zigbee rules & settings)
 
 **Failure Pattern**:
+
 - All workflows failing: ci.yml, contract-ci.yml, acceptance.yml, deploy-vps.yml
 - Consistent "workflow file issue" suggests YAML syntax or configuration error
 
@@ -23,6 +25,7 @@ Date: Thu Sep 26 11:32:20 CEST 2025
 
 **Primary Issue**: PR #85 (OpenAPI cleanup) + PR #86 (D3b) interaction created type mismatches
 **Evidence**:
+
 - client.ts has reverted to old broken type exports (CameraEventDetection, ApiAccessSettings, etc.)
 - AudioService API signatures reverted to old style with options parameter
 - VideoState vs VideoOverview type mismatch remains
@@ -30,6 +33,7 @@ Date: Thu Sep 26 11:32:20 CEST 2025
 ## Jobs Failing
 
 Based on workflow failure pattern:
+
 1. **lint** - Likely failing on type errors
 2. **typecheck** - Definitely failing on missing type exports
 3. **build** - Cannot proceed due to type errors
@@ -45,6 +49,7 @@ Based on workflow failure pattern:
 ## Evidence Package Location
 
 /opt/fleet/ops/ci-recovery/20250926-1132/
+
 - recent-runs.json (10 recent CI runs)
 - main-ci-runs.json (5 main CI runs)
 - analysis.md (this file)

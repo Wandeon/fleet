@@ -33,7 +33,7 @@ export function bearerAuth(req: Request, res: Response, next: NextFunction): voi
 
   res.locals.auth = {
     token,
-    scopes: []
+    scopes: [],
   };
 
   return next();

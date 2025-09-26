@@ -10,7 +10,7 @@ const projectIgnores = [
   'node_modules/**',
   'static/**',
   'src/lib/api/gen/**',
-  'src/lib/api/generated/**'
+  'src/lib/api/generated/**',
 ];
 
 const svelteConfigs = sveltePlugin.configs['flat/recommended'].map((config) => {
@@ -27,16 +27,16 @@ const svelteConfigs = sveltePlugin.configs['flat/recommended'].map((config) => {
         parser: tseslint.parser,
         extraFileExtensions: [
           ...(config.languageOptions.parserOptions?.extraFileExtensions ?? []),
-          '.svelte'
-        ]
-      }
-    }
+          '.svelte',
+        ],
+      },
+    },
   };
 });
 
 export default [
   {
-    ignores: projectIgnores
+    ignores: projectIgnores,
   },
   ...tseslint.configs.recommended,
   ...tseslint.configs.stylistic,
@@ -45,13 +45,13 @@ export default [
     languageOptions: {
       globals: {
         ...globals.browser,
-        ...globals.node
-      }
+        ...globals.node,
+      },
     },
     rules: {
-      ...js.configs.recommended.rules
-    }
+      ...js.configs.recommended.rules,
+    },
   },
   ...svelteConfigs,
-  eslintConfigPrettier
+  eslintConfigPrettier,
 ];

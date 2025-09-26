@@ -10,7 +10,7 @@ import {
   listZigbeeRules,
   simulateZigbeeRule,
   updateZigbeeRule,
-  validateZigbeeRuleDefinition
+  validateZigbeeRuleDefinition,
 } from '../services/zigbeeRules';
 import { createHttpError } from '../util/errors';
 
@@ -35,18 +35,18 @@ const pairingState: {
   startedAt: null,
   expiresAt: null,
   discovered: [],
-  confirmed: []
+  confirmed: [],
 };
 
 const pairingStartSchema = z.object({
   durationSeconds: z.coerce.number().int().min(30).max(900).default(300),
-  channel: z.coerce.number().int().min(11).max(26).optional()
+  channel: z.coerce.number().int().min(11).max(26).optional(),
 });
 
 const actionSchema = z.object({
   deviceId: z.string(),
   command: z.string(),
-  payload: z.record(z.string(), z.unknown()).optional()
+  payload: z.record(z.string(), z.unknown()).optional(),
 });
 
 const { update: ruleUpdateSchema, simulation: ruleSimulationSchema } = getZigbeeRuleSchemas();
@@ -62,7 +62,7 @@ router.get('/overview', async (_req, res, next) => {
         name: device.name,
         model: 'unknown',
         lastSeen: new Date().toISOString(),
-        status: pairingState.confirmed.includes(device.id) ? 'paired' : 'unverified'
+        status: pairingState.confirmed.includes(device.id) ? 'paired' : 'unverified',
       }));
 
     const rules = (await listZigbeeRules()).map((rule) => ({
@@ -70,7 +70,7 @@ router.get('/overview', async (_req, res, next) => {
       name: rule.name,
       enabled: rule.enabled,
       createdAt: rule.createdAt,
-      updatedAt: rule.updatedAt
+      updatedAt: rule.updatedAt,
     }));
 
     res.json({
@@ -78,17 +78,17 @@ router.get('/overview', async (_req, res, next) => {
         id: 'zigbee-hub',
         status: pairingState.active ? 'pairing' : 'online',
         channel: 20,
-        lastHeartbeatAt: new Date().toISOString()
+        lastHeartbeatAt: new Date().toISOString(),
       },
       pairing: {
         active: pairingState.active,
         startedAt: pairingState.startedAt,
         expiresAt: pairingState.expiresAt,
         discovered: pairingState.discovered,
-        confirmed: pairingState.confirmed
+        confirmed: pairingState.confirmed,
       },
       devices,
-      rules
+      rules,
     });
   } catch (error) {
     next(error);
@@ -108,8 +108,8 @@ router.get('/', (_req, res) => {
     devices: devices.map((device) => ({
       id: device.id,
       name: device.name,
-      status: pairingState.confirmed.includes(device.id) ? 'paired' : 'discovered'
-    }))
+      status: pairingState.confirmed.includes(device.id) ? 'paired' : 'discovered',
+    })),
   });
 });
 
@@ -121,7 +121,7 @@ router.get('/devices/:id/status', (req, res) => {
   if (!device || (device.module !== 'zigbee' && !device.role.includes('zigbee'))) {
     return res.status(404).json({
       error: 'Zigbee device not found',
-      id
+      id,
     });
   }
 
@@ -129,7 +129,7 @@ router.get('/devices/:id/status', (req, res) => {
     id: device.id,
     name: device.name,
     status: pairingState.confirmed.includes(device.id) ? 'paired' : 'pending',
-    timestamp: new Date().toISOString()
+    timestamp: new Date().toISOString(),
   });
 });
 
@@ -143,7 +143,7 @@ router.get('/devices', (_req, res) => {
       name: device.name,
       role: device.role,
       module: device.module,
-      status: pairingState.confirmed.includes(device.id) ? 'paired' : 'pending'
+      status: pairingState.confirmed.includes(device.id) ? 'paired' : 'pending',
     }));
 
   res.json({ devices, updatedAt: new Date().toISOString() });
@@ -158,7 +158,7 @@ router.post('/actions', (req, res, next) => {
       commandId: randomUUID(),
       deviceId: payload.deviceId,
       command: payload.command,
-      receivedAt: new Date().toISOString()
+      receivedAt: new Date().toISOString(),
     });
   } catch (error) {
     next(error);
@@ -179,15 +179,15 @@ router.post('/pairing', (req, res, next) => {
         model: 'SmartBulb-X',
         manufacturer: 'Fleet Lighting',
         lastSeen: now.toISOString(),
-        signal: -52
-      }
+        signal: -52,
+      },
     ];
     res.json({
       active: pairingState.active,
       startedAt: pairingState.startedAt,
       expiresAt: pairingState.expiresAt,
       discovered: pairingState.discovered,
-      confirmed: pairingState.confirmed
+      confirmed: pairingState.confirmed,
     });
   } catch (error) {
     next(error);
@@ -204,7 +204,7 @@ router.delete('/pairing', (_req, res) => {
     startedAt: pairingState.startedAt,
     expiresAt: pairingState.expiresAt,
     discovered: pairingState.discovered,
-    confirmed: pairingState.confirmed
+    confirmed: pairingState.confirmed,
   });
 });
 
@@ -215,7 +215,7 @@ router.get('/pairing/discovered', (_req, res) => {
     startedAt: pairingState.startedAt,
     expiresAt: pairingState.expiresAt,
     discovered: pairingState.discovered,
-    confirmed: pairingState.confirmed
+    confirmed: pairingState.confirmed,
   });
 });
 

@@ -7,9 +7,9 @@ const service = process.env.SERVICE_NAME ?? 'fleet-api';
 export const logger = pino({
   level: config.LOG_LEVEL,
   base: {
-    service
+    service,
   },
-  timestamp: pino.stdTimeFunctions.isoTime
+  timestamp: pino.stdTimeFunctions.isoTime,
 });
 
 declare module 'express-serve-static-core' {
@@ -48,7 +48,7 @@ export function loggingMiddleware(req: Request, res: Response, next: NextFunctio
       latency_ms: Math.round(diff * 100) / 100,
       deviceId,
       correlationId,
-      userAgent: req.headers['user-agent']
+      userAgent: req.headers['user-agent'],
     });
   };
 

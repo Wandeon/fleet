@@ -14,7 +14,7 @@ const confidenceSchema = z
     return Number.isFinite(parsed) ? parsed : NaN;
   })
   .refine((value) => Number.isFinite(value), {
-    message: 'Confidence must be a number'
+    message: 'Confidence must be a number',
   })
   .transform((value) => {
     if (value > 1 && value <= 100) {
@@ -53,7 +53,7 @@ export const cameraEventsQuerySchema = z
     minConfidence: confidenceSchema.optional(),
     maxConfidence: confidenceSchema.optional(),
     limit: z.coerce.number().int().min(1).max(200).default(50),
-    cursor: z.string().min(1).optional()
+    cursor: z.string().min(1).optional(),
   })
   .superRefine((value, ctx) => {
     if (value.start && value.end) {
@@ -63,21 +63,25 @@ export const cameraEventsQuerySchema = z
         ctx.addIssue({
           code: z.ZodIssueCode.custom,
           message: 'start must be before end',
-          path: ['start']
+          path: ['start'],
         });
       }
     }
-    if (value.minConfidence != null && value.maxConfidence != null && value.minConfidence > value.maxConfidence) {
+    if (
+      value.minConfidence != null &&
+      value.maxConfidence != null &&
+      value.minConfidence > value.maxConfidence
+    ) {
       ctx.addIssue({
         code: z.ZodIssueCode.custom,
         message: 'minConfidence must be less than or equal to maxConfidence',
-        path: ['minConfidence']
+        path: ['minConfidence'],
       });
     }
   });
 
 export const cameraEventIdParamSchema = z.object({
-  eventId: z.string().min(1)
+  eventId: z.string().min(1),
 });
 
 export type CameraEventsQuery = z.infer<typeof cameraEventsQuerySchema>;

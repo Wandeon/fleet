@@ -1,6 +1,5 @@
 # Audio Player Operations Runbook
 
-
 This guide connects Raspberry Pi audio players (role `audio-player`) to an
 Icecast stream and explains how to operate the control API, CLI tooling, and
 monitoring. After preparing the infrastructure, follow
@@ -50,8 +49,14 @@ Complete all sections in order. Each command is copy/paste ready.
    entry per host (ideally the Tailscale DNS name) is sufficient:
    ```json
    [
-     { "targets": ["pi-audio-01:8081"], "labels": {"role": "audio-player", "instance": "pi-audio-01"} },
-     { "targets": ["pi-audio-02:8081"], "labels": {"role": "audio-player", "instance": "pi-audio-02"} }
+     {
+       "targets": ["pi-audio-01:8081"],
+       "labels": { "role": "audio-player", "instance": "pi-audio-01" }
+     },
+     {
+       "targets": ["pi-audio-02:8081"],
+       "labels": { "role": "audio-player", "instance": "pi-audio-02" }
+     }
    ]
    ```
    Restart the monitoring stack after editing the targets file so Prometheus
@@ -67,25 +72,27 @@ Complete all sections in order. Each command is copy/paste ready.
    `dtparam=audio=off`) in `/boot/firmware/config.txt`, then reboot.
 2. Verify the output card:
 
-4. Confirm the listener interface is reachable (replace `<vps-host>` as needed):
+3. Confirm the listener interface is reachable (replace `<vps-host>` as needed):
    ```bash
    curl -fsI http://<vps-host>:8000/
    ```
-5. Record the source password for later use in encoders and in `roles/audio-player/.env`.
-6. Tail logs if troubleshooting: `docker compose -f vps/compose.icecast.yml logs -f icecast`.
+4. Record the source password for later use in encoders and in `roles/audio-player/.env`.
+5. Tail logs if troubleshooting: `docker compose -f vps/compose.icecast.yml logs -f icecast`.
 
 ## 2. Prepare Raspberry Pi audio hardware
 
 ### Enable the HiFiBerry DAC overlay
 
 1. SSH to each Pi and edit the boot config:
+
    ```bash
    sudo tee -a /boot/firmware/config.txt <<'EOF'
-dtoverlay=hifiberry-dac
-dtparam=audio=off
-EOF
+   dtoverlay=hifiberry-dac
+   dtparam=audio=off
+   EOF
    sudo reboot
    ```
+
    (For other HATs, adapt the overlay per [`host-config/raspi-hifiberry.md`](../../host-config/raspi-hifiberry.md).)
 
 2. Install ALSA utilities and verify the card enumerates:
@@ -96,9 +103,9 @@ EOF
    aplay -l
    # Expect the HiFiBerry card as hw:0,0 or similar
    ```
+
 3. Provision the host following [`docs/runbooks/provisioning.md`](./provisioning.md)
    so the role agent can converge the audio-player overlay.
-
 
 ## Role Configuration
 
@@ -132,19 +139,19 @@ The control API listens on `:8081` and exposes:
 
 Use `scripts/audioctl.sh` for consistent, authenticated access:
 
-| Command | Description |
-| --- | --- |
-| `status` | Pretty-print `/status` |
-| `config` | Pretty-print `/config` |
-| `health` | Check `/healthz` |
-| `metrics` | Show the first 20 lines of `/metrics` |
-| `volume 0.8` | Set software volume (0.0–2.0) |
-| `play stream` / `play file` | Switch playback source |
-| `stop` | Stop playback |
+| Command                         | Description                           |
+| ------------------------------- | ------------------------------------- | ----- | ---------------------------------------- |
+| `status`                        | Pretty-print `/status`                |
+| `config`                        | Pretty-print `/config`                |
+| `health`                        | Check `/healthz`                      |
+| `metrics`                       | Show the first 20 lines of `/metrics` |
+| `volume 0.8`                    | Set software volume (0.0–2.0)         |
+| `play stream` / `play file`     | Switch playback source                |
+| `stop`                          | Stop playback                         |
 | `set-url http://vps:8000/mount` | Update `stream_url` via `PUT /config` |
-| `mode auto` / `mode manual` | Toggle automatic fallback mode |
-| `source stream|file|stop` | Persist desired source via `PUT /config` |
-| `upload /path/to/fallback.mp3` | Upload a new fallback file |
+| `mode auto` / `mode manual`     | Toggle automatic fallback mode        |
+| `source stream                  | file                                  | stop` | Persist desired source via `PUT /config` |
+| `upload /path/to/fallback.mp3`  | Upload a new fallback file            |
 
 Flags:
 
@@ -158,6 +165,7 @@ Example session:
 ### Confirm the GitOps agent is installed
 
 Provision the Pi per [`docs/runbooks/provisioning.md`](./provisioning.md). Ensure the agent service is active:
+
 ```bash
 sudo systemctl status role-agent.timer
 sudo journalctl -u role-agent.service -b
@@ -182,15 +190,15 @@ sudo journalctl -u role-agent.service -b
    ```
 3. Map devices to the audio role in [`inventory/devices.yaml`](../../inventory/devices.yaml). Example:
    ```yaml
-devices:
-  pi-audio-01:
-    role: audio-player
-    logs: true
-    loki_source: pi-audio-01
-  pi-audio-02:
-    role: audio-player
-    logs: true
-    loki_source: pi-audio-02
+   devices:
+   pi-audio-01:
+     role: audio-player
+     logs: true
+     loki_source: pi-audio-01
+   pi-audio-02:
+     role: audio-player
+     logs: true
+     loki_source: pi-audio-02
    ```
 4. Commit and push the changes to `main`. The convergence agent (`agent/role-agent.sh`) will pull, decrypt `.env.sops.enc`, and deploy `roles/audio-player/40-app.yml` on each Pi.
 5. Watch convergence on a Pi:
@@ -203,20 +211,25 @@ devices:
 ## 4. Control API operations (`:8081`)
 
 Set the base URL and token for commands:
+
 ```bash
 export PI_HOST=pi-audio-01    # or Tailscale name/IP
 export AUDIO_TOKEN=<same-token-as-in-.env>
 ```
 
 ### `/status`
+
 - Inspect current config, fallback status, and playback source.
+
 ```bash
 curl -sS -H "Authorization: Bearer ${AUDIO_TOKEN}" http://${PI_HOST}:8081/status | jq
 AUDIOCTL_HOST=${PI_HOST} AUDIOCTL_TOKEN=${AUDIO_TOKEN} ./scripts/audioctl.sh status
 ```
 
 ### `/play`
+
 - Force playback source (`stream`, `file`). Optional `mode` key switches between `auto` and `manual`.
+
 ```bash
 curl -sS -X POST -H 'Content-Type: application/json' \
   -H "Authorization: Bearer ${AUDIO_TOKEN}" \
@@ -225,14 +238,18 @@ AUDIOCTL_HOST=${PI_HOST} AUDIOCTL_TOKEN=${AUDIO_TOKEN} ./scripts/audioctl.sh pla
 ```
 
 ### `/stop`
+
 - Halt playback.
+
 ```bash
 curl -sS -X POST -H "Authorization: Bearer ${AUDIO_TOKEN}" http://${PI_HOST}:8081/stop
 AUDIOCTL_HOST=${PI_HOST} AUDIOCTL_TOKEN=${AUDIO_TOKEN} ./scripts/audioctl.sh stop
 ```
 
 ### `/volume`
+
 - Set software gain (0.0–2.0).
+
 ```bash
 curl -sS -X POST -H 'Content-Type: application/json' \
   -H "Authorization: Bearer ${AUDIO_TOKEN}" \
@@ -241,7 +258,9 @@ AUDIOCTL_HOST=${PI_HOST} AUDIOCTL_TOKEN=${AUDIO_TOKEN} ./scripts/audioctl.sh vol
 ```
 
 ### `/config`
+
 - Update multiple fields (stream URL, mode, source, volume) in one call.
+
 ```bash
 curl -sS -X PUT -H 'Content-Type: application/json' \
   -H "Authorization: Bearer ${AUDIO_TOKEN}" \
@@ -251,17 +270,20 @@ AUDIOCTL_HOST=${PI_HOST} AUDIOCTL_TOKEN=${AUDIO_TOKEN} ./scripts/audioctl.sh set
 ```
 
 ### `/upload`
+
 - Upload (or replace) the fallback file at `/data/fallback.mp3`.
+
 ```bash
 curl -sS -H "Authorization: Bearer ${AUDIO_TOKEN}" \
   -F "file=@/path/to/fallback.mp3" http://${PI_HOST}:8081/upload | jq
 AUDIOCTL_HOST=${PI_HOST} AUDIOCTL_TOKEN=${AUDIO_TOKEN} ./scripts/audioctl.sh upload /path/to/fallback.mp3
 ```
 
-
 ### `/metrics` and `/healthz`
+
 - Health probe (`/healthz`) is unauthenticated.
 - Metrics expose Prometheus gauges (`audio_volume`, `audio_fallback_exists`, `audio_source_state`).
+
 ```bash
 
 AUDIOCTL_HOST=pi-audio-01 AUDIOCTL_TOKEN=secret ./scripts/audioctl.sh status
@@ -312,7 +334,8 @@ acceptance script and document the playback proof for both devices.
 =======
 curl -fsS http://${PI_HOST}:8081/healthz
 curl -fsS -H "Authorization: Bearer ${AUDIO_TOKEN}" http://${PI_HOST}:8081/metrics
-```
+
+````
 
 ## 5. Fallback upload procedure
 
@@ -321,7 +344,8 @@ curl -fsS -H "Authorization: Bearer ${AUDIO_TOKEN}" http://${PI_HOST}:8081/metri
 3. Verify the fallback exists:
    ```bash
    curl -sS -H "Authorization: Bearer ${AUDIO_TOKEN}" http://${PI_HOST}:8081/status | jq '.fallback_exists'
-   ```
+````
+
 4. Test failover by forcing fallback playback, then restoring auto mode:
    ```bash
    curl -sS -X POST -H 'Content-Type: application/json' -H "Authorization: Bearer ${AUDIO_TOKEN}" \
@@ -336,8 +360,14 @@ curl -fsS -H "Authorization: Bearer ${AUDIO_TOKEN}" http://${PI_HOST}:8081/metri
 2. Update Prometheus file-based discovery on the VPS (`vps/targets-audio.json`):
    ```json
    [
-     { "targets": ["pi-audio-01:8081"], "labels": {"role": "audio-player", "instance": "pi-audio-01"} },
-     { "targets": ["pi-audio-02:8081"], "labels": {"role": "audio-player", "instance": "pi-audio-02"} }
+     {
+       "targets": ["pi-audio-01:8081"],
+       "labels": { "role": "audio-player", "instance": "pi-audio-01" }
+     },
+     {
+       "targets": ["pi-audio-02:8081"],
+       "labels": { "role": "audio-player", "instance": "pi-audio-02" }
+     }
    ]
    ```
 3. Redeploy Prometheus to pick up the targets:
@@ -357,21 +387,23 @@ curl -fsS -H "Authorization: Bearer ${AUDIO_TOKEN}" http://${PI_HOST}:8081/metri
 
 ## 7. Troubleshooting
 
-| Symptom | Resolution |
-| --- | --- |
-| `401 unauthorized` on API calls | Confirm `AUDIO_CONTROL_TOKEN` is set in `roles/audio-player/.env.sops.enc`. Include `Authorization: Bearer <token>` in every request except `/healthz`. Test with `AUDIOCTL_TOKEN` exported. |
-| `aplay -l` shows no cards | Re-run the HiFiBerry overlay steps, ensure the DAC is seated, and reboot. Verify the `audio` group exists and the container has `/dev/snd`. |
-| Icecast mount unreachable | Check the VPS: `docker compose -f vps/compose.icecast.yml ps`. Validate firewalls (only port 8000 needs to be exposed), and ensure your encoder is pushing audio using the correct source password. |
-| Player stuck on fallback | Inspect logs: `ssh admin@pi-audio-01 'docker logs --tail 100 $(docker ps -q --filter name=audio-player)'`. Confirm the stream URL resolves from the Pi and that Icecast is emitting audio. |
-| Metrics missing in Prometheus | Ensure `targets-audio.json` contains the Pi hostname or Tailscale IP and that Prometheus was reloaded. Hit `http://<vps>:9090/targets` to verify the new scrape target. |
+| Symptom                         | Resolution                                                                                                                                                                                          |
+| ------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `401 unauthorized` on API calls | Confirm `AUDIO_CONTROL_TOKEN` is set in `roles/audio-player/.env.sops.enc`. Include `Authorization: Bearer <token>` in every request except `/healthz`. Test with `AUDIOCTL_TOKEN` exported.        |
+| `aplay -l` shows no cards       | Re-run the HiFiBerry overlay steps, ensure the DAC is seated, and reboot. Verify the `audio` group exists and the container has `/dev/snd`.                                                         |
+| Icecast mount unreachable       | Check the VPS: `docker compose -f vps/compose.icecast.yml ps`. Validate firewalls (only port 8000 needs to be exposed), and ensure your encoder is pushing audio using the correct source password. |
+| Player stuck on fallback        | Inspect logs: `ssh admin@pi-audio-01 'docker logs --tail 100 $(docker ps -q --filter name=audio-player)'`. Confirm the stream URL resolves from the Pi and that Icecast is emitting audio.          |
+| Metrics missing in Prometheus   | Ensure `targets-audio.json` contains the Pi hostname or Tailscale IP and that Prometheus was reloaded. Hit `http://<vps>:9090/targets` to verify the new scrape target.                             |
 
 ## 8. Validate end-to-end
 
 Run the acceptance checks once both Pis are converged (see [`acceptance.md`](./acceptance.md)):
+
 ```bash
 SSH_USER=admin AUDIOCTL_TOKEN=${AUDIO_TOKEN} ICECAST_URL=http://<vps-host>:8000/<mount> \
   ./scripts/acceptance.sh --play-both pi-audio-01 pi-audio-02
 ```
+
 Success criteria: both players report healthy control APIs, ALSA devices, and successful playback toggles.
 
 ## 9. Ongoing operations
@@ -379,4 +411,3 @@ Success criteria: both players report healthy control APIs, ALSA devices, and su
 - Keep `AUDIO_CONTROL_TOKEN` secret; rotate routinely (see [`security.md`](./security.md)).
 - Monitor Grafana dashboards daily and alert on fallback usage.
 - Use [`operator-checklist.md`](./operator-checklist.md) for Day 1/Day 2 workflows and disaster recovery procedures.
-

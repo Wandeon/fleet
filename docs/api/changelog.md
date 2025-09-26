@@ -1,6 +1,7 @@
 # API Changelog
 
 ## 0.2.1 – Phase D2
+
 - Added audio library upload registration endpoint and playlist reorder controls.
 - Introduced playback session listing and drift reporting APIs.
 - Expanded video device controls (power/mute/input), preview session handling, and clip export intents.

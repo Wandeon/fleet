@@ -15,7 +15,7 @@
       "type": "timeseries",
       "title": "Stream Up",
       "datasource": { "type": "prometheus", "uid": "Prometheus" },
-      "targets": [ { "refId": "A", "expr": "stream_up", "legendFormat": "stream" } ],
+      "targets": [{ "refId": "A", "expr": "stream_up", "legendFormat": "stream" }],
       "gridPos": { "h": 8, "w": 12, "x": 0, "y": 0 }
     },
     {
@@ -23,7 +23,7 @@
       "type": "timeseries",
       "title": "Fallback Active",
       "datasource": { "type": "prometheus", "uid": "Prometheus" },
-      "targets": [ { "refId": "A", "expr": "fallback_active", "legendFormat": "fallback" } ],
+      "targets": [{ "refId": "A", "expr": "fallback_active", "legendFormat": "fallback" }],
       "gridPos": { "h": 8, "w": 12, "x": 12, "y": 0 }
     },
     {
@@ -31,7 +31,7 @@
       "type": "timeseries",
       "title": "Volume Level",
       "datasource": { "type": "prometheus", "uid": "Prometheus" },
-      "targets": [ { "refId": "A", "expr": "volume_level", "legendFormat": "volume" } ],
+      "targets": [{ "refId": "A", "expr": "volume_level", "legendFormat": "volume" }],
       "gridPos": { "h": 8, "w": 12, "x": 0, "y": 8 }
     },
     {
@@ -39,7 +39,7 @@
       "type": "stat",
       "title": "Circuit Breaker Open",
       "datasource": { "type": "prometheus", "uid": "Prometheus" },
-      "targets": [ { "refId": "A", "expr": "sum(circuit_breaker_state)" } ],
+      "targets": [{ "refId": "A", "expr": "sum(circuit_breaker_state)" }],
       "gridPos": { "h": 4, "w": 12, "x": 12, "y": 8 },
       "options": {
         "reduceOptions": { "calcs": ["last"], "fields": "", "values": false }

@@ -64,7 +64,7 @@ services:
       ZIGBEE2MQTT_CONFIG_DEVICES: /app/data/devices.yaml
       ZIGBEE2MQTT_CONFIG_GROUPS: /app/data/groups.yaml
     healthcheck:
-      test: ["CMD", "node", "/app/node_modules/zigbee2mqtt/lib/healthcheck.js"]
+      test: ['CMD', 'node', '/app/node_modules/zigbee2mqtt/lib/healthcheck.js']
       interval: 30s
       timeout: 10s
       retries: 3
@@ -73,4 +73,3 @@ services:
 volumes:
   zigbee_mosquitto_data: {}
   zigbee2mqtt_data: {}
-

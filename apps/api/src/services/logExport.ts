@@ -58,18 +58,22 @@ export function createLogExportJob(
       deviceId: filters.deviceId,
       level: filters.level,
       start: formatDate(filters.start),
-      end: formatDate(filters.end)
+      end: formatDate(filters.end),
     },
     requestedAt: requestedAt.toISOString(),
     estimatedReadyAt: readyAt.toISOString(),
     downloadUrl: formatDownloadUrl(exportId, format),
-    correlationId: correlationId ?? null
+    correlationId: correlationId ?? null,
   };
 }
 
 export function isLogExportAuthorized(roles: string[], scopes: string[]): boolean {
-  const normalizedRoles = roles.map((role) => role.trim().toLowerCase()).filter((role) => role.length > 0);
-  const normalizedScopes = scopes.map((scope) => scope.trim().toLowerCase()).filter((scope) => scope.length > 0);
+  const normalizedRoles = roles
+    .map((role) => role.trim().toLowerCase())
+    .filter((role) => role.length > 0);
+  const normalizedScopes = scopes
+    .map((scope) => scope.trim().toLowerCase())
+    .filter((scope) => scope.length > 0);
 
   if (normalizedRoles.some((role) => PRIVILEGED_ROLES.has(role))) {
     return true;

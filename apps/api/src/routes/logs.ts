@@ -26,8 +26,8 @@ function captureLog(level: string, obj: any) {
   const entry: LogEntry = {
     timestamp: new Date().toISOString(),
     level,
-    message: typeof obj === 'string' ? obj : (obj.msg || JSON.stringify(obj)),
-    meta: typeof obj === 'object' && obj !== null ? obj : undefined
+    message: typeof obj === 'string' ? obj : obj.msg || JSON.stringify(obj),
+    meta: typeof obj === 'object' && obj !== null ? obj : undefined,
   };
 
   logBuffer.push(entry);
@@ -35,7 +35,7 @@ function captureLog(level: string, obj: any) {
     logBuffer = logBuffer.slice(-MAX_BUFFER_SIZE);
   }
 
-  logEventCallbacks.forEach(callback => {
+  logEventCallbacks.forEach((callback) => {
     try {
       callback(entry);
     } catch {
@@ -44,22 +44,22 @@ function captureLog(level: string, obj: any) {
   });
 }
 
-logger.info = function(obj: any, ...args: any[]) {
+logger.info = function (obj: any, ...args: any[]) {
   captureLog('info', obj);
   return originalLogInfo(obj, ...args);
 };
 
-logger.error = function(obj: any, ...args: any[]) {
+logger.error = function (obj: any, ...args: any[]) {
   captureLog('error', obj);
   return originalLogError(obj, ...args);
 };
 
-logger.warn = function(obj: any, ...args: any[]) {
+logger.warn = function (obj: any, ...args: any[]) {
   captureLog('warn', obj);
   return originalLogWarn(obj, ...args);
 };
 
-logger.debug = function(obj: any, ...args: any[]) {
+logger.debug = function (obj: any, ...args: any[]) {
   captureLog('debug', obj);
   return originalLogDebug(obj, ...args);
 };
@@ -69,7 +69,7 @@ const logEventCallbacks: Set<(entry: LogEntry) => void> = new Set();
 router.get('/stream', (req: Request, res: Response) => {
   res.locals.routePath = '/logs/stream';
 
-  const level = req.query.level as string || 'info';
+  const level = (req.query.level as string) || 'info';
   const limit = Math.min(parseInt(req.query.limit as string) || 100, 1000);
 
   const acceptsEventStream = req.headers.accept?.includes('text/event-stream');
@@ -79,7 +79,7 @@ router.get('/stream', (req: Request, res: Response) => {
     res.writeHead(200, {
       'Content-Type': 'text/event-stream',
       'Cache-Control': 'no-cache',
-      'Connection': 'keep-alive',
+      Connection: 'keep-alive',
       'Access-Control-Allow-Origin': '*',
     });
 
@@ -88,10 +88,12 @@ router.get('/stream', (req: Request, res: Response) => {
 
     // Send existing logs
     const filteredLogs = logBuffer
-      .filter(entry => (levelPriority[entry.level as keyof typeof levelPriority] || 1) >= minLevel)
+      .filter(
+        (entry) => (levelPriority[entry.level as keyof typeof levelPriority] || 1) >= minLevel
+      )
       .slice(-limit);
 
-    filteredLogs.forEach(entry => {
+    filteredLogs.forEach((entry) => {
       res.write(`data: ${JSON.stringify(entry)}\n\n`);
     });
 
@@ -117,21 +119,22 @@ router.get('/stream', (req: Request, res: Response) => {
     req.on('close', () => {
       clearInterval(keepAlive);
     });
-
   } else {
     // JSON fallback
     const levelPriority = { debug: 0, info: 1, warn: 2, error: 3 };
     const minLevel = levelPriority[level as keyof typeof levelPriority] || 1;
 
     const filteredLogs = logBuffer
-      .filter(entry => (levelPriority[entry.level as keyof typeof levelPriority] || 1) >= minLevel)
+      .filter(
+        (entry) => (levelPriority[entry.level as keyof typeof levelPriority] || 1) >= minLevel
+      )
       .slice(-limit);
 
     res.json({
       logs: filteredLogs,
       totalCount: filteredLogs.length,
       level: level,
-      generatedAt: new Date().toISOString()
+      generatedAt: new Date().toISOString(),
     });
   }
 });
@@ -140,7 +143,7 @@ const logQuerySchema = z.object({
   level: z.enum(['trace', 'debug', 'info', 'warn', 'error', 'fatal']).optional(),
   deviceId: z.string().optional(),
   correlationId: z.string().optional(),
-  limit: z.coerce.number().int().min(1).max(500).default(100)
+  limit: z.coerce.number().int().min(1).max(500).default(100),
 });
 
 function parseDelimitedHeader(value: string | string[] | undefined): string[] {
@@ -196,12 +199,14 @@ router.post('/export', (req, res, next) => {
     const baseScopes = Array.isArray(authContext?.scopes)
       ? [...(authContext?.scopes as string[])]
       : [];
-    const scopes = Array.from(new Set([...baseScopes, ...scopeHeader, ...singleScopeHeader, ...genericScopeHeader]));
+    const scopes = Array.from(
+      new Set([...baseScopes, ...scopeHeader, ...singleScopeHeader, ...genericScopeHeader])
+    );
 
     if (!isLogExportAuthorized(roles, scopes)) {
       res.status(403).json({
         code: 'forbidden',
-        message: 'Log export requires a privileged role or scope.'
+        message: 'Log export requires a privileged role or scope.',
       });
       return;
     }
@@ -211,7 +216,7 @@ router.post('/export', (req, res, next) => {
         deviceId: payload.deviceId,
         level: payload.level,
         start: payload.start ? new Date(payload.start) : undefined,
-        end: payload.end ? new Date(payload.end) : undefined
+        end: payload.end ? new Date(payload.end) : undefined,
       },
       payload.format,
       req.correlationId
@@ -232,9 +237,9 @@ router.get('/', (req, res) => {
     bufferSize: logBuffer.length,
     maxBufferSize: MAX_BUFFER_SIZE,
     endpoints: {
-      stream: '/logs/stream?level=info&limit=100'
+      stream: '/logs/stream?level=info&limit=100',
     },
-    timestamp: new Date().toISOString()
+    timestamp: new Date().toISOString(),
   });
 });
 

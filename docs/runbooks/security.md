@@ -39,8 +39,8 @@ This runbook hardens the audio streaming stack (Icecast + audio-player control A
    ```json
    {
      "acls": [
-       {"action": "accept", "src": ["vps"], "dst": ["pi-audio-01:8081", "pi-audio-02:8081"]},
-       {"action": "accept", "src": ["ops"], "dst": ["vps:8000"]}
+       { "action": "accept", "src": ["vps"], "dst": ["pi-audio-01:8081", "pi-audio-02:8081"] },
+       { "action": "accept", "src": ["ops"], "dst": ["vps:8000"] }
      ]
    }
    ```

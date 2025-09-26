@@ -7,7 +7,7 @@
     ok: 'Online',
     warn: 'Degraded',
     error: 'Fault',
-    offline: 'Offline'
+    offline: 'Offline',
   };
 </script>
 

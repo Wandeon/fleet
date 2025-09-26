@@ -1,11 +1,11 @@
 ---
-version: "3.9"
+version: '3.9'
 services:
   prometheus:
     image: prom/prometheus:latest
     restart: unless-stopped
     ports:
-      - "9090:9090"
+      - '9090:9090'
     volumes:
       - ./prometheus.yml:/etc/prometheus/prometheus.yml:ro
       - ./prometheus/alerts.yml:/etc/prometheus/alerts.yml:ro
@@ -19,7 +19,7 @@ services:
     image: grafana/grafana:latest
     restart: unless-stopped
     ports:
-      - "3001:3000"
+      - '3001:3000'
     # Credentials are provided via monitoring.env
     env_file:
       - ./monitoring.env
@@ -37,7 +37,7 @@ services:
     command:
       - -config.file=/etc/loki/config.yml
     ports:
-      - "3100:3100"
+      - '3100:3100'
     volumes:
       - ./loki-config.yml:/etc/loki/config.yml:ro
       - loki-data:/loki
@@ -45,17 +45,17 @@ services:
     image: prom/blackbox-exporter:latest
     restart: unless-stopped
     ports:
-      - "9115:9115"
+      - '9115:9115'
     volumes:
       - ./blackbox.yml:/etc/blackbox_exporter/config.yml:ro
   alertmanager:
     image: prom/alertmanager:latest
     restart: unless-stopped
     ports:
-      - "9093:9093"
+      - '9093:9093'
     command:
-      - "--config.file=/etc/alertmanager/alertmanager.yml"
-      - "--storage.path=/alertmanager"
+      - '--config.file=/etc/alertmanager/alertmanager.yml'
+      - '--storage.path=/alertmanager'
     volumes:
       - ./alertmanager.yml:/etc/alertmanager/alertmanager.yml:ro
       - ./secrets/slack-webhook.url:/etc/alertmanager/slack_webhook.url:ro

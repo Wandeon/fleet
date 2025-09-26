@@ -60,10 +60,7 @@ export interface UpstreamError extends HttpError {
   reason: UpstreamFailureReason;
 }
 
-export function mapUpstreamError(
-  error: unknown,
-  context: UpstreamErrorContext
-): UpstreamError {
+export function mapUpstreamError(error: unknown, context: UpstreamErrorContext): UpstreamError {
   if (isHttpError(error)) {
     if ('reason' in error) {
       return error as UpstreamError;
@@ -81,9 +78,14 @@ export function mapUpstreamError(
 
     if (causeCode === 'ETIMEDOUT' || causeCode === 'ABORT_ERR' || errorName === 'AbortError') {
       return Object.assign(
-        createHttpError(504, 'upstream_timeout', `Device ${context.deviceId} timed out during ${context.operation}`, {
-          cause: error
-        }),
+        createHttpError(
+          504,
+          'upstream_timeout',
+          `Device ${context.deviceId} timed out during ${context.operation}`,
+          {
+            cause: error,
+          }
+        ),
         { reason: 'timeout' as UpstreamFailureReason }
       );
     }
@@ -91,7 +93,7 @@ export function mapUpstreamError(
     if (causeCode === 'ECONNREFUSED' || causeCode === 'ENOTFOUND' || causeCode === 'EHOSTUNREACH') {
       return Object.assign(
         createHttpError(502, 'upstream_unreachable', `Device ${context.deviceId} is unreachable`, {
-          cause: error
+          cause: error,
         }),
         { reason: 'unreachable' as UpstreamFailureReason }
       );
@@ -99,9 +101,14 @@ export function mapUpstreamError(
   }
 
   return Object.assign(
-    createHttpError(502, 'upstream_error', `Device ${context.deviceId} failed during ${context.operation}`, {
-      cause: error
-    }),
+    createHttpError(
+      502,
+      'upstream_error',
+      `Device ${context.deviceId} failed during ${context.operation}`,
+      {
+        cause: error,
+      }
+    ),
     { reason: 'unknown' as UpstreamFailureReason }
   );
 }

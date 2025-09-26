@@ -20,9 +20,7 @@ export const load: LayoutLoad = async ({ fetch, depends }) => {
   };
 
   const formatModuleLabel = (id: string) =>
-    id
-      .replace(/[-_]/g, ' ')
-      .replace(/\b\w/g, (segment) => segment.toUpperCase());
+    id.replace(/[-_]/g, ' ').replace(/\b\w/g, (segment) => segment.toUpperCase());
 
   const toTileStatus = (module: FleetOverview['modules'][number]): 'ok' | 'warn' | 'error' => {
     if (module.degraded > 0) return 'warn';
@@ -48,22 +46,22 @@ export const load: LayoutLoad = async ({ fetch, depends }) => {
             label,
             value,
             status,
-            hint
+            hint,
           } satisfies HealthData['metrics'][number];
         })
-      : fallback?.metrics ?? [];
+      : (fallback?.metrics ?? []);
 
     return {
       updatedAt: overview.updatedAt,
       uptime: fallback?.uptime ?? '—',
-      metrics
+      metrics,
     } satisfies HealthData;
   };
 
   const [layoutResult, stateResult, overviewResult] = await Promise.all([
     toResult(apiClient.fetchLayout({ fetch })),
     toResult(apiClient.fetchState({ fetch })),
-    toResult(rawRequest<FleetOverview>('/fleet/overview', { fetch }))
+    toResult(rawRequest<FleetOverview>('/fleet/overview', { fetch })),
   ]);
 
   const layoutSource = layoutResult.value ?? null;
@@ -94,6 +92,6 @@ export const load: LayoutLoad = async ({ fetch, depends }) => {
     healthError: overviewResult.error,
     connection: state?.connection ?? { status: 'offline', latencyMs: 0 },
     build: state?.build ?? { commit: 'unknown', version: 'unknown' },
-    lastUpdated: health?.updatedAt ?? new Date().toISOString()
+    lastUpdated: health?.updatedAt ?? new Date().toISOString(),
   };
 };

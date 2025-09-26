@@ -33,7 +33,7 @@ export function normalizeAddress(raw: unknown): DeviceAddress {
   const tokenEnv = coerceString(source.tokenEnv ?? source.token_env);
 
   return {
-    ...(source),
+    ...source,
     baseUrl,
     healthPath,
     statusPath,

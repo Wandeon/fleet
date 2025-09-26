@@ -40,12 +40,12 @@
   <input
     id={inputId}
     type="range"
-    min={min}
-    max={max}
-    step={step}
+    {min}
+    {max}
+    {step}
     value={clampedValue}
     on:input={handleInput}
-    disabled={disabled}
+    {disabled}
     aria-valuemin={min}
     aria-valuemax={max}
     aria-valuenow={Math.round(clampedValue)}

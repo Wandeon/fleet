@@ -12,16 +12,37 @@ export const mainNavigation: NavItem[] = [
   { path: '/', label: 'Dashboard', description: 'Overview of all subsystems', icon: '📊' },
   { path: '/audio', label: 'Audio', description: 'Dual Pi playback control', icon: '🎚️' },
   ...(featureFlags.video
-    ? [{ path: '/video', label: 'Video', description: 'Video wall and TV control', icon: '📺' } satisfies NavItem]
+    ? [
+        {
+          path: '/video',
+          label: 'Video',
+          description: 'Video wall and TV control',
+          icon: '📺',
+        } satisfies NavItem,
+      ]
     : []),
   ...(featureFlags.zigbee
-    ? [{ path: '/zigbee', label: 'Zigbee', description: 'Lighting and device mesh', icon: '🕸️' } satisfies NavItem]
+    ? [
+        {
+          path: '/zigbee',
+          label: 'Zigbee',
+          description: 'Lighting and device mesh',
+          icon: '🕸️',
+        } satisfies NavItem,
+      ]
     : []),
   ...(featureFlags.camera
-    ? [{ path: '/camera', label: 'Camera', description: 'CCTV and motion capture', icon: '🎥' } satisfies NavItem]
+    ? [
+        {
+          path: '/camera',
+          label: 'Camera',
+          description: 'CCTV and motion capture',
+          icon: '🎥',
+        } satisfies NavItem,
+      ]
     : []),
   { path: '/health', label: 'Health', description: 'Subsystem health metrics', icon: '🩺' },
-  { path: '/logs', label: 'Logs', description: 'Event audit trail', icon: '📜' }
+  { path: '/logs', label: 'Logs', description: 'Event audit trail', icon: '📜' },
 ];
 
 export const moduleOrder: string[] = [
