@@ -14,6 +14,8 @@ import type { CancelablePromise } from '../core/CancelablePromise';
 import { OpenAPI } from '../core/OpenAPI';
 import { request as __request } from '../core/request';
 
+type RequestContext = { fetch?: typeof fetch };
+
 export class AudioService {
 
   /**
@@ -22,10 +24,11 @@ export class AudioService {
    * @returns AudioState Audio overview payload for the operator UI.
    * @throws ApiError
    */
-  public static getAudioOverview(): CancelablePromise<AudioState> {
+  public static getAudioOverview(options?: RequestContext): CancelablePromise<AudioState> {
     return __request(OpenAPI, {
       method: 'GET',
       url: '/audio/overview',
+      fetch: options?.fetch,
       errors: {
         401: `Authentication failed or credentials missing.`,
         403: `Authenticated user does not have permission to access the resource.`,
@@ -55,12 +58,14 @@ export class AudioService {
       tags?: string;
       durationSeconds?: number;
     },
+    options?: RequestContext,
   ): CancelablePromise<AudioLibraryTrack> {
     return __request(OpenAPI, {
       method: 'POST',
       url: '/audio/library',
       formData: formData,
       mediaType: 'multipart/form-data',
+      fetch: options?.fetch,
       errors: {
         400: `One or more request parameters failed validation.`,
         401: `Authentication failed or credentials missing.`,
@@ -84,12 +89,14 @@ export class AudioService {
    */
   public static createAudioPlaylist(
     requestBody: AudioPlaylist,
+    options?: RequestContext,
   ): CancelablePromise<AudioPlaylist> {
     return __request(OpenAPI, {
       method: 'POST',
       url: '/audio/playlists',
       body: requestBody,
       mediaType: 'application/json',
+      fetch: options?.fetch,
       errors: {
         400: `One or more request parameters failed validation.`,
         401: `Authentication failed or credentials missing.`,
@@ -112,6 +119,7 @@ export class AudioService {
   public static updateAudioPlaylist(
     playlistId: string,
     requestBody: AudioPlaylist,
+    options?: RequestContext,
   ): CancelablePromise<AudioPlaylist> {
     return __request(OpenAPI, {
       method: 'PUT',
@@ -121,6 +129,7 @@ export class AudioService {
       },
       body: requestBody,
       mediaType: 'application/json',
+      fetch: options?.fetch,
       errors: {
         400: `One or more request parameters failed validation.`,
         401: `Authentication failed or credentials missing.`,
@@ -142,6 +151,7 @@ export class AudioService {
    */
   public static deleteAudioPlaylist(
     playlistId: string,
+    options?: RequestContext,
   ): CancelablePromise<void> {
     return __request(OpenAPI, {
       method: 'DELETE',
@@ -149,6 +159,7 @@ export class AudioService {
       path: {
         'playlistId': playlistId,
       },
+      fetch: options?.fetch,
       errors: {
         401: `Authentication failed or credentials missing.`,
         403: `Authenticated user does not have permission to access the resource.`,
@@ -169,12 +180,14 @@ export class AudioService {
    */
   public static startAudioPlayback(
     requestBody: AudioPlaybackRequest,
+    options?: RequestContext,
   ): CancelablePromise<any> {
     return __request(OpenAPI, {
       method: 'POST',
       url: '/audio/playback',
       body: requestBody,
       mediaType: 'application/json',
+      fetch: options?.fetch,
       errors: {
         400: `One or more request parameters failed validation.`,
         401: `Authentication failed or credentials missing.`,
@@ -198,6 +211,7 @@ export class AudioService {
    */
   public static getAudioDevice(
     deviceId: string,
+    options?: RequestContext,
   ): CancelablePromise<AudioDeviceSnapshot> {
     return __request(OpenAPI, {
       method: 'GET',
@@ -205,6 +219,7 @@ export class AudioService {
       path: {
         'deviceId': deviceId,
       },
+      fetch: options?.fetch,
       errors: {
         401: `Authentication failed or credentials missing.`,
         403: `Authenticated user does not have permission to access the resource.`,
@@ -226,6 +241,7 @@ export class AudioService {
    */
   public static pauseAudioDevice(
     deviceId: string,
+    options?: RequestContext,
   ): CancelablePromise<any> {
     return __request(OpenAPI, {
       method: 'POST',
@@ -233,6 +249,7 @@ export class AudioService {
       path: {
         'deviceId': deviceId,
       },
+      fetch: options?.fetch,
       errors: {
         401: `Authentication failed or credentials missing.`,
         403: `Authenticated user does not have permission to access the resource.`,
@@ -253,6 +270,7 @@ export class AudioService {
    */
   public static resumeAudioDevice(
     deviceId: string,
+    options?: RequestContext,
   ): CancelablePromise<any> {
     return __request(OpenAPI, {
       method: 'POST',
@@ -260,6 +278,7 @@ export class AudioService {
       path: {
         'deviceId': deviceId,
       },
+      fetch: options?.fetch,
       errors: {
         401: `Authentication failed or credentials missing.`,
         403: `Authenticated user does not have permission to access the resource.`,
@@ -280,6 +299,7 @@ export class AudioService {
    */
   public static stopAudioDevice(
     deviceId: string,
+    options?: RequestContext,
   ): CancelablePromise<any> {
     return __request(OpenAPI, {
       method: 'POST',
@@ -287,6 +307,7 @@ export class AudioService {
       path: {
         'deviceId': deviceId,
       },
+      fetch: options?.fetch,
       errors: {
         401: `Authentication failed or credentials missing.`,
         403: `Authenticated user does not have permission to access the resource.`,
@@ -309,6 +330,7 @@ export class AudioService {
   public static seekAudioDevice(
     deviceId: string,
     requestBody: AudioSeekRequest,
+    options?: RequestContext,
   ): CancelablePromise<any> {
     return __request(OpenAPI, {
       method: 'POST',
@@ -318,6 +340,7 @@ export class AudioService {
       },
       body: requestBody,
       mediaType: 'application/json',
+      fetch: options?.fetch,
       errors: {
         400: `One or more request parameters failed validation.`,
         401: `Authentication failed or credentials missing.`,
@@ -341,6 +364,7 @@ export class AudioService {
   public static setAudioDeviceVolume(
     deviceId: string,
     requestBody: AudioVolumeRequest,
+    options?: RequestContext,
   ): CancelablePromise<any> {
     return __request(OpenAPI, {
       method: 'POST',
@@ -350,6 +374,7 @@ export class AudioService {
       },
       body: requestBody,
       mediaType: 'application/json',
+      fetch: options?.fetch,
       errors: {
         400: `One or more request parameters failed validation.`,
         401: `Authentication failed or credentials missing.`,
@@ -371,12 +396,14 @@ export class AudioService {
    */
   public static setAudioMasterVolume(
     requestBody: AudioMasterVolumeRequest,
+    options?: RequestContext,
   ): CancelablePromise<any> {
     return __request(OpenAPI, {
       method: 'POST',
       url: '/audio/master-volume',
       body: requestBody,
       mediaType: 'application/json',
+      fetch: options?.fetch,
       errors: {
         400: `One or more request parameters failed validation.`,
         401: `Authentication failed or credentials missing.`,

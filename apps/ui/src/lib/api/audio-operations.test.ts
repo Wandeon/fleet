@@ -1,5 +1,6 @@
 import { beforeEach, describe, expect, test, vi } from 'vitest';
 import type { AudioState as ApiAudioState } from '$lib/api/client';
+import type { ApiRequestOptions } from '$lib/api/gen/core/ApiRequestOptions';
 type AudioApiMockMap = Record<
   | 'getOverview'
   | 'getDevice'
@@ -197,7 +198,7 @@ describe('audio-operations (D1 integration)', () => {
 
   test('surface friendly seek error messaging', async () => {
     const { ApiError } = await vi.importActual<typeof import('$lib/api/client')>('$lib/api/client');
-    const request = { method: 'POST', url: '/audio/devices/pi-audio-01/seek' } as Record<string, unknown>;
+    const request = { method: 'POST', url: '/audio/devices/pi-audio-01/seek' } as ApiRequestOptions;
     const response = {
       url: '/audio/devices/pi-audio-01/seek',
       ok: false,
