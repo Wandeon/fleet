@@ -5,10 +5,10 @@
   import Skeleton from '$lib/components/Skeleton.svelte';
   import EmptyState from '$lib/components/EmptyState.svelte';
   import { SvelteSet } from 'svelte/reactivity';
-  import { resolve } from '$app/paths';
   import type { PageData } from './$types';
   import type { FleetDeviceAction, FleetDeviceDetail, FleetDeviceMetric } from '$lib/types';
   import { getFleetDeviceDetail, triggerDeviceAction } from '$lib/api/fleet-operations';
+  import { goto } from '$app/navigation';
 
   export let data: PageData;
 
@@ -86,7 +86,7 @@
 {:else}
   <div class="device">
     <div class="breadcrumb">
-      <a href={resolve('/fleet')}>Fleet</a>
+      <button on:click={() => goto('/fleet')}>Fleet</button>
       <span>›</span>
       <span>{detail.summary.name}</span>
     </div>
@@ -185,12 +185,7 @@
               </li>
             {/each}
           </ul>
-          <a
-            class="link"
-            href={resolve('/logs/source/[id]', { id: detail.summary.id })}
-          >
-            Open in logs console →
-          </a>
+          <button class="link" on:click={() => detail && goto(`/logs?source=${detail.summary.id}`)}>Open in logs console →</button>
         {/if}
       </Card>
 
@@ -255,12 +250,16 @@
     color: var(--color-text-muted);
   }
 
-  .breadcrumb a {
+  .breadcrumb button {
     color: var(--color-brand);
     text-decoration: none;
+    background: none;
+    border: none;
+    padding: 0;
+    cursor: pointer;
   }
 
-  .breadcrumb a:hover {
+  .breadcrumb button:hover {
     text-decoration: underline;
   }
 
@@ -379,6 +378,10 @@
     margin-top: var(--spacing-3);
     color: var(--color-brand);
     text-decoration: none;
+    background: none;
+    border: none;
+    padding: 0;
+    cursor: pointer;
   }
 
   .link:hover {

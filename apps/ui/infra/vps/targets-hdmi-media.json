@@ -1,0 +1,9 @@
+[
+  {
+    "targets": ["pi-video-01:8082"],
+    "labels": {
+      "role": "hdmi-media",
+      "job": "media-control"
+    }
+  }
+]

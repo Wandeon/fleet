@@ -7,6 +7,7 @@
   import { SvelteSet } from 'svelte/reactivity';
   import type { PageData } from './$types';
   import type { OperatorAccount, SettingsState } from '$lib/types';
+  import { SvelteSet } from 'svelte/reactivity';
   import {
     cancelPairing,
     getSettings,
@@ -421,14 +422,7 @@
               </label>
               <label>
                 <span>Role</span>
-                <select
-                  value={newOperator.roles[0]}
-                  on:change={(event) =>
-                    (newOperator = {
-                      ...newOperator,
-                      roles: [(event.target as HTMLSelectElement).value],
-                    })}
-                >
+                <select value={newOperator.roles[0]} on:change={(event) => (newOperator = { ...newOperator, roles: [(event.target as HTMLSelectElement).value] })}>
                   {#each settings.roles as role (role.id)}
                     <option value={role.id}>{role.name}</option>
                   {/each}

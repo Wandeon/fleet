@@ -1,0 +1,21 @@
+devices:
+  - id: pi-audio-01
+    name: "Audio Player 01"
+    role: audio-player
+    api:
+      base_url: http://pi-audio-01:8081
+  - id: pi-audio-02
+    name: "Audio Player 02"
+    role: audio-player
+    api:
+      base_url: http://pi-audio-02:8081
+  - id: pi-video-01
+    name: "Media Hub"
+    role: hdmi-media
+    api:
+      base_url: http://pi-video-01:8082
+  - id: pi-camera-01
+    name: "Camera"
+    role: camera
+    api:
+      base_url: http://pi-camera-01:8083
