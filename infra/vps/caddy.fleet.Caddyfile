@@ -10,14 +10,27 @@ app.headspamartina.hr {
       flush_interval -1
     }
   }
+  handle /ui/logs/stream {
+    reverse_proxy fleet-api:3015/logs/stream {
+      header_up Authorization {>Authorization}
+      header_up Accept "text/event-stream"
+      flush_interval -1
+    }
+  }
   handle /metrics {
     reverse_proxy fleet-api:3015 {
       header_up Authorization {>Authorization}
     }
   }
 
+  # Favicon - serve directly from Caddy
+  handle /favicon.ico {
+    root * /data
+    file_server
+  }
+
   # UI (everything else) - PRODUCTION UI
   handle {
-    reverse_proxy fleet-ui:3000
+    reverse_proxy fleet-ui:3005
   }
 }
