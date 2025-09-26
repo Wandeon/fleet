@@ -1,0 +1,427 @@
+name: CI Nightly
+
+on:
+  schedule:
+    - cron: '0 6 * * *'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+env:
+  CI: true
+  PLAYWRIGHT_BROWSERS_PATH: ~/.cache/ms-playwright
+  API_BEARER: ${{ secrets.CI_API_BEARER || 'ci-test-bearer' }}
+  DATABASE_URL: file:./data/fleet-ci.db
+  VITE_USE_MOCKS: '1'
+  PRISMA_CLIENT_ENGINE_TYPE: binary
+  PRISMA_CLI_QUERY_ENGINE_TYPE: binary
+
+jobs:
+  inventory_sync:
+    name: inventory vs monitoring targets
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install PyYAML
+        run: pip install --user pyyaml
+
+      - name: Verify Prometheus targets match inventory
+        run: |
+          python3 - <<'PY'
+          import json
+          import sys
+          from pathlib import Path
+          from urllib.parse import urlparse
+
+          import yaml
+
+          inventory_path = Path('inventory/device-interfaces.yaml')
+          target_paths = sorted(Path('infra/vps').glob('targets-*.json'))
+
+          inventory_data = yaml.safe_load(inventory_path.read_text()) or {}
+          devices = inventory_data.get('devices', [])
+
+          inventory_targets: dict[str, set[str]] = {}
+          for device in devices:
+            role = device.get('role')
+            base_url = device.get('api', {}).get('base_url')
+            if not role or not base_url:
+              continue
+            parsed = urlparse(base_url)
+            host = parsed.netloc or parsed.path
+            if not host:
+              continue
+            inventory_targets.setdefault(role, set()).add(host)
+
+          file_targets: dict[str, set[str]] = {}
+          for path in target_paths:
+            try:
+              payload = json.loads(path.read_text())
+            except json.JSONDecodeError as exc:
+              print(f'::error file={path}::Failed to parse JSON: {exc}')
+              sys.exit(1)
+            for entry in payload:
+              role = entry.get('labels', {}).get('role')
+              targets = entry.get('targets') or []
+              if not role:
+                continue
+              file_targets.setdefault(role, set()).update(targets)
+
+          issues: list[str] = []
+          for role, hosts in sorted(inventory_targets.items()):
+            defined = file_targets.get(role, set())
+            missing = sorted(hosts - defined)
+            extra = sorted(defined - hosts)
+            if missing or extra:
+              message = [f'role: {role}']
+              if missing:
+                message.append(f'  missing targets: {", ".join(missing)}')
+              if extra:
+                message.append(f'  unexpected targets: {", ".join(extra)}')
+              issues.append('\n'.join(message))
+
+          unused_roles = sorted(set(file_targets) - set(inventory_targets))
+          if unused_roles:
+            issues.append('targets JSON contains roles absent from inventory: ' + ', '.join(unused_roles))
+
+          if issues:
+            print('::error ::inventory/device-interfaces.yaml is out of sync with infra/vps/targets-*.json')
+            print('\n'.join(issues))
+            print('\nPlease update infra/vps/targets-*.json to reflect changes in inventory/device-interfaces.yaml.')
+            sys.exit(1)
+          PY
+
+  lint:
+    name: lint (node ${{ matrix.node }})
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        node: [20.x]
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ matrix.node }}
+          cache: npm
+          cache-dependency-path: |
+            apps/api/package-lock.json
+            apps/ui/package-lock.json
+            package-lock.json
+
+      - name: Install API dependencies
+        working-directory: apps/api
+        run: npm ci
+
+      - name: Install UI dependencies
+        working-directory: apps/ui
+        run: npm ci
+
+      - name: ESLint (API)
+        working-directory: apps/api
+        run: npm run lint
+
+      - name: ESLint (UI)
+        working-directory: apps/ui
+        run: npm run lint
+
+      - name: Prettier formatting
+        run: npx --yes prettier@3.3.3 --check "**/*.{cjs,js,json,md,ts,svelte,yml,yaml}"
+
+      - name: Shellcheck
+        run: |
+          set -euo pipefail
+          paths=$(find scripts roles -type f -name '*.sh' -print 2>/dev/null || true)
+          if [[ -n "$paths" ]]; then
+            echo "$paths" | xargs -r shellcheck -x
+          else
+            echo "No shell scripts found"
+          fi
+
+  test:
+    name: test & acceptance (node ${{ matrix.node }})
+    runs-on: ubuntu-latest
+    needs: lint
+    strategy:
+      matrix:
+        node: [20.x]
+    env:
+      ACCEPTANCE_HOSTS: mock-audio-01 mock-audio-02
+      ACCEPTANCE_ICECAST_URL: http://mock-icecast:8000/mount
+      DATABASE_URL: file:./data/fleet-ci.db
+      PRISMA_ENGINES_CHECKSUM_IGNORE_MISSING: 1
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ matrix.node }}
+          cache: npm
+          cache-dependency-path: |
+            apps/api/package-lock.json
+            apps/ui/package-lock.json
+            package-lock.json
+
+      - name: Install API dependencies
+        working-directory: apps/api
+        run: npm ci
+
+      - name: Install UI dependencies
+        working-directory: apps/ui
+        run: npm ci
+
+      - name: Cache Playwright browsers
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/ms-playwright
+          key: ${{ runner.os }}-${{ matrix.node }}-playwright-${{ hashFiles('apps/ui/package-lock.json') }}
+
+      - name: Install Playwright browsers
+        working-directory: apps/ui
+        run: npx playwright install --with-deps chromium
+
+      - name: Prepare artifacts directory
+        run: |
+          rm -rf artifacts
+          mkdir -p artifacts/junit artifacts/coverage artifacts/acceptance
+
+      - name: UI unit tests (Vitest)
+        id: ui_vitest
+        working-directory: apps/ui
+        run: |
+          set -euo pipefail
+          if node -e "const pkg=require('./package.json'); process.exit(pkg.scripts?.test ? 0 : 1)"; then
+            npm run test -- --reporter=junit --outputFile=../../artifacts/junit/ui-vitest.xml
+            if [ -f coverage/lcov.info ]; then
+              cp coverage/lcov.info ../../artifacts/coverage/ui.lcov
+            fi
+          else
+            echo "UI tests not configured; creating empty report." >&2
+            cat <<'XML' > ../../artifacts/junit/ui-vitest.xml
+            <testsuite name="ui-vitest" tests="0" failures="0" skipped="0" time="0" />
+            XML
+          fi
+
+      - name: Prisma generate
+        working-directory: apps/api
+        run: npx prisma generate
+
+      - name: Prisma validate
+        working-directory: apps/api
+        run: npx prisma validate
+
+      - name: API tests
+        id: api_tests
+        working-directory: apps/api
+        run: |
+          set -euo pipefail
+          if node -e "const pkg=require('./package.json'); process.exit(pkg.scripts?.test ? 0 : 1)"; then
+            npm test -- --reporter=junit --outputFile=../../artifacts/junit/api-tests.xml
+            if [ -f coverage/lcov.info ]; then
+              cp coverage/lcov.info ../../artifacts/coverage/api.lcov
+            fi
+          else
+            echo "API tests not configured; creating empty report." >&2
+            cat <<'XML' > ../../artifacts/junit/api-tests.xml
+            <testsuite name="api-tests" tests="0" failures="0" skipped="0" time="0" />
+            XML
+          fi
+
+      - name: Playwright E2E
+        id: playwright
+        working-directory: apps/ui
+        env:
+          PLAYWRIGHT_BROWSERS_PATH: ~/.cache/ms-playwright
+        run: |
+          set -euo pipefail
+          if node -e "const pkg=require('./package.json'); process.exit(pkg.devDependencies?.['@playwright/test'] ? 0 : 1)" 2>/dev/null; then
+            npx playwright test --reporter=junit
+            if [ -f test-results/results.xml ]; then
+              cp test-results/results.xml ../../artifacts/junit/playwright.xml
+            elif [ -f playwright-report/results.xml ]; then
+              cp playwright-report/results.xml ../../artifacts/junit/playwright.xml
+            fi
+          else
+            echo "Playwright not configured; creating empty report." >&2
+            cat <<'XML' > ../../artifacts/junit/playwright.xml
+            <testsuite name="playwright" tests="0" failures="0" skipped="0" time="0" />
+            XML
+          fi
+
+      - name: Acceptance smoke (mocked)
+        id: acceptance
+        run: |
+          set -euo pipefail
+          mkdir -p .tmp/bin
+          cat <<'SCRIPT' > .tmp/bin/curl
+          #!/usr/bin/env bash
+          for arg in "$@"; do
+            case "$arg" in
+              *"/status")
+                echo '{"devices":[],"ok":true}'
+                exit 0
+                ;;
+            esac
+          done
+          echo "OK"
+          exit 0
+          SCRIPT
+          cat <<'SCRIPT' > .tmp/bin/ssh
+          #!/usr/bin/env bash
+          exit 0
+          SCRIPT
+          cat <<'SCRIPT' > .tmp/bin/aplay
+          #!/usr/bin/env bash
+          cat <<'OUT'
+          card 0: MockCard [Mock], device 0: MockDevice [Mock]
+          OUT
+          exit 0
+          SCRIPT
+          chmod +x .tmp/bin/curl .tmp/bin/ssh .tmp/bin/aplay
+          export PATH="$PWD/.tmp/bin:$PATH"
+          LOG_FILE=artifacts/acceptance/acceptance.log
+          ICECAST_URL="${ACCEPTANCE_ICECAST_URL}" scripts/acceptance.sh ${ACCEPTANCE_HOSTS} | tee "$LOG_FILE"
+          echo "summary<<'EOF'" >> "$GITHUB_OUTPUT"
+          cat "$LOG_FILE" >> "$GITHUB_OUTPUT"
+          echo 'EOF' >> "$GITHUB_OUTPUT"
+
+      - name: Upload junit artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: junit-${{ matrix.node }}
+          path: artifacts/junit
+
+      - name: Upload coverage artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: coverage-${{ matrix.node }}
+          path: artifacts/coverage
+
+      - name: Upload acceptance artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: acceptance-${{ matrix.node }}
+          path: artifacts/acceptance
+
+      - name: Summarize acceptance
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const summary = `${{ toJSON(steps.acceptance.outputs.summary) }}`.replace(/^"|"$/g, '');
+            if (!summary) {
+              return;
+            }
+            const core = require('@actions/core');
+            const {context} = require('@actions/github');
+            const runUrl = `https://github.com/${context.repo.owner}/${context.repo.repo}/actions/runs/${context.runId}`;
+            await core.summary
+              .addHeading('Acceptance smoke (mocked)')
+              .addRaw(`\n\`\`\`\n${summary}\n\`\`\``)
+              .addLink('Workflow run', runUrl)
+              .write();
+
+  lighthouse:
+    name: lighthouse (node ${{ matrix.node }})
+    runs-on: ubuntu-latest
+    needs: [lint, test]
+    strategy:
+      matrix:
+        node: [20.x]
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ matrix.node }}
+          cache: npm
+          cache-dependency-path: |
+            apps/ui/package-lock.json
+            package-lock.json
+
+      - name: Install UI dependencies
+        working-directory: apps/ui
+        run: npm ci
+
+      - name: Build UI
+        working-directory: apps/ui
+        run: npm run build
+
+      - name: Lighthouse CI
+        working-directory: apps/ui
+        run: |
+          set -euo pipefail
+          mkdir -p ../../artifacts/lighthouse
+          npx --yes @lhci/cli@0.12.0 autorun \
+            --collect.startServerCommand="npm run preview -- --host 0.0.0.0 --port 4173" \
+            --collect.url=http://127.0.0.1:4173 \
+            --collect.numberOfRuns=2 \
+            --assert.preset=lighthouse:recommended \
+            --upload.target=filesystem \
+            --upload.outputDir=../../artifacts/lighthouse
+
+      - name: Lighthouse summary
+        id: lighthouse_summary
+        run: |
+          set -euo pipefail
+          reports=(artifacts/lighthouse/*.json)
+          if [ ${#reports[@]} -eq 0 ]; then
+            echo "No Lighthouse reports generated" >&2
+            exit 1
+          fi
+          node <<'NODE'
+          const fs = require('fs');
+          const path = require('path');
+          const reportsDir = path.join(process.cwd(), 'artifacts', 'lighthouse');
+          const reports = fs.readdirSync(reportsDir).filter((f) => f.endsWith('.json'));
+          if (!reports.length) {
+            console.error('No Lighthouse JSON reports found');
+            process.exit(1);
+          }
+          const primary = JSON.parse(fs.readFileSync(path.join(reportsDir, reports[0]), 'utf8'));
+          const categories = primary.categories;
+          const summary = {
+            performance: Math.round((categories.performance?.score || 0) * 100),
+            accessibility: Math.round((categories.accessibility?.score || 0) * 100),
+            bestPractices: Math.round((categories['best-practices']?.score || 0) * 100),
+            seo: Math.round((categories.seo?.score || 0) * 100),
+          };
+          const content = `Performance: ${summary.performance}\nAccessibility: ${summary.accessibility}\nBest Practices: ${summary.bestPractices}\nSEO: ${summary.seo}`;
+          fs.writeFileSync(path.join(reportsDir, 'summary.txt'), content);
+          fs.writeFileSync(path.join(reportsDir, 'summary.json'), JSON.stringify(summary, null, 2));
+          NODE
+          echo "scores<<'EOF'" >> "$GITHUB_OUTPUT"
+          cat artifacts/lighthouse/summary.txt >> "$GITHUB_OUTPUT"
+          echo 'EOF' >> "$GITHUB_OUTPUT"
+
+      - name: Upload Lighthouse artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: lighthouse-${{ matrix.node }}
+          path: artifacts/lighthouse
+
+      - name: Publish Lighthouse summary
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const scores = `${{ toJSON(steps.lighthouse_summary.outputs.scores) }}`.replace(/^"|"$/g, '');
+            if (!scores) {
+              return;
+            }
+            const core = require('@actions/core');
+            await core.summary
+              .addHeading(`Lighthouse summary (node ${{ matrix.node }})`)
+              .addRaw(`\n\`\`\`\n${scores}\n\`\`\``)
+              .write();
+
+  agent-quality:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install shellcheck
+        run: sudo apt-get update && sudo apt-get install -y shellcheck
+      - name: Shellcheck agent scripts
+        run: shellcheck agent/*.sh agent/tests/*.sh agent/watchdog-health.sh
+      - name: Validate inventory
+        run: agent/validate-inventory.sh
