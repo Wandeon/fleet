@@ -3,7 +3,6 @@
   import Button from '$lib/components/Button.svelte';
   import Card from '$lib/components/Card.svelte';
   import StatusPill from '$lib/components/StatusPill.svelte';
-  import { resolve } from '$app/paths';
   import type { PageData } from './$types';
   import type { LogEntry, LogSeverity, LogsSnapshot } from '$lib/types';
   import {
@@ -13,6 +12,7 @@
     type LogQueryOptions,
     type LogStreamSubscription,
   } from '$lib/api/logs-operations';
+  import { goto } from '$app/navigation';
 
   export let data: PageData;
 
@@ -299,9 +299,7 @@
               <StatusPill status={severityToStatus(entry.severity)} label={entry.severity} />
               <span class="source">{entry.source}</span>
               {#if entry.deviceId}
-                <a class="device" href={resolve('/fleet/[id]', { id: entry.deviceId })}>
-                  {entry.deviceId}
-                </a>
+                <button class="device" on:click={() => goto(`/fleet/${entry.deviceId}`)}>{entry.deviceId}</button>
               {/if}
               {#if entry.correlationId}
                 <span class="correlation">{entry.correlationId}</span>
@@ -434,6 +432,10 @@
   .device {
     color: var(--color-brand);
     text-decoration: none;
+    background: none;
+    border: none;
+    padding: 0;
+    cursor: pointer;
   }
 
   .device:hover {

@@ -187,7 +187,9 @@ export const removeOperator = async (
   return getSettings(options);
 };
 
-export const saveSettingsDraft = async (draft: Partial<SettingsState>): Promise<SettingsState> => {
+export const saveSettingsDraft = async (
+  draft: Partial<SettingsState>
+): Promise<SettingsState> => {
   if (USE_MOCKS) {
     return mockApi.settingsUpdate(draft);
   }

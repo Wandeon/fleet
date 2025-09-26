@@ -34,6 +34,7 @@
   $: events = data?.events ?? [];
   $: clips = data?.clips ?? [];
   $: activeDevice = devices.find((device) => device.id === selectedCamera) ?? devices[0];
+
   const healthStatus = (value: DeviceStatus | undefined) => {
     if (value === 'online') return 'ok';
     if (value === 'error') return 'error';

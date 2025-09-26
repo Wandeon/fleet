@@ -1,0 +1,11 @@
+#!/usr/bin/env bash
+for arg in "$@"; do
+  case "$arg" in
+    *"/status")
+      echo '{"devices":[],"ok":true}'
+      exit 0
+      ;;
+  esac
+done
+echo "OK"
+exit 0
