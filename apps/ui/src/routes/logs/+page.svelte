@@ -12,6 +12,7 @@
     type LogQueryOptions,
     type LogStreamSubscription
   } from '$lib/api/logs-operations';
+  import { goto } from '$app/navigation';
 
   export let data: PageData;
 
@@ -210,7 +211,7 @@
       <label>
         <span>Source</span>
         <select bind:value={sourceId} on:change={handleSourceChange}>
-          {#each sources as source}
+          {#each sources as source (source.id)}
             <option value={source.id}>{source.label}</option>
           {/each}
           <option value="all">All sources</option>
@@ -219,7 +220,7 @@
       <label>
         <span>Severity</span>
         <select bind:value={severity} on:change={handleSeverityChange}>
-          {#each severityOptions as option}
+          {#each severityOptions as option (option.value)}
             <option value={option.value}>{option.label}</option>
           {/each}
         </select>
@@ -282,7 +283,7 @@
               <StatusPill status={severityToStatus(entry.severity)} label={entry.severity} />
               <span class="source">{entry.source}</span>
               {#if entry.deviceId}
-                <a class="device" href={`/fleet/${entry.deviceId}`}>{entry.deviceId}</a>
+                <button class="device" on:click={() => goto(`/fleet/${entry.deviceId}`)}>{entry.deviceId}</button>
               {/if}
               {#if entry.correlationId}
                 <span class="correlation">{entry.correlationId}</span>

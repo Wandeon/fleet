@@ -1,0 +1,5 @@
+#!/usr/bin/env bash
+cat <<'OUT'
+card 0: MockCard [Mock], device 0: MockDevice [Mock]
+OUT
+exit 0

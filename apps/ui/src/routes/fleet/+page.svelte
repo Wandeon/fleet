@@ -7,6 +7,7 @@
   import type { PageData } from './$types';
   import type { FleetDeviceSummary, FleetOverview } from '$lib/types';
   import { getFleetOverview } from '$lib/api/fleet-operations';
+  import { goto } from '$app/navigation';
 
   export let data: PageData;
 
@@ -98,7 +99,7 @@
 
       <Card title="Modules" subtitle="Coverage by role">
         <ul class="modules">
-          {#each overview.modules as module}
+          {#each overview.modules as module (module.label)}
             <li>
               <span class="name">{module.label}</span>
               <span class="counts">
@@ -133,7 +134,7 @@
       {:else}
         <div class="device-grid">
           {#each filteredDevices() as device (device.id)}
-            <a class="device-card" href={`/fleet/${device.id}`}>
+            <button class="device-card" on:click={() => goto(`/fleet/${device.id}`)}>
               <div class="device-header">
                 <h3>{device.name}</h3>
                 <StatusPill status={statusToPill(device.status)} label={device.status} />
@@ -156,7 +157,7 @@
                   <dd>{device.version}</dd>
                 </div>
               </dl>
-            </a>
+            </button>
           {/each}
         </div>
       {/if}

@@ -7,12 +7,14 @@
   import type { PageData } from './$types';
   import type { FleetDeviceAction, FleetDeviceDetail, FleetDeviceMetric } from '$lib/types';
   import { getFleetDeviceDetail, triggerDeviceAction } from '$lib/api/fleet-operations';
+  import { SvelteSet } from 'svelte/reactivity';
+  import { goto } from '$app/navigation';
 
   export let data: PageData;
 
   let detail: FleetDeviceDetail | null = data.device ?? null;
   let loading = false;
-  let actionLoading = new Set<string>();
+  let actionLoading = new SvelteSet<string>();
   let error: string | null = null;
 
   const refresh = async () => {
@@ -70,7 +72,7 @@
 {:else}
   <div class="device">
     <div class="breadcrumb">
-      <a href="/fleet">Fleet</a>
+      <button on:click={() => goto('/fleet')}>Fleet</button>
       <span>›</span>
       <span>{detail.summary.name}</span>
     </div>
@@ -169,7 +171,7 @@
               </li>
             {/each}
           </ul>
-          <a class="link" href={`/logs?source=${detail.summary.id}`}>Open in logs console →</a>
+          <button class="link" on:click={() => detail && goto(`/logs?source=${detail.summary.id}`)}>Open in logs console →</button>
         {/if}
       </Card>
 
@@ -232,12 +234,16 @@
     color: var(--color-text-muted);
   }
 
-  .breadcrumb a {
+  .breadcrumb button {
     color: var(--color-brand);
     text-decoration: none;
+    background: none;
+    border: none;
+    padding: 0;
+    cursor: pointer;
   }
 
-  .breadcrumb a:hover {
+  .breadcrumb button:hover {
     text-decoration: underline;
   }
 

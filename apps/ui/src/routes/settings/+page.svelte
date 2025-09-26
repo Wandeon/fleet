@@ -6,6 +6,7 @@
   import Skeleton from '$lib/components/Skeleton.svelte';
   import type { PageData } from './$types';
   import type { OperatorAccount, SettingsState } from '$lib/types';
+  import { SvelteSet } from 'svelte/reactivity';
   import {
     cancelPairing,
     getSettings,
@@ -28,7 +29,7 @@
   let savingOrigins = false;
   let pairingInFlight = false;
   let inviting = false;
-  let removing = new Set<string>();
+  let removing = new SvelteSet<string>();
 
 let proxyBaseUrl = settings?.proxy.baseUrl ?? '';
 let proxyTimeout = settings?.proxy.timeoutMs ?? 8000;
@@ -385,7 +386,7 @@ let newOperator: Pick<OperatorAccount, 'name' | 'email' | 'roles'> = {
               <label>
                 <span>Role</span>
                 <select value={newOperator.roles[0]} on:change={(event) => (newOperator = { ...newOperator, roles: [(event.target as HTMLSelectElement).value] })}>
-                  {#each settings.roles as role}
+                  {#each settings.roles as role (role.id)}
                     <option value={role.id}>{role.name}</option>
                   {/each}
                 </select>
