@@ -276,8 +276,8 @@ jobs:
           else
             echo "UI tests not configured; creating empty report." >&2
             cat <<'XML' > ../../artifacts/junit/ui-vitest.xml
-<testsuite name="ui-vitest" tests="0" failures="0" skipped="0" time="0" />
-XML
+            <testsuite name="ui-vitest" tests="0" failures="0" skipped="0" time="0" />
+            XML
           fi
 
       - name: Prisma generate
@@ -301,8 +301,8 @@ XML
           else
             echo "API tests not configured; creating empty report." >&2
             cat <<'XML' > ../../artifacts/junit/api-tests.xml
-<testsuite name="api-tests" tests="0" failures="0" skipped="0" time="0" />
-XML
+            <testsuite name="api-tests" tests="0" failures="0" skipped="0" time="0" />
+            XML
           fi
 
       - name: Playwright E2E
@@ -322,8 +322,8 @@ XML
           else
             echo "Playwright not configured; creating empty report." >&2
             cat <<'XML' > ../../artifacts/junit/playwright.xml
-<testsuite name="playwright" tests="0" failures="0" skipped="0" time="0" />
-XML
+            <testsuite name="playwright" tests="0" failures="0" skipped="0" time="0" />
+            XML
           fi
 
       - name: Acceptance smoke (mocked)
@@ -332,29 +332,29 @@ XML
           set -euo pipefail
           mkdir -p .tmp/bin
           cat <<'SCRIPT' > .tmp/bin/curl
-#!/usr/bin/env bash
-for arg in "$@"; do
-  case "$arg" in
-    *"/status")
-      echo '{"devices":[],"ok":true}'
-      exit 0
-      ;;
-  esac
-done
-echo "OK"
-exit 0
-SCRIPT
+          #!/usr/bin/env bash
+          for arg in "$@"; do
+            case "$arg" in
+              *"/status")
+                echo '{"devices":[],"ok":true}'
+                exit 0
+                ;;
+            esac
+          done
+          echo "OK"
+          exit 0
+          SCRIPT
           cat <<'SCRIPT' > .tmp/bin/ssh
-#!/usr/bin/env bash
-exit 0
-SCRIPT
+          #!/usr/bin/env bash
+          exit 0
+          SCRIPT
           cat <<'SCRIPT' > .tmp/bin/aplay
-#!/usr/bin/env bash
-cat <<'OUT'
-card 0: MockCard [Mock], device 0: MockDevice [Mock]
-OUT
-exit 0
-SCRIPT
+          #!/usr/bin/env bash
+          cat <<'OUT'
+          card 0: MockCard [Mock], device 0: MockDevice [Mock]
+          OUT
+          exit 0
+          SCRIPT
           chmod +x .tmp/bin/curl .tmp/bin/ssh .tmp/bin/aplay
           export PATH="$PWD/.tmp/bin:$PATH"
           LOG_FILE=artifacts/acceptance/acceptance.log
@@ -508,26 +508,26 @@ SCRIPT
             exit 1
           fi
           node <<'NODE'
-const fs = require('fs');
-const path = require('path');
-const reportsDir = path.join(process.cwd(), 'artifacts', 'lighthouse');
-const reports = fs.readdirSync(reportsDir).filter((f) => f.endsWith('.json'));
-if (!reports.length) {
-  console.error('No Lighthouse JSON reports found');
-  process.exit(1);
-}
-const primary = JSON.parse(fs.readFileSync(path.join(reportsDir, reports[0]), 'utf8'));
-const categories = primary.categories;
-const summary = {
-  performance: Math.round((categories.performance?.score || 0) * 100),
-  accessibility: Math.round((categories.accessibility?.score || 0) * 100),
-  bestPractices: Math.round((categories['best-practices']?.score || 0) * 100),
-  seo: Math.round((categories.seo?.score || 0) * 100),
-};
-const content = `Performance: ${summary.performance}\nAccessibility: ${summary.accessibility}\nBest Practices: ${summary.bestPractices}\nSEO: ${summary.seo}`;
-fs.writeFileSync(path.join(reportsDir, 'summary.txt'), content);
-fs.writeFileSync(path.join(reportsDir, 'summary.json'), JSON.stringify(summary, null, 2));
-NODE
+          const fs = require('fs');
+          const path = require('path');
+          const reportsDir = path.join(process.cwd(), 'artifacts', 'lighthouse');
+          const reports = fs.readdirSync(reportsDir).filter((f) => f.endsWith('.json'));
+          if (!reports.length) {
+            console.error('No Lighthouse JSON reports found');
+            process.exit(1);
+          }
+          const primary = JSON.parse(fs.readFileSync(path.join(reportsDir, reports[0]), 'utf8'));
+          const categories = primary.categories;
+          const summary = {
+            performance: Math.round((categories.performance?.score || 0) * 100),
+            accessibility: Math.round((categories.accessibility?.score || 0) * 100),
+            bestPractices: Math.round((categories['best-practices']?.score || 0) * 100),
+            seo: Math.round((categories.seo?.score || 0) * 100),
+          };
+          const content = `Performance: ${summary.performance}\nAccessibility: ${summary.accessibility}\nBest Practices: ${summary.bestPractices}\nSEO: ${summary.seo}`;
+          fs.writeFileSync(path.join(reportsDir, 'summary.txt'), content);
+          fs.writeFileSync(path.join(reportsDir, 'summary.json'), JSON.stringify(summary, null, 2));
+          NODE
           echo "scores<<'EOF'" >> "$GITHUB_OUTPUT"
           cat artifacts/lighthouse/summary.txt >> "$GITHUB_OUTPUT"
           echo 'EOF' >> "$GITHUB_OUTPUT"
