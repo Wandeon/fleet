@@ -35,6 +35,7 @@ export type { CameraEvent } from './models/CameraEvent';
 export type { CameraEventClip } from './models/CameraEventClip';
 export type { CameraEventDetail } from './models/CameraEventDetail';
 export type { CameraEventDetailResponse } from './models/CameraEventDetailResponse';
+export type { CameraEventDetection } from './models/CameraEventDetection';
 export type { CameraEventListResponse } from './models/CameraEventListResponse';
 export type { CameraOverviewSummary } from './models/CameraOverviewSummary';
 export type { CameraPreviewState } from './models/CameraPreviewState';
