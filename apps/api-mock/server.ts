@@ -5,6 +5,7 @@ import morgan from 'morgan';
 import path from 'path';
 import fs from 'fs';
 import { randomUUID } from 'crypto';
+import { Script } from 'vm';
 import { middleware as openapiValidator } from 'express-openapi-validator';
 
 const API_PREFIX = '/api';
@@ -75,6 +76,65 @@ interface ZigbeeDeviceSummary {
   state: string;
   batteryPercent?: number | null;
   lastSeen?: string;
+}
+
+type ZigbeeRuleComparison = 'eq' | 'neq' | 'gt' | 'gte' | 'lt' | 'lte' | 'includes' | 'excludes';
+
+interface ZigbeeRuleCondition {
+  field: string;
+  operator: ZigbeeRuleComparison;
+  value: string | number | boolean | Array<string | number | boolean>;
+}
+
+type ZigbeeRuleTrigger =
+  | {
+      type: 'sensor_event';
+      sensorId: string;
+      event: string;
+      condition?: ZigbeeRuleCondition;
+      cooldownSeconds?: number;
+    }
+  | {
+      type: 'schedule';
+      cron: string;
+      timezone?: string;
+    }
+  | {
+      type: 'expression';
+      expression: string;
+      language?: 'js';
+      description?: string;
+    };
+
+type ZigbeeRuleAction =
+  | {
+      type: 'device_command';
+      deviceId: string;
+      command: string;
+      payload?: Record<string, unknown>;
+    }
+  | {
+      type: 'notify';
+      channel: 'slack' | 'email' | 'sms';
+      message: string;
+      metadata?: Record<string, unknown>;
+    }
+  | {
+      type: 'delay';
+      durationSeconds: number;
+    };
+
+interface ZigbeeRuleRecord {
+  id: string;
+  name: string;
+  description?: string | null;
+  trigger: ZigbeeRuleTrigger;
+  actions: ZigbeeRuleAction[];
+  tags?: string[];
+  metadata?: Record<string, unknown>;
+  enabled: boolean;
+  createdAt: string;
+  updatedAt: string;
 }
 
 interface CameraSummaryItem {
@@ -156,6 +216,7 @@ const stateTemplate = loadFixture<Record<string, unknown>>('state.json');
 const audioSeed = loadFixture<PaginatedResult<AudioDeviceStatus>>('audio.devices.json');
 const tvTemplate = loadFixture<TvStatus>('video.tv.json');
 const zigbeeSeed = loadFixture<PaginatedResult<ZigbeeDeviceSummary>>('zigbee.devices.json');
+const zigbeeRulesSeed = loadFixture<{ items: ZigbeeRuleRecord[] }>('zigbee.rules.json');
 const cameraSummaryTemplate = loadFixture<CameraSummary>('camera.summary.json');
 const cameraEventsSeed = loadFixture<PaginatedResult<CameraEvent>>('camera.events.json');
 const recentEventsSeed = loadFixture<PaginatedResult<RecentEvent>>('events.recent.json');
@@ -178,6 +239,10 @@ let tvStatus: TvStatus = clone(tvTemplate);
 const zigbeeDevices = new Map<string, ZigbeeDeviceSummary>();
 zigbeeSeed.items.forEach((device) => {
   zigbeeDevices.set(device.id, clone(device));
+});
+const zigbeeRules = new Map<string, ZigbeeRuleRecord>();
+zigbeeRulesSeed.items.forEach((rule) => {
+  zigbeeRules.set(rule.id, clone(rule));
 });
 let cameraSummary: CameraSummary = clone(cameraSummaryTemplate);
 let cameraEvents: CameraEvent[] = cameraEventsSeed.items.map((evt) => clone(evt));
@@ -440,6 +505,151 @@ router.post('/zigbee/devices/:id/action', asyncHandler(async (req, res) => {
   await sendJson(res, 202, clone(device));
 }));
 
+router.get('/zigbee/rules', asyncHandler(async (req, res) => {
+  if (await maybeSimulate(res, req)) {
+    return;
+  }
+  const items = Array.from(zigbeeRules.values()).map((rule) => clone(rule));
+  await sendJson(res, 200, { items, total: items.length });
+}));
+
+router.get('/zigbee/rules/:id', asyncHandler(async (req, res) => {
+  if (await maybeSimulate(res, req)) {
+    return;
+  }
+  const rule = zigbeeRules.get(req.params.id);
+  if (!rule) {
+    await sendError(res, 404, 'RESOURCE_NOT_FOUND', 'Rule not found.');
+    return;
+  }
+  await sendJson(res, 200, clone(rule));
+}));
+
+router.post('/zigbee/rules', asyncHandler(async (req, res) => {
+  if (await maybeSimulate(res, req)) {
+    return;
+  }
+  const normalized = normalizeRuleDefinition(req.body);
+  const now = new Date().toISOString();
+  const rule: ZigbeeRuleRecord = {
+    id: randomUUID(),
+    name: normalized.name,
+    description: normalized.description ?? null,
+    trigger: normalized.trigger,
+    actions: normalized.actions,
+    tags: normalized.tags ?? [],
+    metadata: normalized.metadata ?? {},
+    enabled: normalized.enabled ?? true,
+    createdAt: now,
+    updatedAt: now
+  };
+  zigbeeRules.set(rule.id, rule);
+  await sendJson(res, 201, clone(rule));
+}));
+
+router.put('/zigbee/rules/:id', asyncHandler(async (req, res) => {
+  if (await maybeSimulate(res, req)) {
+    return;
+  }
+  const rule = zigbeeRules.get(req.params.id);
+  if (!rule) {
+    await sendError(res, 404, 'RESOURCE_NOT_FOUND', 'Rule not found.');
+    return;
+  }
+  const updates = req.body ?? {};
+  if (!updates || Object.keys(updates).length === 0) {
+    await sendError(res, 400, 'VALIDATION_FAILED', 'No fields provided for update.');
+    return;
+  }
+  const normalized = normalizeRuleUpdate(rule, updates);
+  zigbeeRules.set(rule.id, normalized);
+  await sendJson(res, 200, clone(normalized));
+}));
+
+router.delete('/zigbee/rules/:id', asyncHandler(async (req, res) => {
+  if (await maybeSimulate(res, req)) {
+    return;
+  }
+  const existed = zigbeeRules.delete(req.params.id);
+  if (!existed) {
+    await sendError(res, 404, 'RESOURCE_NOT_FOUND', 'Rule not found.');
+    return;
+  }
+  res.status(204).send();
+}));
+
+router.patch('/zigbee/rules/:id/enable', asyncHandler(async (req, res) => {
+  if (await maybeSimulate(res, req)) {
+    return;
+  }
+  const rule = zigbeeRules.get(req.params.id);
+  if (!rule) {
+    await sendError(res, 404, 'RESOURCE_NOT_FOUND', 'Rule not found.');
+    return;
+  }
+  const enabled = typeof req.body?.enabled === 'boolean' ? req.body.enabled : true;
+  rule.enabled = enabled;
+  rule.updatedAt = new Date().toISOString();
+  zigbeeRules.set(rule.id, rule);
+  await sendJson(res, 200, clone(rule));
+}));
+
+router.post('/zigbee/rules/validate', asyncHandler(async (req, res) => {
+  if (await maybeSimulate(res, req)) {
+    return;
+  }
+  const normalized = normalizeRuleDefinition(req.body);
+  await sendJson(res, 200, { valid: true, normalized, evaluatedAt: new Date().toISOString() });
+}));
+
+router.post('/zigbee/rules/simulate', asyncHandler(async (req, res) => {
+  if (await maybeSimulate(res, req)) {
+    return;
+  }
+  const payload = req.body ?? {};
+  let rule: ZigbeeRuleRecord | undefined;
+  if (payload.definition) {
+    const normalized = normalizeRuleDefinition(payload.definition);
+    const now = new Date().toISOString();
+    rule = {
+      id: payload.ruleId ?? `sim-${randomUUID()}`,
+      name: normalized.name,
+      description: normalized.description ?? null,
+      trigger: normalized.trigger,
+      actions: normalized.actions,
+      tags: normalized.tags ?? [],
+      metadata: normalized.metadata ?? {},
+      enabled: normalized.enabled ?? true,
+      createdAt: now,
+      updatedAt: now
+    };
+  } else if (payload.ruleId) {
+    rule = zigbeeRules.get(payload.ruleId);
+  }
+
+  if (!rule) {
+    await sendError(res, 404, 'RESOURCE_NOT_FOUND', 'Rule not found for simulation.');
+    return;
+  }
+
+  const started = new Date();
+  const evaluation = evaluateRule(rule, payload.input ?? {});
+  const completed = new Date();
+  await sendJson(res, 200, {
+    matched: evaluation.matched,
+    actions: evaluation.matched ? clone(rule.actions) : [],
+    rule: clone(rule),
+    evaluation: {
+      triggerType: rule.trigger.type,
+      reason: evaluation.reason,
+      error: evaluation.error,
+      startedAt: started.toISOString(),
+      completedAt: completed.toISOString(),
+      durationMs: completed.getTime() - started.getTime()
+    }
+  });
+}));
+
 router.get('/camera/summary', asyncHandler(async (req, res) => {
   if (await maybeSimulate(res, req)) {
     return;
@@ -491,6 +701,182 @@ router.get('/events/recent', asyncHandler(async (req, res) => {
 }));
 
 app.use(API_PREFIX, router);
+
+function normalizeRuleDefinition(input: any): {
+  name: string;
+  description?: string;
+  trigger: ZigbeeRuleTrigger;
+  actions: ZigbeeRuleAction[];
+  tags?: string[];
+  metadata?: Record<string, unknown>;
+  enabled?: boolean;
+} {
+  const name = typeof input?.name === 'string' ? input.name.trim() : '';
+  if (!name) {
+    throw new Error('name is required');
+  }
+  const description = typeof input?.description === 'string' ? input.description.trim() : undefined;
+  const trigger = input?.trigger as ZigbeeRuleTrigger;
+  const actions = Array.isArray(input?.actions) ? (input.actions as ZigbeeRuleAction[]) : [];
+  if (!trigger || !actions.length) {
+    throw new Error('trigger and actions are required');
+  }
+  const tags = Array.isArray(input?.tags) ? uniqueTags(input.tags as string[]) : undefined;
+  const metadata = input?.metadata && typeof input.metadata === 'object' ? (input.metadata as Record<string, unknown>) : undefined;
+  const enabled = typeof input?.enabled === 'boolean' ? input.enabled : undefined;
+  return {
+    name,
+    ...(description ? { description } : {}),
+    trigger,
+    actions,
+    ...(tags && tags.length ? { tags } : {}),
+    ...(metadata ? { metadata } : {}),
+    ...(typeof enabled === 'boolean' ? { enabled } : {})
+  };
+}
+
+function normalizeRuleUpdate(existing: ZigbeeRuleRecord, updates: any): ZigbeeRuleRecord {
+  const normalized = normalizeRuleDefinition({ ...existing, ...updates, name: updates?.name ?? existing.name });
+  return {
+    ...existing,
+    name: normalized.name,
+    description: normalized.description ?? null,
+    trigger: normalized.trigger,
+    actions: normalized.actions,
+    tags: normalized.tags ?? [],
+    metadata: normalized.metadata ?? {},
+    enabled: normalized.enabled ?? existing.enabled,
+    updatedAt: new Date().toISOString()
+  };
+}
+
+function uniqueTags(tags: string[]): string[] {
+  const seen = new Set<string>();
+  for (const tag of tags) {
+    if (typeof tag !== 'string') continue;
+    const normalized = tag.trim().toLowerCase();
+    if (!normalized) continue;
+    seen.add(normalized);
+  }
+  return Array.from(seen.values()).slice(0, 10);
+}
+
+function getByPath(source: Record<string, unknown>, path: string): unknown {
+  const segments = path.split('.');
+  let current: unknown = source;
+  for (const segment of segments) {
+    if (!current || typeof current !== 'object') {
+      return undefined;
+    }
+    current = (current as Record<string, unknown>)[segment];
+  }
+  return current;
+}
+
+function compareValues(operator: ZigbeeRuleComparison, left: unknown, right: unknown): boolean {
+  switch (operator) {
+    case 'eq':
+      return left === right;
+    case 'neq':
+      return left !== right;
+    case 'gt':
+      return typeof left === 'number' && typeof right === 'number' ? left > right : false;
+    case 'gte':
+      return typeof left === 'number' && typeof right === 'number' ? left >= right : false;
+    case 'lt':
+      return typeof left === 'number' && typeof right === 'number' ? left < right : false;
+    case 'lte':
+      return typeof left === 'number' && typeof right === 'number' ? left <= right : false;
+    case 'includes':
+      if (typeof left === 'string' && typeof right === 'string') {
+        return left.includes(right);
+      }
+      if (Array.isArray(left)) {
+        return left.includes(right as never);
+      }
+      return false;
+    case 'excludes':
+      if (typeof left === 'string' && typeof right === 'string') {
+        return !left.includes(right);
+      }
+      if (Array.isArray(left)) {
+        return !left.includes(right as never);
+      }
+      return false;
+    default:
+      return false;
+  }
+}
+
+function freezeDeep<T>(value: T): T {
+  if (value && typeof value === 'object') {
+    Object.freeze(value);
+    for (const key of Object.keys(value as Record<string, unknown>)) {
+      const child = (value as Record<string, unknown>)[key];
+      if (child && typeof child === 'object' && !Object.isFrozen(child)) {
+        freezeDeep(child);
+      }
+    }
+  }
+  return value;
+}
+
+function runRuleExpression(expression: string, context: Record<string, unknown>): boolean {
+  const script = new Script(`(function(context){"use strict"; return (${expression});})`);
+  const fn = script.runInNewContext({ Math }) as (ctx: Record<string, unknown>) => unknown;
+  const result = fn(freezeDeep(structuredClone(context)));
+  return Boolean(result);
+}
+
+function evaluateRule(
+  rule: ZigbeeRuleRecord,
+  input: { event?: Record<string, unknown>; context?: Record<string, unknown>; sensor?: Record<string, unknown> }
+): { matched: boolean; reason: string; error?: string } {
+  if (rule.trigger.type === 'sensor_event') {
+    const event = input.event ?? {};
+    const sensorId = (event.sensorId as string) ?? (input.sensor?.id as string);
+    const eventType = (event.type as string) ?? (event.event as string);
+    if (sensorId !== rule.trigger.sensorId || eventType !== rule.trigger.event) {
+      return { matched: false, reason: 'Sensor or event mismatch.' };
+    }
+    if (rule.trigger.condition) {
+      const payload = (event.payload as Record<string, unknown>) ?? input.context ?? {};
+      const value = getByPath(payload, rule.trigger.condition.field);
+      const matched = compareValues(rule.trigger.condition.operator, value, rule.trigger.condition.value);
+      return { matched, reason: matched ? 'Condition matched.' : 'Condition did not match.' };
+    }
+    return { matched: true, reason: 'Sensor event matched.' };
+  }
+
+  if (rule.trigger.type === 'schedule') {
+    const context = input.context ?? {};
+    if (context.cron && context.cron === rule.trigger.cron) {
+      return { matched: true, reason: 'Cron expression matched.' };
+    }
+    if (context.scheduled === true) {
+      return { matched: true, reason: 'Scheduled flag matched.' };
+    }
+    return { matched: false, reason: 'Schedule context did not match.' };
+  }
+
+  if (rule.trigger.type === 'expression') {
+    try {
+      const contextInput = (input.context as Record<string, unknown>) ?? {};
+      const matched = runRuleExpression(rule.trigger.expression, {
+        ...contextInput,
+        event: input.event ?? {},
+        sensor: input.sensor ?? {},
+        context: contextInput,
+        now: new Date().toISOString()
+      });
+      return { matched, reason: matched ? 'Expression evaluated to truthy value.' : 'Expression evaluated to falsy value.' };
+    } catch (error: any) {
+      return { matched: false, reason: 'Expression evaluation failed.', error: error?.message ?? 'Unknown error' };
+    }
+  }
+
+  return { matched: false, reason: 'Unsupported trigger type.' };
+}
 
 app.use(async (req, res) => {
   await sendError(res, 404, 'RESOURCE_NOT_FOUND', 'Route not implemented.');

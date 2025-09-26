@@ -4,10 +4,14 @@
 import type { AllowedOriginsRequest } from '../models/AllowedOriginsRequest';
 import type { InviteOperatorRequest } from '../models/InviteOperatorRequest';
 import type { OperatorAccount } from '../models/OperatorAccount';
+import type { OperatorListResponse } from '../models/OperatorListResponse';
+import type { OperatorUpdateRequest } from '../models/OperatorUpdateRequest';
 import type { PairingClaimRequest } from '../models/PairingClaimRequest';
 import type { PairingStartRequest } from '../models/PairingStartRequest';
 import type { ProxySettings } from '../models/ProxySettings';
 import type { ProxyUpdateRequest } from '../models/ProxyUpdateRequest';
+import type { SecuritySettings } from '../models/SecuritySettings';
+import type { SecurityUpdateRequest } from '../models/SecurityUpdateRequest';
 import type { SettingsPairingState } from '../models/SettingsPairingState';
 import type { SettingsState } from '../models/SettingsState';
 
@@ -199,6 +203,25 @@ export class SettingsService {
   }
 
   /**
+   * List operator accounts and roles.
+   * Retrieve all operator accounts along with their roles and status metadata.
+   * @returns OperatorListResponse Operator directory snapshot.
+   * @throws ApiError
+   */
+  public static listOperators(): CancelablePromise<OperatorListResponse> {
+    return __request(OpenAPI, {
+      method: 'GET',
+      url: '/settings/operators',
+      errors: {
+        401: `Authentication failed or credentials missing.`,
+        403: `Authenticated user does not have permission to access the resource.`,
+        429: `Request rate limit exceeded.`,
+        500: `Unexpected server error occurred.`,
+      },
+    });
+  }
+
+  /**
    * Invite a new operator account with specified roles.
    * Invite a new operator account with specified roles.
    * @param requestBody
@@ -218,6 +241,37 @@ export class SettingsService {
         401: `Authentication failed or credentials missing.`,
         403: `Authenticated user does not have permission to access the resource.`,
         409: `Operator already exists.`,
+        429: `Request rate limit exceeded.`,
+        500: `Unexpected server error occurred.`,
+      },
+    });
+  }
+
+  /**
+   * Update an operator account.
+   * Modify operator roles or status for an existing account.
+   * @param operatorId
+   * @param requestBody
+   * @returns OperatorAccount Operator updated.
+   * @throws ApiError
+   */
+  public static updateOperator(
+    operatorId: string,
+    requestBody: OperatorUpdateRequest,
+  ): CancelablePromise<OperatorAccount> {
+    return __request(OpenAPI, {
+      method: 'PUT',
+      url: '/settings/operators/{operatorId}',
+      path: {
+        'operatorId': operatorId,
+      },
+      body: requestBody,
+      mediaType: 'application/json',
+      errors: {
+        400: `One or more request parameters failed validation.`,
+        401: `Authentication failed or credentials missing.`,
+        403: `Authenticated user does not have permission to access the resource.`,
+        404: `Requested resource does not exist.`,
         429: `Request rate limit exceeded.`,
         500: `Unexpected server error occurred.`,
       },
@@ -248,6 +302,50 @@ export class SettingsService {
         401: `Authentication failed or credentials missing.`,
         403: `Authenticated user does not have permission to access the resource.`,
         404: `Requested resource does not exist.`,
+        429: `Request rate limit exceeded.`,
+        500: `Unexpected server error occurred.`,
+      },
+    });
+  }
+
+  /**
+   * Retrieve security escalation settings.
+   * Fetch night mode escalation preferences and alert channels.
+   * @returns SecuritySettings Security settings snapshot.
+   * @throws ApiError
+   */
+  public static getSecuritySettings(): CancelablePromise<SecuritySettings> {
+    return __request(OpenAPI, {
+      method: 'GET',
+      url: '/settings/security',
+      errors: {
+        401: `Authentication failed or credentials missing.`,
+        403: `Authenticated user does not have permission to access the resource.`,
+        429: `Request rate limit exceeded.`,
+        500: `Unexpected server error occurred.`,
+      },
+    });
+  }
+
+  /**
+   * Update security escalation settings.
+   * Adjust night mode escalation toggle and alert delivery channels.
+   * @param requestBody
+   * @returns SecuritySettings Updated security settings.
+   * @throws ApiError
+   */
+  public static updateSecuritySettings(
+    requestBody: SecurityUpdateRequest,
+  ): CancelablePromise<SecuritySettings> {
+    return __request(OpenAPI, {
+      method: 'PATCH',
+      url: '/settings/security',
+      body: requestBody,
+      mediaType: 'application/json',
+      errors: {
+        400: `One or more request parameters failed validation.`,
+        401: `Authentication failed or credentials missing.`,
+        403: `Authenticated user does not have permission to access the resource.`,
         429: `Request rate limit exceeded.`,
         500: `Unexpected server error occurred.`,
       },

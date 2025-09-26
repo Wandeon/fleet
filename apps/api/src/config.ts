@@ -12,6 +12,8 @@ const envSchema = z
     CIRCUIT_OPEN_MS: z.coerce.number().int().min(1000).max(600000).default(30000),
     DEVICE_REGISTRY_PATH: z.string().optional(),
     DEVICE_REGISTRY_JSON: z.string().optional(),
+    ZIGBEE_RULES_PATH: z.string().optional(),
+    ZIGBEE_RULES_FALLBACK_PATH: z.string().optional(),
     CORS_ALLOWED_ORIGINS: z
       .string()
       .default('https://app.headspamartina.hr')

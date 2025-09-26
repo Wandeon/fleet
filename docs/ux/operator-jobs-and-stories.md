@@ -97,11 +97,12 @@ This document enumerates the primary operator goals for the fleet control surfac
 - **Goal:** Define a rule linking sensor events to actuator responses.
 - **Actor:** Automation engineer.
 - **Preconditions:** Relevant sensors/actuators online; user has automation edit rights.
-- **Expected Controls:** Rule builder with trigger selection, condition editors, action selection, enable toggle.
-- **Success Criteria:** Rule saves via `/zigbee/rules` API; simulation test returns expected actuator preview.
+- **Expected Controls:** Rule builder with trigger selection, condition editors, action selection, enable toggle, sortable rule list, and inline simulation results.
+- **Success Criteria:** Rule saves via `/zigbee/rules` API; `/zigbee/rules/{ruleId}` reflects updates immediately; `/zigbee/rules/simulate` previews actuator payloads and alert messages without leaving the editor.
 - **Failure Modes:** Invalid conditions, conflicting rules, offline actuators. UI highlights conflicts and offers resolution suggestions.
-- **Security Considerations:** Validate rule scopes; prevent privilege escalation through actuator selection; audit rule changes.
+- **Security Considerations:** Validate rule scopes; prevent privilege escalation through actuator selection; audit rule changes via `/zigbee/rules/{ruleId}/enable` toggles and mutation logs.
 - **D2 Notes:** The pairing wizard now coordinates with `/ui/zigbee/pairing` lifecycle endpoints and polls `/ui/zigbee/pairing/discovered`, while rule validation POSTs to `/ui/zigbee/rules/validate` before persisting.
+- **D3 Notes:** Automation editors list rules from `/ui/zigbee/rules`, persist updates through `/ui/zigbee/rules/{ruleId}` PUTs, and exercise sandboxes with `/ui/zigbee/rules/simulate` to preview actuator payloads and Slack notifications.
 
 ## Camera (AI)
 
@@ -198,8 +199,8 @@ This document enumerates the primary operator goals for the fleet control surfac
 - **Goal:** Manage operator permissions for the platform.
 - **Actor:** System administrator.
 - **Preconditions:** Admin authenticated; role definitions available.
-- **Expected Controls:** User list, role assignment dropdowns, invitation workflow, audit log view.
-- **Success Criteria:** Permission changes propagate immediately; invitations send email with activation link.
+- **Expected Controls:** User list with status, role assignment dropdowns, invitation workflow, suspend/resume toggles, audit log view.
+- **Success Criteria:** Permission changes propagate immediately; invitations send email with activation link; `/settings/operators` GET shows updated roster; `/settings/operators/{id}` PUT persists role/status edits.
 - **Failure Modes:** Duplicate invitations, role conflicts, directory sync failures. UI surfaces errors and suggests corrective actions.
-- **Security Considerations:** Enforce least privilege; require MFA for role elevation; track changes in immutable audit log.
+- **Security Considerations:** Enforce least privilege; require MFA for role elevation; track changes in immutable audit log and persist night mode escalations via `/settings/security` patches.
 

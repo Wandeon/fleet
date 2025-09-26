@@ -1,0 +1,74 @@
+{
+  "items": [
+    {
+      "id": "rule-lobby-lights",
+      "name": "Lobby lights on motion",
+      "description": "Turn on lobby sconces when the motion sensor reports movement after hours.",
+      "trigger": {
+        "type": "sensor_event",
+        "sensorId": "zig-motion-01",
+        "event": "motion",
+        "condition": {
+          "field": "confidence",
+          "operator": "gte",
+          "value": 0.6
+        }
+      },
+      "actions": [
+        {
+          "type": "device_command",
+          "deviceId": "zig-light-01",
+          "command": "turn_on",
+          "payload": {
+            "brightness": 82,
+            "transitionMs": 500
+          }
+        },
+        {
+          "type": "notify",
+          "channel": "slack",
+          "message": "Lobby motion detected, lights engaged.",
+          "metadata": {
+            "channel": "#facility-alerts"
+          }
+        }
+      ],
+      "tags": ["lobby", "lighting"],
+      "enabled": true,
+      "createdAt": "2025-01-14T03:12:11.000Z",
+      "updatedAt": "2025-01-14T03:12:11.000Z"
+    },
+    {
+      "id": "rule-night-escalation",
+      "name": "Night mode escalation",
+      "description": "Escalate when after-hours door contact opens.",
+      "trigger": {
+        "type": "expression",
+        "expression": "context.mode === 'night' && event.type === 'open' && event.sensorId === 'zig-door-02'"
+      },
+      "actions": [
+        {
+          "type": "notify",
+          "channel": "sms",
+          "message": "Night door opened, paging guard."
+        },
+        {
+          "type": "delay",
+          "durationSeconds": 10
+        },
+        {
+          "type": "device_command",
+          "deviceId": "zig-siren-01",
+          "command": "activate",
+          "payload": {
+            "durationSeconds": 60
+          }
+        }
+      ],
+      "tags": ["night", "security"],
+      "enabled": true,
+      "createdAt": "2025-01-14T03:12:11.000Z",
+      "updatedAt": "2025-01-14T03:12:11.000Z"
+    }
+  ]
+}

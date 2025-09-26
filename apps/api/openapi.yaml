@@ -1,7 +1,7 @@
 openapi: 3.0.3
 info:
   title: Fleet Control API
-  version: 0.2.2
+  version: 0.2.3
   description: |
     Public web API consumed by the Fleet web UI. The API aggregates multiple
     device roles (audio players, video/CEC, Zigbee, cameras) and exposes a
@@ -1013,6 +1013,343 @@ components:
           format: int32
           minimum: 5
           maximum: 900
+    ZigbeeRuleCondition:
+      type: object
+      required:
+        - field
+        - operator
+        - value
+      properties:
+        field:
+          type: string
+          description: JSON pointer-style path evaluated against the trigger context payload.
+        operator:
+          type: string
+          enum:
+            - eq
+            - neq
+            - gt
+            - gte
+            - lt
+            - lte
+            - includes
+            - excludes
+        value:
+          oneOf:
+            - type: string
+            - type: number
+            - type: boolean
+            - type: array
+              items:
+                oneOf:
+                  - type: string
+                  - type: number
+                  - type: boolean
+    ZigbeeRuleSensorTrigger:
+      type: object
+      required:
+        - type
+        - sensorId
+        - event
+      properties:
+        type:
+          type: string
+          enum:
+            - sensor_event
+        sensorId:
+          type: string
+        event:
+          type: string
+        condition:
+          $ref: '#/components/schemas/ZigbeeRuleCondition'
+        cooldownSeconds:
+          type: integer
+          format: int32
+          minimum: 0
+          maximum: 86400
+    ZigbeeRuleScheduleTrigger:
+      type: object
+      required:
+        - type
+        - cron
+      properties:
+        type:
+          type: string
+          enum:
+            - schedule
+        cron:
+          type: string
+          description: Cron expression evaluated by the hub scheduler.
+        timezone:
+          type: string
+          description: IANA timezone identifier used for the cron expression.
+    ZigbeeRuleExpressionTrigger:
+      type: object
+      required:
+        - type
+        - expression
+      properties:
+        type:
+          type: string
+          enum:
+            - expression
+        expression:
+          type: string
+          description: JavaScript expression evaluated in the automation sandbox.
+        language:
+          type: string
+          enum:
+            - js
+          default: js
+        description:
+          type: string
+    ZigbeeRuleTrigger:
+      oneOf:
+        - $ref: '#/components/schemas/ZigbeeRuleSensorTrigger'
+        - $ref: '#/components/schemas/ZigbeeRuleScheduleTrigger'
+        - $ref: '#/components/schemas/ZigbeeRuleExpressionTrigger'
+      discriminator:
+        propertyName: type
+    ZigbeeRuleDeviceCommandAction:
+      type: object
+      required:
+        - type
+        - deviceId
+        - command
+      properties:
+        type:
+          type: string
+          enum:
+            - device_command
+        deviceId:
+          type: string
+        command:
+          type: string
+        payload:
+          type: object
+          additionalProperties: {}
+    ZigbeeRuleNotifyAction:
+      type: object
+      required:
+        - type
+        - channel
+        - message
+      properties:
+        type:
+          type: string
+          enum:
+            - notify
+        channel:
+          type: string
+          enum:
+            - slack
+            - email
+            - sms
+        message:
+          type: string
+        metadata:
+          type: object
+          additionalProperties: {}
+    ZigbeeRuleDelayAction:
+      type: object
+      required:
+        - type
+        - durationSeconds
+      properties:
+        type:
+          type: string
+          enum:
+            - delay
+        durationSeconds:
+          type: integer
+          format: int32
+          minimum: 1
+          maximum: 3600
+    ZigbeeRuleAction:
+      oneOf:
+        - $ref: '#/components/schemas/ZigbeeRuleDeviceCommandAction'
+        - $ref: '#/components/schemas/ZigbeeRuleNotifyAction'
+        - $ref: '#/components/schemas/ZigbeeRuleDelayAction'
+      discriminator:
+        propertyName: type
+    ZigbeeRuleDefinition:
+      type: object
+      required:
+        - name
+        - trigger
+        - actions
+      properties:
+        name:
+          type: string
+        description:
+          type: string
+        trigger:
+          $ref: '#/components/schemas/ZigbeeRuleTrigger'
+        actions:
+          type: array
+          items:
+            $ref: '#/components/schemas/ZigbeeRuleAction'
+        tags:
+          type: array
+          items:
+            type: string
+        metadata:
+          type: object
+          additionalProperties: {}
+        enabled:
+          type: boolean
+    ZigbeeRuleUpdateRequest:
+      type: object
+      properties:
+        name:
+          type: string
+        description:
+          type: string
+          nullable: true
+        trigger:
+          $ref: '#/components/schemas/ZigbeeRuleTrigger'
+        actions:
+          type: array
+          items:
+            $ref: '#/components/schemas/ZigbeeRuleAction'
+        tags:
+          type: array
+          items:
+            type: string
+        metadata:
+          type: object
+          additionalProperties: {}
+        enabled:
+          type: boolean
+    ZigbeeRule:
+      allOf:
+        - $ref: '#/components/schemas/ZigbeeRuleDefinition'
+        - type: object
+          required:
+            - id
+            - createdAt
+            - updatedAt
+            - enabled
+          properties:
+            id:
+              type: string
+            createdAt:
+              type: string
+              format: date-time
+            updatedAt:
+              type: string
+              format: date-time
+            description:
+              type: string
+              nullable: true
+            metadata:
+              type: object
+              additionalProperties: {}
+            tags:
+              type: array
+              items:
+                type: string
+    ZigbeeRuleListResponse:
+      type: object
+      required:
+        - items
+        - total
+      properties:
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/ZigbeeRule'
+        total:
+          type: integer
+          format: int32
+    ZigbeeRuleSimulationEvaluation:
+      type: object
+      required:
+        - triggerType
+        - reason
+        - startedAt
+        - completedAt
+        - durationMs
+      properties:
+        triggerType:
+          type: string
+        reason:
+          type: string
+        error:
+          type: string
+          nullable: true
+        startedAt:
+          type: string
+          format: date-time
+        completedAt:
+          type: string
+          format: date-time
+        durationMs:
+          type: integer
+          format: int32
+    ZigbeeRuleSimulationRequest:
+      type: object
+      properties:
+        ruleId:
+          type: string
+        definition:
+          $ref: '#/components/schemas/ZigbeeRuleDefinition'
+        input:
+          type: object
+          additionalProperties: {}
+      oneOf:
+        - required:
+            - ruleId
+        - required:
+            - definition
+      description: Provide either an existing ruleId or a full definition to simulate.
+    ZigbeeRuleSimulationResponse:
+      type: object
+      required:
+        - matched
+        - actions
+        - rule
+        - evaluation
+      properties:
+        matched:
+          type: boolean
+        actions:
+          type: array
+          items:
+            $ref: '#/components/schemas/ZigbeeRuleAction'
+        rule:
+          $ref: '#/components/schemas/ZigbeeRule'
+        evaluation:
+          $ref: '#/components/schemas/ZigbeeRuleSimulationEvaluation'
+    ZigbeeRuleValidationResponse:
+      type: object
+      required:
+        - valid
+        - normalized
+        - evaluatedAt
+      properties:
+        valid:
+          type: boolean
+        normalized:
+          $ref: '#/components/schemas/ZigbeeRuleDefinition'
+        evaluatedAt:
+          type: string
+          format: date-time
+    CameraEventDetection:
+      type: object
+      required:
+        - id
+        - label
+        - confidence
+      properties:
+        id:
+          type: string
+        label:
+          type: string
+        confidence:
+          type: number
+          format: float
+
         boundingBox:
           type: object
           nullable: true
@@ -1645,6 +1982,14 @@ components:
               signal:
                 type: integer
                 format: int32
+    OperatorRole:
+      type: string
+      enum:
+        - admin
+        - automation
+        - viewer
+        - incident
+        - security
     OperatorAccount:
       type: object
       required:
@@ -1653,6 +1998,7 @@ components:
         - roles
         - invitedAt
         - status
+        - lastUpdatedAt
       properties:
         id:
           type: string
@@ -1662,7 +2008,7 @@ components:
         roles:
           type: array
           items:
-            type: string
+            $ref: '#/components/schemas/OperatorRole'
         invitedAt:
           type: string
           format: date-time
@@ -1672,7 +2018,10 @@ components:
           enum:
             - active
             - pending
-            - removed
+            - suspended
+        lastUpdatedAt:
+          type: string
+          format: date-time
     SettingsState:
       type: object
       required:
@@ -1681,6 +2030,7 @@ components:
         - pairing
         - operators
         - apiTokenPreview
+        - security
         - updatedAt
       properties:
         proxy:
@@ -1697,6 +2047,8 @@ components:
             $ref: '#/components/schemas/OperatorAccount'
         apiTokenPreview:
           type: string
+        security:
+          $ref: '#/components/schemas/SecuritySettings'
         updatedAt:
           type: string
           format: date-time
@@ -1760,7 +2112,81 @@ components:
         roles:
           type: array
           items:
-            type: string
+            $ref: '#/components/schemas/OperatorRole'
+    OperatorListResponse:
+      type: object
+      required:
+        - items
+        - total
+        - updatedAt
+      properties:
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/OperatorAccount'
+        total:
+          type: integer
+          format: int32
+        updatedAt:
+          type: string
+          format: date-time
+    OperatorUpdateRequest:
+      type: object
+      properties:
+        roles:
+          type: array
+          items:
+            $ref: '#/components/schemas/OperatorRole'
+        status:
+          type: string
+          enum:
+            - pending
+            - active
+            - suspended
+      minProperties: 1
+    SecuritySettings:
+      type: object
+      required:
+        - nightMode
+      properties:
+        nightMode:
+          type: object
+          required:
+            - escalationEnabled
+            - alertChannels
+            - updatedAt
+          properties:
+            escalationEnabled:
+              type: boolean
+            alertChannels:
+              type: array
+              items:
+                type: string
+                enum:
+                  - slack
+                  - email
+                  - sms
+            updatedAt:
+              type: string
+              format: date-time
+    SecurityUpdateRequest:
+      type: object
+      required:
+        - nightMode
+      properties:
+        nightMode:
+          type: object
+          properties:
+            escalationEnabled:
+              type: boolean
+            alertChannels:
+              type: array
+              items:
+                type: string
+                enum:
+                  - slack
+                  - email
+                  - sms
     FleetDeviceMetric:
       type: object
       required:
@@ -2833,6 +3259,250 @@ paths:
           $ref: '#/components/responses/RateLimitError'
         '501':
           $ref: '#/components/responses/NotImplementedError'
+        '500':
+          $ref: '#/components/responses/InternalError'
+  /zigbee/rules:
+    get:
+      tags:
+        - Zigbee
+      summary: List Zigbee automation rules.
+      description: Retrieve all configured Zigbee automation rules with trigger and action metadata.
+      operationId: listZigbeeRules
+      responses:
+        '200':
+          description: Collection of automation rules.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ZigbeeRuleListResponse'
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '403':
+          $ref: '#/components/responses/ForbiddenError'
+        '429':
+          $ref: '#/components/responses/RateLimitError'
+        '500':
+          $ref: '#/components/responses/InternalError'
+    post:
+      tags:
+        - Zigbee
+      summary: Create a new Zigbee automation rule.
+      description: Persist a Zigbee automation rule that links triggers to downstream actions.
+      operationId: createZigbeeRule
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ZigbeeRuleDefinition'
+      responses:
+        '201':
+          description: Automation rule created.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ZigbeeRule'
+        '400':
+          $ref: '#/components/responses/ValidationError'
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '403':
+          $ref: '#/components/responses/ForbiddenError'
+        '429':
+          $ref: '#/components/responses/RateLimitError'
+        '500':
+          $ref: '#/components/responses/InternalError'
+  /zigbee/rules/validate:
+    post:
+      tags:
+        - Zigbee
+      summary: Validate a Zigbee automation rule definition.
+      description: Validate a Zigbee automation rule definition without persisting it.
+      operationId: validateZigbeeRule
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ZigbeeRuleDefinition'
+      responses:
+        '200':
+          description: Validation outcome.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ZigbeeRuleValidationResponse'
+        '400':
+          $ref: '#/components/responses/ValidationError'
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '403':
+          $ref: '#/components/responses/ForbiddenError'
+        '429':
+          $ref: '#/components/responses/RateLimitError'
+        '500':
+          $ref: '#/components/responses/InternalError'
+  /zigbee/rules/simulate:
+    post:
+      tags:
+        - Zigbee
+      summary: Simulate execution of a Zigbee automation rule.
+      description: Evaluate a Zigbee automation rule against sample trigger input within a sandbox.
+      operationId: simulateZigbeeRule
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ZigbeeRuleSimulationRequest'
+      responses:
+        '200':
+          description: Simulation evaluation outcome.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ZigbeeRuleSimulationResponse'
+        '400':
+          $ref: '#/components/responses/ValidationError'
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '403':
+          $ref: '#/components/responses/ForbiddenError'
+        '404':
+          $ref: '#/components/responses/NotFoundError'
+        '429':
+          $ref: '#/components/responses/RateLimitError'
+        '500':
+          $ref: '#/components/responses/InternalError'
+  /zigbee/rules/{ruleId}:
+    get:
+      tags:
+        - Zigbee
+      summary: Retrieve a Zigbee automation rule.
+      description: Fetch metadata for a specific Zigbee automation rule by identifier.
+      operationId: getZigbeeRule
+      parameters:
+        - name: ruleId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Automation rule detail.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ZigbeeRule'
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '403':
+          $ref: '#/components/responses/ForbiddenError'
+        '404':
+          $ref: '#/components/responses/NotFoundError'
+        '429':
+          $ref: '#/components/responses/RateLimitError'
+        '500':
+          $ref: '#/components/responses/InternalError'
+    put:
+      tags:
+        - Zigbee
+      summary: Update a Zigbee automation rule.
+      description: Replace fields on an existing Zigbee automation rule.
+      operationId: updateZigbeeRule
+      parameters:
+        - name: ruleId
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ZigbeeRuleUpdateRequest'
+      responses:
+        '200':
+          description: Updated automation rule.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ZigbeeRule'
+        '400':
+          $ref: '#/components/responses/ValidationError'
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '403':
+          $ref: '#/components/responses/ForbiddenError'
+        '404':
+          $ref: '#/components/responses/NotFoundError'
+        '429':
+          $ref: '#/components/responses/RateLimitError'
+        '500':
+          $ref: '#/components/responses/InternalError'
+    delete:
+      tags:
+        - Zigbee
+      summary: Delete a Zigbee automation rule.
+      description: Remove a Zigbee automation rule and disable associated automations.
+      operationId: deleteZigbeeRule
+      parameters:
+        - name: ruleId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '204':
+          description: Rule deleted.
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '403':
+          $ref: '#/components/responses/ForbiddenError'
+        '404':
+          $ref: '#/components/responses/NotFoundError'
+        '429':
+          $ref: '#/components/responses/RateLimitError'
+        '500':
+          $ref: '#/components/responses/InternalError'
+  /zigbee/rules/{ruleId}/enable:
+    patch:
+      tags:
+        - Zigbee
+      summary: Toggle a Zigbee automation rule.
+      description: Enable or disable a Zigbee automation rule without modifying other metadata.
+      operationId: toggleZigbeeRule
+      parameters:
+        - name: ruleId
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                enabled:
+                  type: boolean
+      responses:
+        '200':
+          description: Updated automation rule status.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ZigbeeRule'
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '403':
+          $ref: '#/components/responses/ForbiddenError'
+        '404':
+          $ref: '#/components/responses/NotFoundError'
+        '429':
+          $ref: '#/components/responses/RateLimitError'
         '500':
           $ref: '#/components/responses/InternalError'
   /video/overview:
@@ -4043,6 +4713,27 @@ paths:
         '500':
           $ref: '#/components/responses/InternalError'
   /settings/operators:
+    get:
+      tags:
+        - Settings
+      summary: List operator accounts and roles.
+      description: Retrieve all operator accounts along with their roles and status metadata.
+      operationId: listOperators
+      responses:
+        '200':
+          description: Operator directory snapshot.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OperatorListResponse'
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '403':
+          $ref: '#/components/responses/ForbiddenError'
+        '429':
+          $ref: '#/components/responses/RateLimitError'
+        '500':
+          $ref: '#/components/responses/InternalError'
     post:
       tags:
         - Settings
@@ -4079,6 +4770,43 @@ paths:
         '500':
           $ref: '#/components/responses/InternalError'
   /settings/operators/{operatorId}:
+    put:
+      tags:
+        - Settings
+      summary: Update an operator account.
+      description: Modify operator roles or status for an existing account.
+      operationId: updateOperator
+      parameters:
+        - name: operatorId
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/OperatorUpdateRequest'
+      responses:
+        '200':
+          description: Operator updated.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OperatorAccount'
+        '400':
+          $ref: '#/components/responses/ValidationError'
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '403':
+          $ref: '#/components/responses/ForbiddenError'
+        '404':
+          $ref: '#/components/responses/NotFoundError'
+        '429':
+          $ref: '#/components/responses/RateLimitError'
+        '500':
+          $ref: '#/components/responses/InternalError'
     delete:
       tags:
         - Settings
@@ -4116,6 +4844,57 @@ paths:
           $ref: '#/components/responses/ForbiddenError'
         '404':
           $ref: '#/components/responses/NotFoundError'
+        '429':
+          $ref: '#/components/responses/RateLimitError'
+        '500':
+          $ref: '#/components/responses/InternalError'
+  /settings/security:
+    get:
+      tags:
+        - Settings
+      summary: Retrieve security escalation settings.
+      description: Fetch night mode escalation preferences and alert channels.
+      operationId: getSecuritySettings
+      responses:
+        '200':
+          description: Security settings snapshot.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SecuritySettings'
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '403':
+          $ref: '#/components/responses/ForbiddenError'
+        '429':
+          $ref: '#/components/responses/RateLimitError'
+        '500':
+          $ref: '#/components/responses/InternalError'
+    patch:
+      tags:
+        - Settings
+      summary: Update security escalation settings.
+      description: Adjust night mode escalation toggle and alert delivery channels.
+      operationId: updateSecuritySettings
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SecurityUpdateRequest'
+      responses:
+        '200':
+          description: Updated security settings.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SecuritySettings'
+        '400':
+          $ref: '#/components/responses/ValidationError'
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '403':
+          $ref: '#/components/responses/ForbiddenError'
         '429':
           $ref: '#/components/responses/RateLimitError'
         '500':
