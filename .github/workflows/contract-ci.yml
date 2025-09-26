@@ -50,10 +50,10 @@ jobs:
           STATUS=$(curl -s -o /tmp/layout.json -w "%{http_code}" -H 'Authorization: Bearer demo' http://localhost:3015/api/fleet/layout)
           test "$STATUS" -eq 200
 
-          STATUS=$(curl -s -o /tmp/state.json -w "%{http_code}" -H 'Authorization: Bearer demo' http://localhost:3015/api/fleet/state)
+          STATUS=$(curl -s -o /tmp/overview.json -w "%{http_code}" -H 'Authorization: Bearer demo' http://localhost:3015/api/fleet/overview)
           test "$STATUS" -eq 200
 
-          STATUS=$(curl -s -o /tmp/unauth.json -w "%{http_code}" http://localhost:3015/api/fleet/state)
+          STATUS=$(curl -s -o /tmp/unauth.json -w "%{http_code}" http://localhost:3015/api/fleet/overview)
           test "$STATUS" -eq 401
 
           STATUS=$(curl -s -o /tmp/timeout.json -w "%{http_code}" -H 'Authorization: Bearer demo' -H 'x-mock-simulate: timeout' http://localhost:3015/api/audio/pi-audio-01)
