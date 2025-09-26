@@ -1013,20 +1013,6 @@ components:
           format: int32
           minimum: 5
           maximum: 900
-    CameraEventDetection:
-      type: object
-      required:
-        - id
-        - label
-        - confidence
-      properties:
-        id:
-          type: string
-        label:
-          type: string
-        confidence:
-          type: number
-          format: float
         boundingBox:
           type: object
           nullable: true
