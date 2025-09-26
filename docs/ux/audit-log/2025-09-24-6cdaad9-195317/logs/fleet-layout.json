@@ -7,15 +7,8 @@
   "timestamp": "2025-09-24T17:54:29.475Z",
   "title": "Fleet Layout",
   "headings": {
-    "h1": [
-      "Head Spa Control",
-      "Fleet Layout"
-    ],
-    "h2": [
-      "audio Module",
-      "Recent errors",
-      "Event feed"
-    ]
+    "h1": ["Head Spa Control", "Fleet Layout"],
+    "h2": ["audio Module", "Recent errors", "Event feed"]
   },
   "forms": [],
   "controls": [

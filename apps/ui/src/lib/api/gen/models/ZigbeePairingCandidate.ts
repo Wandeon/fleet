@@ -4,8 +4,9 @@
 
 export type ZigbeePairingCandidate = {
   id: string;
-  name: string;
-  type: string;
+  model: string;
+  manufacturer: string;
   signal: number;
+  lastSeen: string;
 };
 

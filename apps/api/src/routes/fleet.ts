@@ -14,7 +14,7 @@ router.get('/layout', (req, res) => {
     if (!modules.has(moduleId)) {
       modules.set(moduleId, {
         module: moduleId,
-        devices: []
+        devices: [],
       });
     }
 
@@ -24,13 +24,13 @@ router.get('/layout', (req, res) => {
       name: device.name,
       role: device.role,
       kind: device.kind,
-      capabilities: device.capabilities
+      capabilities: device.capabilities,
     });
   }
 
   res.json({
     modules: Array.from(modules.values()),
-    generatedAt: new Date().toISOString()
+    generatedAt: new Date().toISOString(),
   });
 });
 
@@ -48,7 +48,7 @@ router.get('/state', async (req, res) => {
           role: device.role,
           module: device.module,
           online: true,
-          status
+          status,
         };
       } catch (error) {
         const reason = isHttpError(error) ? error.message : 'Unknown error';
@@ -60,7 +60,7 @@ router.get('/state', async (req, res) => {
           module: device.module,
           online: false,
           reason,
-          code
+          code,
         };
       }
     })
@@ -71,9 +71,9 @@ router.get('/state', async (req, res) => {
     audio: {
       total: devices.length,
       online,
-      devices
+      devices,
     },
-    updatedAt: new Date().toISOString()
+    updatedAt: new Date().toISOString(),
   });
 });
 

@@ -7,7 +7,7 @@ router.get('/healthz', (_req, res) => {
   res.json({
     status: 'ok',
     uptime: process.uptime(),
-    timestamp: new Date().toISOString()
+    timestamp: new Date().toISOString(),
   });
 });
 
@@ -19,7 +19,7 @@ router.get('/readyz', (_req, res) => {
   if (!deviceRegistry.isReady()) {
     res.status(503).json({
       status: 'error',
-      reason: deviceRegistry.getLastError()?.message ?? 'Device registry unavailable'
+      reason: deviceRegistry.getLastError()?.message ?? 'Device registry unavailable',
     });
     return;
   }
@@ -27,7 +27,7 @@ router.get('/readyz', (_req, res) => {
   res.json({
     status: 'ok',
     devices: deviceRegistry.list().length,
-    lastLoadedAt: deviceRegistry.getLastLoadedAt()?.toISOString()
+    lastLoadedAt: deviceRegistry.getLastLoadedAt()?.toISOString(),
   });
 });
 

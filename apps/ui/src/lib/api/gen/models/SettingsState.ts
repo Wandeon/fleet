@@ -2,19 +2,18 @@
 /* tslint:disable */
 /* eslint-disable */
 
-import type { ApiAccessSettings } from './ApiAccessSettings';
 import type { OperatorAccount } from './OperatorAccount';
-import type { OperatorRole } from './OperatorRole';
-import type { PairingStatus } from './PairingStatus';
 import type { ProxySettings } from './ProxySettings';
+import type { SecuritySettings } from './SecuritySettings';
+import type { SettingsPairingState } from './SettingsPairingState';
 
 export type SettingsState = {
-  api: ApiAccessSettings;
   proxy: ProxySettings;
-  pairing: PairingStatus;
+  allowedOrigins: Array<string>;
+  pairing: SettingsPairingState;
   operators: Array<OperatorAccount>;
-  roles: Array<OperatorRole>;
-  pendingRestart: boolean;
-  lastSavedAt: string | null;
+  apiTokenPreview: string;
+  security: SecuritySettings;
+  updatedAt: string | null;
 };
 

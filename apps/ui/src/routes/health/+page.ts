@@ -11,14 +11,14 @@ export const load: PageLoad = async ({ parent }) => {
       label: 'API Service',
       value: 'Healthy',
       status: 'ok',
-      hint: 'All endpoints responding normally'
+      hint: 'All endpoints responding normally',
     },
     {
       id: 'database',
       label: 'Database',
       value: 'Connected',
       status: 'ok',
-      hint: 'Query response time: 12ms'
+      hint: 'Query response time: 12ms',
     },
     {
       id: 'devices',
@@ -26,8 +26,8 @@ export const load: PageLoad = async ({ parent }) => {
       value: '1 offline',
       status: 'warn',
       hint: 'pi-audio-01 unreachable',
-      link: { label: 'View details', href: '/fleet' }
-    }
+      link: { label: 'View details', href: '/fleet' },
+    },
   ];
 
   const errors: EventFeedItem[] = [];
@@ -36,24 +36,24 @@ export const load: PageLoad = async ({ parent }) => {
       id: 'event-1',
       timestamp: new Date(Date.now() - 300000).toISOString(),
       message: 'Health page loaded',
-      severity: 'info'
-    }
+      severity: 'info',
+    },
   ];
 
   const mockHealthData = {
     health: {
       updatedAt: new Date().toISOString(),
       uptime: '24h 15m',
-      metrics
+      metrics,
     },
     errors,
-    events
+    events,
   };
 
   return {
     layout: {
       ...layout,
-      ...mockHealthData
-    }
+      ...mockHealthData,
+    },
   };
 };

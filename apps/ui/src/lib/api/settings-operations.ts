@@ -19,7 +19,7 @@ export const getSettings = async (options: SettingsFetchOptions = {}): Promise<S
   const fetchImpl = ensureFetch(options.fetch);
   return rawRequest<SettingsState>('/settings', {
     method: 'GET',
-    fetch: fetchImpl as RequestOptions['fetch']
+    fetch: fetchImpl as RequestOptions['fetch'],
   });
 };
 
@@ -37,12 +37,14 @@ export const updateProxySettings = async (
     method: 'PATCH',
     headers: jsonHeaders,
     body: JSON.stringify(payload),
-    fetch: fetchImpl as RequestOptions['fetch']
+    fetch: fetchImpl as RequestOptions['fetch'],
   });
   return getSettings(options);
 };
 
-export const rotateApiToken = async (options: SettingsFetchOptions = {}): Promise<SettingsState> => {
+export const rotateApiToken = async (
+  options: SettingsFetchOptions = {}
+): Promise<SettingsState> => {
   if (USE_MOCKS) {
     return mockApi.settingsRotateToken();
   }
@@ -50,7 +52,7 @@ export const rotateApiToken = async (options: SettingsFetchOptions = {}): Promis
   const fetchImpl = ensureFetch(options.fetch);
   await rawRequest('/settings/api-token', {
     method: 'POST',
-    fetch: fetchImpl as RequestOptions['fetch']
+    fetch: fetchImpl as RequestOptions['fetch'],
   });
   return getSettings(options);
 };
@@ -69,7 +71,7 @@ export const updateAllowedOrigins = async (
     method: 'PUT',
     headers: jsonHeaders,
     body: JSON.stringify({ origins }),
-    fetch: fetchImpl as RequestOptions['fetch']
+    fetch: fetchImpl as RequestOptions['fetch'],
   });
   return getSettings(options);
 };
@@ -88,7 +90,7 @@ export const startPairing = async (
     method: 'POST',
     headers: jsonHeaders,
     body: JSON.stringify({ method, durationSeconds }),
-    fetch: fetchImpl as RequestOptions['fetch']
+    fetch: fetchImpl as RequestOptions['fetch'],
   });
   return getSettings(options);
 };
@@ -101,20 +103,24 @@ export const cancelPairing = async (options: SettingsFetchOptions = {}): Promise
   const fetchImpl = ensureFetch(options.fetch);
   await rawRequest('/settings/pairing/cancel', {
     method: 'POST',
-    fetch: fetchImpl as RequestOptions['fetch']
+    fetch: fetchImpl as RequestOptions['fetch'],
   });
   return getSettings(options);
 };
 
 export const claimDiscoveredDevice = async (
   candidateId: string,
-  options: SettingsFetchOptions & { note?: string; status?: 'success' | 'error'; deviceId?: string } = {}
+  options: SettingsFetchOptions & {
+    note?: string;
+    status?: 'success' | 'error';
+    deviceId?: string;
+  } = {}
 ): Promise<SettingsState> => {
   if (USE_MOCKS) {
     return mockApi.settingsClaimDiscovered(candidateId, {
       note: options.note,
       status: options.status,
-      deviceId: options.deviceId
+      deviceId: options.deviceId,
     });
   }
 
@@ -122,8 +128,12 @@ export const claimDiscoveredDevice = async (
   await rawRequest(`/settings/pairing/${encodeURIComponent(candidateId)}/claim`, {
     method: 'POST',
     headers: jsonHeaders,
-    body: JSON.stringify({ note: options.note, status: options.status, deviceId: options.deviceId }),
-    fetch: fetchImpl as RequestOptions['fetch']
+    body: JSON.stringify({
+      note: options.note,
+      status: options.status,
+      deviceId: options.deviceId,
+    }),
+    fetch: fetchImpl as RequestOptions['fetch'],
   });
   return getSettings(options);
 };
@@ -140,7 +150,7 @@ export const inviteOperator = async (
       email: operator.email,
       roles: operator.roles,
       status: 'invited',
-      lastActiveAt: null
+      lastActiveAt: null,
     };
     return mockApi.settingsUpdate({ operators: [...current.operators, entry] });
   }
@@ -150,24 +160,29 @@ export const inviteOperator = async (
     method: 'POST',
     headers: jsonHeaders,
     body: JSON.stringify(operator),
-    fetch: fetchImpl as RequestOptions['fetch']
+    fetch: fetchImpl as RequestOptions['fetch'],
   });
   return getSettings(options);
 };
 
-export const removeOperator = async (operatorId: string, options: SettingsFetchOptions = {}): Promise<SettingsState> => {
+export const removeOperator = async (
+  operatorId: string,
+  options: SettingsFetchOptions = {}
+): Promise<SettingsState> => {
   if (USE_MOCKS) {
     const current = mockApi.settings();
-    const filtered = current.operators.filter((operator: OperatorAccount) => operator.id !== operatorId);
+    const filtered = current.operators.filter(
+      (operator: OperatorAccount) => operator.id !== operatorId
+    );
     return mockApi.settingsUpdate({
-      operators: filtered
+      operators: filtered,
     });
   }
 
   const fetchImpl = ensureFetch(options.fetch);
   await rawRequest(`/settings/operators/${encodeURIComponent(operatorId)}`, {
     method: 'DELETE',
-    fetch: fetchImpl as RequestOptions['fetch']
+    fetch: fetchImpl as RequestOptions['fetch'],
   });
   return getSettings(options);
 };

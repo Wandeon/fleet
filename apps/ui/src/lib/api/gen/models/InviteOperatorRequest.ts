@@ -2,9 +2,10 @@
 /* tslint:disable */
 /* eslint-disable */
 
+import type { OperatorRole } from './OperatorRole';
+
 export type InviteOperatorRequest = {
-  name: string;
   email: string;
-  roles: Array<string>;
+  roles: Array<OperatorRole>;
 };
 

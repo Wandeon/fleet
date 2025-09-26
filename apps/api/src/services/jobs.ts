@@ -35,7 +35,7 @@ interface UpdateJobOptions {
 export async function updateJob(
   jobId: string,
   status: JobStatus,
-  { error, expectedStatus }: UpdateJobOptions = {},
+  { error, expectedStatus }: UpdateJobOptions = {}
 ) {
   const job = await prisma.$transaction(async (tx) => {
     const where: { id: string; status?: JobStatus } = { id: jobId };

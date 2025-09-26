@@ -28,7 +28,9 @@ describe('Prisma TEXT serialization', () => {
         name: 'Device One',
         kind: 'sensor',
         address: JSON.stringify({ baseUrl: 'http://device-1.local', token: 'abc' }),
-        capabilities: JSON.stringify({ operations: [{ id: 'restart', method: 'POST', path: '/restart' }] }),
+        capabilities: JSON.stringify({
+          operations: [{ id: 'restart', method: 'POST', path: '/restart' }],
+        }),
         managed: true,
         createdAt: new Date('2024-01-01T00:00:00.000Z'),
         updatedAt: new Date('2024-01-02T00:00:00.000Z'),
@@ -125,4 +127,3 @@ describe('Prisma TEXT serialization', () => {
     expect(jobResponse.body.job.payload.source).toBe('hdmi1');
   });
 });
-

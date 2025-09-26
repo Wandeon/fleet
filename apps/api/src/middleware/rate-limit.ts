@@ -16,7 +16,7 @@ const globalRefillRate = config.RATE_LIMIT_GLOBAL_MAX / windowMs;
 const ipBuckets = new Map<string, Bucket>();
 const globalBucket: Bucket = {
   tokens: globalCapacity,
-  lastRefill: Date.now()
+  lastRefill: Date.now(),
 };
 
 function refill(bucket: Bucket, now: number, refillRate: number, capacity: number): void {
@@ -37,7 +37,7 @@ function getOrCreateBucket(map: Map<string, Bucket>, key: string, capacity: numb
 
   const bucket: Bucket = {
     tokens: capacity,
-    lastRefill: Date.now()
+    lastRefill: Date.now(),
   };
   map.set(key, bucket);
   return bucket;
@@ -67,7 +67,10 @@ export function rateLimit(req: Request, res: Response, next: NextFunction): void
     res.setHeader('Retry-After', '1');
     res.setHeader('X-RateLimit-Limit', String(config.RATE_LIMIT_MAX));
     res.setHeader('X-RateLimit-Remaining', String(Math.max(0, Math.floor(ipBucket.tokens))));
-    res.setHeader('X-RateLimit-Reset', String(secondsUntilRefill(ipBucket, ipCapacity, ipRefillRate)));
+    res.setHeader(
+      'X-RateLimit-Reset',
+      String(secondsUntilRefill(ipBucket, ipCapacity, ipRefillRate))
+    );
     return next(createHttpError(429, 'too_many_requests', 'Too many requests'));
   }
 
@@ -76,7 +79,10 @@ export function rateLimit(req: Request, res: Response, next: NextFunction): void
 
   res.setHeader('X-RateLimit-Limit', String(config.RATE_LIMIT_MAX));
   res.setHeader('X-RateLimit-Remaining', String(Math.max(0, Math.floor(ipBucket.tokens))));
-  res.setHeader('X-RateLimit-Reset', String(secondsUntilRefill(ipBucket, ipCapacity, ipRefillRate)));
+  res.setHeader(
+    'X-RateLimit-Reset',
+    String(secondsUntilRefill(ipBucket, ipCapacity, ipRefillRate))
+  );
 
   next();
 }

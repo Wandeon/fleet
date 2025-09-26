@@ -2,12 +2,14 @@
 /* tslint:disable */
 /* eslint-disable */
 
+import type { OperatorRole } from './OperatorRole';
+
 export type OperatorAccount = {
   id: string;
-  name: string;
   email: string;
-  roles: Array<string>;
-  lastActiveAt: string | null;
-  status: 'active' | 'invited' | 'disabled';
+  roles: Array<OperatorRole>;
+  invitedAt: string | null;
+  status: 'active' | 'pending' | 'suspended';
+  lastUpdatedAt: string;
 };
 

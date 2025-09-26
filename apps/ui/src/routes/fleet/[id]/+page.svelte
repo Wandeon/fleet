@@ -4,10 +4,10 @@
   import StatusPill from '$lib/components/StatusPill.svelte';
   import Skeleton from '$lib/components/Skeleton.svelte';
   import EmptyState from '$lib/components/EmptyState.svelte';
+  import { SvelteSet } from 'svelte/reactivity';
   import type { PageData } from './$types';
   import type { FleetDeviceAction, FleetDeviceDetail, FleetDeviceMetric } from '$lib/types';
   import { getFleetDeviceDetail, triggerDeviceAction } from '$lib/api/fleet-operations';
-  import { SvelteSet } from 'svelte/reactivity';
   import { goto } from '$app/navigation';
 
   export let data: PageData;
@@ -30,16 +30,29 @@
     }
   };
 
+  const addActionLoading = (actionId: string) => {
+    const next = new SvelteSet(actionLoading);
+    next.add(actionId);
+    actionLoading = next;
+  };
+
+  const removeActionLoading = (actionId: string) => {
+    if (!actionLoading.has(actionId)) return;
+    const next = new SvelteSet(actionLoading);
+    next.delete(actionId);
+    actionLoading = next;
+  };
+
   const runAction = async (action: FleetDeviceAction) => {
     if (!detail || actionLoading.has(action.id)) return;
-    actionLoading.add(action.id);
+    addActionLoading(action.id);
     try {
       detail = await triggerDeviceAction(detail.summary.id, action.id, { fetch });
       error = null;
     } catch (err) {
       error = err instanceof Error ? err.message : `Unable to execute ${action.label}`;
     } finally {
-      actionLoading.delete(action.id);
+      removeActionLoading(action.id);
     }
   };
 
@@ -52,6 +65,7 @@
     if (detail.summary.status === 'error') return 'error';
     return 'warn';
   };
+
 </script>
 
 <svelte:head>
@@ -205,7 +219,9 @@
                   <strong>{connection.name}</strong>
                   <span>{connection.status}</span>
                 </div>
-                <time datetime={connection.lastChecked}>Updated {new Date(connection.lastChecked).toLocaleTimeString()}</time>
+                <time datetime={connection.lastChecked}
+                  >Updated {new Date(connection.lastChecked).toLocaleTimeString()}</time
+                >
               </li>
             {/each}
           </ul>
@@ -362,6 +378,10 @@
     margin-top: var(--spacing-3);
     color: var(--color-brand);
     text-decoration: none;
+    background: none;
+    border: none;
+    padding: 0;
+    cursor: pointer;
   }
 
   .link:hover {

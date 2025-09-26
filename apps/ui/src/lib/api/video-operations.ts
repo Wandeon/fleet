@@ -1,22 +1,12 @@
-import {
-  API_BASE_URL,
-  rawRequest,
-  USE_MOCKS,
-  UiApiError,
-  VideoApi
-} from '$lib/api/client';
+import { API_BASE_URL, rawRequest, USE_MOCKS, UiApiError, VideoApi } from '$lib/api/client';
 import type { RequestOptions } from '$lib/api/client';
 import { mockApi } from '$lib/api/mock';
-import type {
-  PowerState,
-  VideoRecordingSegment,
-  VideoState
-} from '$lib/types';
+import type { PowerState, VideoRecordingSegment, VideoState } from '$lib/types';
 
 const ensureFetch = (fetchImpl?: typeof fetch) => fetchImpl ?? fetch;
 
 const jsonHeaders = {
-  'Content-Type': 'application/json'
+  'Content-Type': 'application/json',
 };
 
 const mapFallbackState = (status: Awaited<ReturnType<typeof VideoApi.getTv>>): VideoState => ({
@@ -25,7 +15,7 @@ const mapFallbackState = (status: Awaited<ReturnType<typeof VideoApi.getTv>>): V
   availableInputs: (status.availableInputs ?? []).map((input) => ({
     id: input,
     label: input,
-    kind: input.toLowerCase().startsWith('hdmi') ? 'hdmi' : 'other'
+    kind: input.toLowerCase().startsWith('hdmi') ? 'hdmi' : 'other',
   })),
   livePreview: null,
   recordings: [],
@@ -37,12 +27,14 @@ const mapFallbackState = (status: Awaited<ReturnType<typeof VideoApi.getTv>>): V
       id: status.id,
       name: status.displayName,
       power: status.power,
-      input: status.input
-    }
-  ]
+      input: status.input,
+    },
+  ],
 });
 
-export const getVideoOverview = async (options: { fetch?: typeof fetch } = {}): Promise<VideoState> => {
+export const getVideoOverview = async (
+  options: { fetch?: typeof fetch } = {}
+): Promise<VideoState> => {
   if (USE_MOCKS) {
     return mockApi.video();
   }
@@ -52,7 +44,7 @@ export const getVideoOverview = async (options: { fetch?: typeof fetch } = {}): 
   try {
     return await rawRequest<VideoState>('/video/overview', {
       method: 'GET',
-      fetch: fetchImpl as RequestOptions['fetch']
+      fetch: fetchImpl as RequestOptions['fetch'],
     });
   } catch (error) {
     console.warn('TODO(backlog): implement /video/overview endpoint', error);
@@ -122,7 +114,7 @@ export const fetchRecordingTimeline = async (
   try {
     return await rawRequest<VideoRecordingSegment[]>('/video/recordings', {
       method: 'GET',
-      fetch: fetchImpl as RequestOptions['fetch']
+      fetch: fetchImpl as RequestOptions['fetch'],
     });
   } catch (error) {
     console.warn('TODO(backlog): implement /video/recordings backend endpoint', error);
@@ -141,7 +133,7 @@ export const generateLivePreviewUrl = async (): Promise<string> => {
   const response = await fetch(`${API_BASE_URL}/video/preview`, {
     method: 'POST',
     headers: jsonHeaders,
-    body: JSON.stringify({ deviceId: 'tv-main-hall' })
+    body: JSON.stringify({ deviceId: 'tv-main-hall' }),
   });
 
   if (!response.ok) {

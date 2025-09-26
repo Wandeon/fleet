@@ -15,7 +15,7 @@
     pollDiscoveredDevices,
     runZigbeeAction,
     startPairing as startPairingSession,
-    stopPairing as stopPairingSession
+    stopPairing as stopPairingSession,
   } from '$lib/api/zigbee-operations';
 
   export let data: ZigbeeState | null = null;
@@ -122,7 +122,9 @@
     await stopPairingSession();
     isPairing = false;
     pairingTimeLeft = 0;
-    pairingStatus = discoveredDevices.length ? `Found ${discoveredDevices.length} device(s)` : 'No devices found';
+    pairingStatus = discoveredDevices.length
+      ? `Found ${discoveredDevices.length} device(s)`
+      : 'No devices found';
   }
 
   async function pairDevice(deviceId: string) {
@@ -155,7 +157,7 @@
   onDestroy(() => clearTimers());
 </script>
 
-<Card title={title} subtitle="Mesh network status">
+<Card {title} subtitle="Mesh network status">
   {#if state === 'loading'}
     <div class="stack">
       <Skeleton variant="line" />
@@ -167,7 +169,10 @@
       <Button variant="primary" on:click={retry}>Retry</Button>
     </div>
   {:else if state === 'empty'}
-    <EmptyState title="No Zigbee devices" description="Pair a sensor or dimmer to populate the table.">
+    <EmptyState
+      title="No Zigbee devices"
+      description="Pair a sensor or dimmer to populate the table."
+    >
       <svelte:fragment slot="icon">🕸️</svelte:fragment>
     </EmptyState>
   {:else if data}
@@ -198,7 +203,10 @@
                 <th scope="row">{device.name}</th>
                 <td>{device.type}</td>
                 <td>
-                  <StatusPill status={toStatus(device.state)} label={formatStateLabel(device.state)} />
+                  <StatusPill
+                    status={toStatus(device.state)}
+                    label={formatStateLabel(device.state)}
+                  />
                 </td>
                 <td>{new Date(device.lastSeen).toLocaleTimeString()}</td>
               </tr>
@@ -255,9 +263,7 @@
                     <span class="device-type">{device.type}</span>
                     <span class="signal-strength">Signal: {device.signal}%</span>
                   </div>
-                  <Button variant="primary" on:click={() => pairDevice(device.id)}>
-                    Pair
-                  </Button>
+                  <Button variant="primary" on:click={() => pairDevice(device.id)}>Pair</Button>
                 </li>
               {/each}
             </ul>
@@ -428,7 +434,9 @@
   }
 
   @keyframes spin {
-    to { transform: rotate(360deg); }
+    to {
+      transform: rotate(360deg);
+    }
   }
 
   .timer {

@@ -23,6 +23,7 @@
 ```
 
 **Notes**
+
 - Left column is scrollable device roster grouped by type.
 - Right column prioritizes the selected device summary, followed by system status, logs, and quick actions.
 - Default charts and metrics update every 5 seconds.

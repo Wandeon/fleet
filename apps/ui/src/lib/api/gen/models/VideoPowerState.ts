@@ -2,4 +2,4 @@
 /* tslint:disable */
 /* eslint-disable */
 
-export type VideoPowerState = 'on' | 'off';
+export type VideoPowerState = 'on' | 'standby';

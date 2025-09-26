@@ -14,9 +14,9 @@ export const POST: RequestHandler = async ({ request }) => {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        'Authorization': 'Bearer mock-zigbee-01-token' // Replace with actual token from env
+        Authorization: 'Bearer mock-zigbee-01-token', // Replace with actual token from env
       },
-      body: JSON.stringify({ enable, timeout: 60 })
+      body: JSON.stringify({ enable, timeout: 60 }),
     });
 
     if (response.ok) {

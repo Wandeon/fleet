@@ -5,7 +5,7 @@ import {
   HttpError,
   createHttpError,
   mapUpstreamError,
-  type UpstreamFailureReason
+  type UpstreamFailureReason,
 } from '../util/errors';
 import { recordUpstreamFailure, setCircuitBreakerState } from '../observability/metrics';
 import type { Device } from './devices';
@@ -51,7 +51,7 @@ function recordFailure(deviceId: string, reason: UpstreamFailureReason): void {
     logger.warn({
       msg: 'circuit_open',
       deviceId,
-      failures: circuit.failures
+      failures: circuit.failures,
     });
   }
 }
@@ -76,12 +76,9 @@ export interface HttpRequestOptions {
   expectedStatus?: number[];
 }
 
-function buildHeaders(
-  device: Device,
-  options: HttpRequestOptions
-): Record<string, string> {
+function buildHeaders(device: Device, options: HttpRequestOptions): Record<string, string> {
   const headers: Record<string, string> = {
-    Accept: 'application/json'
+    Accept: 'application/json',
   };
 
   if (options.headers) {
@@ -115,24 +112,29 @@ async function delayWithBackoff(attempt: number): Promise<void> {
 function handleHttpError(device: Device, response: Response, body: string): HttpError {
   if (response.status === 409) {
     return createHttpError(409, 'conflict', `Device ${device.id} reported a conflict`, {
-      details: { body }
+      details: { body },
     });
   }
 
   if (response.status >= 500) {
-    return createHttpError(502, 'upstream_error', `Device ${device.id} returned ${response.status}`, {
-      details: { body }
-    });
+    return createHttpError(
+      502,
+      'upstream_error',
+      `Device ${device.id} returned ${response.status}`,
+      {
+        details: { body },
+      }
+    );
   }
 
   if (response.status === 404) {
     return createHttpError(502, 'upstream_error', `Device ${device.id} endpoint not found`, {
-      details: { body }
+      details: { body },
     });
   }
 
   return createHttpError(502, 'upstream_error', `Unexpected response from device ${device.id}`, {
-    details: { body, status: response.status }
+    details: { body, status: response.status },
   });
 }
 
@@ -150,9 +152,12 @@ export async function httpRequest(
 
   if (isCircuitOpen(device.id)) {
     recordFailure(device.id, 'circuit_open');
-    throw Object.assign(createHttpError(503, 'circuit_open', `Circuit open for device ${device.id}`), {
-      reason: 'circuit_open' as UpstreamFailureReason
-    });
+    throw Object.assign(
+      createHttpError(503, 'circuit_open', `Circuit open for device ${device.id}`),
+      {
+        reason: 'circuit_open' as UpstreamFailureReason,
+      }
+    );
   }
 
   for (let attempt = 0; attempt < attempts; attempt += 1) {
@@ -166,7 +171,7 @@ export async function httpRequest(
         method,
         headers,
         body: options.body,
-        signal: controller.signal
+        signal: controller.signal,
       });
 
       clearTimeout(timer);
@@ -199,7 +204,7 @@ export async function httpRequest(
       clearTimeout(timer);
       const upstreamError = mapUpstreamError(error, {
         deviceId: device.id,
-        operation: `${method} ${path}`
+        operation: `${method} ${path}`,
       });
 
       recordFailure(device.id, upstreamError.reason);
@@ -222,7 +227,7 @@ export async function httpRequestJson<T = unknown>(
   options: HttpRequestOptions = {}
 ): Promise<T> {
   const headers: Record<string, string | undefined> = {
-    ...(options.headers ?? {})
+    ...(options.headers ?? {}),
   };
   if (options.body && !headers?.['Content-Type']) {
     headers['Content-Type'] = 'application/json';
@@ -230,7 +235,7 @@ export async function httpRequestJson<T = unknown>(
 
   const response = await httpRequest(device, path, {
     ...options,
-    headers
+    headers,
   });
 
   const text = await response.text();
@@ -241,7 +246,9 @@ export async function httpRequestJson<T = unknown>(
   try {
     return JSON.parse(text) as T;
   } catch (error) {
-    throw createHttpError(502, 'upstream_error', `Failed to parse JSON from device ${device.id}`, { cause: error });
+    throw createHttpError(502, 'upstream_error', `Failed to parse JSON from device ${device.id}`, {
+      cause: error,
+    });
   }
 }
 

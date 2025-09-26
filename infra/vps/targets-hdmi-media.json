@@ -1,3 +1,1 @@
-[
-  { "targets": ["pi-video-01:8082"], "labels": {"role": "hdmi-media", "instance": "pi-video-01"} }
-]
+[{ "targets": ["pi-video-01:8082"], "labels": { "role": "hdmi-media", "instance": "pi-video-01" } }]

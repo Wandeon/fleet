@@ -10,7 +10,7 @@
     fetchLogSnapshot,
     subscribeToLogStream,
     type LogQueryOptions,
-    type LogStreamSubscription
+    type LogStreamSubscription,
   } from '$lib/api/logs-operations';
   import { goto } from '$app/navigation';
 
@@ -21,7 +21,7 @@
 
   const resolveSources = (value: LogsSnapshot | null | undefined) => value?.sources ?? [];
 
-  let sourceId = resolveSources(snapshot)[0]?.id ?? 'all';
+  let sourceId = data.initialFilters?.sourceId ?? resolveSources(snapshot)[0]?.id ?? 'all';
   let severity: LogSeverity | 'all' = 'all';
   let search = '';
   let limit = 200;
@@ -39,7 +39,7 @@
     { value: 'error', label: 'Errors' },
     { value: 'warning', label: 'Warnings' },
     { value: 'info', label: 'Info' },
-    { value: 'debug', label: 'Debug' }
+    { value: 'debug', label: 'Debug' },
   ];
 
   $: sources = resolveSources(snapshot);
@@ -48,7 +48,7 @@
     snapshot = value;
     entries = value.entries;
     const nextSources = resolveSources(value);
-    if (!nextSources.find((item) => item.id === sourceId)) {
+    if (sourceId !== 'all' && !nextSources.find((item) => item.id === sourceId)) {
       sourceId = nextSources[0]?.id ?? 'all';
     }
   };
@@ -63,7 +63,7 @@
         severity,
         search: search.trim(),
         limit,
-        ...options
+        ...options,
       });
       applySnapshot(result);
     } catch (err) {
@@ -79,14 +79,14 @@
       ? {
           ...snapshot,
           entries,
-          lastUpdated: new Date().toISOString()
+          lastUpdated: new Date().toISOString(),
         }
-      : {
+      : ({
           entries,
           sources,
           cursor: entry.id,
-          lastUpdated: new Date().toISOString()
-        } satisfies LogsSnapshot;
+          lastUpdated: new Date().toISOString(),
+        } satisfies LogsSnapshot);
   };
 
   const stopStream = () => {
@@ -100,7 +100,7 @@
       filters: {
         sourceId,
         severity,
-        search: search.trim()
+        search: search.trim(),
       },
       onEvent: handleStreamEvent,
       onError: (streamError) => {
@@ -108,7 +108,7 @@
         error = streamError.message;
         autoRefresh = false;
         stopStream();
-      }
+      },
     });
   };
 
@@ -168,7 +168,14 @@
   const download = async (format: 'json' | 'text') => {
     downloading = true;
     try {
-      const blob = await exportLogs({ fetch, sourceId, severity, search: search.trim(), limit, format });
+      const blob = await exportLogs({
+        fetch,
+        sourceId,
+        severity,
+        search: search.trim(),
+        limit,
+        format,
+      });
       const url = URL.createObjectURL(blob);
       const anchor = document.createElement('a');
       anchor.href = url;
@@ -254,25 +261,34 @@
       <Button variant="secondary" on:click={() => download('json')} disabled={downloading}>
         Export JSON
       </Button>
-      <Button variant="primary" on:click={refresh} disabled={loading}>
-        Refresh
-      </Button>
+      <Button variant="primary" on:click={refresh} disabled={loading}>Refresh</Button>
     </div>
   </div>
 
   {#if error}
     <div class="error" role="alert">
-      <strong>Log stream unavailable:</strong> {error}
+      <strong>Log stream unavailable:</strong>
+      {error}
     </div>
   {/if}
 
-  <Card title="Live log stream" subtitle={`Last updated ${snapshot?.lastUpdated ? formatTimestamp(snapshot.lastUpdated) : '–'}`}>
+  <Card
+    title="Live log stream"
+    subtitle={`Last updated ${snapshot?.lastUpdated ? formatTimestamp(snapshot.lastUpdated) : '–'}`}
+  >
     {#if loading && !entries.length}
       <p class="loading">Loading log entries…</p>
     {:else if !entries.length}
       <div class="empty">
         <p>No log entries match the current filters.</p>
-        <Button variant="ghost" on:click={() => { search = ''; severity = 'all'; sourceId = 'all'; }}>Reset filters</Button>
+        <Button
+          variant="ghost"
+          on:click={() => {
+            search = '';
+            severity = 'all';
+            sourceId = 'all';
+          }}>Reset filters</Button
+        >
       </div>
     {:else}
       <ul class="log-list">
@@ -289,7 +305,9 @@
                 <span class="correlation">{entry.correlationId}</span>
               {/if}
             </div>
-            <pre class="message">{entry.message.length > maxContextPreview ? `${entry.message.slice(0, maxContextPreview)}…` : entry.message}</pre>
+            <pre class="message">{entry.message.length > maxContextPreview
+                ? `${entry.message.slice(0, maxContextPreview)}…`
+                : entry.message}</pre>
             {#if entry.context}
               <details class="context">
                 <summary>Context</summary>
@@ -414,6 +432,10 @@
   .device {
     color: var(--color-brand);
     text-decoration: none;
+    background: none;
+    border: none;
+    padding: 0;
+    cursor: pointer;
   }
 
   .device:hover {

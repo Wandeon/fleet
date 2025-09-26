@@ -25,22 +25,22 @@ The server starts on <http://localhost:3015/api>. Every response includes
 
 ### Environment variables
 
-| Variable         | Description                                                  | Default |
-| ---------------- | ------------------------------------------------------------ | ------- |
-| `PORT`           | Port to bind the mock server.                                | `3015`  |
-| `MOCK_DELAY_MS`  | Artificial latency injected before every response (ms).      | `120`   |
-| `MOCK_UNSTABLE`  | When set to `1`, ~10% of device requests return a 504 error. | unset   |
+| Variable        | Description                                                  | Default |
+| --------------- | ------------------------------------------------------------ | ------- |
+| `PORT`          | Port to bind the mock server.                                | `3015`  |
+| `MOCK_DELAY_MS` | Artificial latency injected before every response (ms).      | `120`   |
+| `MOCK_UNSTABLE` | When set to `1`, ~10% of device requests return a 504 error. | unset   |
 
 ### Simulating unhappy paths
 
 Add the `x-mock-simulate` header to force error responses for a request:
 
-| Header value    | Response                          |
-| --------------- | --------------------------------- |
-| `timeout`       | 504 `UPSTREAM_TIMEOUT`            |
-| `bad-gateway`   | 502 `UPSTREAM_UNAVAILABLE`        |
-| `conflict`      | 409 `RESOURCE_BUSY`               |
-| `rate-limit`    | 429 `RATE_LIMIT_EXCEEDED` + RL headers |
+| Header value  | Response                               |
+| ------------- | -------------------------------------- |
+| `timeout`     | 504 `UPSTREAM_TIMEOUT`                 |
+| `bad-gateway` | 502 `UPSTREAM_UNAVAILABLE`             |
+| `conflict`    | 409 `RESOURCE_BUSY`                    |
+| `rate-limit`  | 429 `RATE_LIMIT_EXCEEDED` + RL headers |
 
 The mock still enforces bearer auth. Send `Authorization: Bearer demo` (or any
 non-empty string) for happy-path calls. Tokens ending in `:ro` simulate a

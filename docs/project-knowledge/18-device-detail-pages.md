@@ -10,23 +10,23 @@ The `/fleet/:id` route provides per-device diagnostics, actions, and log summari
 
 ## Expected data contract
 
-| Field | Source | Notes |
-| --- | --- | --- |
+| Field                                 | Source                                           | Notes                                                                                                                                   |
+| ------------------------------------- | ------------------------------------------------ | --------------------------------------------------------------------------------------------------------------------------------------- |
 | `status` (`online`/`offline`/`error`) | `/api/fleet/state` / `/api/<module>/<id>/status` | Use API status endpoints for precise reason codes.【F:apps/api/src/routes/audio.ts†L44-L117】【F:apps/api/src/routes/video.ts†L30-L70】 |
-| `lastSeen` | Device control API (status payload) | Format relative (“5m ago”). |
-| `ipAddress` | Inventory metadata or device registry | Extend `inventory/device-interfaces.yaml` to include network info if needed.【F:inventory/device-interfaces.yaml†L1-L162】 |
-| `uptime` / `version` | Device status JSON or agent health file | Derive from `/data/status.json` for audio or future telemetry. |
-| `capabilities` | Device registry `capabilities` array | Already defined in inventory for audio/video/camera operations.【F:inventory/device-interfaces.yaml†L1-L162】 |
-| `logs` | `/api/logs` filtered by deviceId | Replace mock array with API response once query support implemented.【F:apps/api/src/routes/logs.ts†L1-L107】 |
+| `lastSeen`                            | Device control API (status payload)              | Format relative (“5m ago”).                                                                                                             |
+| `ipAddress`                           | Inventory metadata or device registry            | Extend `inventory/device-interfaces.yaml` to include network info if needed.【F:inventory/device-interfaces.yaml†L1-L162】              |
+| `uptime` / `version`                  | Device status JSON or agent health file          | Derive from `/data/status.json` for audio or future telemetry.                                                                          |
+| `capabilities`                        | Device registry `capabilities` array             | Already defined in inventory for audio/video/camera operations.【F:inventory/device-interfaces.yaml†L1-L162】                           |
+| `logs`                                | `/api/logs` filtered by deviceId                 | Replace mock array with API response once query support implemented.【F:apps/api/src/routes/logs.ts†L1-L107】                           |
 
 ## Actions mapping
 
-| UI Action | Target API | Notes |
-| --- | --- | --- |
-| Restart device | Future endpoint (e.g., `/api/devices/{id}/jobs/restart`) | Enqueue job through worker; capture in `/health/events`. |
-| Resync | Audio: `POST /audio/{id}/play` with current source; Zigbee/video: job queue. | Provide confirmation + correlation ID. |
-| Health check | `GET /<module>/<id>/status` or `/healthz` | Display result inline with timestamp. |
-| Download logs | Generate zipped logs from Loki or `/api/logs` query; include correlation IDs. |
+| UI Action      | Target API                                                                    | Notes                                                    |
+| -------------- | ----------------------------------------------------------------------------- | -------------------------------------------------------- |
+| Restart device | Future endpoint (e.g., `/api/devices/{id}/jobs/restart`)                      | Enqueue job through worker; capture in `/health/events`. |
+| Resync         | Audio: `POST /audio/{id}/play` with current source; Zigbee/video: job queue.  | Provide confirmation + correlation ID.                   |
+| Health check   | `GET /<module>/<id>/status` or `/healthz`                                     | Display result inline with timestamp.                    |
+| Download logs  | Generate zipped logs from Loki or `/api/logs` query; include correlation IDs. |
 
 ## Enhancements to deliver
 

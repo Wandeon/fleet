@@ -3,10 +3,16 @@
 /* eslint-disable */
 import type { AudioDeviceSnapshot } from '../models/AudioDeviceSnapshot';
 import type { AudioLibraryTrack } from '../models/AudioLibraryTrack';
+import type { AudioLibraryUploadRegistration } from '../models/AudioLibraryUploadRegistration';
+import type { AudioLibraryUploadRegistrationRequest } from '../models/AudioLibraryUploadRegistrationRequest';
 import type { AudioMasterVolumeRequest } from '../models/AudioMasterVolumeRequest';
 import type { AudioPlaybackRequest } from '../models/AudioPlaybackRequest';
+import type { AudioPlaybackSessionCreateRequest } from '../models/AudioPlaybackSessionCreateRequest';
 import type { AudioPlaylist } from '../models/AudioPlaylist';
+import type { AudioPlaylistReorderRequest } from '../models/AudioPlaylistReorderRequest';
 import type { AudioSeekRequest } from '../models/AudioSeekRequest';
+import type { AudioSession } from '../models/AudioSession';
+import type { AudioSessionSyncRequest } from '../models/AudioSessionSyncRequest';
 import type { AudioState } from '../models/AudioState';
 import type { AudioVolumeRequest } from '../models/AudioVolumeRequest';
 
@@ -76,6 +82,52 @@ export class AudioService {
   }
 
   /**
+   * Register a pending upload for an audio library track.
+   * Register a pending upload for an audio library track. Returns signed upload parameters for the UI.
+   * @param requestBody
+   * @returns AudioLibraryUploadRegistration Upload registration created.
+   * @throws ApiError
+   */
+  public static registerAudioUpload(
+    requestBody: AudioLibraryUploadRegistrationRequest,
+  ): CancelablePromise<AudioLibraryUploadRegistration> {
+    return __request(OpenAPI, {
+      method: 'POST',
+      url: '/audio/library/uploads',
+      body: requestBody,
+      mediaType: 'application/json',
+      errors: {
+        400: `One or more request parameters failed validation.`,
+        401: `Authentication failed or credentials missing.`,
+        403: `Authenticated user does not have permission to access the resource.`,
+        429: `Request rate limit exceeded.`,
+        500: `Unexpected server error occurred.`,
+      },
+    });
+  }
+
+  /**
+   * List audio playlists configured for distributed playback.
+   * Retrieve ordered playlists available to the operator workspace with track metadata.
+   * @returns any Collection of playlists.
+   * @throws ApiError
+   */
+  public static listAudioPlaylists(): CancelablePromise<{
+    items: Array<AudioPlaylist>;
+    total: number;
+  }> {
+    return __request(OpenAPI, {
+      method: 'GET',
+      url: '/audio/playlists',
+      errors: {
+        401: `Authentication failed or credentials missing.`,
+        403: `Authenticated user does not have permission to access the resource.`,
+        429: `Request rate limit exceeded.`,
+      },
+    });
+  }
+
+  /**
    * Create a new audio playlist.
    * Create a new audio playlist.
    * @param requestBody
@@ -134,6 +186,37 @@ export class AudioService {
   }
 
   /**
+   * Reorder tracks within a playlist without modifying metadata.
+   * Update the track ordering for an existing playlist by supplying a new ordered list of track identifiers.
+   * @param playlistId
+   * @param requestBody
+   * @returns AudioPlaylist Playlist reordered successfully.
+   * @throws ApiError
+   */
+  public static reorderAudioPlaylist(
+    playlistId: string,
+    requestBody: AudioPlaylistReorderRequest,
+  ): CancelablePromise<AudioPlaylist> {
+    return __request(OpenAPI, {
+      method: 'POST',
+      url: '/audio/playlists/{playlistId}/reorder',
+      path: {
+        'playlistId': playlistId,
+      },
+      body: requestBody,
+      mediaType: 'application/json',
+      errors: {
+        400: `One or more request parameters failed validation.`,
+        401: `Authentication failed or credentials missing.`,
+        403: `Authenticated user does not have permission to access the resource.`,
+        404: `Requested resource does not exist.`,
+        429: `Request rate limit exceeded.`,
+        500: `Unexpected server error occurred.`,
+      },
+    });
+  }
+
+  /**
    * Delete an existing audio playlist.
    * Delete an existing audio playlist.
    * @param playlistId
@@ -145,7 +228,7 @@ export class AudioService {
   ): CancelablePromise<void> {
     return __request(OpenAPI, {
       method: 'DELETE',
-      url: '/audio/playlists/{playlistId}',
+      url: '/audio/playlists/{playlistId}/reorder',
       path: {
         'playlistId': playlistId,
       },
@@ -240,6 +323,87 @@ export class AudioService {
         429: `Request rate limit exceeded.`,
         500: `Unexpected server error occurred.`,
         501: `Endpoint contract defined but backend implementation is pending.`,
+      },
+    });
+  }
+
+  /**
+   * List recent audio playback sessions and their current state.
+   * Provide historical playback session data for operators monitoring sync and device cohorts.
+   * @returns any Collection of playback sessions.
+   * @throws ApiError
+   */
+  public static listAudioPlaybackSessions(): CancelablePromise<{
+    items: Array<AudioSession>;
+    total: number;
+  }> {
+    return __request(OpenAPI, {
+      method: 'GET',
+      url: '/audio/playback/sessions',
+      errors: {
+        401: `Authentication failed or credentials missing.`,
+        403: `Authenticated user does not have permission to access the resource.`,
+        429: `Request rate limit exceeded.`,
+        500: `Unexpected server error occurred.`,
+      },
+    });
+  }
+
+  /**
+   * Create and start a new coordinated playback session.
+   * Launch a playback session spanning multiple devices with optional sync and playlist configuration.
+   * @param requestBody
+   * @returns AudioSession Session started.
+   * @throws ApiError
+   */
+  public static createAudioPlaybackSession(
+    requestBody: AudioPlaybackSessionCreateRequest,
+  ): CancelablePromise<AudioSession> {
+    return __request(OpenAPI, {
+      method: 'POST',
+      url: '/audio/playback/sessions',
+      body: requestBody,
+      mediaType: 'application/json',
+      errors: {
+        400: `One or more request parameters failed validation.`,
+        401: `Authentication failed or credentials missing.`,
+        403: `Authenticated user does not have permission to access the resource.`,
+        429: `Request rate limit exceeded.`,
+        500: `Unexpected server error occurred.`,
+      },
+    });
+  }
+
+  /**
+   * Report drift metrics for a playback session to drive resynchronisation.
+   * Submit drift telemetry captured by the UI so the backend can record the latest synchronisation context.
+   * @param sessionId
+   * @param requestBody
+   * @returns any Drift update accepted.
+   * @throws ApiError
+   */
+  public static syncAudioPlaybackSession(
+    sessionId: string,
+    requestBody: AudioSessionSyncRequest,
+  ): CancelablePromise<{
+    sessions: Array<AudioSession>;
+    updatedAt: string;
+  }> {
+    return __request(OpenAPI, {
+      method: 'POST',
+      url: '/audio/playback/sessions/{sessionId}/sync',
+      path: {
+        'sessionId': sessionId,
+      },
+      body: requestBody,
+      mediaType: 'application/json',
+      errors: {
+        400: `One or more request parameters failed validation.`,
+        401: `Authentication failed or credentials missing.`,
+        403: `Authenticated user does not have permission to access the resource.`,
+        404: `Requested resource does not exist.`,
+        429: `Request rate limit exceeded.`,
+        500: `Unexpected server error occurred.`,
       },
     });
   }

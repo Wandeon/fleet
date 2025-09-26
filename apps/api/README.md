@@ -22,26 +22,26 @@ The API listens on `HTTP_PORT` (default `3015`). Every request (except
 
 ### Required environment
 
-| Variable | Description |
-| --- | --- |
-| `API_BEARER` | Shared secret required on all protected routes. |
+| Variable                                         | Description                                         |
+| ------------------------------------------------ | --------------------------------------------------- |
+| `API_BEARER`                                     | Shared secret required on all protected routes.     |
 | `DEVICE_REGISTRY_JSON` or `DEVICE_REGISTRY_PATH` | JSON map describing the devices the API proxies to. |
 
 ### Optional environment
 
-| Variable | Default | Description |
-| --- | --- | --- |
-| `HTTP_PORT` | `3015` | HTTP listen port |
-| `TIMEOUT_MS` | `3000` | Upstream request timeout |
-| `RETRY_MAX` | `2` | Retry attempts for idempotent requests |
-| `RETRY_BACKOFF_MS` | `250` | Base backoff (ms) between retries |
-| `CIRCUIT_FAILURE_THRESHOLD` | `5` | Failures before opening a circuit |
-| `CIRCUIT_OPEN_MS` | `30000` | Duration to hold open circuits |
-| `RATE_LIMIT_WINDOW_MS` | `60000` | Rate-limiter window size |
-| `RATE_LIMIT_MAX` | `120` | Tokens refilled per-IP per window |
-| `RATE_LIMIT_BURST` | `40` | Per-IP burst capacity |
-| `RATE_LIMIT_GLOBAL_MAX` | `600` | Global burst capacity |
-| `CORS_ALLOWED_ORIGINS` | `https://app.headspamartina.hr` | Allowed origins (comma separated) |
+| Variable                    | Default                         | Description                            |
+| --------------------------- | ------------------------------- | -------------------------------------- |
+| `HTTP_PORT`                 | `3015`                          | HTTP listen port                       |
+| `TIMEOUT_MS`                | `3000`                          | Upstream request timeout               |
+| `RETRY_MAX`                 | `2`                             | Retry attempts for idempotent requests |
+| `RETRY_BACKOFF_MS`          | `250`                           | Base backoff (ms) between retries      |
+| `CIRCUIT_FAILURE_THRESHOLD` | `5`                             | Failures before opening a circuit      |
+| `CIRCUIT_OPEN_MS`           | `30000`                         | Duration to hold open circuits         |
+| `RATE_LIMIT_WINDOW_MS`      | `60000`                         | Rate-limiter window size               |
+| `RATE_LIMIT_MAX`            | `120`                           | Tokens refilled per-IP per window      |
+| `RATE_LIMIT_BURST`          | `40`                            | Per-IP burst capacity                  |
+| `RATE_LIMIT_GLOBAL_MAX`     | `600`                           | Global burst capacity                  |
+| `CORS_ALLOWED_ORIGINS`      | `https://app.headspamartina.hr` | Allowed origins (comma separated)      |
 
 ### Running the worker
 
@@ -87,18 +87,18 @@ variable; otherwise `token` can embed the literal credential.
 
 ## Scripts
 
-| Command | Purpose |
-| --- | --- |
-| `npm run dev` | Start the API with `tsx` watcher |
-| `npm run build` | Compile TypeScript to `dist/` |
-| `npm run db:generate` | Regenerate Prisma client artifacts |
-| `npm run db:migrate` | Apply migrations in deploy mode |
-| `npm run start` | Run the compiled server |
-| `npm run lint` | ESLint with type information |
-| `npm run typecheck` | `tsc --noEmit` |
-| `npm test` | Vitest unit + integration suites |
-| `npm run contract` | Spectral lint of `openapi.local.yaml` |
-| `npm run ci` | End-to-end CI bundle (lint, typecheck, tests, contract, build) |
+| Command               | Purpose                                                        |
+| --------------------- | -------------------------------------------------------------- |
+| `npm run dev`         | Start the API with `tsx` watcher                               |
+| `npm run build`       | Compile TypeScript to `dist/`                                  |
+| `npm run db:generate` | Regenerate Prisma client artifacts                             |
+| `npm run db:migrate`  | Apply migrations in deploy mode                                |
+| `npm run start`       | Run the compiled server                                        |
+| `npm run lint`        | ESLint with type information                                   |
+| `npm run typecheck`   | `tsc --noEmit`                                                 |
+| `npm test`            | Vitest unit + integration suites                               |
+| `npm run contract`    | Spectral lint of `openapi.yaml`                                |
+| `npm run ci`          | End-to-end CI bundle (lint, typecheck, tests, contract, build) |
 
 ## Observability
 
@@ -116,7 +116,7 @@ invocations, upstream errors) captured in memory.
 
 Vitest powers unit/integration tests and spins up an in-memory mock audio
 control API to exercise timeout, retry, and error-mapping behaviour. Contract
-validation is handled by the Spectral CLI against `openapi.local.yaml`.
+validation is handled by the Spectral CLI against `openapi.yaml`.
 
 ## Docker
 

@@ -8,7 +8,7 @@ devices:
     logs: true
     loki_source: pi-audio-02
   pi-video-01:
-    role: hdmi-media  # Zigbee hub
+    role: hdmi-media # Zigbee hub
     logs: true
     loki_source: pi-video-01
   pi-camera-01:

@@ -3,6 +3,8 @@
 /* eslint-disable */
 
 export type ZigbeeActionRequest = {
-  actionId: string;
+  deviceId: string;
+  command: string;
+  payload?: Record<string, string>;
 };
 

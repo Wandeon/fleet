@@ -15,7 +15,9 @@
   {#if message}
     <p class="hint">{message}</p>
   {:else}
-    <p class="hint">If the issue persists, share the request ID from the response headers with the ops team.</p>
+    <p class="hint">
+      If the issue persists, share the request ID from the response headers with the ops team.
+    </p>
   {/if}
 </main>
 

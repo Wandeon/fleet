@@ -1,4 +1,3 @@
-
 import {
   AudioService,
   CameraService,
@@ -13,6 +12,8 @@ import type {
   AllowedOriginsRequest,
   AudioMasterVolumeRequest,
   AudioPlaybackRequest,
+  AudioPlaylist,
+  AudioPlaylistTrack, // eslint-disable-line @typescript-eslint/no-unused-vars
   AudioSeekRequest,
   AudioVolumeRequest,
   CameraClipRequest,
@@ -28,13 +29,13 @@ import type {
 
 export type {
   AllowedOriginsRequest,
-  ApiAccessSettings,
   AudioDeviceSnapshot,
   AudioLibraryTrack,
   AudioMasterVolumeRequest,
   AudioPlaybackAssignment,
   AudioPlaybackRequest,
   AudioPlaylist,
+  AudioPlaylistTrack,
   AudioSeekRequest,
   AudioSession,
   AudioState,
@@ -44,7 +45,6 @@ export type {
   CameraClipResponse,
   CameraDevice,
   CameraEvent,
-  CameraEventDetection,
   CameraPreviewState,
   CameraSelectionRequest,
   CameraState,
@@ -56,7 +56,6 @@ export type {
   FleetDeviceSummary,
   FleetOverview,
   LogEntry,
-  LogSeverity,
   LogSource,
   LogsSnapshot,
   OperatorAccount,
@@ -67,7 +66,6 @@ export type {
   SettingsState,
   VideoPreviewRequest,
   VideoRecordingSegment,
-  VideoState,
   ZigbeeActionRequest,
   ZigbeePairingStartRequest,
   ZigbeePairingState,
@@ -85,6 +83,10 @@ export interface ApiClientOptions {
   correlationIdFactory?: () => string;
   /** Additional headers to include with every request. */
   getAdditionalHeaders?: () => Record<string, string> | Promise<Record<string, string>>;
+}
+
+export interface ApiRequestContext {
+  fetch?: typeof fetch;
 }
 
 const defaultCorrelationIdFactory = (): string => {
@@ -132,6 +134,12 @@ export const FleetApi = {
 export const AudioApi = {
   getOverview: () => AudioService.getAudioOverview(),
   getDevice: (deviceId: string) => AudioService.getAudioDevice(deviceId),
+  uploadAudioTrack: (formData: Parameters<typeof AudioService.uploadAudioTrack>[0]) =>
+    AudioService.uploadAudioTrack(formData),
+  createPlaylist: (payload: AudioPlaylist) => AudioService.createAudioPlaylist(payload),
+  updatePlaylist: (playlistId: string, payload: AudioPlaylist) =>
+    AudioService.updateAudioPlaylist(playlistId, payload),
+  deletePlaylist: (playlistId: string) => AudioService.deleteAudioPlaylist(playlistId),
   startPlayback: (payload: AudioPlaybackRequest) => AudioService.startAudioPlayback(payload),
   pauseDevice: (deviceId: string) => AudioService.pauseAudioDevice(deviceId),
   resumeDevice: (deviceId: string) => AudioService.resumeAudioDevice(deviceId),
@@ -212,13 +220,13 @@ export const LogsApi = {
     level?: Parameters<typeof LogsService.getLogs>[1],
     q?: string,
     limit?: number,
-    cursor?: string,
+    cursor?: string
   ) => LogsService.getLogs(source, level, q, limit ?? 50, cursor),
   stream: (
     source?: string,
     level?: Parameters<typeof LogsService.streamLogs>[1],
     q?: string,
-    accept?: string,
+    accept?: string
   ) => LogsService.streamLogs(source, level, q, accept),
 };
 
@@ -244,7 +252,7 @@ import type {
   FleetOverviewState,
   LayoutData,
   VideoState,
-  ZigbeeState
+  ZigbeeState,
 } from '$lib/types';
 
 const trimTrailingSlash = (value: string | null | undefined): string => {
@@ -421,7 +429,7 @@ export const apiClient = {
   },
   async fetchCamera(options?: RequestOptions): Promise<CameraState> {
     return request('/camera', options);
-  }
+  },
 };
 
 export type ApiClient = typeof apiClient;

@@ -16,6 +16,7 @@ import { zigbeeRouter } from './routes/zigbee';
 import { cameraRouter } from './routes/camera';
 import { healthSummaryRouter } from './routes/health';
 import { logsRouter } from './routes/logs';
+import { settingsRouter } from './routes/settings';
 import { deviceRegistry, initializeRegistry } from './upstream/devices';
 
 export function createApp() {
@@ -37,7 +38,7 @@ export function createApp() {
         }
         callback(null, false);
       },
-      credentials: true
+      credentials: true,
     })
   );
 
@@ -62,6 +63,7 @@ export function createApp() {
   app.use('/camera', cameraRouter);
   app.use('/health', healthSummaryRouter);
   app.use('/logs', logsRouter);
+  app.use('/settings', settingsRouter);
 
   app.use(errorHandler);
 

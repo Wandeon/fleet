@@ -12,6 +12,8 @@ const envSchema = z
     CIRCUIT_OPEN_MS: z.coerce.number().int().min(1000).max(600000).default(30000),
     DEVICE_REGISTRY_PATH: z.string().optional(),
     DEVICE_REGISTRY_JSON: z.string().optional(),
+    ZIGBEE_RULES_PATH: z.string().optional(),
+    ZIGBEE_RULES_FALLBACK_PATH: z.string().optional(),
     CORS_ALLOWED_ORIGINS: z
       .string()
       .default('https://app.headspamartina.hr')
@@ -27,10 +29,10 @@ const envSchema = z
     RATE_LIMIT_GLOBAL_MAX: z.coerce.number().int().min(1).max(20000).default(600),
     LOG_LEVEL: z
       .enum(['fatal', 'error', 'warn', 'info', 'debug', 'trace', 'silent'])
-      .default('info')
+      .default('info'),
   })
   .refine((value) => value.DEVICE_REGISTRY_JSON || value.DEVICE_REGISTRY_PATH, {
-    message: 'DEVICE_REGISTRY_JSON or DEVICE_REGISTRY_PATH must be provided'
+    message: 'DEVICE_REGISTRY_JSON or DEVICE_REGISTRY_PATH must be provided',
   });
 
 export type Config = z.infer<typeof envSchema> & {
@@ -41,7 +43,7 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): Config {
   const parsed = envSchema.parse(env);
   return {
     ...parsed,
-    corsAllowedOrigins: parsed.CORS_ALLOWED_ORIGINS
+    corsAllowedOrigins: parsed.CORS_ALLOWED_ORIGINS,
   };
 }
 

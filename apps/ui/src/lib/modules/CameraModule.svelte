@@ -14,7 +14,7 @@
     getCameraOverview,
     refreshCameraPreview,
     requestCameraClip,
-    selectCamera
+    selectCamera,
   } from '$lib/api/camera-operations';
 
   export let data: CameraState | null = null;
@@ -136,10 +136,19 @@
   {:else if state === 'error'}
     <div class="error" role="alert">
       <p>Camera service unreachable. Check bridge connectivity.</p>
-      <Button variant="primary" on:click={() => { dispatch('retry'); onRetry?.(); }}>Retry</Button>
+      <Button
+        variant="primary"
+        on:click={() => {
+          dispatch('retry');
+          onRetry?.();
+        }}>Retry</Button
+      >
     </div>
   {:else if !data}
-    <EmptyState title="No camera data" description="Connect a camera bridge to view live previews." />
+    <EmptyState
+      title="No camera data"
+      description="Connect a camera bridge to view live previews."
+    />
   {:else}
     <div class="layout">
       <aside class="devices">
@@ -170,9 +179,14 @@
             <p>{activeDevice?.name ?? 'Select a camera'}</p>
           </div>
           <div class="preview-actions">
-            <Button variant="ghost" on:click={handleRefreshPreview} disabled={working}>Refresh preview</Button>
+            <Button variant="ghost" on:click={handleRefreshPreview} disabled={working}
+              >Refresh preview</Button
+            >
             {#if previewUrl}
-              <Button variant="secondary" on:click={() => window.open(previewUrl!, '_blank', 'noopener')}>Open stream</Button>
+              <Button
+                variant="secondary"
+                on:click={() => window.open(previewUrl!, '_blank', 'noopener')}>Open stream</Button
+              >
             {/if}
           </div>
         </div>
@@ -198,10 +212,17 @@
               {#each clips as clip (clip.id)}
                 <li>
                   <button on:click={() => window.open(clip.url, '_blank', 'noopener')}>
-                    <img src={clip.thumbnailUrl ?? snapshotUrl ?? ''} alt={clip.label ?? 'Recording thumbnail'} />
+                    <img
+                      src={clip.thumbnailUrl ?? snapshotUrl ?? ''}
+                      alt={clip.label ?? 'Recording thumbnail'}
+                    />
                     <div>
                       <strong>{clip.label ?? 'Recording'}</strong>
-                      <span>{new Date(clip.start).toLocaleTimeString()} → {new Date(clip.end).toLocaleTimeString()}</span>
+                      <span
+                        >{new Date(clip.start).toLocaleTimeString()} → {new Date(
+                          clip.end
+                        ).toLocaleTimeString()}</span
+                      >
                     </div>
                   </button>
                 </li>
@@ -226,19 +247,37 @@
         {:else}
           <ul>
             {#each events as event (event.id)}
-              <li class:acknowledged={event.acknowledged}
+              <li
+                class:acknowledged={event.acknowledged}
                 class:selected={event.cameraId === selectedCamera}
               >
                 <div class="event-meta">
-                  <time datetime={event.timestamp}>{new Date(event.timestamp).toLocaleString()}</time>
-                  <StatusPill status={event.severity === 'alert' || event.severity === 'error' ? 'error' : event.severity === 'warning' ? 'warn' : 'ok'} label={event.severity} />
+                  <time datetime={event.timestamp}
+                    >{new Date(event.timestamp).toLocaleString()}</time
+                  >
+                  <StatusPill
+                    status={event.severity === 'alert' || event.severity === 'error'
+                      ? 'error'
+                      : event.severity === 'warning'
+                        ? 'warn'
+                        : 'ok'}
+                    label={event.severity}
+                  />
                   <span class="tags">{event.tags?.join(', ')}</span>
                 </div>
                 <p class="event-description">{event.description}</p>
                 <div class="event-actions">
-                  <Button variant="ghost" on:click={() => handleRequestClip(event)} disabled={working}>Open clip</Button>
+                  <Button
+                    variant="ghost"
+                    on:click={() => handleRequestClip(event)}
+                    disabled={working}>Open clip</Button
+                  >
                   {#if !event.acknowledged}
-                    <Button variant="secondary" on:click={() => handleAcknowledge(event)} disabled={working}>Acknowledge</Button>
+                    <Button
+                      variant="secondary"
+                      on:click={() => handleAcknowledge(event)}
+                      disabled={working}>Acknowledge</Button
+                    >
                   {/if}
                 </div>
               </li>

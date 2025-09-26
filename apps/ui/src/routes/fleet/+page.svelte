@@ -76,7 +76,10 @@
     </EmptyState>
   {:else if overview}
     <div class="summary-grid">
-      <Card title="Totals" subtitle={`Last updated ${new Date(overview.updatedAt).toLocaleString()}`}>
+      <Card
+        title="Totals"
+        subtitle={`Last updated ${new Date(overview.updatedAt).toLocaleString()}`}
+      >
         <div class="totals">
           <div>
             <span class="label">Devices</span>
@@ -107,7 +110,10 @@
                 <span class="warn">{module.degraded} degraded</span>
                 <span class="error">{module.offline} offline</span>
               </span>
-              <button class:active={filterModule === module.id} on:click={() => filterModule = filterModule === module.id ? 'all' : module.id}>
+              <button
+                class:active={filterModule === module.id}
+                on:click={() => (filterModule = filterModule === module.id ? 'all' : module.id)}
+              >
                 {filterModule === module.id ? 'Clear filter' : 'Filter'}
               </button>
             </li>
@@ -299,7 +305,9 @@
     padding: var(--spacing-4);
     background: rgba(15, 23, 42, 0.35);
     color: inherit;
-    transition: border-color 0.2s ease, transform 0.2s ease;
+    transition:
+      border-color 0.2s ease,
+      transform 0.2s ease;
   }
 
   .device-card:hover {

@@ -4,6 +4,7 @@
   import Card from '$lib/components/Card.svelte';
   import EmptyState from '$lib/components/EmptyState.svelte';
   import Skeleton from '$lib/components/Skeleton.svelte';
+  import { SvelteSet } from 'svelte/reactivity';
   import type { PageData } from './$types';
   import type { OperatorAccount, SettingsState } from '$lib/types';
   import { SvelteSet } from 'svelte/reactivity';
@@ -16,7 +17,7 @@
     updateAllowedOrigins,
     updateProxySettings,
     claimDiscoveredDevice,
-    removeOperator
+    removeOperator,
   } from '$lib/api/settings-operations';
 
   export let data: PageData;
@@ -31,16 +32,16 @@
   let inviting = false;
   let removing = new SvelteSet<string>();
 
-let proxyBaseUrl = settings?.proxy.baseUrl ?? '';
-let proxyTimeout = settings?.proxy.timeoutMs ?? 8000;
-let allowedOriginsText = settings?.api.allowedOrigins.join('\n') ?? '';
-let pairingDuration = 120;
-let pairingMethod: SettingsState['pairing']['method'] = settings?.pairing.method ?? 'manual';
-let newOperator: Pick<OperatorAccount, 'name' | 'email' | 'roles'> = {
-  name: '',
-  email: '',
-  roles: ['viewer']
-};
+  let proxyBaseUrl = settings?.proxy.baseUrl ?? '';
+  let proxyTimeout = settings?.proxy.timeoutMs ?? 8000;
+  let allowedOriginsText = settings?.api.allowedOrigins.join('\n') ?? '';
+  let pairingDuration = 120;
+  let pairingMethod: SettingsState['pairing']['method'] = settings?.pairing.method ?? 'manual';
+  let newOperator: Pick<OperatorAccount, 'name' | 'email' | 'roles'> = {
+    name: '',
+    email: '',
+    roles: ['viewer'],
+  };
 
   let inviteError: string | null = null;
 
@@ -68,7 +69,7 @@ let newOperator: Pick<OperatorAccount, 'name' | 'email' | 'roles'> = {
   });
 
   onDestroy(() => {
-    removing.clear();
+    removing = new SvelteSet();
   });
 
   const handleRotateToken = async () => {
@@ -90,7 +91,7 @@ let newOperator: Pick<OperatorAccount, 'name' | 'email' | 'roles'> = {
       settings = await updateProxySettings(
         {
           baseUrl: proxyBaseUrl.trim(),
-          timeoutMs: Number(proxyTimeout)
+          timeoutMs: Number(proxyTimeout),
         },
         { fetch }
       );
@@ -174,7 +175,7 @@ let newOperator: Pick<OperatorAccount, 'name' | 'email' | 'roles'> = {
         {
           name: newOperator.name.trim(),
           email: newOperator.email.trim(),
-          roles: newOperator.roles
+          roles: newOperator.roles,
         },
         { fetch }
       );
@@ -186,15 +187,28 @@ let newOperator: Pick<OperatorAccount, 'name' | 'email' | 'roles'> = {
     }
   };
 
+  const addRemoving = (operatorId: string) => {
+    const next = new SvelteSet(removing);
+    next.add(operatorId);
+    removing = next;
+  };
+
+  const deleteRemoving = (operatorId: string) => {
+    if (!removing.has(operatorId)) return;
+    const next = new SvelteSet(removing);
+    next.delete(operatorId);
+    removing = next;
+  };
+
   const handleRemoveOperator = async (operatorId: string) => {
     if (removing.has(operatorId)) return;
-    removing.add(operatorId);
+    addRemoving(operatorId);
     try {
       settings = await removeOperator(operatorId, { fetch });
     } catch (err) {
       error = err instanceof Error ? err.message : 'Unable to remove operator';
     } finally {
-      removing.delete(operatorId);
+      deleteRemoving(operatorId);
     }
   };
 
@@ -220,10 +234,7 @@ let newOperator: Pick<OperatorAccount, 'name' | 'email' | 'roles'> = {
       <Skeleton variant="block" height="12rem" />
     </div>
   {:else if error && !settings}
-    <EmptyState
-      title="Unable to load settings"
-      description={error}
-    >
+    <EmptyState title="Unable to load settings" description={error}>
       <svelte:fragment slot="actions">
         <Button variant="primary" on:click={refreshSettings}>Retry</Button>
       </svelte:fragment>
@@ -249,11 +260,19 @@ let newOperator: Pick<OperatorAccount, 'name' | 'email' | 'roles'> = {
             </div>
             <div>
               <dt>Last rotated</dt>
-              <dd>{settings.api.lastRotatedAt ? new Date(settings.api.lastRotatedAt).toLocaleString() : 'Never'}</dd>
+              <dd>
+                {settings.api.lastRotatedAt
+                  ? new Date(settings.api.lastRotatedAt).toLocaleString()
+                  : 'Never'}
+              </dd>
             </div>
             <div>
               <dt>Expires</dt>
-              <dd>{settings.api.expiresAt ? new Date(settings.api.expiresAt).toLocaleString() : 'Indefinite'}</dd>
+              <dd>
+                {settings.api.expiresAt
+                  ? new Date(settings.api.expiresAt).toLocaleString()
+                  : 'Indefinite'}
+              </dd>
             </div>
           </dl>
           <Button variant="secondary" on:click={handleRotateToken} disabled={rotatingToken}>
@@ -264,7 +283,11 @@ let newOperator: Pick<OperatorAccount, 'name' | 'email' | 'roles'> = {
         <div class="section">
           <label>
             <span>Allowed origins</span>
-            <textarea bind:value={allowedOriginsText} rows={4} placeholder="https://operations.example"></textarea>
+            <textarea
+              bind:value={allowedOriginsText}
+              rows={4}
+              placeholder="https://operations.example"
+            ></textarea>
           </label>
           <div class="actions">
             <Button variant="primary" on:click={handleOriginsSave} disabled={savingOrigins}>
@@ -309,7 +332,11 @@ let newOperator: Pick<OperatorAccount, 'name' | 'email' | 'roles'> = {
       <Card title="Device pairing" subtitle="Manage onboarding of new devices">
         <div class="pairing">
           <div class="status">
-            <p class="state">Status: {settings.pairing.active ? `Active (${pairingCountdown() ?? 'pending'})` : 'Inactive'}</p>
+            <p class="state">
+              Status: {settings.pairing.active
+                ? `Active (${pairingCountdown() ?? 'pending'})`
+                : 'Inactive'}
+            </p>
             <p class="method">Method: {pairingMethod.toUpperCase()}</p>
           </div>
           <div class="controls">
@@ -320,7 +347,9 @@ let newOperator: Pick<OperatorAccount, 'name' | 'email' | 'roles'> = {
             </select>
             <input type="number" min={30} max={600} bind:value={pairingDuration} />
             {#if settings.pairing.active}
-              <Button variant="ghost" on:click={handleCancelPairing} disabled={pairingInFlight}>Stop</Button>
+              <Button variant="ghost" on:click={handleCancelPairing} disabled={pairingInFlight}
+                >Stop</Button
+              >
             {:else}
               <Button variant="secondary" on:click={handleStartPairing} disabled={pairingInFlight}>
                 {pairingInFlight ? 'Starting…' : 'Start pairing'}
@@ -342,7 +371,11 @@ let newOperator: Pick<OperatorAccount, 'name' | 'email' | 'roles'> = {
                       <strong>{candidate.name}</strong>
                       <span>{candidate.capability} · signal {candidate.signal}</span>
                     </div>
-                    <Button variant="secondary" on:click={() => handleClaimDevice(candidate.id)} disabled={pairingInFlight}>
+                    <Button
+                      variant="secondary"
+                      on:click={() => handleClaimDevice(candidate.id)}
+                      disabled={pairingInFlight}
+                    >
                       Approve
                     </Button>
                   </li>
@@ -359,7 +392,11 @@ let newOperator: Pick<OperatorAccount, 'name' | 'email' | 'roles'> = {
                 {#each settings.pairing.history.slice(0, 5) as entry (entry.id)}
                   <li>
                     <strong>{entry.deviceId}</strong>
-                    <span>{entry.status === 'success' ? 'Paired' : 'Failed'} · {new Date(entry.completedAt).toLocaleString()}</span>
+                    <span
+                      >{entry.status === 'success' ? 'Paired' : 'Failed'} · {new Date(
+                        entry.completedAt
+                      ).toLocaleString()}</span
+                    >
                     {#if entry.note}
                       <em>{entry.note}</em>
                     {/if}
@@ -420,7 +457,11 @@ let newOperator: Pick<OperatorAccount, 'name' | 'email' | 'roles'> = {
                   <td>{operator.email}</td>
                   <td>{operator.roles.join(', ')}</td>
                   <td>{operator.status}</td>
-                  <td>{operator.lastActiveAt ? new Date(operator.lastActiveAt).toLocaleString() : '—'}</td>
+                  <td
+                    >{operator.lastActiveAt
+                      ? new Date(operator.lastActiveAt).toLocaleString()
+                      : '—'}</td
+                  >
                   <td>
                     <Button
                       variant="ghost"

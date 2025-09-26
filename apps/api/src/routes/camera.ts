@@ -1,5 +1,7 @@
 import { Router } from 'express';
 import { deviceRegistry } from '../upstream/devices';
+import { getCameraEvent, listCameraEvents } from '../services/cameraEvents.js';
+import { cameraEventIdParamSchema, cameraEventsQuerySchema } from '../util/schema/camera.js';
 
 const router = Router();
 
@@ -14,11 +16,11 @@ router.get('/', (req, res) => {
     timestamp: new Date().toISOString(),
     total: devices.length,
     online: 0,
-    devices: devices.map(device => ({
+    devices: devices.map((device) => ({
       id: device.id,
       name: device.name,
-      status: 'offline'
-    }))
+      status: 'offline',
+    })),
   });
 });
 
@@ -33,13 +35,13 @@ router.get('/streams', (req, res) => {
       name: device.name,
       role: device.role,
       module: device.module,
-      status: 'offline'
+      status: 'offline',
     }));
 
   res.json({
     streams,
     total: streams.length,
-    updatedAt: new Date().toISOString()
+    updatedAt: new Date().toISOString(),
   });
 });
 
@@ -51,7 +53,7 @@ router.get('/streams/:id/status', (req, res) => {
   if (!device || (device.module !== 'camera' && !device.role.includes('camera'))) {
     return res.status(404).json({
       error: 'Camera stream not found',
-      id
+      id,
     });
   }
 
@@ -60,7 +62,7 @@ router.get('/streams/:id/status', (req, res) => {
     name: device.name,
     status: 'offline',
     reason: 'Camera stream not implemented',
-    timestamp: new Date().toISOString()
+    timestamp: new Date().toISOString(),
   });
 });
 
@@ -74,15 +76,70 @@ router.get('/summary', (req, res) => {
       name: device.name,
       role: device.role,
       module: device.module,
-      status: 'unimplemented'
+      status: 'unimplemented',
     }));
 
   res.json({ cameras, updatedAt: new Date().toISOString() });
 });
 
-router.get('/events', (_req, res) => {
+router.get('/events', (req, res, next) => {
   res.locals.routePath = '/camera/events';
-  res.json({ events: [], updatedAt: new Date().toISOString() });
+  try {
+    const params = cameraEventsQuerySchema.parse(req.query);
+    const result = listCameraEvents({
+      cameraId: params.cameraId,
+      start: params.start ? new Date(params.start) : undefined,
+      end: params.end ? new Date(params.end) : undefined,
+      minConfidence: params.minConfidence,
+      maxConfidence: params.maxConfidence,
+      tags: params.tags,
+      limit: params.limit,
+      cursor: params.cursor,
+    });
+
+    res.json({
+      events: result.events,
+      pagination: {
+        total: result.totalCount,
+        limit: params.limit,
+        nextCursor: result.nextCursor,
+        hasMore: result.hasMore,
+      },
+      filters: {
+        cameraId: params.cameraId ?? null,
+        start: params.start ?? null,
+        end: params.end ?? null,
+        tags: params.tags,
+        minConfidence: params.minConfidence ?? null,
+        maxConfidence: params.maxConfidence ?? null,
+      },
+      generatedAt: new Date().toISOString(),
+    });
+  } catch (error) {
+    next(error);
+  }
+});
+
+router.get('/events/:eventId', (req, res, next) => {
+  res.locals.routePath = '/camera/events/:eventId';
+  try {
+    const { eventId } = cameraEventIdParamSchema.parse(req.params);
+    const event = getCameraEvent(eventId);
+    if (!event) {
+      res.status(404).json({
+        code: 'not_found',
+        message: 'Camera event not found',
+        eventId,
+      });
+      return;
+    }
+    res.json({
+      event,
+      retrievedAt: new Date().toISOString(),
+    });
+  } catch (error) {
+    next(error);
+  }
 });
 
 export const cameraRouter = router;

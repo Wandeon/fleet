@@ -24,7 +24,7 @@ RUN npm ci --omit=dev
 RUN rm -f node_modules/.prisma/client/query-engine-linux-musl-arm64-openssl-1.1.x
 RUN npm run db:generate
 COPY --from=build /app/dist ./dist
-COPY --from=build /app/openapi.local.yaml ./openapi.local.yaml
+COPY --from=build /app/openapi.yaml ./openapi.yaml
 COPY --from=build /app/healthcheck.js ./healthcheck.js
 EXPOSE 3015
 HEALTHCHECK --interval=30s --timeout=5s --start-period=10s CMD node healthcheck.js

@@ -3,7 +3,9 @@ const url = `http://127.0.0.1:${port}/healthz`;
 
 async function main() {
   try {
-    const response = await fetch(url, { headers: { 'Authorization': `Bearer ${process.env.API_BEARER ?? ''}` } });
+    const response = await fetch(url, {
+      headers: { Authorization: `Bearer ${process.env.API_BEARER ?? ''}` },
+    });
     if (!response.ok) {
       process.exit(1);
     }

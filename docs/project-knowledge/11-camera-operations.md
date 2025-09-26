@@ -10,12 +10,12 @@ The camera role streams video via MediaMTX and exposes control APIs for health p
 
 ## API endpoints
 
-| Endpoint | Description | Usage |
-| --- | --- | --- |
-| `GET /healthz` | Checks HLS playlist and RTSP socket availability. | Prometheus and deploy health probes. |
-| `GET /metrics` | Exposes gauges such as `camera_stream_online`, `camera_last_probe_timestamp_seconds`. | Grafana dashboards. |
-| `GET /status` | Returns last probe result and configuration summary. | UI status cards and `/fleet/:id` device detail. |
-| `POST /probe` | Forces new probe, returning stream health diagnostics. | Manual verification after adjustments or incidents. |
+| Endpoint       | Description                                                                           | Usage                                               |
+| -------------- | ------------------------------------------------------------------------------------- | --------------------------------------------------- |
+| `GET /healthz` | Checks HLS playlist and RTSP socket availability.                                     | Prometheus and deploy health probes.                |
+| `GET /metrics` | Exposes gauges such as `camera_stream_online`, `camera_last_probe_timestamp_seconds`. | Grafana dashboards.                                 |
+| `GET /status`  | Returns last probe result and configuration summary.                                  | UI status cards and `/fleet/:id` device detail.     |
+| `POST /probe`  | Forces new probe, returning stream health diagnostics.                                | Manual verification after adjustments or incidents. |
 
 API contract is stubbed in Express for now (responses mark status `offline` until integration is complete). Ensure UI handles placeholders gracefully while backend returns static data.【F:apps/api/src/routes/camera.ts†L1-L72】
 

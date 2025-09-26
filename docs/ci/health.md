@@ -17,7 +17,7 @@ The main `CI` workflow fans out across a Node.js version matrix (`20.x` and `22.
 ## Frequent failure hotspots
 
 - **Formatting & linting:** ESLint is strict (`--max-warnings=0` on the API) and Prettier runs on every Markdown, JSON, JS/TS, and Svelte file, so new files or quick edits often break the `lint` job. Fix by running the local lint/format commands listed below.【F:.github/workflows/ci.yml†L48-L58】【F:apps/api/package.json†L18-L19】【F:apps/ui/package.json†L12-L13】
-- **Type errors:** The `typecheck` job fails whenever either package has unresolved TypeScript errors (missing exports, mismatched types, etc.). Run the package-specific typecheck scripts to reproduce and watch for differences between the Node 20 and Node 22 runs when conditional types are involved.【F:.github/workflows/ci.yml†L69-L101】【F:apps/api/package.json†L18-L20】【F:apps/ui/package.json†L11-L15】 
+- **Type errors:** The `typecheck` job fails whenever either package has unresolved TypeScript errors (missing exports, mismatched types, etc.). Run the package-specific typecheck scripts to reproduce and watch for differences between the Node 20 and Node 22 runs when conditional types are involved.【F:.github/workflows/ci.yml†L69-L101】【F:apps/api/package.json†L18-L20】【F:apps/ui/package.json†L11-L15】
 - **Build regressions:** API builds fail if `npm run build` does not emit `dist/`, while UI builds surface Vite compilation and Svelte template errors. Watch for missing generated files, circular dependencies, or syntax issues that surface only during production builds.【F:.github/workflows/ci.yml†L130-L142】【F:apps/api/package.json†L13-L14】【F:apps/ui/package.json†L7-L11】
 - **Tests & mocks:** The `test` job aggregates several independent stages. UI Vitest failures usually mean broken Svelte component tests or stale snapshots; API Vitest failures often track schema or mock API changes. Playwright flakes typically stem from timing issues—rerun locally with `npm run test:ui`. The Prisma generate/validate steps fail when schema migrations are missing or local changes were not generated. The mocked acceptance script asserts `/healthz`, `/status`, ALSA device availability, and optional Icecast playback, so changes to endpoints or log formatting can cause regressions.【F:.github/workflows/ci.yml†L191-L289】【F:apps/api/package.json†L14-L23】【F:apps/ui/package.json†L14-L18】【F:scripts/acceptance.sh†L5-L190】
 - **API contract drift:** If you update API handlers without regenerating `openapi.yaml` or the generated UI client, the `contract` job fails either because the spec is missing or Spectral reports rule violations. Use the OpenAPI commands below to keep specs synchronized.【F:.github/workflows/ci.yml†L354-L385】【F:package.json†L10-L15】
@@ -26,7 +26,7 @@ The main `CI` workflow fans out across a Node.js version matrix (`20.x` and `22.
 
 ## Running checks locally
 
-1. **Install dependencies:** run `npm ci` inside both `apps/api` and `apps/ui` to mirror CI’s setup.【F:.github/workflows/ci.yml†L40-L46】 
+1. **Install dependencies:** run `npm ci` inside both `apps/api` and `apps/ui` to mirror CI’s setup.【F:.github/workflows/ci.yml†L40-L46】
 2. **Lint & format:**
    - API – `npm run lint` (ESLint) and optionally `npm run lint -- --fix` for auto-fixes.【F:apps/api/package.json†L18-L19】
    - UI – `npm run lint` and `npm run format` for Prettier autofix.【F:apps/ui/package.json†L12-L13】

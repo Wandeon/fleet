@@ -19,10 +19,13 @@ import type {
   PowerState,
   SettingsState,
   VideoState,
-  ZigbeeState
+  ZigbeeState,
 } from '$lib/types';
 
-const mockModules = import.meta.glob('./mocks/*.json', { eager: true }) as Record<string, { default: unknown }>;
+const mockModules = import.meta.glob('./mocks/*.json', { eager: true }) as Record<
+  string,
+  { default: unknown }
+>;
 
 const clone = <T>(value: T): T => {
   if (typeof structuredClone === 'function') {
@@ -54,7 +57,8 @@ let audioStateCache: AudioState | null = null;
 let videoStateCache: VideoState | null = null;
 let zigbeeStateCache: ZigbeeState | null = null;
 let cameraStateCache: CameraState | null = null;
-let logsStateCache: { entries: LogEntry[]; sources: LogSource[]; lastUpdated: string } | null = null;
+let logsStateCache: { entries: LogEntry[]; sources: LogSource[]; lastUpdated: string } | null =
+  null;
 let settingsStateCache: SettingsState | null = null;
 let fleetOverviewCache: FleetOverview | null = null;
 const fleetDeviceCache = new Map<string, FleetDeviceDetail>();
@@ -117,17 +121,21 @@ const getLogsState = () => {
     logsStateCache = {
       entries,
       sources,
-      lastUpdated
+      lastUpdated,
     };
   }
   return logsStateCache;
 };
 
-const commitLogsState = (next: { entries: LogEntry[]; sources: LogSource[]; lastUpdated: string }) => {
+const commitLogsState = (next: {
+  entries: LogEntry[];
+  sources: LogSource[];
+  lastUpdated: string;
+}) => {
   logsStateCache = {
     entries: clone(next.entries),
     sources: clone(next.sources),
-    lastUpdated: next.lastUpdated
+    lastUpdated: next.lastUpdated,
   };
   return clone(logsStateCache);
 };
@@ -175,7 +183,7 @@ const getFleetDevice = (deviceId: string): FleetDeviceDetail => {
       alerts: [],
       logs: [],
       actions: [],
-      connections: []
+      connections: [],
     } satisfies FleetDeviceDetail;
   }
   fleetDeviceCache.set(deviceId, detail);
@@ -194,8 +202,12 @@ const findTrackTitle = (state: AudioState, trackId: string | null): string | nul
 };
 
 const refreshSessions = (state: AudioState) => {
-  const activeIds = new Set(state.devices.filter((device) => device.playback.state === 'playing').map((device) => device.id));
-  state.sessions = state.sessions.filter((session) => session.deviceIds.some((deviceId) => activeIds.has(deviceId)));
+  const activeIds = new Set(
+    state.devices.filter((device) => device.playback.state === 'playing').map((device) => device.id)
+  );
+  state.sessions = state.sessions.filter((session) =>
+    session.deviceIds.some((deviceId) => activeIds.has(deviceId))
+  );
 };
 
 const severityRank: Record<LogSeverity, number> = {
@@ -203,7 +215,7 @@ const severityRank: Record<LogSeverity, number> = {
   error: 3,
   warning: 2,
   info: 1,
-  debug: 0
+  debug: 0,
 };
 
 const normalizeSeverity = (value: unknown): LogSeverity => {
@@ -249,7 +261,7 @@ const filterLogs = (entries: LogEntry[], filters: Partial<LogsFilterState>): Log
         entry.source,
         entry.deviceId ?? '',
         entry.module ?? '',
-        entry.correlationId ?? ''
+        entry.correlationId ?? '',
       ];
       if (!values.some((value) => value?.toLowerCase().includes(term))) {
         return false;
@@ -283,8 +295,16 @@ const mockApiBase = {
     durationSeconds?: number;
   }) {
     const state = clone(getAudioState());
-    const trackId = payload.fileName.replace(/\.[^.]+$/, '').toLowerCase().replace(/[^a-z0-9]+/g, '-') + '-' + uuid().slice(0, 6);
-    const duration = payload.durationSeconds ?? Math.max(120, Math.min(420, Math.round(payload.fileSizeBytes / 40960)));
+    const trackId =
+      payload.fileName
+        .replace(/\.[^.]+$/, '')
+        .toLowerCase()
+        .replace(/[^a-z0-9]+/g, '-') +
+      '-' +
+      uuid().slice(0, 6);
+    const duration =
+      payload.durationSeconds ??
+      Math.max(120, Math.min(420, Math.round(payload.fileSizeBytes / 40960)));
 
     const track = {
       id: trackId,
@@ -294,7 +314,7 @@ const mockApiBase = {
       format: payload.mimeType?.split('/').pop() ?? 'mp3',
       sizeBytes: payload.fileSizeBytes,
       tags: payload.tags ?? [],
-      uploadedAt: nowIso()
+      uploadedAt: nowIso(),
     } satisfies AudioState['library'][number];
 
     state.library.push(track);
@@ -317,7 +337,7 @@ const mockApiBase = {
       syncMode: payload.syncMode,
       createdAt: nowIso(),
       updatedAt: nowIso(),
-      tracks: payload.tracks
+      tracks: payload.tracks,
     };
 
     state.playlists.push(playlist);
@@ -369,7 +389,8 @@ const mockApiBase = {
       device.playback.playlistId = payload.playlistId ?? null;
       device.playback.trackId = trackId;
       device.playback.trackTitle = findTrackTitle(state, trackId);
-      device.playback.positionSeconds = payload.startAtSeconds ?? assignment?.startOffsetSeconds ?? 0;
+      device.playback.positionSeconds =
+        payload.startAtSeconds ?? assignment?.startOffsetSeconds ?? 0;
       if (trackId) {
         const duration = state.library.find((item) => item.id === trackId)?.durationSeconds ?? 0;
         device.playback.durationSeconds = duration;
@@ -385,7 +406,7 @@ const mockApiBase = {
       deviceIds: payload.deviceIds,
       syncMode: payload.syncMode,
       state: 'playing',
-      startedAt: timestamp
+      startedAt: timestamp,
     };
 
     state.sessions.push(session);
@@ -466,7 +487,7 @@ const mockApiBase = {
       state.livePreview = {
         ...state.livePreview,
         status: power === 'on' ? 'ready' : 'connecting',
-        startedAt: nowIso()
+        startedAt: nowIso(),
       };
     }
     state.lastSignal = nowIso();
@@ -480,7 +501,10 @@ const mockApiBase = {
         ...state.livePreview,
         status: 'connecting',
         startedAt: nowIso(),
-        streamUrl: state.livePreview.streamUrl.replace(/(input=)[^&]*/, `$1${encodeURIComponent(inputId)}`)
+        streamUrl: state.livePreview.streamUrl.replace(
+          /(input=)[^&]*/,
+          `$1${encodeURIComponent(inputId)}`
+        ),
       };
     }
     state.lastSignal = nowIso();
@@ -505,7 +529,7 @@ const mockApiBase = {
     state.pairing = {
       active: true,
       expiresAt,
-      discovered: []
+      discovered: [],
     };
     return commitZigbeeState(state).pairing;
   },
@@ -526,7 +550,7 @@ const mockApiBase = {
       id,
       name: `Discovered ${id.slice(-3).toUpperCase()}`,
       type: Math.random() > 0.5 ? 'Sensor' : 'Dimmer',
-      signal: Math.floor(50 + Math.random() * 40)
+      signal: Math.floor(50 + Math.random() * 40),
     });
     return commitZigbeeState(state).pairing;
   },
@@ -546,7 +570,7 @@ const mockApiBase = {
       type: candidate.type,
       state: 'inactive',
       lastSeen: nowIso(),
-      battery: 100
+      battery: 100,
     });
     state.pairing.active = false;
     return commitZigbeeState(state);
@@ -565,7 +589,7 @@ const mockApiBase = {
       device.lastSeen = nowIso();
     }
     return commitZigbeeState(state);
-  }
+  },
 };
 
 interface MockApiExtensions {
@@ -603,18 +627,27 @@ interface MockApiExtensions {
   };
   cameraSelect(cameraId: string): CameraState;
   cameraAcknowledge(eventId: string): CameraState;
-  cameraAddEvent(event: Omit<CameraEvent, 'id' | 'timestamp'> & { id?: string; timestamp?: string }): CameraEvent;
+  cameraAddEvent(
+    event: Omit<CameraEvent, 'id' | 'timestamp'> & { id?: string; timestamp?: string }
+  ): CameraEvent;
   cameraRefreshPreview(cameraId?: string): CameraState;
-  logsSnapshot(filters?: Partial<LogsFilterState> & { limit?: number; cursor?: string | null }): LogsSnapshot;
+  logsSnapshot(
+    filters?: Partial<LogsFilterState> & { limit?: number; cursor?: string | null }
+  ): LogsSnapshot;
   logs(): LogsSnapshot;
-  logsAppend(entry: Partial<LogEntry> & { message: string; severity?: LogSeverity; source?: string }): LogEntry;
+  logsAppend(
+    entry: Partial<LogEntry> & { message: string; severity?: LogSeverity; source?: string }
+  ): LogEntry;
   logsStream(filters: Partial<LogsFilterState>, onEvent: (entry: LogEntry) => void): () => void;
   settings(): SettingsState;
   settingsUpdate(partial: Partial<SettingsState>): SettingsState;
   settingsUpdateApi(partial: Partial<SettingsState['api']>): SettingsState;
   settingsUpdateProxy(partial: Partial<SettingsState['proxy']>): SettingsState;
   settingsRotateToken(): SettingsState;
-  settingsStartPairing(method: SettingsState['pairing']['method'], durationSeconds?: number): SettingsState;
+  settingsStartPairing(
+    method: SettingsState['pairing']['method'],
+    durationSeconds?: number
+  ): SettingsState;
   settingsCancelPairing(): SettingsState;
   settingsClaimDiscovered(
     candidateId: string,
@@ -647,7 +680,7 @@ const mockApiExtensions: MockApiExtensions = {
       name: device.name,
       status: normaliseStatus(device.status),
       lastSeen: device.lastHeartbeat,
-      reason: device.status === 'error' ? 'Device offline' : null
+      reason: device.status === 'error' ? 'Device offline' : null,
     }));
 
     const status = (() => {
@@ -657,15 +690,16 @@ const mockApiExtensions: MockApiExtensions = {
       return 'offline';
     })();
 
-    const reason = status === 'online'
-      ? null
-      : state.overview.health === 'error'
-        ? 'Camera bridge offline'
-        : state.overview.health === 'offline'
-          ? 'No camera heartbeat received'
-          : state.overview.health === 'online'
-            ? null
-            : 'Camera health degraded';
+    const reason =
+      status === 'online'
+        ? null
+        : state.overview.health === 'error'
+          ? 'Camera bridge offline'
+          : state.overview.health === 'offline'
+            ? 'No camera heartbeat received'
+            : state.overview.health === 'online'
+              ? null
+              : 'Camera health degraded';
 
     return { status, updatedAt, reason, cameras };
   },
@@ -684,7 +718,7 @@ const mockApiExtensions: MockApiExtensions = {
       message: event.description,
       severity: mapSeverity(event.severity),
       cameraId: event.cameraId,
-      snapshotUrl: event.snapshotUrl ?? null
+      snapshotUrl: event.snapshotUrl ?? null,
     }));
 
     return { items, updatedAt };
@@ -701,7 +735,7 @@ const mockApiExtensions: MockApiExtensions = {
         posterUrl: state.overview.previewImage,
         streamUrl: state.overview.streamUrl,
         reason: 'Camera not found',
-        updatedAt
+        updatedAt,
       };
     }
 
@@ -714,7 +748,7 @@ const mockApiExtensions: MockApiExtensions = {
       posterUrl: device.stillUrl ?? state.overview.previewImage,
       streamUrl,
       reason: hasStream ? null : 'Stream unavailable in mock data',
-      updatedAt
+      updatedAt,
     };
   },
   cameraSelect(cameraId: string): CameraState {
@@ -730,7 +764,9 @@ const mockApiExtensions: MockApiExtensions = {
       previewImage: active.stillUrl ?? state.overview.previewImage,
       health: active.status,
       updatedAt: nowIso(),
-      lastMotion: state.events.find((event) => event.cameraId === cameraId)?.timestamp ?? state.overview.lastMotion
+      lastMotion:
+        state.events.find((event) => event.cameraId === cameraId)?.timestamp ??
+        state.overview.lastMotion,
     };
     return commitCameraState(state);
   },
@@ -742,15 +778,16 @@ const mockApiExtensions: MockApiExtensions = {
     }
     return commitCameraState(state);
   },
-  cameraAddEvent(event: Omit<CameraEvent, 'id' | 'timestamp'> & { id?: string; timestamp?: string }): CameraEvent {
+  cameraAddEvent(
+    event: Omit<CameraEvent, 'id' | 'timestamp'> & { id?: string; timestamp?: string }
+  ): CameraEvent {
     const state = clone(getCameraState());
     const entry: CameraEvent = {
       id: event.id ?? `cam-evt-${uuid().slice(0, 6)}`,
       timestamp: event.timestamp ?? nowIso(),
       acknowledged: false,
       tags: [],
-      detections: [],
-      ...event
+      ...event,
     };
     state.events.unshift(entry);
     state.overview.lastMotion = entry.timestamp;
@@ -778,27 +815,32 @@ const mockApiExtensions: MockApiExtensions = {
       entries: clone(state.entries),
       sources: clone(state.sources),
       lastUpdated: state.lastUpdated,
-      cursor: state.entries.at(-1)?.id ?? null
+      cursor: state.entries.at(-1)?.id ?? null,
     } satisfies LogsSnapshot;
   },
-  logsSnapshot(filters: Partial<LogsFilterState> & { limit?: number; cursor?: string | null } = {}): LogsSnapshot {
+  logsSnapshot(
+    filters: Partial<LogsFilterState> & { limit?: number; cursor?: string | null } = {}
+  ): LogsSnapshot {
     const state = getLogsState();
     const filtered = filterLogs(sortLogsDesc(state.entries), filters);
-    const limited = typeof filters.limit === 'number' ? filtered.slice(0, Math.max(filters.limit, 0)) : filtered;
+    const limited =
+      typeof filters.limit === 'number' ? filtered.slice(0, Math.max(filters.limit, 0)) : filtered;
     const snapshot: LogsSnapshot = {
       entries: clone(limited),
       sources: clone(state.sources),
       cursor: limited.at(-1)?.id ?? null,
-      lastUpdated: nowIso()
+      lastUpdated: nowIso(),
     };
     commitLogsState({
       entries: state.entries,
       sources: state.sources,
-      lastUpdated: snapshot.lastUpdated ?? nowIso()
+      lastUpdated: snapshot.lastUpdated ?? nowIso(),
     });
     return snapshot;
   },
-  logsAppend(entry: Partial<LogEntry> & { message: string; severity?: LogSeverity; source?: string }): LogEntry {
+  logsAppend(
+    entry: Partial<LogEntry> & { message: string; severity?: LogSeverity; source?: string }
+  ): LogEntry {
     const state = getLogsState();
     const source = entry.source ?? 'control-plane';
     const severity = normalizeSeverity(entry.severity ?? 'info');
@@ -811,7 +853,7 @@ const mockApiExtensions: MockApiExtensions = {
       module: entry.module ?? 'system',
       deviceId: entry.deviceId ?? null,
       correlationId: entry.correlationId ?? null,
-      context: entry.context ?? null
+      context: entry.context ?? null,
     };
     const nextEntries = [...state.entries, record];
     commitLogsState({ entries: nextEntries, sources: state.sources, lastUpdated: nowIso() });
@@ -819,11 +861,18 @@ const mockApiExtensions: MockApiExtensions = {
   },
   logsStream(filters: Partial<LogsFilterState>, onEvent: (entry: LogEntry) => void): () => void {
     const interval = setInterval(() => {
-      const generated: Partial<LogEntry> & { message: string; severity?: LogSeverity; source?: string } = {
+      const generated: Partial<LogEntry> & {
+        message: string;
+        severity?: LogSeverity;
+        source?: string;
+      } = {
         message: 'Mock heartbeat ok',
-        severity: filters.severity && filters.severity !== 'all' ? (filters.severity as LogSeverity) : undefined,
+        severity:
+          filters.severity && filters.severity !== 'all'
+            ? (filters.severity as LogSeverity)
+            : undefined,
         source: filters.sourceId && filters.sourceId !== 'all' ? filters.sourceId : 'control-plane',
-        module: filters.sourceId && filters.sourceId?.startsWith('pi-') ? 'device' : 'system'
+        module: filters.sourceId && filters.sourceId?.startsWith('pi-') ? 'device' : 'system',
       };
       const newEntry = mockApi.logsAppend(generated);
       if (!filters.search) {
@@ -851,7 +900,7 @@ const mockApiExtensions: MockApiExtensions = {
       operators: partial.operators ? clone(partial.operators) : current.operators,
       roles: partial.roles ? clone(partial.roles) : current.roles,
       pendingRestart: partial.pendingRestart ?? current.pendingRestart,
-      lastSavedAt: nowIso()
+      lastSavedAt: nowIso(),
     };
     return commitSettingsState(next);
   },
@@ -869,12 +918,15 @@ const mockApiExtensions: MockApiExtensions = {
         ...getSettingsState().api,
         bearerTokenMasked: rotated,
         lastRotatedAt: nowIso(),
-        expiresAt: expires
+        expiresAt: expires,
       },
-      pendingRestart: true
+      pendingRestart: true,
     });
   },
-  settingsStartPairing(method: SettingsState['pairing']['method'], durationSeconds = 120): SettingsState {
+  settingsStartPairing(
+    method: SettingsState['pairing']['method'],
+    durationSeconds = 120
+  ): SettingsState {
     const expiresAt = new Date(Date.now() + durationSeconds * 1000).toISOString();
     const candidates = getSettingsState().pairing.discovered ?? [];
     return mockApi.settingsUpdate({
@@ -883,8 +935,8 @@ const mockApiExtensions: MockApiExtensions = {
         active: true,
         method,
         expiresAt,
-        discovered: clone(candidates)
-      }
+        discovered: clone(candidates),
+      },
     });
   },
   settingsCancelPairing(): SettingsState {
@@ -892,11 +944,14 @@ const mockApiExtensions: MockApiExtensions = {
       pairing: {
         ...getSettingsState().pairing,
         active: false,
-        expiresAt: null
-      }
+        expiresAt: null,
+      },
     });
   },
-  settingsClaimDiscovered(candidateId: string, overrides: { deviceId?: string; note?: string; status?: 'success' | 'error' } = {}): SettingsState {
+  settingsClaimDiscovered(
+    candidateId: string,
+    overrides: { deviceId?: string; note?: string; status?: 'success' | 'error' } = {}
+  ): SettingsState {
     const current = clone(getSettingsState());
     const remaining = current.pairing.discovered.filter((item) => item.id !== candidateId);
     const candidate = current.pairing.discovered.find((item) => item.id === candidateId);
@@ -907,7 +962,7 @@ const mockApiExtensions: MockApiExtensions = {
         completedAt: nowIso(),
         deviceId: overrides.deviceId ?? candidate.id,
         status: overrides.status ?? 'success',
-        note: overrides.note ?? `Paired ${candidate.name}`
+        note: overrides.note ?? `Paired ${candidate.name}`,
       });
     }
     return mockApi.settingsUpdate({
@@ -916,8 +971,8 @@ const mockApiExtensions: MockApiExtensions = {
         active: false,
         expiresAt: null,
         discovered: remaining,
-        history
-      }
+        history,
+      },
     });
   },
   fleetOverview(): FleetOverview {
@@ -937,7 +992,7 @@ const mockApiExtensions: MockApiExtensions = {
       module: detail.summary.module,
       deviceId,
       correlationId: uuid(),
-      context: { actionId }
+      context: { actionId },
     });
     if (actionId === 'reboot') {
       detail.alerts.unshift({
@@ -945,18 +1000,20 @@ const mockApiExtensions: MockApiExtensions = {
         message: 'Device reboot initiated from control plane',
         severity: 'warning',
         createdAt: nowIso(),
-        acknowledged: false
+        acknowledged: false,
       });
       detail.summary.status = 'online';
     }
     commitFleetDevice(deviceId, detail);
     const overview = clone(getFleetOverview());
     overview.devices = overview.devices.map((device) =>
-      device.id === deviceId ? { ...device, status: detail.summary.status, lastSeen: nowIso() } : device
+      device.id === deviceId
+        ? { ...device, status: detail.summary.status, lastSeen: nowIso() }
+        : device
     );
     commitFleetOverview(overview);
     return clone(detail);
-  }
-}
+  },
+};
 
 Object.assign(mockApi, mockApiExtensions);

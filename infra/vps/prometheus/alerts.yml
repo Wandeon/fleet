@@ -1,74 +1,82 @@
 groups:
-- name: ui_ops.rules
-  rules:
-  - alert: ApiDown
-    expr: up{job="api"} == 0
-    for: 1m
-    labels: {severity: critical}
-    annotations: {summary: "API down", description: "api target is not responding"}
+  - name: ui_ops.rules
+    rules:
+      - alert: ApiDown
+        expr: up{job="api"} == 0
+        for: 1m
+        labels: { severity: critical }
+        annotations: { summary: 'API down', description: 'api target is not responding' }
 
-  - alert: HealthDegraded
-    expr: max_over_time(app_overall_health{service="ui"}[2m]) == 1
-    for: 5m
-    labels: {severity: warning}
-    annotations: {summary: "UI degraded >5m"}
+      - alert: HealthDegraded
+        expr: max_over_time(app_overall_health{service="ui"}[2m]) == 1
+        for: 5m
+        labels: { severity: warning }
+        annotations: { summary: 'UI degraded >5m' }
 
-  - alert: HealthDown
-    expr: max_over_time(app_overall_health{service="ui"}[2m]) == 2
-    for: 1m
-    labels: {severity: critical}
-    annotations: {summary: "UI down"}
+      - alert: HealthDown
+        expr: max_over_time(app_overall_health{service="ui"}[2m]) == 2
+        for: 1m
+        labels: { severity: critical }
+        annotations: { summary: 'UI down' }
 
-  - alert: High5xx
-    expr: rate(app_http_requests_total{status=~"5.."}[5m]) > 0.5
-    for: 10m
-    labels: {severity: warning}
-    annotations: {summary: "5xx > 0.5 rps 10m"}
+      - alert: High5xx
+        expr: rate(app_http_requests_total{status=~"5.."}[5m]) > 0.5
+        for: 10m
+        labels: { severity: warning }
+        annotations: { summary: '5xx > 0.5 rps 10m' }
 
-  - alert: CertExpirySoon
-    expr: probe_ssl_earliest_cert_expiry - time() < 14*24*3600
-    for: 1h
-    labels: {severity: warning}
-    annotations: {summary: "TLS cert expires <14 days"}
+      - alert: CertExpirySoon
+        expr: probe_ssl_earliest_cert_expiry - time() < 14*24*3600
+        for: 1h
+        labels: { severity: warning }
+        annotations: { summary: 'TLS cert expires <14 days' }
 
-  - alert: DeviceOffline
-    expr: up{job="audio-player"} == 0
-    for: 5m
-    labels: {severity: warning}
-    annotations: {summary: "Audio device offline"}
+      - alert: DeviceOffline
+        expr: up{job="audio-player"} == 0
+        for: 5m
+        labels: { severity: warning }
+        annotations: { summary: 'Audio device offline' }
 
-  - alert: PrometheusTargetDown
-    expr: up == 0
-    for: 3m
-    labels: {severity: warning}
-    annotations: {summary: "Target down: {{ $labels.job }} {{ $labels.instance }}"}
+      - alert: PrometheusTargetDown
+        expr: up == 0
+        for: 3m
+        labels: { severity: warning }
+        annotations: { summary: 'Target down: {{ $labels.job }} {{ $labels.instance }}' }
 
-  - alert: DiskSpaceLow
-    expr: node_filesystem_avail_bytes{fstype!~"tmpfs|overlay"} / node_filesystem_size_bytes < 0.1
-    for: 10m
-    labels: {severity: warning}
-    annotations: {summary: "Disk space <10%"}
+      - alert: DiskSpaceLow
+        expr: node_filesystem_avail_bytes{fstype!~"tmpfs|overlay"} / node_filesystem_size_bytes < 0.1
+        for: 10m
+        labels: { severity: warning }
+        annotations: { summary: 'Disk space <10%' }
 
-  - alert: CpuHot
-    expr: node_thermal_zone_temp/1000 > 80
-    for: 5m
-    labels: {severity: warning}
-    annotations: {summary: "CPU >80°C"}
+      - alert: CpuHot
+        expr: node_thermal_zone_temp/1000 > 80
+        for: 5m
+        labels: { severity: warning }
+        annotations: { summary: 'CPU >80°C' }
 
-  - alert: BlackboxHttpFail
-    expr: probe_success == 0
-    for: 2m
-    labels: {severity: warning}
-    annotations: {summary: "Blackbox HTTP probe failure"}
+      - alert: BlackboxHttpFail
+        expr: probe_success == 0
+        for: 2m
+        labels: { severity: warning }
+        annotations: { summary: 'Blackbox HTTP probe failure' }
 
-  - alert: RoleAgentStale
-    expr: time() - role_agent_last_run_timestamp > 900
-    for: 5m
-    labels: {severity: warning}
-    annotations: {summary: "Role agent overdue", description: "{{ $labels.host }} has not converged in >15m"}
+      - alert: RoleAgentStale
+        expr: time() - role_agent_last_run_timestamp > 900
+        for: 5m
+        labels: { severity: warning }
+        annotations:
+          {
+            summary: 'Role agent overdue',
+            description: '{{ $labels.host }} has not converged in >15m',
+          }
 
-  - alert: RoleAgentFailure
-    expr: role_agent_last_run_success == 0
-    for: 5m
-    labels: {severity: critical}
-    annotations: {summary: "Role agent failing", description: "Last converger run failed on {{ $labels.host }}"}
+      - alert: RoleAgentFailure
+        expr: role_agent_last_run_success == 0
+        for: 5m
+        labels: { severity: critical }
+        annotations:
+          {
+            summary: 'Role agent failing',
+            description: 'Last converger run failed on {{ $labels.host }}',
+          }

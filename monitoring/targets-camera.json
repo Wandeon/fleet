@@ -1,3 +1,6 @@
 [
-  { "labels": {"job": "camera-control", "role": "camera", "instance": "pi-camera-01"}, "targets": ["pi-camera-01:8083"] }
+  {
+    "labels": { "job": "camera-control", "role": "camera", "instance": "pi-camera-01" },
+    "targets": ["pi-camera-01:8083"]
+  }
 ]
