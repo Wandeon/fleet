@@ -1239,38 +1239,62 @@ function buildFleetOverview() {
       ...audioDeviceList.map(d => ({
         id: d.id,
         name: d.displayName,
+        role: 'audio-player',
         module: 'audio',
         status: d.online ? 'online' : 'offline',
         location: null,
         lastSeen: d.lastSeen,
-        version: '1.0.0'
+        uptime: '24h',
+        ipAddress: '192.168.1.100',
+        version: '1.0.0',
+        groups: [],
+        tags: [],
+        capabilities: ['play', 'stop', 'volume']
       })),
       {
         id: tvStatus.id,
         name: tvStatus.displayName,
+        role: 'hdmi-media',
         module: 'video',
         status: tvStatus.online ? 'online' : 'offline',
         location: null,
         lastSeen: tvStatus.lastSeen,
-        version: '1.0.0'
+        uptime: '72h',
+        ipAddress: '192.168.1.101',
+        version: '1.0.0',
+        groups: [],
+        tags: [],
+        capabilities: ['power', 'input', 'volume']
       },
-      ...zigbeeDeviceList.map(d => ({
+      ...zigbeeDeviceList.map((d, index) => ({
         id: d.id,
         name: d.displayName,
+        role: 'zigbee-device',
         module: 'zigbee',
         status: d.state === 'offline' ? 'offline' : 'online',
         location: null,
         lastSeen: d.lastSeen || new Date().toISOString(),
-        version: '1.0.0'
+        uptime: '48h',
+        ipAddress: `192.168.1.${120 + index}`,
+        version: '1.0.0',
+        groups: [],
+        tags: [],
+        capabilities: ['toggle', 'scene']
       })),
-      ...cameraDeviceList.map(d => ({
+      ...cameraDeviceList.map((d, index) => ({
         id: d.id,
         name: d.displayName,
+        role: 'camera',
         module: 'camera',
         status: d.online ? 'online' : 'offline',
         location: null,
         lastSeen: new Date().toISOString(),
-        version: '1.0.0'
+        uptime: '96h',
+        ipAddress: `192.168.1.${200 + index}`,
+        version: '1.0.0',
+        groups: [],
+        tags: [],
+        capabilities: ['live-preview', 'events']
       }))
     ],
     updatedAt: new Date().toISOString()
