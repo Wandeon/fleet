@@ -53,20 +53,6 @@ export interface PlayDevicesOptions {
   loop?: boolean;
 }
 
-const withScopedFetch = async <T>(fetchImpl: typeof fetch | undefined, callback: () => Promise<T>): Promise<T> => {
-  if (!fetchImpl || fetchImpl === globalThis.fetch) {
-    return callback();
-  }
-
-  const originalFetch = globalThis.fetch;
-  (globalThis as typeof globalThis & { fetch: typeof fetch }).fetch = fetchImpl;
-  try {
-    return await callback();
-  } finally {
-    (globalThis as typeof globalThis & { fetch: typeof fetch }).fetch = originalFetch;
-  }
-};
-
 const extractErrorMessage = (detail: unknown): string | undefined => {
   if (!detail) return undefined;
   if (typeof detail === 'string') {
@@ -101,15 +87,13 @@ const normaliseApiError = (error: unknown, fallbackMessage: string): UiApiError 
 const callAudioApi = async <T>(
   options: { fetch?: typeof fetch },
   fallbackMessage: string,
-  action: () => Promise<T>,
+  action: (apiOptions: { fetch?: typeof fetch }) => Promise<T>,
 ): Promise<T> => {
-  return withScopedFetch(options.fetch, async () => {
-    try {
-      return await action();
-    } catch (error) {
-      throw normaliseApiError(error, fallbackMessage);
-    }
-  });
+  try {
+    return await action(options);
+  } catch (error) {
+    throw normaliseApiError(error, fallbackMessage);
+  }
 };
 
 const normalisePlayback = (
@@ -208,7 +192,7 @@ const refreshDevice = async (
   const snapshot = await callAudioApi(
     options,
     'Failed to load device snapshot',
-    () => AudioApi.getDevice(deviceId),
+    (apiOptions) => AudioApi.getDevice(deviceId, apiOptions),
   );
   return normaliseDevice(snapshot);
 };
@@ -218,7 +202,11 @@ export const getAudioOverview = async (options: { fetch?: typeof fetch } = {}): 
     return mockApi.audio();
   }
 
-  const state = await callAudioApi(options, 'Failed to load audio overview', () => AudioApi.getOverview());
+  const state = await callAudioApi(
+    options,
+    'Failed to load audio overview',
+    (apiOptions) => AudioApi.getOverview(apiOptions),
+  );
   return normaliseState(state);
 };
 
@@ -245,14 +233,17 @@ export const uploadTrack = async (options: UploadTrackOptions): Promise<AudioLib
   const track = await callAudioApi(
     {},
     'Failed to upload track',
-    () =>
-      AudioApi.uploadAudioTrack({
-        file: options.file,
-        title: options.title,
-        artist: options.artist,
-        tags: options.tags?.join(',') ?? undefined,
-        durationSeconds: options.durationSeconds,
-      }),
+    (apiOptions) =>
+      AudioApi.uploadAudioTrack(
+        {
+          file: options.file,
+          title: options.title,
+          artist: options.artist,
+          tags: options.tags?.join(',') ?? undefined,
+          durationSeconds: options.durationSeconds,
+        },
+        apiOptions,
+      ),
   );
 
   return normaliseTrack(track);
@@ -266,7 +257,11 @@ export const createPlaylist = async (
     return mockApi.audioCreatePlaylist(draft);
   }
 
-  const playlist = await callAudioApi(options, 'Failed to create playlist', () => AudioApi.createPlaylist(toApiPlaylist(draft)));
+  const playlist = await callAudioApi(
+    options,
+    'Failed to create playlist',
+    (apiOptions) => AudioApi.createPlaylist(toApiPlaylist(draft), apiOptions),
+  );
   return normalisePlaylist(playlist);
 };
 
@@ -280,7 +275,11 @@ export const updatePlaylist = async (
   }
 
   const payload = toApiPlaylist(draft, { id: playlistId });
-  const playlist = await callAudioApi(options, 'Failed to update playlist', () => AudioApi.updatePlaylist(playlistId, payload));
+  const playlist = await callAudioApi(
+    options,
+    'Failed to update playlist',
+    (apiOptions) => AudioApi.updatePlaylist(playlistId, payload, apiOptions),
+  );
   return normalisePlaylist(playlist);
 };
 
@@ -293,7 +292,11 @@ export const deletePlaylist = async (
     return;
   }
 
-  await callAudioApi(options, 'Failed to delete playlist', () => AudioApi.deletePlaylist(playlistId));
+  await callAudioApi(
+    options,
+    'Failed to delete playlist',
+    (apiOptions) => AudioApi.deletePlaylist(playlistId, apiOptions),
+  );
 };
 
 export const playOnDevices = async (
@@ -304,23 +307,26 @@ export const playOnDevices = async (
     return mockApi.audioPlay(payload);
   }
 
-  await callAudioApi(options, 'Failed to start playback', () =>
-    AudioApi.startPlayback({
-      deviceIds: payload.deviceIds,
-      playlistId: payload.playlistId ?? null,
-      trackId: payload.trackId ?? null,
-      assignments: payload.assignments
-        ?.filter((assignment) => Boolean(assignment.trackId))
-        .map((assignment) => ({
-          deviceId: assignment.deviceId,
-          trackId: assignment.trackId,
-          startOffsetSeconds: assignment.startOffsetSeconds ?? null,
-        })),
-      syncMode: payload.syncMode,
-      resume: payload.resume ?? false,
-      startAtSeconds: payload.startAtSeconds,
-      loop: payload.loop ?? false,
-    }),
+  await callAudioApi(options, 'Failed to start playback', (apiOptions) =>
+    AudioApi.startPlayback(
+      {
+        deviceIds: payload.deviceIds,
+        playlistId: payload.playlistId ?? null,
+        trackId: payload.trackId ?? null,
+        assignments: payload.assignments
+          ?.filter((assignment) => Boolean(assignment.trackId))
+          .map((assignment) => ({
+            deviceId: assignment.deviceId,
+            trackId: assignment.trackId,
+            startOffsetSeconds: assignment.startOffsetSeconds ?? null,
+          })),
+        syncMode: payload.syncMode,
+        resume: payload.resume ?? false,
+        startAtSeconds: payload.startAtSeconds,
+        loop: payload.loop ?? false,
+      },
+      apiOptions,
+    ),
   );
 
   return getAudioOverview(options);
@@ -334,7 +340,9 @@ export const pauseDevice = async (
     return mockApi.audioPause(deviceId);
   }
 
-  await callAudioApi(options, 'Unable to pause device', () => AudioApi.pauseDevice(deviceId));
+  await callAudioApi(options, 'Unable to pause device', (apiOptions) =>
+    AudioApi.pauseDevice(deviceId, apiOptions),
+  );
   return refreshDevice(deviceId, options);
 };
 
@@ -346,7 +354,9 @@ export const resumeDevice = async (
     return mockApi.audioResume(deviceId);
   }
 
-  await callAudioApi(options, 'Unable to resume device', () => AudioApi.resumeDevice(deviceId));
+  await callAudioApi(options, 'Unable to resume device', (apiOptions) =>
+    AudioApi.resumeDevice(deviceId, apiOptions),
+  );
   return refreshDevice(deviceId, options);
 };
 
@@ -358,7 +368,9 @@ export const stopDevice = async (
     return mockApi.audioStop(deviceId);
   }
 
-  await callAudioApi(options, 'Unable to stop device', () => AudioApi.stopDevice(deviceId));
+  await callAudioApi(options, 'Unable to stop device', (apiOptions) =>
+    AudioApi.stopDevice(deviceId, apiOptions),
+  );
   return refreshDevice(deviceId, options);
 };
 
@@ -372,10 +384,14 @@ export const seekDevice = async (
   }
 
   try {
-    await callAudioApi(options, 'Unable to seek device', () =>
-      AudioApi.seekDevice(deviceId, {
-        positionSeconds,
-      }),
+    await callAudioApi(options, 'Unable to seek device', (apiOptions) =>
+      AudioApi.seekDevice(
+        deviceId,
+        {
+          positionSeconds,
+        },
+        apiOptions,
+      ),
     );
   } catch (error) {
     if (error instanceof UiApiError && [400, 409, 422].includes(error.status)) {
@@ -397,10 +413,14 @@ export const setDeviceVolume = async (
   }
 
   const normalised = Math.max(0, Math.min(2, volumePercent / 100));
-  await callAudioApi(options, 'Unable to update volume', () =>
-    AudioApi.setDeviceVolume(deviceId, {
-      volume: Number.isFinite(normalised) ? normalised : 0,
-    }),
+  await callAudioApi(options, 'Unable to update volume', (apiOptions) =>
+    AudioApi.setDeviceVolume(
+      deviceId,
+      {
+        volume: Number.isFinite(normalised) ? normalised : 0,
+      },
+      apiOptions,
+    ),
   );
 
   return refreshDevice(deviceId, options);
@@ -414,10 +434,13 @@ export const setMasterVolume = async (
     return mockApi.audioSetMasterVolume(masterPercent);
   }
 
-  await callAudioApi(options, 'Unable to update master volume', () =>
-    AudioApi.setMasterVolume({
-      volumePercent: Math.round(masterPercent),
-    }),
+  await callAudioApi(options, 'Unable to update master volume', (apiOptions) =>
+    AudioApi.setMasterVolume(
+      {
+        volumePercent: Math.round(masterPercent),
+      },
+      apiOptions,
+    ),
   );
 
   return getAudioOverview(options);

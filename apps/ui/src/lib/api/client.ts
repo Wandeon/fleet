@@ -90,6 +90,10 @@ export interface ApiClientOptions {
   getAdditionalHeaders?: () => Record<string, string> | Promise<Record<string, string>>;
 }
 
+export interface ApiRequestContext {
+  fetch?: typeof fetch;
+}
+
 const defaultCorrelationIdFactory = (): string => {
   const cryptoApi = globalThis.crypto as Crypto | undefined;
   if (cryptoApi && typeof cryptoApi.randomUUID === 'function') {
@@ -133,25 +137,33 @@ export const FleetApi = {
 };
 
 export const AudioApi = {
-  getOverview: () => AudioService.getAudioOverview(),
-  getDevice: (deviceId: string) => AudioService.getAudioDevice(deviceId),
+  getOverview: (options?: ApiRequestContext) => AudioService.getAudioOverview(options),
+  getDevice: (deviceId: string, options?: ApiRequestContext) =>
+    AudioService.getAudioDevice(deviceId, options),
   uploadAudioTrack: (
     formData: Parameters<typeof AudioService.uploadAudioTrack>[0],
-  ) => AudioService.uploadAudioTrack(formData),
-  createPlaylist: (payload: AudioPlaylist) => AudioService.createAudioPlaylist(payload),
-  updatePlaylist: (playlistId: string, payload: AudioPlaylist) =>
-    AudioService.updateAudioPlaylist(playlistId, payload),
-  deletePlaylist: (playlistId: string) => AudioService.deleteAudioPlaylist(playlistId),
-  startPlayback: (payload: AudioPlaybackRequest) => AudioService.startAudioPlayback(payload),
-  pauseDevice: (deviceId: string) => AudioService.pauseAudioDevice(deviceId),
-  resumeDevice: (deviceId: string) => AudioService.resumeAudioDevice(deviceId),
-  stopDevice: (deviceId: string) => AudioService.stopAudioDevice(deviceId),
-  seekDevice: (deviceId: string, payload: AudioSeekRequest) =>
-    AudioService.seekAudioDevice(deviceId, payload),
-  setDeviceVolume: (deviceId: string, payload: AudioVolumeRequest) =>
-    AudioService.setAudioDeviceVolume(deviceId, payload),
-  setMasterVolume: (payload: AudioMasterVolumeRequest) =>
-    AudioService.setAudioMasterVolume(payload),
+    options?: ApiRequestContext,
+  ) => AudioService.uploadAudioTrack(formData, options),
+  createPlaylist: (payload: AudioPlaylist, options?: ApiRequestContext) =>
+    AudioService.createAudioPlaylist(payload, options),
+  updatePlaylist: (playlistId: string, payload: AudioPlaylist, options?: ApiRequestContext) =>
+    AudioService.updateAudioPlaylist(playlistId, payload, options),
+  deletePlaylist: (playlistId: string, options?: ApiRequestContext) =>
+    AudioService.deleteAudioPlaylist(playlistId, options),
+  startPlayback: (payload: AudioPlaybackRequest, options?: ApiRequestContext) =>
+    AudioService.startAudioPlayback(payload, options),
+  pauseDevice: (deviceId: string, options?: ApiRequestContext) =>
+    AudioService.pauseAudioDevice(deviceId, options),
+  resumeDevice: (deviceId: string, options?: ApiRequestContext) =>
+    AudioService.resumeAudioDevice(deviceId, options),
+  stopDevice: (deviceId: string, options?: ApiRequestContext) =>
+    AudioService.stopAudioDevice(deviceId, options),
+  seekDevice: (deviceId: string, payload: AudioSeekRequest, options?: ApiRequestContext) =>
+    AudioService.seekAudioDevice(deviceId, payload, options),
+  setDeviceVolume: (deviceId: string, payload: AudioVolumeRequest, options?: ApiRequestContext) =>
+    AudioService.setAudioDeviceVolume(deviceId, payload, options),
+  setMasterVolume: (payload: AudioMasterVolumeRequest, options?: ApiRequestContext) =>
+    AudioService.setAudioMasterVolume(payload, options),
 };
 
 interface LegacyTvStatus {
