@@ -1335,37 +1335,6 @@ components:
         evaluatedAt:
           type: string
           format: date-time
-    CameraEventDetection:
-      type: object
-      required:
-        - id
-        - label
-        - confidence
-      properties:
-        id:
-          type: string
-        label:
-          type: string
-        confidence:
-          type: number
-          format: float
-
-        boundingBox:
-          type: object
-          nullable: true
-          properties:
-            x:
-              type: number
-              format: float
-            y:
-              type: number
-              format: float
-            width:
-              type: number
-              format: float
-            height:
-              type: number
-              format: float
     CameraEvent:
       type: object
       required:

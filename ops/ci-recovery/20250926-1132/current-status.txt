@@ -1,0 +1,5 @@
+completed	failure	Merge pull request #86 from Wandeon/codex/enhance-zigbee-rules-and-se…	Docs validation	main	push	18033606560	22s	12m
+completed	failure	Merge pull request #86 from Wandeon/codex/enhance-zigbee-rules-and-se…	API Contract CI	main	push	18033606546	19s	12m
+completed	failure	Merge pull request #86 from Wandeon/codex/enhance-zigbee-rules-and-se…	.github/workflows/acceptance.yml	main	push	18033606152	0s	12m
+completed	failure	Merge pull request #86 from Wandeon/codex/enhance-zigbee-rules-and-se…	.github/workflows/ci.yml	main	push	18033606018	0s	12m
+completed	failure	Merge pull request #86 from Wandeon/codex/enhance-zigbee-rules-and-se…	.github/workflows/deploy-vps.yml	main	push	18033605879	0s	12m
