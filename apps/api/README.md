@@ -97,7 +97,7 @@ variable; otherwise `token` can embed the literal credential.
 | `npm run lint`        | ESLint with type information                                   |
 | `npm run typecheck`   | `tsc --noEmit`                                                 |
 | `npm test`            | Vitest unit + integration suites                               |
-| `npm run contract`    | Spectral lint of `openapi.local.yaml`                          |
+| `npm run contract`    | Spectral lint of `openapi.yaml`                                |
 | `npm run ci`          | End-to-end CI bundle (lint, typecheck, tests, contract, build) |
 
 ## Observability
@@ -116,7 +116,7 @@ invocations, upstream errors) captured in memory.
 
 Vitest powers unit/integration tests and spins up an in-memory mock audio
 control API to exercise timeout, retry, and error-mapping behaviour. Contract
-validation is handled by the Spectral CLI against `openapi.local.yaml`.
+validation is handled by the Spectral CLI against `openapi.yaml`.
 
 ## Docker
 

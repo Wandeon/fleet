@@ -21,7 +21,7 @@
 
   const resolveSources = (value: LogsSnapshot | null | undefined) => value?.sources ?? [];
 
-  let sourceId = resolveSources(snapshot)[0]?.id ?? 'all';
+  let sourceId = data.initialFilters?.sourceId ?? resolveSources(snapshot)[0]?.id ?? 'all';
   let severity: LogSeverity | 'all' = 'all';
   let search = '';
   let limit = 200;
@@ -48,7 +48,7 @@
     snapshot = value;
     entries = value.entries;
     const nextSources = resolveSources(value);
-    if (!nextSources.find((item) => item.id === sourceId)) {
+    if (sourceId !== 'all' && !nextSources.find((item) => item.id === sourceId)) {
       sourceId = nextSources[0]?.id ?? 'all';
     }
   };
