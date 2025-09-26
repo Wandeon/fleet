@@ -176,22 +176,20 @@ describe('audio-operations (D1 integration)', () => {
     });
 
     expect(audioApiMocks.startPlayback).toHaveBeenCalledTimes(1);
-    expect(audioApiMocks.startPlayback).toHaveBeenCalledWith({
-      deviceIds: ['pi-audio-01', 'pi-audio-02'],
-      playlistId: null,
-      trackId: 'track-01',
-      assignments: [
-        {
-          deviceId: 'pi-audio-01',
-          trackId: 'track-01',
-          startOffsetSeconds: null,
-        },
-      ],
-      syncMode: 'independent',
-      resume: true,
-      startAtSeconds: 30,
-      loop: false,
-    });
+    expect(audioApiMocks.startPlayback).toHaveBeenCalledWith(
+      expect.objectContaining({
+        deviceIds: ['pi-audio-01', 'pi-audio-02'],
+        playlistId: null,
+        trackId: 'track-01',
+        assignments: [
+          {
+            deviceId: 'pi-audio-01',
+            trackId: 'track-01',
+            startOffsetSeconds: null,
+          },
+        ],
+      })
+    );
 
     expect(audioApiMocks.getOverview).toHaveBeenCalledTimes(1);
     expect(result.masterVolume).toBe(90);

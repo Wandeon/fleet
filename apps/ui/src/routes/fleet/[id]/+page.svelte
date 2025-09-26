@@ -66,7 +66,6 @@
     return 'warn';
   };
 
-  const toLogsLink = (sourceId: string) => `${resolve('/logs')}?source=${encodeURIComponent(sourceId)}`;
 </script>
 
 <svelte:head>
@@ -188,7 +187,7 @@
           </ul>
           <a
             class="link"
-            href={toLogsLink(detail.summary.id)}
+            href={resolve('/logs/source/[id]', { id: detail.summary.id })}
           >
             Open in logs console →
           </a>
