@@ -7,7 +7,6 @@
   import { SvelteSet } from 'svelte/reactivity';
   import type { PageData } from './$types';
   import type { OperatorAccount, SettingsState } from '$lib/types';
-  import { SvelteSet } from 'svelte/reactivity';
   import {
     cancelPairing,
     getSettings,
