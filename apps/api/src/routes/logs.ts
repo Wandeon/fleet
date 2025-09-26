@@ -143,6 +143,8 @@ const logQuerySchema = z.object({
   level: z.enum(['trace', 'debug', 'info', 'warn', 'error', 'fatal']).optional(),
   deviceId: z.string().optional(),
   correlationId: z.string().optional(),
+  start: z.string().datetime().optional(),
+  end: z.string().datetime().optional(),
   limit: z.coerce.number().int().min(1).max(500).default(100),
 });
 
@@ -163,6 +165,10 @@ router.get('/query', (req, res, next) => {
     const params = logQuerySchema.parse(req.query);
     const levelPriority = { trace: 0, debug: 1, info: 2, warn: 3, error: 4, fatal: 5 } as const;
     const minLevel = params.level ? levelPriority[params.level] : 0;
+
+    const startTime = params.start ? new Date(params.start) : null;
+    const endTime = params.end ? new Date(params.end) : null;
+
     const items = logBuffer
       .filter((entry) => {
         const entryLevel = levelPriority[entry.level as keyof typeof levelPriority] ?? 0;
@@ -175,6 +181,16 @@ router.get('/query', (req, res, next) => {
         if (params.correlationId && entry.meta?.correlationId !== params.correlationId) {
           return false;
         }
+
+        // Time range filtering
+        const entryTime = new Date(entry.timestamp);
+        if (startTime && entryTime < startTime) {
+          return false;
+        }
+        if (endTime && entryTime > endTime) {
+          return false;
+        }
+
         return true;
       })
       .slice(-params.limit);
@@ -223,6 +239,44 @@ router.post('/export', (req, res, next) => {
     );
 
     res.status(202).json(job);
+  } catch (error) {
+    next(error);
+  }
+});
+
+router.get('/jobs/:id', (req, res, next) => {
+  res.locals.routePath = '/logs/jobs/:id';
+  try {
+    const { id } = req.params;
+
+    if (!id || typeof id !== 'string') {
+      res.status(400).json({
+        code: 'invalid_request',
+        message: 'Export job ID is required.',
+        correlationId: req.correlationId,
+      });
+      return;
+    }
+
+    // For now, return a mock response since job storage isn't implemented yet
+    // TODO: Implement persistent job storage and status tracking
+    const mockJob = {
+      exportId: id,
+      status: 'completed' as const,
+      format: 'json' as const,
+      filters: {
+        deviceId: null,
+        level: null,
+        start: null,
+        end: null,
+      },
+      requestedAt: new Date(Date.now() - 30000).toISOString(),
+      estimatedReadyAt: new Date().toISOString(),
+      downloadUrl: `https://logs.example/exports/${id}.json`,
+      correlationId: req.correlationId,
+    };
+
+    res.json(mockJob);
   } catch (error) {
     next(error);
   }

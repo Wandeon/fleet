@@ -11,7 +11,7 @@ export interface LogExportFilters {
 
 export interface LogExportJob {
   exportId: string;
-  status: 'queued';
+  status: 'queued' | 'processing' | 'completed' | 'failed';
   format: LogExportFormat;
   filters: {
     deviceId?: string;

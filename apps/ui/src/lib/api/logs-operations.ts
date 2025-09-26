@@ -104,13 +104,13 @@ const normaliseEntry = (entry: LogEntry): LogEntry => {
 const buildQuery = (options: LogQueryOptions): URLSearchParams => {
   const params = new URLSearchParams();
   if (options.sourceId && options.sourceId !== 'all') {
-    params.set('source', options.sourceId);
+    params.set('deviceId', options.sourceId);
   }
   if (options.severity && options.severity !== 'all') {
     params.set('level', severityToApi(options.severity as LogSeverity));
   }
   if (options.search) {
-    params.set('q', options.search);
+    params.set('correlationId', options.search);
   }
   if (options.limit) {
     params.set('limit', String(Math.max(1, options.limit)));
@@ -129,20 +129,22 @@ export const fetchLogSnapshot = async (options: LogQueryOptions = {}): Promise<L
   const fetchImpl = ensureFetch(options.fetch);
   const params = buildQuery(options);
   const result = await rawRequest<{
-    entries: LogEntry[];
+    items: LogEntry[];
+    total: number;
+    fetchedAt: string;
     sources?: LogsSnapshot['sources'];
     cursor?: string | null;
     lastUpdated?: string;
-  }>(`/logs?${params.toString()}`, {
+  }>(`/logs/query?${params.toString()}`, {
     method: 'GET',
     fetch: fetchImpl as RequestOptions['fetch'],
   });
 
   return {
-    entries: (result?.entries ?? []).map(normaliseEntry),
+    entries: (result?.items ?? []).map(normaliseEntry),
     sources: result?.sources ?? [],
     cursor: result?.cursor ?? null,
-    lastUpdated: result?.lastUpdated ?? new Date().toISOString(),
+    lastUpdated: result?.fetchedAt ?? new Date().toISOString(),
   } satisfies LogsSnapshot;
 };
 

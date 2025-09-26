@@ -1847,6 +1847,9 @@ components:
           type: string
           enum:
             - queued
+            - processing
+            - completed
+            - failed
         format:
           type: string
           enum:
@@ -4358,6 +4361,18 @@ paths:
           schema:
             type: string
           description: Filter by correlation identifier.
+        - name: start
+          in: query
+          schema:
+            type: string
+            format: date-time
+          description: Filter logs from this timestamp onwards (ISO 8601).
+        - name: end
+          in: query
+          schema:
+            type: string
+            format: date-time
+          description: Filter logs up to this timestamp (ISO 8601).
         - name: limit
           in: query
           schema:
@@ -4421,6 +4436,40 @@ paths:
                 $ref: '#/components/schemas/LogsExportResponse'
         '400':
           $ref: '#/components/responses/ValidationError'
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '403':
+          $ref: '#/components/responses/ForbiddenError'
+        '429':
+          $ref: '#/components/responses/RateLimitError'
+        '500':
+          $ref: '#/components/responses/InternalError'
+  /logs/jobs/{id}:
+    get:
+      tags:
+        - Logs
+      summary: Retrieve the status and download URL for a log export job.
+      description: Check the processing status of a log export job and get the download URL when ready.
+      operationId: getLogExportJob
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+          description: The export job ID returned from the /logs/export endpoint.
+      responses:
+        '200':
+          description: Export job status and details.
+          headers:
+            x-correlation-id:
+              $ref: '#/components/headers/CorrelationId'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/LogsExportResponse'
+        '404':
+          $ref: '#/components/responses/NotFoundError'
         '401':
           $ref: '#/components/responses/UnauthorizedError'
         '403':
