@@ -173,8 +173,7 @@ export const removeOperator = async (operatorId: string, options: SettingsFetchO
 };
 
 export const saveSettingsDraft = async (
-  draft: Partial<SettingsState>,
-  _options: SettingsFetchOptions = {}
+  draft: Partial<SettingsState>
 ): Promise<SettingsState> => {
   if (USE_MOCKS) {
     return mockApi.settingsUpdate(draft);

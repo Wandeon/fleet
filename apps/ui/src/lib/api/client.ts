@@ -14,7 +14,7 @@ import type {
   AudioMasterVolumeRequest,
   AudioPlaybackRequest,
   AudioPlaylist,
-  AudioPlaylistTrack,
+  AudioPlaylistTrack, // eslint-disable-line @typescript-eslint/no-unused-vars
   AudioSeekRequest,
   AudioVolumeRequest,
   CameraClipRequest,

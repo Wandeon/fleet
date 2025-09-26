@@ -1,6 +1,7 @@
 import { beforeEach, describe, expect, test, vi } from 'vitest';
 import type { AudioState as ApiAudioState } from '$lib/api/client';
 import type { ApiRequestOptions } from '$lib/api/gen/core/ApiRequestOptions';
+import type { ApiResult } from '$lib/api/gen/core/ApiResult';
 type AudioApiMockMap = Record<
   | 'getOverview'
   | 'getDevice'
@@ -199,13 +200,13 @@ describe('audio-operations (D1 integration)', () => {
   test('surface friendly seek error messaging', async () => {
     const { ApiError } = await vi.importActual<typeof import('$lib/api/client')>('$lib/api/client');
     const request = { method: 'POST', url: '/audio/devices/pi-audio-01/seek' } as ApiRequestOptions;
-    const response = {
+    const response: ApiResult = {
       url: '/audio/devices/pi-audio-01/seek',
       ok: false,
       status: 422,
       statusText: 'Unprocessable Entity',
       body: { message: 'Position outside current track duration' },
-    } as any;
+    };
     const apiError = new ApiError(request, response, 'Unprocessable Entity');
 
     audioApiMocks.seekDevice.mockRejectedValue(apiError);
