@@ -2,6 +2,17 @@ import { Router } from 'express';
 import { z } from 'zod';
 import { randomUUID } from 'node:crypto';
 import { deviceRegistry } from '../upstream/devices';
+import {
+  createZigbeeRule,
+  deleteZigbeeRule,
+  getZigbeeRule,
+  getZigbeeRuleSchemas,
+  listZigbeeRules,
+  simulateZigbeeRule,
+  updateZigbeeRule,
+  validateZigbeeRuleDefinition
+} from '../services/zigbeeRules';
+import { createHttpError } from '../util/errors';
 
 const router = Router();
 
@@ -27,19 +38,6 @@ const pairingState: {
   confirmed: []
 };
 
-const ruleStore = new Map<
-  string,
-  {
-    id: string;
-    name: string;
-    trigger: Record<string, unknown>;
-    actions: Record<string, unknown>[];
-    enabled: boolean;
-    createdAt: string;
-    updatedAt: string;
-  }
->();
-
 const pairingStartSchema = z.object({
   durationSeconds: z.coerce.number().int().min(30).max(900).default(300),
   channel: z.coerce.number().int().min(11).max(26).optional()
@@ -51,48 +49,50 @@ const actionSchema = z.object({
   payload: z.record(z.string(), z.unknown()).optional()
 });
 
-const ruleSchema = z.object({
-  name: z.string().min(1),
-  trigger: z.record(z.string(), z.unknown()),
-  actions: z.array(z.record(z.string(), z.unknown())).min(1)
-});
+const { update: ruleUpdateSchema, simulation: ruleSimulationSchema } = getZigbeeRuleSchemas();
 
-router.get('/overview', (_req, res) => {
+router.get('/overview', async (_req, res, next) => {
   res.locals.routePath = '/zigbee/overview';
-  const devices = deviceRegistry
-    .list()
-    .filter((device) => device.module === 'zigbee' || device.role.includes('zigbee'))
-    .map((device) => ({
-      id: device.id,
-      name: device.name,
-      model: 'unknown',
-      lastSeen: new Date().toISOString(),
-      status: pairingState.confirmed.includes(device.id) ? 'paired' : 'unverified'
-    }));
+  try {
+    const devices = deviceRegistry
+      .list()
+      .filter((device) => device.module === 'zigbee' || device.role.includes('zigbee'))
+      .map((device) => ({
+        id: device.id,
+        name: device.name,
+        model: 'unknown',
+        lastSeen: new Date().toISOString(),
+        status: pairingState.confirmed.includes(device.id) ? 'paired' : 'unverified'
+      }));
 
-  res.json({
-    hub: {
-      id: 'zigbee-hub',
-      status: pairingState.active ? 'pairing' : 'online',
-      channel: 20,
-      lastHeartbeatAt: new Date().toISOString()
-    },
-    pairing: {
-      active: pairingState.active,
-      startedAt: pairingState.startedAt,
-      expiresAt: pairingState.expiresAt,
-      discovered: pairingState.discovered,
-      confirmed: pairingState.confirmed
-    },
-    devices,
-    rules: Array.from(ruleStore.values()).map((rule) => ({
+    const rules = (await listZigbeeRules()).map((rule) => ({
       id: rule.id,
       name: rule.name,
       enabled: rule.enabled,
       createdAt: rule.createdAt,
       updatedAt: rule.updatedAt
-    }))
-  });
+    }));
+
+    res.json({
+      hub: {
+        id: 'zigbee-hub',
+        status: pairingState.active ? 'pairing' : 'online',
+        channel: 20,
+        lastHeartbeatAt: new Date().toISOString()
+      },
+      pairing: {
+        active: pairingState.active,
+        startedAt: pairingState.startedAt,
+        expiresAt: pairingState.expiresAt,
+        discovered: pairingState.discovered,
+        confirmed: pairingState.confirmed
+      },
+      devices,
+      rules
+    });
+  } catch (error) {
+    next(error);
+  }
 });
 
 router.get('/', (_req, res) => {
@@ -227,60 +227,90 @@ router.post('/pairing/:deviceId', (req, res) => {
   res.status(202).json({ accepted: true, deviceId });
 });
 
-router.get('/rules', (_req, res) => {
+router.get('/rules', async (_req, res, next) => {
   res.locals.routePath = '/zigbee/rules';
-  const rules = Array.from(ruleStore.values());
-  res.json({ items: rules, total: rules.length });
+  try {
+    const rules = await listZigbeeRules();
+    res.json({ items: rules, total: rules.length });
+  } catch (error) {
+    next(error);
+  }
 });
 
 router.post('/rules/validate', (req, res, next) => {
   res.locals.routePath = '/zigbee/rules/validate';
   try {
-    const payload = ruleSchema.parse(req.body);
+    const payload = validateZigbeeRuleDefinition(req.body);
     res.json({ valid: true, normalized: payload, evaluatedAt: new Date().toISOString() });
   } catch (error) {
     next(error);
   }
 });
 
-router.post('/rules', (req, res, next) => {
+router.post('/rules', async (req, res, next) => {
   res.locals.routePath = '/zigbee/rules';
   try {
-    const payload = ruleSchema.parse(req.body);
-    const now = new Date().toISOString();
-    const id = randomUUID();
-    const record = {
-      id,
-      name: payload.name,
-      trigger: payload.trigger,
-      actions: payload.actions,
-      enabled: true,
-      createdAt: now,
-      updatedAt: now
-    };
-    ruleStore.set(id, record);
+    const record = await createZigbeeRule(req.body);
     res.status(201).json(record);
   } catch (error) {
     next(error);
   }
 });
 
-router.post('/rules/:ruleId/enable', (req, res) => {
-  res.locals.routePath = '/zigbee/rules/:ruleId/enable';
-  const { ruleId } = req.params;
-  const enabled = z.object({ enabled: z.boolean().default(true) }).parse(req.body ?? {});
-  const existing = ruleStore.get(ruleId);
-  if (!existing) {
-    res.status(404).json({ code: 'not_found', message: 'Rule not found' });
-    return;
+router.get('/rules/:ruleId', async (req, res, next) => {
+  res.locals.routePath = '/zigbee/rules/:ruleId';
+  try {
+    const rule = await getZigbeeRule(req.params.ruleId);
+    res.json(rule);
+  } catch (error) {
+    next(error);
   }
-  const updated = {
-    ...existing,
-    enabled: enabled.enabled,
-    updatedAt: new Date().toISOString()
-  };
-  ruleStore.set(ruleId, updated);
-  res.json(updated);
+});
+
+router.put('/rules/:ruleId', async (req, res, next) => {
+  res.locals.routePath = '/zigbee/rules/:ruleId';
+  try {
+    const payload = ruleUpdateSchema.parse(req.body);
+    if (!payload || Object.keys(payload).length === 0) {
+      throw createHttpError(400, 'bad_request', 'No fields provided for update');
+    }
+    const updated = await updateZigbeeRule(req.params.ruleId, payload);
+    res.json(updated);
+  } catch (error) {
+    next(error);
+  }
+});
+
+router.delete('/rules/:ruleId', async (req, res, next) => {
+  res.locals.routePath = '/zigbee/rules/:ruleId';
+  try {
+    await deleteZigbeeRule(req.params.ruleId);
+    res.status(204).send();
+  } catch (error) {
+    next(error);
+  }
+});
+
+router.patch('/rules/:ruleId/enable', async (req, res, next) => {
+  res.locals.routePath = '/zigbee/rules/:ruleId/enable';
+  try {
+    const body = z.object({ enabled: z.boolean().default(true) }).parse(req.body ?? {});
+    const updated = await updateZigbeeRule(req.params.ruleId, { enabled: body.enabled });
+    res.json(updated);
+  } catch (error) {
+    next(error);
+  }
+});
+
+router.post('/rules/simulate', async (req, res, next) => {
+  res.locals.routePath = '/zigbee/rules/simulate';
+  try {
+    const payload = ruleSimulationSchema.parse(req.body ?? {});
+    const result = await simulateZigbeeRule(payload);
+    res.json(result);
+  } catch (error) {
+    next(error);
+  }
 });
 
 export const zigbeeRouter = router;

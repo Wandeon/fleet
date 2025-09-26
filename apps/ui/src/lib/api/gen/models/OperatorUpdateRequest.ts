@@ -4,8 +4,8 @@
 
 import type { OperatorRole } from './OperatorRole';
 
-export type InviteOperatorRequest = {
-  email: string;
-  roles: Array<OperatorRole>;
+export type OperatorUpdateRequest = {
+  roles?: Array<OperatorRole>;
+  status?: 'pending' | 'active' | 'suspended';
 };
 

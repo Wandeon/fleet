@@ -1,4 +1,6 @@
 import { execSync } from 'node:child_process';
+import { mkdirSync } from 'node:fs';
+import { resolve } from 'node:path';
 
 process.env.NODE_ENV = 'test';
 process.env.DATABASE_URL = process.env.DATABASE_URL ?? 'file:./test.db';
@@ -13,6 +15,12 @@ process.env.RATE_LIMIT_MAX = '100';
 process.env.RATE_LIMIT_BURST = '50';
 process.env.RATE_LIMIT_GLOBAL_MAX = '200';
 process.env.CORS_ALLOWED_ORIGINS = 'https://app.headspamartina.hr';
+const tmpDir = resolve(process.cwd(), 'apps/api/tests/tmp');
+mkdirSync(tmpDir, { recursive: true });
+process.env.ZIGBEE_RULES_PATH =
+  process.env.ZIGBEE_RULES_PATH ?? resolve(tmpDir, 'zigbee-rules.json');
+process.env.ZIGBEE_RULES_FALLBACK_PATH =
+  process.env.ZIGBEE_RULES_FALLBACK_PATH ?? resolve(__dirname, '../../api-mock/fixtures/zigbee.rules.json');
 process.env.DEVICE_REGISTRY_JSON =
   process.env.DEVICE_REGISTRY_JSON ??
   JSON.stringify({

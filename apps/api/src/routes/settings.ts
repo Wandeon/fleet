@@ -4,6 +4,7 @@ import { z } from 'zod';
 
 const router = Router();
 
+const operatorRoleSchema = z.enum(['admin', 'automation', 'viewer', 'incident', 'security']);
 const proxySchema = z.object({
   upstreamUrl: z.string().url().optional(),
   authMode: z.enum(['none', 'basic', 'token']).optional(),
@@ -27,8 +28,32 @@ const pairingClaimSchema = z.object({
 
 const inviteSchema = z.object({
   email: z.string().email(),
-  roles: z.array(z.string()).default(['operator'])
+  roles: z.array(operatorRoleSchema).default(['viewer'])
 });
+
+const operatorUpdateSchema = z
+  .object({
+    roles: z.array(operatorRoleSchema).min(1).optional(),
+    status: z.enum(['pending', 'active', 'suspended']).optional()
+  })
+  .refine((value) => Object.keys(value).length > 0, {
+    message: 'Provide at least one field to update.'
+  });
+
+const alertChannelSchema = z.enum(['slack', 'email', 'sms']);
+
+const securityUpdateSchema = z
+  .object({
+    nightMode: z
+      .object({
+        escalationEnabled: z.boolean().optional(),
+        alertChannels: z.array(alertChannelSchema).min(1).optional()
+      })
+      .optional()
+  })
+  .refine((value) => value.nightMode && Object.keys(value.nightMode).length > 0, {
+    message: 'nightMode update is required.'
+  });
 
 const operatorState: {
   proxy: {
@@ -37,7 +62,14 @@ const operatorState: {
     heartbeatIntervalSeconds: number;
   };
   allowedOrigins: string[];
-  operators: { id: string; email: string; roles: string[]; invitedAt: string; status: string }[];
+  operators: {
+    id: string;
+    email: string;
+    roles: z.infer<typeof operatorRoleSchema>[];
+    invitedAt: string;
+    status: 'pending' | 'active' | 'suspended';
+    lastUpdatedAt: string;
+  }[];
   pairing: {
     active: boolean;
     expiresAt: string | null;
@@ -45,6 +77,13 @@ const operatorState: {
     candidates: { id: string; model: string; signal: number }[];
   };
   apiTokenPreview: string;
+  security: {
+    nightMode: {
+      escalationEnabled: boolean;
+      alertChannels: z.infer<typeof alertChannelSchema>[];
+      updatedAt: string;
+    };
+  };
 } = {
   proxy: {
     upstreamUrl: 'https://proxy.example.internal',
@@ -53,7 +92,14 @@ const operatorState: {
   },
   allowedOrigins: ['https://ui.fleet.local'],
   operators: [
-    { id: 'op-1', email: 'alice@example.com', roles: ['admin'], invitedAt: new Date().toISOString(), status: 'active' }
+    {
+      id: 'op-1',
+      email: 'alice@example.com',
+      roles: ['admin'],
+      invitedAt: new Date().toISOString(),
+      status: 'active',
+      lastUpdatedAt: new Date().toISOString()
+    }
   ],
   pairing: {
     active: false,
@@ -61,7 +107,14 @@ const operatorState: {
     ticketId: null,
     candidates: []
   },
-  apiTokenPreview: 'tok-live-****'
+  apiTokenPreview: 'tok-live-****',
+  security: {
+    nightMode: {
+      escalationEnabled: true,
+      alertChannels: ['slack'],
+      updatedAt: new Date().toISOString()
+    }
+  }
 };
 
 router.get('/', (_req, res) => {
@@ -72,6 +125,7 @@ router.get('/', (_req, res) => {
     operators: operatorState.operators,
     pairing: operatorState.pairing,
     apiTokenPreview: operatorState.apiTokenPreview,
+    security: operatorState.security,
     updatedAt: new Date().toISOString()
   });
 });
@@ -152,15 +206,44 @@ router.post('/operators', (req, res, next) => {
       res.status(409).json({ code: 'conflict', message: 'Operator already exists' });
       return;
     }
+    const now = new Date().toISOString();
     const operator = {
       id: randomUUID(),
       email: payload.email,
-      roles: payload.roles,
-      invitedAt: new Date().toISOString(),
-      status: 'pending'
+      roles: Array.from(new Set(payload.roles)),
+      invitedAt: now,
+      status: 'pending' as const,
+      lastUpdatedAt: now
     };
     operatorState.operators.push(operator);
     res.status(201).json(operator);
+  } catch (error) {
+    next(error);
+  }
+});
+
+router.get('/operators', (_req, res) => {
+  res.locals.routePath = '/settings/operators';
+  res.json({ items: operatorState.operators, total: operatorState.operators.length, updatedAt: new Date().toISOString() });
+});
+
+router.put('/operators/:operatorId', (req, res, next) => {
+  res.locals.routePath = '/settings/operators/:operatorId';
+  try {
+    const payload = operatorUpdateSchema.parse(req.body ?? {});
+    const operator = operatorState.operators.find((item) => item.id === req.params.operatorId);
+    if (!operator) {
+      res.status(404).json({ code: 'not_found', message: 'Operator not found' });
+      return;
+    }
+    if (payload.roles) {
+      operator.roles = Array.from(new Set(payload.roles));
+    }
+    if (payload.status) {
+      operator.status = payload.status;
+    }
+    operator.lastUpdatedAt = new Date().toISOString();
+    res.json(operator);
   } catch (error) {
     next(error);
   }
@@ -171,6 +254,29 @@ router.delete('/operators/:operatorId', (req, res) => {
   const { operatorId } = req.params;
   operatorState.operators = operatorState.operators.filter((operator) => operator.id !== operatorId);
   res.status(202).json({ removed: true, operatorId, updatedAt: new Date().toISOString() });
+});
+
+router.get('/security', (_req, res) => {
+  res.locals.routePath = '/settings/security';
+  res.json({ ...operatorState.security, retrievedAt: new Date().toISOString() });
+});
+
+router.patch('/security', (req, res, next) => {
+  res.locals.routePath = '/settings/security';
+  try {
+    const payload = securityUpdateSchema.parse(req.body ?? {});
+    const now = new Date().toISOString();
+    if (payload.nightMode?.escalationEnabled !== undefined) {
+      operatorState.security.nightMode.escalationEnabled = payload.nightMode.escalationEnabled;
+    }
+    if (payload.nightMode?.alertChannels) {
+      operatorState.security.nightMode.alertChannels = Array.from(new Set(payload.nightMode.alertChannels));
+    }
+    operatorState.security.nightMode.updatedAt = now;
+    res.json({ nightMode: operatorState.security.nightMode, updatedAt: now });
+  } catch (error) {
+    next(error);
+  }
 });
 
 export const settingsRouter = router;
