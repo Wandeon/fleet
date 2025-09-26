@@ -323,13 +323,13 @@ router.get(
 );
 
 router.get(
-  '/fleet/state',
+  '/fleet/overview',
   asyncHandler(async (req, res) => {
     if (await maybeSimulate(res, req)) {
       return;
     }
-    const state = buildFleetState();
-    await sendJson(res, 200, state);
+    const overview = buildFleetOverview();
+    await sendJson(res, 200, overview);
   })
 );
 
@@ -1182,6 +1182,99 @@ async function maybeSimulate(res: Response, req: Request): Promise<boolean> {
     }
   }
   return false;
+}
+
+function buildFleetOverview() {
+  const audioDeviceList = Array.from(audioDevices.values());
+  const zigbeeDeviceList = Array.from(zigbeeDevices.values());
+  const cameraDeviceList = cameraSummary.cameras;
+
+  // Calculate totals across all device types
+  const totalDevices = audioDeviceList.length + zigbeeDeviceList.length + cameraDeviceList.length + 1; // +1 for TV
+  const onlineDevices =
+    audioDeviceList.filter(d => d.online).length +
+    zigbeeDeviceList.filter(d => d.state !== 'offline').length +
+    cameraDeviceList.filter(d => d.online).length +
+    (tvStatus.online ? 1 : 0);
+  const offlineDevices = totalDevices - onlineDevices;
+
+  return {
+    totals: {
+      devices: totalDevices,
+      online: onlineDevices,
+      offline: offlineDevices,
+      degraded: 0 // No degraded state in current mock data
+    },
+    modules: [
+      {
+        id: 'audio',
+        label: 'Audio Players',
+        online: audioDeviceList.filter(d => d.online).length,
+        offline: audioDeviceList.filter(d => !d.online).length,
+        degraded: 0
+      },
+      {
+        id: 'video',
+        label: 'Video',
+        online: tvStatus.online ? 1 : 0,
+        offline: tvStatus.online ? 0 : 1,
+        degraded: 0
+      },
+      {
+        id: 'zigbee',
+        label: 'Zigbee',
+        online: zigbeeDeviceList.filter(d => d.state !== 'offline').length,
+        offline: zigbeeDeviceList.filter(d => d.state === 'offline').length,
+        degraded: 0
+      },
+      {
+        id: 'camera',
+        label: 'Cameras',
+        online: cameraDeviceList.filter(d => d.online).length,
+        offline: cameraDeviceList.filter(d => !d.online).length,
+        degraded: 0
+      }
+    ],
+    devices: [
+      ...audioDeviceList.map(d => ({
+        id: d.id,
+        name: d.displayName,
+        module: 'audio',
+        status: d.online ? 'online' : 'offline',
+        location: null,
+        lastSeen: d.lastSeen,
+        version: '1.0.0'
+      })),
+      {
+        id: tvStatus.id,
+        name: tvStatus.displayName,
+        module: 'video',
+        status: tvStatus.online ? 'online' : 'offline',
+        location: null,
+        lastSeen: tvStatus.lastSeen,
+        version: '1.0.0'
+      },
+      ...zigbeeDeviceList.map(d => ({
+        id: d.id,
+        name: d.displayName,
+        module: 'zigbee',
+        status: d.state === 'offline' ? 'offline' : 'online',
+        location: null,
+        lastSeen: d.lastSeen || new Date().toISOString(),
+        version: '1.0.0'
+      })),
+      ...cameraDeviceList.map(d => ({
+        id: d.id,
+        name: d.displayName,
+        module: 'camera',
+        status: d.online ? 'online' : 'offline',
+        location: null,
+        lastSeen: new Date().toISOString(),
+        version: '1.0.0'
+      }))
+    ],
+    updatedAt: new Date().toISOString()
+  };
 }
 
 function buildFleetState() {
