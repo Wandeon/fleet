@@ -346,7 +346,7 @@ router.get(
 );
 
 router.get(
-  '/audio/:id',
+  '/audio/devices/:id',
   asyncHandler(async (req, res) => {
     if (await maybeSimulate(res, req)) {
       return;
@@ -366,7 +366,7 @@ router.get(
 );
 
 router.post(
-  '/audio/:id/play',
+  '/audio/devices/:id/play',
   asyncHandler(async (req, res) => {
     if (await maybeSimulate(res, req)) {
       return;
@@ -398,7 +398,7 @@ router.post(
 );
 
 router.post(
-  '/audio/:id/stop',
+  '/audio/devices/:id/stop',
   asyncHandler(async (req, res) => {
     if (await maybeSimulate(res, req)) {
       return;
@@ -422,7 +422,7 @@ router.post(
 );
 
 router.post(
-  '/audio/:id/volume',
+  '/audio/devices/:id/volume',
   asyncHandler(async (req, res) => {
     if (await maybeSimulate(res, req)) {
       return;
@@ -445,7 +445,7 @@ router.post(
 );
 
 router.put(
-  '/audio/:id/config',
+  '/audio/devices/:id/config',
   asyncHandler(async (req, res) => {
     if (await maybeSimulate(res, req)) {
       return;

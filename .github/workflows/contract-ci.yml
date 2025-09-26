@@ -56,7 +56,7 @@ jobs:
           STATUS=$(curl -s -o /tmp/unauth.json -w "%{http_code}" http://localhost:3015/api/fleet/overview)
           test "$STATUS" -eq 401
 
-          STATUS=$(curl -s -o /tmp/timeout.json -w "%{http_code}" -H 'Authorization: Bearer demo' -H 'x-mock-simulate: timeout' http://localhost:3015/api/audio/pi-audio-01)
+          STATUS=$(curl -s -o /tmp/timeout.json -w "%{http_code}" -H 'Authorization: Bearer demo' -H 'x-mock-simulate: timeout' http://localhost:3015/api/audio/devices/pi-audio-01)
           test "$STATUS" -eq 504
 
           kill $MOCK_PID
