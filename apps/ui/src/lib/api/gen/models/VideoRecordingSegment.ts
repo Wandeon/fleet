@@ -4,9 +4,10 @@
 
 export type VideoRecordingSegment = {
   id: string;
-  start: string;
-  end: string;
-  label?: string | null;
-  url: string;
+  deviceId: string;
+  startedAt: string;
+  endedAt: string;
+  durationSeconds: number;
+  status: 'available' | 'processing' | 'failed';
 };
 

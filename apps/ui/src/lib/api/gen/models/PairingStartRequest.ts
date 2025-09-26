@@ -3,7 +3,7 @@
 /* eslint-disable */
 
 export type PairingStartRequest = {
-  method: 'manual' | 'qr' | 'auto';
-  durationSeconds: number;
+  networkRole: 'audio' | 'video' | 'lighting' | 'sensor';
+  expiresInSeconds: number;
 };
 

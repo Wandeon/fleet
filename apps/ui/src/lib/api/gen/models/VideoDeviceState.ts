@@ -4,10 +4,15 @@
 
 import type { VideoPowerState } from './VideoPowerState';
 
-export type VideoCecDevice = {
+export type VideoDeviceState = {
   id: string;
   name: string;
+  module: string;
+  role: string;
+  status: string;
   power: VideoPowerState;
-  input?: string | null;
+  mute: boolean;
+  input: string;
+  lastUpdated: string;
 };
 

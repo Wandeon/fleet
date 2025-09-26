@@ -3,8 +3,8 @@
 /* eslint-disable */
 
 export type PairingClaimRequest = {
-  note?: string | null;
-  status?: 'success' | 'error';
-  deviceId?: string | null;
+  alias?: string | null;
+  location?: string | null;
+  metadata?: Record<string, string>;
 };
 

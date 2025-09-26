@@ -2,16 +2,11 @@
 /* tslint:disable */
 /* eslint-disable */
 
-import type { LogSeverity } from './LogSeverity';
-
 export type LogEntry = {
-  id: string;
   timestamp: string;
-  severity: LogSeverity;
+  level: 'trace' | 'debug' | 'info' | 'warn' | 'error' | 'fatal';
   message: string;
-  source: string;
-  module?: string | null;
-  deviceId?: string | null;
+  meta?: Record<string, string> | null;
   correlationId?: string | null;
   context?: any;
 };

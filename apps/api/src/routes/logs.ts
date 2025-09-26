@@ -1,5 +1,7 @@
 import { Router } from 'express';
 import type { Request, Response } from 'express';
+import { randomUUID } from 'node:crypto';
+import { z } from 'zod';
 import { logger } from '../middleware/logging';
 
 const router = Router();
@@ -130,6 +132,57 @@ router.get('/stream', (req: Request, res: Response) => {
       level: level,
       generatedAt: new Date().toISOString()
     });
+  }
+});
+
+const logQuerySchema = z.object({
+  level: z.enum(['trace', 'debug', 'info', 'warn', 'error', 'fatal']).optional(),
+  deviceId: z.string().optional(),
+  correlationId: z.string().optional(),
+  limit: z.coerce.number().int().min(1).max(500).default(100)
+});
+
+router.get('/query', (req, res, next) => {
+  res.locals.routePath = '/logs/query';
+  try {
+    const params = logQuerySchema.parse(req.query);
+    const levelPriority = { trace: 0, debug: 1, info: 2, warn: 3, error: 4, fatal: 5 } as const;
+    const minLevel = params.level ? levelPriority[params.level] : 0;
+    const items = logBuffer
+      .filter((entry) => {
+        const entryLevel = levelPriority[entry.level as keyof typeof levelPriority] ?? 0;
+        if (entryLevel < minLevel) {
+          return false;
+        }
+        if (params.deviceId && entry.meta?.deviceId !== params.deviceId) {
+          return false;
+        }
+        if (params.correlationId && entry.meta?.correlationId !== params.correlationId) {
+          return false;
+        }
+        return true;
+      })
+      .slice(-params.limit);
+    res.json({ items, total: items.length, fetchedAt: new Date().toISOString() });
+  } catch (error) {
+    next(error);
+  }
+});
+
+router.post('/export', (req, res, next) => {
+  res.locals.routePath = '/logs/export';
+  try {
+    const params = logQuerySchema.partial().parse(req.body ?? {});
+    const exportId = randomUUID();
+    res.status(202).json({
+      exportId,
+      status: 'queued',
+      filters: params,
+      requestedAt: new Date().toISOString(),
+      downloadUrl: `https://logs.example/exports/${exportId}.ndjson`
+    });
+  } catch (error) {
+    next(error);
   }
 });
 

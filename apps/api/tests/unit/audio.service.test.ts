@@ -6,7 +6,13 @@ import {
   startPlayback,
   getDeviceSnapshot,
   setMasterVolume,
-  getMasterVolume
+  getMasterVolume,
+  createPlaylist,
+  reorderPlaylistTracks,
+  listPlaylists,
+  createPlaybackSession,
+  listSessions,
+  registerLibraryUpload
 } from '../../src/services/audio.js';
 
 async function reset() {
@@ -70,5 +76,79 @@ describe('Audio services', () => {
     await setMasterVolume(72);
     const value = await getMasterVolume();
     expect(value).toBe(72);
+  });
+
+  it('reorders playlist tracks', async () => {
+    const first = await createLibraryTrack({
+      title: 'First',
+      durationSeconds: 45,
+      format: 'audio/mp3',
+      buffer: Buffer.from('first'),
+      filename: 'first.mp3'
+    });
+    const second = await createLibraryTrack({
+      title: 'Second',
+      durationSeconds: 30,
+      format: 'audio/mp3',
+      buffer: Buffer.from('second'),
+      filename: 'second.mp3'
+    });
+
+    const playlist = await createPlaylist({
+      name: 'Morning',
+      loop: false,
+      syncMode: 'synced',
+      tracks: [
+        { trackId: first.id, order: 0 },
+        { trackId: second.id, order: 1 }
+      ]
+    });
+
+    await reorderPlaylistTracks(playlist.id, {
+      ordering: [
+        { trackId: second.id, position: 0 },
+        { trackId: first.id, position: 1 }
+      ]
+    });
+
+    const playlists = await listPlaylists();
+    expect(playlists[0].tracks[0].trackId).toBe(second.id);
+    expect(playlists[0].tracks[1].trackId).toBe(first.id);
+  });
+
+  it('creates playback sessions and surfaces drift metadata', async () => {
+    const track = await createLibraryTrack({
+      title: 'Session Track',
+      durationSeconds: 120,
+      format: 'audio/mp3',
+      buffer: Buffer.from('session'),
+      filename: 'session.mp3'
+    });
+
+    const session = await createPlaybackSession({
+      deviceIds: ['pi-sync-a', 'pi-sync-b'],
+      trackId: track.id,
+      syncMode: 'synced'
+    });
+
+    expect(session.deviceIds).toHaveLength(2);
+    expect(session.drift).toBeDefined();
+
+    const sessions = await listSessions();
+    expect(sessions.some((item) => item.id === session.id)).toBe(true);
+  });
+
+  it('registers library upload metadata for pre-signed flows', () => {
+    const registration = registerLibraryUpload({
+      filename: 'ambient.flac',
+      contentType: 'audio/flac',
+      sizeBytes: 2048,
+      title: 'Ambient Loop',
+      tags: ['calm']
+    });
+
+    expect(registration.uploadUrl).toContain('https://uploads.example/');
+    expect(registration.tags).toContain('calm');
+    expect(registration.expiresAt).toBeTruthy();
   });
 });

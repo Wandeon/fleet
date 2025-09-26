@@ -14,7 +14,13 @@ import {
   stopDevice,
   seekDevice,
   setDeviceVolume,
-  setMasterVolume
+  setMasterVolume,
+  listPlaylists,
+  reorderPlaylistTracks,
+  listSessions,
+  createPlaybackSession,
+  recordSessionSync,
+  registerLibraryUpload
 } from '../services/audio.js';
 import {
   audioPlaybackRequestSchema,
@@ -22,7 +28,11 @@ import {
   audioSeekSchema,
   audioVolumeSchema,
   audioMasterVolumeSchema,
-  deviceIdParamSchema
+  deviceIdParamSchema,
+  audioPlaylistReorderSchema,
+  audioPlaybackSessionSchema,
+  audioSessionSyncSchema,
+  audioLibraryUploadRegistrationSchema
 } from '../util/schema/audio.js';
 import { createHttpError } from '../util/errors.js';
 
@@ -70,12 +80,33 @@ router.post('/library', upload.single('file'), async (req, res, next) => {
   }
 });
 
+router.post('/library/uploads', (req, res, next) => {
+  res.locals.routePath = '/audio/library/uploads';
+  try {
+    const payload = audioLibraryUploadRegistrationSchema.parse(req.body ?? {});
+    const registration = registerLibraryUpload(payload);
+    res.status(201).json(registration);
+  } catch (error) {
+    next(error);
+  }
+});
+
 router.post('/playlists', async (req, res, next) => {
   res.locals.routePath = '/audio/playlists';
   try {
     const payload = audioPlaylistSchema.parse(req.body);
     const playlist = await createPlaylist(payload);
     res.status(201).json(playlist);
+  } catch (error) {
+    next(error);
+  }
+});
+
+router.get('/playlists', async (_req, res, next) => {
+  res.locals.routePath = '/audio/playlists';
+  try {
+    const playlists = await listPlaylists();
+    res.json({ items: playlists, total: playlists.length });
   } catch (error) {
     next(error);
   }
@@ -104,12 +135,57 @@ router.delete('/playlists/:playlistId', async (req, res, next) => {
   }
 });
 
+router.post('/playlists/:playlistId/reorder', async (req, res, next) => {
+  res.locals.routePath = '/audio/playlists/:playlistId/reorder';
+  try {
+    const params = z.object({ playlistId: z.string().min(1) }).parse(req.params);
+    const payload = audioPlaylistReorderSchema.parse(req.body);
+    const playlist = await reorderPlaylistTracks(params.playlistId, payload);
+    res.json(playlist);
+  } catch (error) {
+    next(error);
+  }
+});
+
 router.post('/playback', async (req, res, next) => {
   res.locals.routePath = '/audio/playback';
   try {
     const payload = audioPlaybackRequestSchema.parse(req.body);
     await startPlayback(payload);
     res.status(202).json({ accepted: true });
+  } catch (error) {
+    next(error);
+  }
+});
+
+router.get('/playback/sessions', async (_req, res, next) => {
+  res.locals.routePath = '/audio/playback/sessions';
+  try {
+    const sessions = await listSessions();
+    res.json({ items: sessions, total: sessions.length });
+  } catch (error) {
+    next(error);
+  }
+});
+
+router.post('/playback/sessions', async (req, res, next) => {
+  res.locals.routePath = '/audio/playback/sessions';
+  try {
+    const payload = audioPlaybackSessionSchema.parse(req.body);
+    const session = await createPlaybackSession(payload);
+    res.status(201).json(session);
+  } catch (error) {
+    next(error);
+  }
+});
+
+router.post('/playback/sessions/:sessionId/sync', async (req, res, next) => {
+  res.locals.routePath = '/audio/playback/sessions/:sessionId/sync';
+  try {
+    const params = z.object({ sessionId: z.string().min(1) }).parse(req.params);
+    const payload = audioSessionSyncSchema.parse(req.body);
+    const sessions = await recordSessionSync(params.sessionId, payload);
+    res.status(202).json({ sessions, updatedAt: new Date().toISOString() });
   } catch (error) {
     next(error);
   }
