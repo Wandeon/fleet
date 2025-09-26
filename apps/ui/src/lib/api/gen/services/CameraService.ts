@@ -3,6 +3,8 @@
 /* eslint-disable */
 import type { CameraClipRequest } from '../models/CameraClipRequest';
 import type { CameraClipResponse } from '../models/CameraClipResponse';
+import type { CameraEventDetailResponse } from '../models/CameraEventDetailResponse';
+import type { CameraEventListResponse } from '../models/CameraEventListResponse';
 import type { CameraSelectionRequest } from '../models/CameraSelectionRequest';
 import type { CameraState } from '../models/CameraState';
 
@@ -57,6 +59,79 @@ export class CameraService {
         429: `Request rate limit exceeded.`,
         500: `Unexpected server error occurred.`,
         501: `Endpoint contract defined but backend implementation is pending.`,
+      },
+    });
+  }
+
+  /**
+   * List camera AI events with optional filters.
+   * Retrieve camera detections with support for time range, confidence, and tag filtering.
+   * @param start Return events that occurred at or after this timestamp.
+   * @param end Return events that occurred at or before this timestamp.
+   * @param cameraId Restrict results to a single camera identifier.
+   * @param tags Comma separated list of tags that must be present on the event.
+   * @param minConfidence Minimum detection confidence (0.0-1.0 or percentage).
+   * @param maxConfidence Maximum detection confidence (0.0-1.0 or percentage).
+   * @param limit Maximum number of events to return in a single response.
+   * @param cursor Cursor returned by a previous request for pagination.
+   * @returns CameraEventListResponse Camera event collection.
+   * @throws ApiError
+   */
+  public static listCameraEvents(
+    start?: string,
+    end?: string,
+    cameraId?: string,
+    tags?: Array<string>,
+    minConfidence?: number,
+    maxConfidence?: number,
+    limit: number = 50,
+    cursor?: string,
+  ): CancelablePromise<CameraEventListResponse> {
+    return __request(OpenAPI, {
+      method: 'GET',
+      url: '/camera/events',
+      query: {
+        'start': start,
+        'end': end,
+        'cameraId': cameraId,
+        'tags': tags,
+        'minConfidence': minConfidence,
+        'maxConfidence': maxConfidence,
+        'limit': limit,
+        'cursor': cursor,
+      },
+      errors: {
+        400: `One or more request parameters failed validation.`,
+        401: `Authentication failed or credentials missing.`,
+        403: `Authenticated user does not have permission to access the resource.`,
+        429: `Request rate limit exceeded.`,
+        500: `Unexpected server error occurred.`,
+      },
+    });
+  }
+
+  /**
+   * Retrieve a single camera event with metadata and clip reference.
+   * Retrieve a single camera event with metadata and clip reference.
+   * @param eventId
+   * @returns CameraEventDetailResponse Camera event detail response.
+   * @throws ApiError
+   */
+  public static getCameraEvent(
+    eventId: string,
+  ): CancelablePromise<CameraEventDetailResponse> {
+    return __request(OpenAPI, {
+      method: 'GET',
+      url: '/camera/events/{eventId}',
+      path: {
+        'eventId': eventId,
+      },
+      errors: {
+        401: `Authentication failed or credentials missing.`,
+        403: `Authenticated user does not have permission to access the resource.`,
+        404: `Requested resource does not exist.`,
+        429: `Request rate limit exceeded.`,
+        500: `Unexpected server error occurred.`,
       },
     });
   }

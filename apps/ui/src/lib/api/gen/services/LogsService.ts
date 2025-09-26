@@ -2,6 +2,8 @@
 /* tslint:disable */
 /* eslint-disable */
 import type { LogEntry } from '../models/LogEntry';
+import type { LogsExportRequest } from '../models/LogsExportRequest';
+import type { LogsExportResponse } from '../models/LogsExportResponse';
 import type { LogsSnapshot } from '../models/LogsSnapshot';
 
 import type { CancelablePromise } from '../core/CancelablePromise';
@@ -125,22 +127,12 @@ export class LogsService {
    * Create an export of logs matching a filter set.
    * Queue a downloadable log export job using optional filters for offline analysis.
    * @param requestBody
-   * @returns any Export scheduled.
+   * @returns LogsExportResponse Export scheduled.
    * @throws ApiError
    */
   public static exportLogs(
-    requestBody?: {
-      level?: 'trace' | 'debug' | 'info' | 'warn' | 'error' | 'fatal';
-      deviceId?: string;
-      correlationId?: string;
-    },
-  ): CancelablePromise<{
-    exportId: string;
-    status: string;
-    filters?: Record<string, string>;
-    requestedAt: string;
-    downloadUrl: string;
-  }> {
+    requestBody?: LogsExportRequest,
+  ): CancelablePromise<LogsExportResponse> {
     return __request(OpenAPI, {
       method: 'POST',
       url: '/logs/export',
@@ -150,6 +142,7 @@ export class LogsService {
         400: `One or more request parameters failed validation.`,
         401: `Authentication failed or credentials missing.`,
         403: `Authenticated user does not have permission to access the resource.`,
+        429: `Request rate limit exceeded.`,
         500: `Unexpected server error occurred.`,
       },
     });

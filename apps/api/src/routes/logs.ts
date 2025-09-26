@@ -1,8 +1,9 @@
 import { Router } from 'express';
 import type { Request, Response } from 'express';
-import { randomUUID } from 'node:crypto';
 import { z } from 'zod';
 import { logger } from '../middleware/logging';
+import { createLogExportJob, isLogExportAuthorized } from '../services/logExport.js';
+import { logsExportRequestSchema } from '../util/schema/logs.js';
 
 const router = Router();
 
@@ -142,6 +143,17 @@ const logQuerySchema = z.object({
   limit: z.coerce.number().int().min(1).max(500).default(100)
 });
 
+function parseDelimitedHeader(value: string | string[] | undefined): string[] {
+  if (!value) {
+    return [];
+  }
+  const values = Array.isArray(value) ? value : [value];
+  return values
+    .flatMap((item) => item.split(','))
+    .map((item) => item.trim())
+    .filter((item) => item.length > 0);
+}
+
 router.get('/query', (req, res, next) => {
   res.locals.routePath = '/logs/query';
   try {
@@ -172,15 +184,40 @@ router.get('/query', (req, res, next) => {
 router.post('/export', (req, res, next) => {
   res.locals.routePath = '/logs/export';
   try {
-    const params = logQuerySchema.partial().parse(req.body ?? {});
-    const exportId = randomUUID();
-    res.status(202).json({
-      exportId,
-      status: 'queued',
-      filters: params,
-      requestedAt: new Date().toISOString(),
-      downloadUrl: `https://logs.example/exports/${exportId}.ndjson`
-    });
+    const payload = logsExportRequestSchema.parse(req.body ?? {});
+    const rolesHeader = parseDelimitedHeader(req.headers['x-operator-roles']);
+    const singleRoleHeader = parseDelimitedHeader(req.headers['x-operator-role']);
+    const genericRoleHeader = parseDelimitedHeader(req.headers['x-roles']);
+    const roles = Array.from(new Set([...rolesHeader, ...singleRoleHeader, ...genericRoleHeader]));
+    const scopeHeader = parseDelimitedHeader(req.headers['x-operator-scopes']);
+    const singleScopeHeader = parseDelimitedHeader(req.headers['x-operator-scope']);
+    const genericScopeHeader = parseDelimitedHeader(req.headers['x-scopes']);
+    const authContext = res.locals.auth;
+    const baseScopes = Array.isArray(authContext?.scopes)
+      ? [...(authContext?.scopes as string[])]
+      : [];
+    const scopes = Array.from(new Set([...baseScopes, ...scopeHeader, ...singleScopeHeader, ...genericScopeHeader]));
+
+    if (!isLogExportAuthorized(roles, scopes)) {
+      res.status(403).json({
+        code: 'forbidden',
+        message: 'Log export requires a privileged role or scope.'
+      });
+      return;
+    }
+
+    const job = createLogExportJob(
+      {
+        deviceId: payload.deviceId,
+        level: payload.level,
+        start: payload.start ? new Date(payload.start) : undefined,
+        end: payload.end ? new Date(payload.end) : undefined
+      },
+      payload.format,
+      req.correlationId
+    );
+
+    res.status(202).json(job);
   } catch (error) {
     next(error);
   }
