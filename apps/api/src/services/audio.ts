@@ -3,6 +3,7 @@ import { randomUUID } from 'node:crypto';
 import { basename, resolve } from 'node:path';
 import { prisma } from '../lib/db.js';
 import { deviceRegistry } from '../upstream/devices.js';
+import { createHttpError } from '../util/errors.js';
 import type { AudioPlaylistReorderInput } from '../util/schema/audio.js';
 
 export interface LibraryTrackInput {
@@ -221,7 +222,7 @@ export async function reorderPlaylistTracks(playlistId: string, input: AudioPlay
   });
 
   if (!playlist) {
-    throw new Error('Playlist not found');
+    throw createHttpError(404, 'not_found', 'Playlist not found');
   }
 
   const trackMap = new Map(playlist.tracks.map((track) => [track.trackId, track]));
@@ -387,7 +388,7 @@ export async function startPlayback(request: PlaybackRequest): Promise<string> {
       include: { tracks: { orderBy: { order: 'asc' }, include: { track: true } } }
     });
     if (!playlist) {
-      throw new Error('Playlist not found');
+      throw createHttpError(404, 'not_found', 'Playlist not found');
     }
     const first = playlist.tracks[0]?.track;
     if (first) {
@@ -569,7 +570,7 @@ export async function recordSessionSync(
 ) {
   const existing = await prisma.audioSession.findUnique({ where: { id: sessionId } });
   if (!existing) {
-    throw new Error('Session not found');
+    throw createHttpError(404, 'not_found', 'Session not found');
   }
 
   await prisma.audioSession.update({
