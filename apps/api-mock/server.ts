@@ -477,6 +477,43 @@ router.put(
   })
 );
 
+router.post(
+  '/audio/devices/:id/upload',
+  asyncHandler(async (req, res) => {
+    if (await maybeSimulate(res, req)) {
+      return;
+    }
+    const device = audioDevices.get(req.params.id);
+    if (!device) {
+      await sendError(
+        res,
+        404,
+        'RESOURCE_NOT_FOUND',
+        `Audio device ${req.params.id} was not found.`
+      );
+      return;
+    }
+
+    device.lastSeen = new Date().toISOString();
+    const status = {
+      stream_url: device.config?.streamUrl ?? 'http://stream.example.com/fallback',
+      volume: device.volume.level,
+      mode: device.config?.mode ?? 'auto',
+      source: device.playback.source ?? 'stream',
+      fallback_exists: true,
+    };
+
+    await sendJson(res, 201, {
+      deviceId: device.id,
+      saved: true,
+      path: '/data/fallback.mp3',
+      fallbackExists: true,
+      status,
+      uploadedAt: new Date().toISOString(),
+    });
+  })
+);
+
 router.get(
   '/video/tv',
   asyncHandler(async (req, res) => {
