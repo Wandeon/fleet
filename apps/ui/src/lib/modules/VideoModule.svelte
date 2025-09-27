@@ -134,7 +134,7 @@
   const refreshRecordings = async () => {
     try {
       timeline = await fetchRecordingTimeline();
-      if (timeline.length && !selectedSegmentId) {
+      if ((timeline ?? []).length && !selectedSegmentId) {
         selectedSegmentId = timeline[0].id;
       }
     } catch (error) {
@@ -302,7 +302,7 @@
             </Button>
           </div>
           <div class="inputs" role="radiogroup" aria-label="Video input">
-            {#each data.availableInputs as input (input.id)}
+            {#each (data.availableInputs ?? []) as input (input.id)}
               <Button
                 variant={input.id === data.input ? 'primary' : 'ghost'}
                 disabled={busy}
@@ -380,11 +380,11 @@
         <header>
           <h2>CEC devices</h2>
         </header>
-        {#if !data.cecDevices.length}
+        {#if !(data.cecDevices ?? []).length}
           <p class="muted">No downstream CEC devices reported.</p>
         {:else}
           <ul class="cec-list">
-            {#each data.cecDevices as device (device.id)}
+            {#each (data.cecDevices ?? []) as device (device.id)}
               <li>
                 <div>
                   <strong>{device.name}</strong>
