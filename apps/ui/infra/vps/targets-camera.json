@@ -2,8 +2,9 @@
   {
     "targets": ["pi-camera-01:8083"],
     "labels": {
-      "role": "camera",
-      "job": "camera-control"
+      "role": "camera-node",
+      "job": "camera-control",
+      "instance": "pi-camera-01"
     }
   }
 ]

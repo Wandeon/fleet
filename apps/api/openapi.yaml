@@ -1698,6 +1698,54 @@ components:
         updatedAt:
           type: string
           format: date-time
+    CameraStream:
+      type: object
+      required:
+        - id
+        - name
+        - status
+        - updatedAt
+      properties:
+        id:
+          type: string
+        name:
+          type: string
+        status:
+          type: string
+          enum:
+            - online
+            - offline
+            - degraded
+        reason:
+          type: string
+          nullable: true
+        streamUrl:
+          type: string
+          format: uri
+          nullable: true
+        module:
+          type: string
+          nullable: true
+        updatedAt:
+          type: string
+          format: date-time
+    CameraStreamListResponse:
+      type: object
+      required:
+        - streams
+        - total
+        - updatedAt
+      properties:
+        streams:
+          type: array
+          items:
+            $ref: '#/components/schemas/CameraStream'
+        total:
+          type: integer
+          format: int32
+        updatedAt:
+          type: string
+          format: date-time
     CameraOverviewSummary:
       type: object
       required:
@@ -4292,13 +4340,13 @@ paths:
           $ref: '#/components/responses/NotImplementedError'
         '500':
           $ref: '#/components/responses/InternalError'
-  /camera/overview:
+  /api/camera/summary:
     get:
       tags:
         - Camera
       summary: Retrieve consolidated camera state for the operator dashboard.
       description: Retrieve consolidated camera state for the operator dashboard.
-      operationId: getCameraOverview
+      operationId: getCameraSummary
       responses:
         '200':
           description: Camera overview payload.
@@ -4312,45 +4360,9 @@ paths:
           $ref: '#/components/responses/ForbiddenError'
         '429':
           $ref: '#/components/responses/RateLimitError'
-        '501':
-          $ref: '#/components/responses/NotImplementedError'
-        '502':
-          $ref: '#/components/responses/BadGatewayError'
-        '504':
-          $ref: '#/components/responses/GatewayTimeoutError'
         '500':
           $ref: '#/components/responses/InternalError'
-  /camera/active:
-    put:
-      tags:
-        - Camera
-      summary: Select the active camera for preview and clip operations.
-      description: Select the active camera for preview and clip operations.
-      operationId: selectCamera
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              $ref: '#/components/schemas/CameraSelectionRequest'
-      responses:
-        '202':
-          description: Camera selection accepted.
-        '400':
-          $ref: '#/components/responses/ValidationError'
-        '401':
-          $ref: '#/components/responses/UnauthorizedError'
-        '403':
-          $ref: '#/components/responses/ForbiddenError'
-        '404':
-          $ref: '#/components/responses/NotFoundError'
-        '429':
-          $ref: '#/components/responses/RateLimitError'
-        '501':
-          $ref: '#/components/responses/NotImplementedError'
-        '500':
-          $ref: '#/components/responses/InternalError'
-  /camera/events:
+  /api/camera/events:
     get:
       tags:
         - Camera
@@ -4439,40 +4451,7 @@ paths:
           $ref: '#/components/responses/RateLimitError'
         '500':
           $ref: '#/components/responses/InternalError'
-  /camera/events/{eventId}:
-    get:
-      tags:
-        - Camera
-      summary: Retrieve a single camera event with metadata and clip reference.
-      description: Retrieve a single camera event with metadata and clip reference.
-      operationId: getCameraEvent
-      parameters:
-        - name: eventId
-          in: path
-          required: true
-          schema:
-            type: string
-      responses:
-        '200':
-          description: Camera event detail response.
-          headers:
-            x-correlation-id:
-              $ref: '#/components/headers/CorrelationId'
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/CameraEventDetailResponse'
-        '401':
-          $ref: '#/components/responses/UnauthorizedError'
-        '403':
-          $ref: '#/components/responses/ForbiddenError'
-        '404':
-          $ref: '#/components/responses/NotFoundError'
-        '429':
-          $ref: '#/components/responses/RateLimitError'
-        '500':
-          $ref: '#/components/responses/InternalError'
-  /camera/events/{eventId}/ack:
+  /api/camera/events/{eventId}/ack:
     post:
       tags:
         - Camera
@@ -4488,63 +4467,23 @@ paths:
       responses:
         '202':
           description: Event acknowledgement accepted.
+        '422':
+          $ref: '#/components/responses/ValidationError'
         '401':
           $ref: '#/components/responses/UnauthorizedError'
         '403':
           $ref: '#/components/responses/ForbiddenError'
-        '404':
-          $ref: '#/components/responses/NotFoundError'
         '429':
           $ref: '#/components/responses/RateLimitError'
-        '501':
-          $ref: '#/components/responses/NotImplementedError'
         '500':
           $ref: '#/components/responses/InternalError'
-  /camera/events/{eventId}/clip:
-    post:
+  /api/camera/preview/{cameraId}:
+    get:
       tags:
         - Camera
-      summary: Generate or retrieve a clip for a camera event.
-      description: Generate or retrieve a clip for a camera event.
-      operationId: requestCameraClip
-      parameters:
-        - name: eventId
-          in: path
-          required: true
-          schema:
-            type: string
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              $ref: '#/components/schemas/CameraClipRequest'
-      responses:
-        '200':
-          description: Clip URL response.
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/CameraClipResponse'
-        '401':
-          $ref: '#/components/responses/UnauthorizedError'
-        '403':
-          $ref: '#/components/responses/ForbiddenError'
-        '404':
-          $ref: '#/components/responses/NotFoundError'
-        '429':
-          $ref: '#/components/responses/RateLimitError'
-        '501':
-          $ref: '#/components/responses/NotImplementedError'
-        '500':
-          $ref: '#/components/responses/InternalError'
-  /camera/{cameraId}/refresh:
-    post:
-      tags:
-        - Camera
-      summary: Refresh the preview for a camera or the active camera when cameraId is 'active'.
-      description: Refresh the preview for a camera or the active camera when cameraId is 'active'.
-      operationId: refreshCamera
+      summary: Retrieve preview status for a camera.
+      description: Retrieve preview readiness for a specific camera including offline reasons.
+      operationId: getCameraPreview
       parameters:
         - name: cameraId
           in: path
@@ -4552,8 +4491,12 @@ paths:
           schema:
             type: string
       responses:
-        '202':
-          description: Refresh request accepted.
+        '200':
+          description: Preview status response.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CameraPreviewState'
         '401':
           $ref: '#/components/responses/UnauthorizedError'
         '403':
@@ -4562,8 +4505,28 @@ paths:
           $ref: '#/components/responses/NotFoundError'
         '429':
           $ref: '#/components/responses/RateLimitError'
-        '501':
-          $ref: '#/components/responses/NotImplementedError'
+        '500':
+          $ref: '#/components/responses/InternalError'
+  /api/camera/streams:
+    get:
+      tags:
+        - Camera
+      summary: List camera stream metadata and availability.
+      description: Enumerate camera streams, providing status and offline reasons for monitoring.
+      operationId: listCameraStreams
+      responses:
+        '200':
+          description: Camera stream collection.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CameraStreamListResponse'
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '403':
+          $ref: '#/components/responses/ForbiddenError'
+        '429':
+          $ref: '#/components/responses/RateLimitError'
         '500':
           $ref: '#/components/responses/InternalError'
   /logs:
