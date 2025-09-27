@@ -31,7 +31,7 @@
       "name": "HDMI Pi 01",
       "role": "video",
       "module": "video",
-      "baseUrl": "http://pi-video-01:8081",
+      "baseUrl": "http://pi-video-01:8082",
       "tokenEnv": "HDMI_PI_VIDEO_01_TOKEN",
       "capabilities": ["hdmi-cec", "display-control"],
       "metadata": {

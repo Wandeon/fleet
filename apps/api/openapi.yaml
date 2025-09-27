@@ -853,6 +853,27 @@ components:
             - available
             - processing
             - failed
+    VideoPlaybackState:
+      type: object
+      required:
+        - status
+        - source
+        - startedAt
+      properties:
+        status:
+          type: string
+          enum:
+            - idle
+            - playing
+            - paused
+            - stopped
+        source:
+          type: string
+          nullable: true
+        startedAt:
+          type: string
+          format: date-time
+          nullable: true
     VideoDeviceState:
       type: object
       required:
@@ -864,6 +885,10 @@ components:
         - power
         - mute
         - input
+        - volumePercent
+        - availableInputs
+        - playback
+        - busy
         - lastUpdated
       properties:
         id:
@@ -882,9 +907,42 @@ components:
           type: boolean
         input:
           type: string
+        volumePercent:
+          type: integer
+          format: int32
+          minimum: 0
+          maximum: 100
+        availableInputs:
+          type: array
+          items:
+            type: string
+        playback:
+          $ref: '#/components/schemas/VideoPlaybackState'
+        busy:
+          type: boolean
+        lastJobId:
+          type: string
+          nullable: true
         lastUpdated:
           type: string
           format: date-time
+    VideoJobAcknowledgement:
+      type: object
+      required:
+        - deviceId
+        - lastUpdated
+        - jobId
+        - accepted
+      properties:
+        deviceId:
+          type: string
+        lastUpdated:
+          type: string
+          format: date-time
+        jobId:
+          type: string
+        accepted:
+          type: boolean
     VideoOverview:
       type: object
       required:
@@ -3669,19 +3727,14 @@ paths:
           content:
             application/json:
               schema:
-                type: object
-                required:
-                  - deviceId
-                  - power
-                  - lastUpdated
-                properties:
-                  deviceId:
-                    type: string
-                  power:
-                    $ref: '#/components/schemas/VideoPowerState'
-                  lastUpdated:
-                    type: string
-                    format: date-time
+                allOf:
+                  - $ref: '#/components/schemas/VideoJobAcknowledgement'
+                  - type: object
+                    required:
+                      - power
+                    properties:
+                      power:
+                        $ref: '#/components/schemas/VideoPowerState'
         '400':
           $ref: '#/components/responses/ValidationError'
         '401':
@@ -3690,6 +3743,12 @@ paths:
           $ref: '#/components/responses/ForbiddenError'
         '404':
           $ref: '#/components/responses/NotFoundError'
+        '409':
+          description: HDMI-CEC bus is busy and cannot accept another power command yet.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
         '429':
           $ref: '#/components/responses/RateLimitError'
         '500':
@@ -3724,19 +3783,14 @@ paths:
           content:
             application/json:
               schema:
-                type: object
-                required:
-                  - deviceId
-                  - mute
-                  - lastUpdated
-                properties:
-                  deviceId:
-                    type: string
-                  mute:
-                    type: boolean
-                  lastUpdated:
-                    type: string
-                    format: date-time
+                allOf:
+                  - $ref: '#/components/schemas/VideoJobAcknowledgement'
+                  - type: object
+                    required:
+                      - mute
+                    properties:
+                      mute:
+                        type: boolean
         '400':
           $ref: '#/components/responses/ValidationError'
         '401':
@@ -3745,6 +3799,12 @@ paths:
           $ref: '#/components/responses/ForbiddenError'
         '404':
           $ref: '#/components/responses/NotFoundError'
+        '409':
+          description: HDMI-CEC bus is busy and cannot accept another mute command yet.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
         '429':
           $ref: '#/components/responses/RateLimitError'
         '500':
@@ -3779,19 +3839,14 @@ paths:
           content:
             application/json:
               schema:
-                type: object
-                required:
-                  - deviceId
-                  - input
-                  - lastUpdated
-                properties:
-                  deviceId:
-                    type: string
-                  input:
-                    type: string
-                  lastUpdated:
-                    type: string
-                    format: date-time
+                allOf:
+                  - $ref: '#/components/schemas/VideoJobAcknowledgement'
+                  - type: object
+                    required:
+                      - input
+                    properties:
+                      input:
+                        type: string
         '400':
           $ref: '#/components/responses/ValidationError'
         '401':
@@ -3800,6 +3855,141 @@ paths:
           $ref: '#/components/responses/ForbiddenError'
         '404':
           $ref: '#/components/responses/NotFoundError'
+        '409':
+          description: HDMI-CEC bus is busy and cannot accept another input change yet.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '429':
+          $ref: '#/components/responses/RateLimitError'
+        '500':
+          $ref: '#/components/responses/InternalError'
+  /video/devices/{deviceId}/volume:
+    post:
+      tags:
+        - Video
+      summary: Set the output volume for a video endpoint.
+      description: Adjust the HDMI output volume or amplifier gain for a managed display.
+      operationId: setVideoVolume
+      parameters:
+        - name: deviceId
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - volumePercent
+              properties:
+                volumePercent:
+                  type: integer
+                  minimum: 0
+                  maximum: 100
+      responses:
+        '202':
+          description: Volume update accepted.
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/VideoJobAcknowledgement'
+                  - type: object
+                    required:
+                      - volumePercent
+                    properties:
+                      volumePercent:
+                        type: integer
+                        minimum: 0
+                        maximum: 100
+        '400':
+          $ref: '#/components/responses/ValidationError'
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '403':
+          $ref: '#/components/responses/ForbiddenError'
+        '404':
+          $ref: '#/components/responses/NotFoundError'
+        '409':
+          description: HDMI-CEC bus is busy and cannot accept another volume change yet.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '429':
+          $ref: '#/components/responses/RateLimitError'
+        '500':
+          $ref: '#/components/responses/InternalError'
+  /video/devices/{deviceId}/playback:
+    post:
+      tags:
+        - Video
+      summary: Control playback on a managed video endpoint.
+      description: Issue play, pause, resume, or stop commands to the HDMI media player.
+      operationId: controlVideoPlayback
+      parameters:
+        - name: deviceId
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - action
+              properties:
+                action:
+                  type: string
+                  enum:
+                    - play
+                    - pause
+                    - resume
+                    - stop
+                url:
+                  type: string
+                  format: uri
+                  nullable: true
+                startSeconds:
+                  type: number
+                  format: float
+                  nullable: true
+      responses:
+        '202':
+          description: Playback command accepted.
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/VideoJobAcknowledgement'
+                  - type: object
+                    required:
+                      - playback
+                    properties:
+                      playback:
+                        $ref: '#/components/schemas/VideoPlaybackState'
+        '400':
+          $ref: '#/components/responses/ValidationError'
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '403':
+          $ref: '#/components/responses/ForbiddenError'
+        '404':
+          $ref: '#/components/responses/NotFoundError'
+        '409':
+          description: Playback command conflicts with current HDMI-CEC activity.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
         '429':
           $ref: '#/components/responses/RateLimitError'
         '500':

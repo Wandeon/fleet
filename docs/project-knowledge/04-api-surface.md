@@ -29,9 +29,9 @@ The Fleet API is a bearer-protected Express service exposing module-specific end
 
 ## Video module
 
-- `/api/video/tv/power`, `/api/video/tv/input`, `/api/video/tv/volume`, `/api/video/tv/mute` accept JSON payloads to drive HDMI-CEC commands and respond with updated TV status, including correlation headers and conflict handling (409 on concurrent commands).【F:apps/api/openapi.yaml†L1344-L1492】
-- Worker jobs for TV control originate from these routes and execute via the job queue described in [15-error-recovery](./15-error-recovery.md).【F:apps/api/src/workers/executor.ts†L1-L55】
-- `/api/video/devices` and `/api/video/displays` currently return registry-derived stubs marking devices `offline` until live telemetry is wired up.【F:apps/api/src/routes/video.ts†L1-L74】
+- `/api/video/devices` lists managed HDMI endpoints with power, mute, input, volume, playback, and busy state derived from the device registry.【F:apps/api/openapi.yaml†L3609-L3673】【F:apps/api/src/services/video.ts†L1-L129】
+- `/api/video/devices/{id}/power|mute|input|volume|playback` enqueue HDMI-CEC jobs and return `202` acknowledgements including `jobId`. Conflicts surface as `409` when the bus is busy.【F:apps/api/openapi.yaml†L3642-L3814】【F:apps/api/src/routes/video.ts†L1-L170】
+- Worker jobs for HDMI control still execute via the shared job queue described in [15-error-recovery](./15-error-recovery.md); device state snapshots update immediately while execution completes asynchronously.【F:apps/api/src/services/video.ts†L130-L210】
 
 ## Zigbee module
 
