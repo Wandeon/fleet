@@ -1,4 +1,4 @@
-import { API_BASE_URL, rawRequest, USE_MOCKS, UiApiError, VideoApi } from '$lib/api/client';
+import { API_BASE_URL, rawRequest, USE_MOCKS, UiApiError, VideoApi, VideoService } from '$lib/api/client';
 import type { RequestOptions } from '$lib/api/client';
 import { mockApi } from '$lib/api/mock';
 import type { PowerState, VideoRecordingSegment, VideoState } from '$lib/types';
@@ -8,6 +8,9 @@ const ensureFetch = (fetchImpl?: typeof fetch) => fetchImpl ?? fetch;
 const jsonHeaders = {
   'Content-Type': 'application/json',
 };
+
+// Primary video device ID from inventory
+const PRIMARY_VIDEO_DEVICE_ID = 'pi-video-01';
 
 const mapFallbackState = (status: Awaited<ReturnType<typeof VideoApi.getTv>>): VideoState => ({
   power: status.power,
@@ -61,7 +64,7 @@ export const setVideoPower = async (
     return mockApi.videoSetPower(power);
   }
 
-  await VideoApi.setPower({ on: power === 'on' });
+  await VideoService.setVideoPower(PRIMARY_VIDEO_DEVICE_ID, { power: power });
   return getVideoOverview(options);
 };
 
@@ -73,7 +76,7 @@ export const setVideoInput = async (
     return mockApi.videoSetInput(inputId);
   }
 
-  await VideoApi.setInput({ input: inputId });
+  await VideoService.setVideoInput(PRIMARY_VIDEO_DEVICE_ID, { input: inputId });
   return getVideoOverview(options);
 };
 
@@ -98,7 +101,7 @@ export const setVideoMute = async (
     return mockApi.videoSetMute(muted);
   }
 
-  await VideoApi.setMute({ mute: muted });
+  await VideoService.setVideoMute(PRIMARY_VIDEO_DEVICE_ID, { mute: muted });
   return getVideoOverview(options);
 };
 
