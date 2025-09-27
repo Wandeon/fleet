@@ -39,6 +39,56 @@ function recordOfflineMetrics(devices: CameraDeviceSummary[]): void {
   }
 }
 
+router.get('/overview', (_req, res) => {
+  res.locals.routePath = '/camera/overview';
+  const devices = listCameraDevices();
+  const now = new Date().toISOString();
+
+  recordOfflineMetrics(devices);
+
+  const response = {
+    activeCameraId: null,
+    devices: devices.map((device) => ({
+      id: device.id,
+      name: device.name,
+      status: 'offline',
+      location: device.location,
+      streamUrl: null,
+      stillUrl: null,
+      lastHeartbeat: now,
+      capabilities: device.capabilities,
+    })),
+    overview: {
+      streamUrl: null,
+      previewImage: null,
+      status: 'offline'
+    },
+    clips: [],
+    events: [],
+    status: 'offline',
+    updatedAt: now,
+  };
+
+  res.json(response);
+});
+
+router.get('/active', (_req, res) => {
+  res.locals.routePath = '/camera/active';
+  const devices = listCameraDevices();
+
+  const response = {
+    activeCameraId: devices.length > 0 ? devices[0].id : null,
+    devices: devices.map((device) => ({
+      id: device.id,
+      name: device.name,
+      status: 'offline',
+      location: device.location,
+    })),
+  };
+
+  res.json(response);
+});
+
 router.get('/summary', (_req, res) => {
   res.locals.routePath = '/api/camera/summary';
   const devices = listCameraDevices();

@@ -11,7 +11,12 @@ export type ErrorCode =
   | 'too_many_requests'
   | 'internal_error'
   | 'circuit_open'
-  | 'file_too_large';
+  | 'file_too_large'
+  | 'device_busy'
+  | 'invalid_input'
+  | 'missing_media_url'
+  | 'invalid_state'
+  | 'invalid_action';
 
 export interface HttpErrorOptions {
   hint?: string;

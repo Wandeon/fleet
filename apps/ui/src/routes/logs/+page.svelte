@@ -306,9 +306,9 @@
                 <span class="correlation">{entry.correlationId}</span>
               {/if}
             </div>
-            <pre class="message">{entry.message.length > maxContextPreview
-                ? `${entry.message.slice(0, maxContextPreview)}…`
-                : entry.message}</pre>
+            <pre class="message">{(entry.message?.length ?? 0) > maxContextPreview
+                ? `${entry.message?.slice(0, maxContextPreview) ?? ''}…`
+                : entry.message ?? ''}</pre>
             {#if entry.context}
               <details class="context">
                 <summary>Context</summary>
