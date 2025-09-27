@@ -1,0 +1,243 @@
+name: 'Placeholder Guard'
+
+on:
+  pull_request:
+    paths:
+      - 'apps/**'
+  workflow_call:
+
+jobs:
+  check-placeholders:
+    name: 'Check Placeholder Implementations'
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Check for unguarded placeholders
+        run: |
+          echo "🔍 Checking for unguarded placeholder implementations..."
+
+          ISSUES_FOUND=false
+
+          # Define critical workflows that must be guarded
+          declare -A CRITICAL_WORKFLOWS=(
+            ["audio.*upload"]="Audio upload functionality"
+            ["zigbee.*pair"]="Zigbee device pairing"
+            ["camera.*switch|camera.*active"]="Camera device switching"
+            ["logs.*stream"]="Log streaming"
+            ["video.*device"]="Video device controls"
+          )
+
+          echo "🛡️ Checking critical workflows for placeholder guards..."
+
+          for pattern in "${!CRITICAL_WORKFLOWS[@]}"; do
+            workflow_name="${CRITICAL_WORKFLOWS[$pattern]}"
+            echo "Checking: $workflow_name"
+
+            # Find files that contain TODO/placeholder implementations for this workflow
+            PLACEHOLDER_FILES=$(grep -r -l "TODO.*implement" apps/ --include="*.ts" --include="*.js" --exclude-dir=node_modules | xargs grep -l -i "$pattern" || true)
+
+            if [ -n "$PLACEHOLDER_FILES" ]; then
+              echo "📄 Found placeholder implementations in:"
+              echo "$PLACEHOLDER_FILES" | while read -r file; do
+                echo "  - $file"
+
+                # Check if the file uses feature flag guards
+                if ! grep -q "guardPlaceholder\|isFeatureEnabled\|featureFlags" "$file"; then
+                  echo "    ❌ UNGUARDED: No feature flag protection found"
+                  ISSUES_FOUND=true
+                else
+                  echo "    ✅ GUARDED: Feature flag protection detected"
+                fi
+
+                # Show the actual TODO lines
+                echo "    📝 Placeholder implementations:"
+                grep -n "TODO.*implement" "$file" | head -3 | sed 's/^/      /'
+              done
+              echo ""
+            fi
+          done
+
+          # Check for generic unguarded TODO implementations
+          echo "🔍 Checking for unguarded TODO implementations..."
+
+          TODO_FILES=$(grep -r -l "TODO.*implement\|throw.*Error.*TODO\|console\.log.*TODO" apps/ --include="*.ts" --include="*.js" --exclude-dir=node_modules --exclude-dir=test --exclude-dir=tests || true)
+
+          if [ -n "$TODO_FILES" ]; then
+            echo "📄 Files with TODO implementations:"
+
+            echo "$TODO_FILES" | while read -r file; do
+              # Skip test files
+              if [[ "$file" == *"test"* ]] || [[ "$file" == *"spec"* ]]; then
+                continue
+              fi
+
+              echo "  📁 $file"
+
+              # Check if file has any feature flag imports or usage
+              if grep -q "feature-flags\|guardPlaceholder\|isFeatureEnabled" "$file"; then
+                echo "    ✅ Has feature flag usage"
+              else
+                # Look for specific TODO patterns that should be guarded
+                CRITICAL_TODOS=$(grep -n "TODO.*implement" "$file" | grep -i "upload\|pair\|switch\|stream\|active" || true)
+
+                if [ -n "$CRITICAL_TODOS" ]; then
+                  echo "    ❌ CRITICAL UNGUARDED TODOs found:"
+                  echo "$CRITICAL_TODOS" | sed 's/^/      /'
+                  ISSUES_FOUND=true
+                else
+                  echo "    ⚠️  Has TODOs but not in critical workflows"
+                fi
+              fi
+            done
+          fi
+
+          # Check for proper feature flag usage patterns
+          echo "🔍 Checking feature flag usage patterns..."
+
+          FEATURE_FLAG_FILES=$(grep -r -l "guardPlaceholder\|isFeatureEnabled" apps/ --include="*.ts" --include="*.js" --exclude-dir=node_modules || true)
+
+          if [ -n "$FEATURE_FLAG_FILES" ]; then
+            echo "✅ Files using feature flags properly:"
+            echo "$FEATURE_FLAG_FILES" | sed 's/^/  - /'
+          else
+            echo "⚠️  No feature flag usage detected in codebase"
+          fi
+
+          # Provide remediation guidance
+          if [ "$ISSUES_FOUND" = true ]; then
+            echo ""
+            echo "🔧 REMEDIATION REQUIRED"
+            echo ""
+            echo "Critical workflows with placeholder implementations must be guarded with feature flags."
+            echo ""
+            echo "To fix unguarded placeholders:"
+            echo "1. Import feature flag utilities:"
+            echo "   import { guardPlaceholder, isFeatureEnabled } from '../config/feature-flags';"
+            echo ""
+            echo "2. Guard placeholder implementations:"
+            echo "   guardPlaceholder('FEATURE_NAME_ENABLED', 'Feature not yet implemented', 'Planned for v2.1');"
+            echo ""
+            echo "3. Or use conditional logic:"
+            echo "   if (!isFeatureEnabled('FEATURE_NAME_ENABLED')) {"
+            echo "     throw new Error('Feature is disabled');"
+            echo "   }"
+            echo ""
+            echo "4. Update feature-flags.ts to include your feature flag with default: false"
+            echo ""
+            echo "5. Add tests that verify placeholder behavior"
+            echo ""
+            exit 1
+          fi
+
+          echo "✅ All critical workflows are properly guarded or implemented"
+
+      - name: Check feature flag registry completeness
+        run: |
+          echo "🔍 Checking feature flag registry completeness..."
+
+          # Check if all feature flags referenced in code are defined
+          UNDEFINED_FLAGS=""
+
+          # Find all feature flag references
+          FEATURE_REFS=$(grep -r "isFeatureEnabled\|guardPlaceholder" apps/ --include="*.ts" --include="*.js" --exclude-dir=node_modules | grep -o "'[A-Z_]*_ENABLED'" | sort -u || true)
+
+          if [ -n "$FEATURE_REFS" ]; then
+            echo "📋 Feature flags referenced in code:"
+            echo "$FEATURE_REFS" | sed 's/^/  - /'
+
+            # Check if they exist in the registry
+            for flag in $FEATURE_REFS; do
+              flag_name=$(echo "$flag" | tr -d "'")
+              if ! grep -q "$flag_name" apps/api/src/config/feature-flags.ts; then
+                echo "❌ Undefined feature flag: $flag_name"
+                UNDEFINED_FLAGS="$UNDEFINED_FLAGS $flag_name"
+              fi
+            done
+
+            if [ -n "$UNDEFINED_FLAGS" ]; then
+              echo ""
+              echo "🔧 Add missing feature flags to apps/api/src/config/feature-flags.ts:"
+              for flag in $UNDEFINED_FLAGS; do
+                echo "  $flag: false,"
+              done
+              echo ""
+              exit 1
+            fi
+          fi
+
+          echo "✅ Feature flag registry is complete"
+
+      - name: Generate placeholder report
+        if: always()
+        run: |
+          echo "📊 Generating placeholder implementation report..."
+
+          mkdir -p artifacts
+
+          cat > artifacts/placeholder-report.md << EOF
+          # Placeholder Implementation Report
+
+          **Generated**: $(date -u +%Y-%m-%dT%H:%M:%SZ)
+          **Commit**: ${{ github.sha }}
+
+          ## Summary
+
+          This report shows the current state of placeholder implementations and feature flag usage.
+
+          ### Critical Workflows Status
+
+          | Workflow | Status | Guard Status |
+          |----------|--------|--------------|
+          EOF
+
+          # Add critical workflow status to report
+          declare -A CRITICAL_WORKFLOWS=(
+            ["audio.*upload"]="Audio Upload"
+            ["zigbee.*pair"]="Zigbee Pairing"
+            ["camera.*switch"]="Camera Switching"
+            ["logs.*stream"]="Log Streaming"
+          )
+
+          for pattern in "${!CRITICAL_WORKFLOWS[@]}"; do
+            workflow_name="${CRITICAL_WORKFLOWS[$pattern]}"
+
+            if grep -r -q "TODO.*implement" apps/ --include="*.ts" --include="*.js" --exclude-dir=node_modules | grep -q -i "$pattern"; then
+              if grep -r -l "TODO.*implement" apps/ --include="*.ts" --include="*.js" --exclude-dir=node_modules | xargs grep -l -i "$pattern" | xargs grep -q "guardPlaceholder\|isFeatureEnabled"; then
+                echo "| $workflow_name | 🚧 Placeholder | ✅ Guarded |" >> artifacts/placeholder-report.md
+              else
+                echo "| $workflow_name | 🚧 Placeholder | ❌ Unguarded |" >> artifacts/placeholder-report.md
+              fi
+            else
+              echo "| $workflow_name | ✅ Implemented | ✅ Complete |" >> artifacts/placeholder-report.md
+            fi
+          done
+
+          cat >> artifacts/placeholder-report.md << EOF
+
+          ### Feature Flags in Use
+
+          EOF
+
+          # List feature flags from the registry
+          grep -o "[A-Z_]*_ENABLED: " apps/api/src/config/feature-flags.ts | sed 's/: //' | while read -r flag; do
+            echo "- \`$flag\`" >> artifacts/placeholder-report.md
+          done
+
+          echo "" >> artifacts/placeholder-report.md
+          echo "### Recommendations" >> artifacts/placeholder-report.md
+          echo "" >> artifacts/placeholder-report.md
+          echo "- All critical workflows should be either fully implemented or feature-flagged" >> artifacts/placeholder-report.md
+          echo "- Placeholder implementations must include feature flag guards" >> artifacts/placeholder-report.md
+          echo "- Feature flags should default to \`false\` in production" >> artifacts/placeholder-report.md
+          echo "- Include implementation timeline in placeholder guards" >> artifacts/placeholder-report.md
+
+      - name: Upload placeholder report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: placeholder-report
+          path: artifacts/placeholder-report.md
+          retention-days: 30

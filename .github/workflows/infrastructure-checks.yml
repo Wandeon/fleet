@@ -1,0 +1,124 @@
+name: 'Infrastructure Checks'
+
+on:
+  pull_request:
+    paths:
+      - 'infra/vps/**'
+      - '**/*.Caddyfile'
+      - '**/docker-compose*.yml'
+  workflow_call:
+
+jobs:
+  port-drift-check:
+    name: 'Caddy ↔ Compose Port Check'
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Check for port drift
+        run: ./scripts/check-port-drift.sh
+
+  compose-validation:
+    name: 'Docker Compose Validation'
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Validate compose files
+        run: |
+          echo "🔍 Validating Docker Compose files..."
+
+          for compose_file in $(find . -name "docker-compose*.yml" -o -name "compose*.yml"); do
+            echo "📋 Validating $compose_file..."
+
+            if ! docker-compose -f "$compose_file" config > /dev/null 2>&1; then
+              echo "❌ Invalid compose file: $compose_file"
+              docker-compose -f "$compose_file" config
+              exit 1
+            fi
+
+            echo "✅ $compose_file is valid"
+          done
+
+  caddy-validation:
+    name: 'Caddy Configuration Validation'
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Caddy
+        run: |
+          echo "📦 Installing Caddy for validation..."
+          sudo apt update
+          sudo apt install -y debian-keyring debian-archive-keyring apt-transport-https
+          curl -1sLf 'https://dl.cloudsmith.io/public/caddy/stable/gpg.key' | sudo gpg --dearmor -o /usr/share/keyrings/caddy-stable-archive-keyring.gpg
+          curl -1sLf 'https://dl.cloudsmith.io/public/caddy/stable/debian.deb.txt' | sudo tee /etc/apt/sources.list.d/caddy-stable.list
+          sudo apt update
+          sudo apt install caddy
+
+      - name: Validate Caddyfiles
+        run: |
+          echo "🔍 Validating Caddyfile configurations..."
+
+          for caddy_file in $(find . -name "*.Caddyfile" -o -name "Caddyfile"); do
+            echo "📋 Validating $caddy_file..."
+
+            if ! caddy validate --config "$caddy_file"; then
+              echo "❌ Invalid Caddyfile: $caddy_file"
+              exit 1
+            fi
+
+            echo "✅ $caddy_file is valid"
+          done
+
+  network-policy-check:
+    name: 'Network Policy Validation'
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Check network configurations
+        run: |
+          echo "🔍 Checking network policy compliance..."
+
+          # Check that fleet network is properly isolated
+          if grep -r "external: true" infra/vps/compose*.yml; then
+            echo "⚠️  External networks detected - verify this is intentional"
+          fi
+
+          # Check for hardcoded IPs that should be service names
+          if grep -r "[0-9]\+\.[0-9]\+\.[0-9]\+\.[0-9]\+" infra/vps/ | grep -v "0.0.0.0" | grep -v "127.0.0.1"; then
+            echo "⚠️  Hardcoded IP addresses detected in infrastructure configs"
+            grep -r "[0-9]\+\.[0-9]\+\.[0-9]\+\.[0-9]\+" infra/vps/ | grep -v "0.0.0.0" | grep -v "127.0.0.1"
+            echo "Consider using service names instead"
+          fi
+
+          echo "✅ Network policy check complete"
+
+  inventory-sync-check:
+    name: 'Inventory ↔ Monitoring Sync'
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.x'
+
+      - name: Install Python dependencies
+        run: |
+          pip install PyYAML
+
+      - name: Check inventory synchronization
+        run: ./scripts/check-inventory-sync.sh
