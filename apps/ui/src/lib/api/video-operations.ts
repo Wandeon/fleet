@@ -1,4 +1,5 @@
-import { API_BASE_URL, rawRequest, USE_MOCKS, UiApiError, VideoApi, VideoService } from '$lib/api/client';
+import { API_BASE_URL, rawRequest, USE_MOCKS, UiApiError, VideoApi } from '$lib/api/client';
+import { VideoService } from '$lib/api/gen';
 import type { RequestOptions } from '$lib/api/client';
 import { mockApi } from '$lib/api/mock';
 import type { PowerState, VideoRecordingSegment, VideoState } from '$lib/types';
