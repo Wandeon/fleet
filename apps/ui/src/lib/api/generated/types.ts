@@ -393,6 +393,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/audio/devices/{deviceId}/upload": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Upload a fallback audio file to an audio device.
+         * @description Forward a multipart upload to the target device which atomically replaces `/data/fallback.mp3`.
+         */
+        post: operations["uploadAudioDeviceFallback"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/audio/master-volume": {
         parameters: {
             query?: never;
@@ -1308,6 +1328,8 @@ export interface components {
             playback: components["schemas"]["AudioDevicePlayback"];
             /** Format: date-time */
             lastUpdated: string;
+            /** @description Indicates whether a fallback file is currently stored on the device. */
+            fallbackExists?: boolean;
         };
         AudioLibraryTrack: {
             id: string;
@@ -1439,6 +1461,26 @@ export interface components {
             uploadUrl: string;
             /** Format: date-time */
             expiresAt: string;
+        };
+        AudioDeviceUploadResponse: {
+            /** @description Identifier of the audio device that processed the upload. */
+            deviceId: string;
+            /** @description Indicates whether the device persisted the uploaded file. */
+            saved: boolean;
+            /** @description Absolute path reported by the device for the stored fallback asset. */
+            path: string;
+            /** @description Flag reflecting whether the device reports an on-disk fallback file after the upload. */
+            fallbackExists: boolean;
+            /** @description Raw status payload returned from the device following the upload. */
+            status?: {
+                stream_url: string;
+                volume: number;
+                /** @enum {string} */
+                mode: "auto" | "manual";
+                /** @enum {string} */
+                source: "stream" | "file" | "stop";
+                fallback_exists: boolean;
+            };
             fields?: {
                 [key: string]: string;
             };
@@ -2957,6 +2999,49 @@ export interface operations {
             429: components["responses"]["RateLimitError"];
             500: components["responses"]["InternalError"];
             501: components["responses"]["NotImplementedError"];
+        };
+    };
+    uploadAudioDeviceFallback: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                deviceId: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "multipart/form-data": {
+                    /** Format: binary */
+                    file: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Fallback upload completed. */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AudioDeviceUploadResponse"];
+                };
+            };
+            /** @description Upload failed due to missing file or size limits. */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            401: components["responses"]["UnauthorizedError"];
+            403: components["responses"]["ForbiddenError"];
+            404: components["responses"]["NotFoundError"];
+            429: components["responses"]["RateLimitError"];
+            500: components["responses"]["InternalError"];
+            502: components["responses"]["BadGatewayError"];
+            504: components["responses"]["GatewayTimeoutError"];
         };
     };
     setAudioMasterVolume: {

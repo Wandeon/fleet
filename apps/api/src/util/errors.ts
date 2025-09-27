@@ -10,7 +10,8 @@ export type ErrorCode =
   | 'conflict'
   | 'too_many_requests'
   | 'internal_error'
-  | 'circuit_open';
+  | 'circuit_open'
+  | 'file_too_large';
 
 export interface HttpErrorOptions {
   hint?: string;

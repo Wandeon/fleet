@@ -9,6 +9,7 @@ export type { OpenAPIConfig } from './core/OpenAPI';
 export type { AllowedOriginsRequest } from './models/AllowedOriginsRequest';
 export type { AudioDevicePlayback } from './models/AudioDevicePlayback';
 export type { AudioDeviceSnapshot } from './models/AudioDeviceSnapshot';
+export type { AudioDeviceUploadResponse } from './models/AudioDeviceUploadResponse';
 export type { AudioLibraryTrack } from './models/AudioLibraryTrack';
 export type { AudioLibraryUploadRegistration } from './models/AudioLibraryUploadRegistration';
 export type { AudioLibraryUploadRegistrationRequest } from './models/AudioLibraryUploadRegistrationRequest';
