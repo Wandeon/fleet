@@ -14,6 +14,7 @@ const PRIMARY_VIDEO_DEVICE_ID = 'pi-video-01';
 
 const toPowerState = (power: 'on' | 'standby'): PowerState => (power === 'on' ? 'on' : 'off');
 
+// Convert PowerState to VideoPowerState for API compatibility
 const toVideoPowerState = (power: PowerState): 'on' | 'standby' => (power === 'off' ? 'standby' : 'on');
 
 const toInputOption = (inputId: string) => {
