@@ -4,7 +4,7 @@ import { basename, resolve } from 'node:path';
 import { prisma } from '../lib/db.js';
 import { deviceRegistry } from '../upstream/devices.js';
 import { createHttpError } from '../util/errors.js';
-import type { AudioPlaylistReorderInput } from '../util/schema/audio.js';
+import type { AudioPlaylistInput, AudioPlaylistReorderInput } from '../util/schema/audio.js';
 
 export interface LibraryTrackInput {
   title: string;
@@ -122,21 +122,9 @@ export async function deleteLibraryTrack(trackId: string): Promise<void> {
   await prisma.audioTrack.delete({ where: { id: trackId } });
 }
 
-export interface PlaylistTrackInput {
-  trackId: string;
-  order?: number;
-  startOffsetSeconds?: number | null;
-  deviceOverrides?: Record<string, string> | null;
-}
+export type PlaylistTrackInput = AudioPlaylistInput['tracks'][number];
 
-export interface PlaylistInput {
-  id?: string;
-  name: string;
-  description?: string | null;
-  loop: boolean;
-  syncMode: string;
-  tracks: PlaylistTrackInput[];
-}
+export type PlaylistInput = AudioPlaylistInput;
 
 function mapPlaylistTrack(record: {
   trackId: string;

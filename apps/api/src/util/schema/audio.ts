@@ -9,14 +9,14 @@ const syncModeSchema = z.enum(['independent', 'synced', 'grouped']);
 export const audioPlaylistTrackSchema = z.object({
   trackId: z.string().min(1),
   order: z.coerce.number().int().min(0).optional(),
-  startOffsetSeconds: z.coerce.number().min(0).optional(),
-  deviceOverrides: z.record(z.string(), z.string()).optional(),
+  startOffsetSeconds: z.coerce.number().min(0).nullable().optional(),
+  deviceOverrides: z.record(z.string(), z.string()).nullable().optional(),
 });
 
 export const audioPlaylistSchema = z.object({
   id: z.string().optional(),
   name: z.string().min(1),
-  description: z.string().optional(),
+  description: z.string().nullish(),
   loop: z.boolean(),
   syncMode: syncModeSchema,
   tracks: z.array(audioPlaylistTrackSchema).default([]),
