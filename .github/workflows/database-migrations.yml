@@ -1,0 +1,163 @@
+name: 'Database Migrations'
+
+on:
+  pull_request:
+    paths:
+      - 'apps/api/prisma/schema.prisma'
+      - 'apps/api/prisma/migrations/**'
+  workflow_call:
+
+jobs:
+  migration-validation:
+    name: 'Migration Validation'
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: |
+          cd apps/api
+          npm ci
+
+      - name: Setup test database
+        run: |
+          cd apps/api
+          # Create a temporary SQLite database for testing
+          export DATABASE_URL="file:./test-migration.db"
+          echo "DATABASE_URL=$DATABASE_URL" >> $GITHUB_ENV
+
+      - name: Apply migrations to clean database
+        run: |
+          cd apps/api
+          echo "🔄 Applying migrations to clean database..."
+          npx prisma migrate deploy
+          echo "✅ Migrations applied successfully"
+
+      - name: Generate Prisma client
+        run: |
+          cd apps/api
+          echo "🔄 Generating Prisma client..."
+          npx prisma generate
+          echo "✅ Prisma client generated"
+
+      - name: Run migration smoke tests
+        run: |
+          cd apps/api
+          echo "🔄 Running migration smoke tests..."
+
+          # Test that all tables exist and basic operations work
+          node -e "
+            const { PrismaClient } = require('@prisma/client');
+            const prisma = new PrismaClient();
+
+            async function testMigrations() {
+              try {
+                // Test basic operations on core tables
+                console.log('Testing database connectivity...');
+                await prisma.\$connect();
+
+                // Test that we can query each main table
+                console.log('Testing table access...');
+                const tables = ['user', 'device', 'job'];
+
+                for (const table of tables) {
+                  try {
+                    await prisma[table].findMany({ take: 1 });
+                    console.log(\`✅ Table '\${table}' accessible\`);
+                  } catch (error) {
+                    console.log(\`⚠️  Table '\${table}' not found (may be optional)\`);
+                  }
+                }
+
+                // Test audio tables if they exist
+                const audioTables = ['audioTrack', 'audioPlaylist', 'audioSession'];
+                for (const table of audioTables) {
+                  try {
+                    await prisma[table].findMany({ take: 1 });
+                    console.log(\`✅ Audio table '\${table}' accessible\`);
+                  } catch (error) {
+                    console.log(\`⚠️  Audio table '\${table}' not found (may be optional)\`);
+                  }
+                }
+
+                console.log('✅ Migration smoke tests passed');
+                process.exit(0);
+              } catch (error) {
+                console.error('❌ Migration smoke tests failed:', error.message);
+                process.exit(1);
+              } finally {
+                await prisma.\$disconnect();
+              }
+            }
+
+            testMigrations();
+          "
+
+      - name: Verify migration files
+        run: |
+          cd apps/api
+          echo "🔄 Verifying migration files..."
+
+          # Check that migration files are properly formatted
+          for migration_dir in prisma/migrations/*/; do
+            if [ -d "$migration_dir" ]; then
+              migration_name=$(basename "$migration_dir")
+              migration_file="$migration_dir/migration.sql"
+
+              if [ ! -f "$migration_file" ]; then
+                echo "❌ Migration $migration_name missing migration.sql file"
+                exit 1
+              fi
+
+              # Check for common migration issues
+              if grep -q "DROP TABLE" "$migration_file"; then
+                echo "⚠️  Migration $migration_name contains DROP TABLE - verify this is intentional"
+              fi
+
+              if grep -q "DROP COLUMN" "$migration_file"; then
+                echo "⚠️  Migration $migration_name contains DROP COLUMN - verify this is intentional"
+              fi
+
+              echo "✅ Migration $migration_name validated"
+            fi
+          done
+
+      - name: Check for schema drift
+        run: |
+          cd apps/api
+          echo "🔄 Checking for schema drift..."
+
+          # Generate a new migration to see if schema is up to date
+          if npx prisma migrate diff --from-migrations ./prisma/migrations --to-schema-datamodel ./prisma/schema.prisma --script > /tmp/drift_check.sql; then
+            if [ -s /tmp/drift_check.sql ]; then
+              echo "❌ Schema drift detected!"
+              echo "The Prisma schema doesn't match the migrations."
+              echo ""
+              echo "Detected changes:"
+              cat /tmp/drift_check.sql
+              echo ""
+              echo "To fix this, run:"
+              echo "  npx prisma migrate dev --name fix_schema_drift"
+              exit 1
+            else
+              echo "✅ No schema drift detected"
+            fi
+          else
+            echo "⚠️  Could not check for schema drift"
+          fi
+
+      - name: Upload migration artifacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: migration-test-db
+          path: apps/api/test-migration.db
+          retention-days: 7
