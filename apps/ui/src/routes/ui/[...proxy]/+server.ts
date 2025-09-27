@@ -236,6 +236,22 @@ const buildRoutes = (): RouteDefinition[] => [
     },
   },
   {
+    pattern: /^\/audio\/(?:devices\/)?([^/]+)\/upload$/,
+    handlers: {
+      POST: async (ctx, match) => {
+        const deviceId = decode(match[1]);
+        const form = await ctx.formData();
+        const file = form.get('file');
+        const candidate = file as File | null;
+        return mockApi.audioUploadFallback(deviceId, {
+          fileName: candidate?.name ?? 'fallback.mp3',
+          fileSizeBytes: candidate?.size ?? 0,
+          mimeType: candidate?.type,
+        });
+      },
+    },
+  },
+  {
     pattern: /^\/audio\/(?:devices\/)?([^/]+)\/volume$/,
     handlers: {
       POST: async (ctx, match) => {

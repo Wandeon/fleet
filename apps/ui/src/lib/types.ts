@@ -30,6 +30,7 @@ export interface AudioDeviceSnapshot {
   capabilities: string[];
   playback: AudioDevicePlayback;
   lastUpdated: string;
+  fallbackExists?: boolean;
 }
 
 export interface AudioLibraryTrack {

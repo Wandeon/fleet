@@ -321,6 +321,33 @@ const mockApiBase = {
     commitAudioState(state);
     return clone(track);
   },
+  audioUploadFallback(
+    deviceId: string,
+    payload: { fileName: string; fileSizeBytes: number; mimeType?: string }
+  ) {
+    const state = clone(getAudioState());
+    const device = state.devices.find((item) => item.id === deviceId);
+    if (!device) {
+      throw new Error(`Audio device ${deviceId} not found in mock state`);
+    }
+    device.fallbackExists = true;
+    device.lastUpdated = nowIso();
+    commitAudioState(state);
+
+    return {
+      deviceId,
+      fallbackExists: true,
+      saved: true,
+      path: `/mock/${payload.fileName || 'fallback.mp3'}`,
+      status: {
+        stream_url: '',
+        volume: device.volumePercent / 100,
+        mode: 'auto',
+        source: device.playback?.state === 'playing' ? 'stream' : 'file',
+        fallback_exists: true,
+      },
+    };
+  },
   audioCreatePlaylist(payload: {
     name: string;
     description?: string | null;

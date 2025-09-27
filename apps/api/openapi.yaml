@@ -331,6 +331,9 @@ components:
         lastUpdated:
           type: string
           format: date-time
+        fallbackExists:
+          type: boolean
+          description: Indicates whether a fallback file is currently stored on the device.
     AudioLibraryTrack:
       type: object
       required:
@@ -663,6 +666,53 @@ components:
         expiresAt:
           type: string
           format: date-time
+    AudioDeviceUploadResponse:
+      type: object
+      required:
+        - deviceId
+        - saved
+        - path
+        - fallbackExists
+      properties:
+        deviceId:
+          type: string
+          description: Identifier of the audio device that processed the upload.
+        saved:
+          type: boolean
+          description: Indicates whether the device persisted the uploaded file.
+        path:
+          type: string
+          description: Absolute path reported by the device for the stored fallback asset.
+        fallbackExists:
+          type: boolean
+          description: Flag reflecting whether the device reports an on-disk fallback file after the upload.
+        status:
+          type: object
+          description: Raw status payload returned from the device following the upload.
+          required:
+            - stream_url
+            - volume
+            - mode
+            - source
+            - fallback_exists
+          properties:
+            stream_url:
+              type: string
+            volume:
+              type: number
+            mode:
+              type: string
+              enum:
+                - auto
+                - manual
+            source:
+              type: string
+              enum:
+                - stream
+                - file
+                - stop
+            fallback_exists:
+              type: boolean
         fields:
           type: object
           additionalProperties:
@@ -3203,6 +3253,54 @@ paths:
           $ref: '#/components/responses/RateLimitError'
         '501':
           $ref: '#/components/responses/NotImplementedError'
+        '500':
+          $ref: '#/components/responses/InternalError'
+  /audio/devices/{deviceId}/upload:
+    post:
+      tags:
+        - Audio
+      summary: Upload a fallback audio file to an audio device.
+      description: Forward a multipart upload to the target device which atomically replaces `/data/fallback.mp3`.
+      operationId: uploadAudioDeviceFallback
+      parameters:
+        - name: deviceId
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              required:
+                - file
+              properties:
+                file:
+                  type: string
+                  format: binary
+      responses:
+        '201':
+          description: Fallback upload completed.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AudioDeviceUploadResponse'
+        '400':
+          description: Upload failed due to missing file or size limits.
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '403':
+          $ref: '#/components/responses/ForbiddenError'
+        '404':
+          $ref: '#/components/responses/NotFoundError'
+        '429':
+          $ref: '#/components/responses/RateLimitError'
+        '502':
+          $ref: '#/components/responses/BadGatewayError'
+        '504':
+          $ref: '#/components/responses/GatewayTimeoutError'
         '500':
           $ref: '#/components/responses/InternalError'
   /audio/master-volume:

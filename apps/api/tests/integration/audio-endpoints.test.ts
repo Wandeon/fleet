@@ -1,7 +1,9 @@
 import supertest from 'supertest';
-import { beforeEach, describe, expect, it, afterAll } from 'vitest';
+import { MockAgent, getGlobalDispatcher, setGlobalDispatcher } from 'undici';
+import { beforeEach, describe, expect, it, afterAll, beforeAll, afterEach } from 'vitest';
 import { createApp } from '../../src/index.js';
 import { prisma } from '../../src/lib/db.js';
+import { setRegistryForTests } from '../../src/upstream/devices.js';
 
 async function resetAudioTables() {
   await prisma.$transaction([
@@ -15,13 +17,29 @@ async function resetAudioTables() {
 }
 
 describe('Audio API endpoints', () => {
+  const deviceOrigin = 'http://audio-device.test';
+  const mockAgent = new MockAgent();
+  const originalDispatcher = getGlobalDispatcher();
+  const mockPool = mockAgent.get(deviceOrigin);
+
+  beforeAll(() => {
+    mockAgent.disableNetConnect();
+    setGlobalDispatcher(mockAgent);
+  });
+
   beforeEach(async () => {
     await resetAudioTables();
+  });
+
+  afterEach(() => {
+    mockAgent.assertNoPendingInterceptors();
   });
 
   afterAll(async () => {
     await resetAudioTables();
     await prisma.$disconnect();
+    setGlobalDispatcher(originalDispatcher);
+    await mockAgent.close();
   });
 
   it('returns overview data with defaults', async () => {
@@ -116,5 +134,113 @@ describe('Audio API endpoints', () => {
 
     expect(overview.body.masterVolume).toBe(60);
     expect(overview.body.sessions[0].deviceIds).toContain('pi-audio-test');
+  });
+
+  describe('POST /audio/devices/:deviceId/upload', () => {
+    it('uploads fallback audio and records audit log entries', async () => {
+      setRegistryForTests({
+        devices: [
+          {
+            id: 'pi-audio-upload',
+            name: 'Upload Device',
+            role: 'audio',
+            module: 'audio',
+            baseUrl: `${deviceOrigin}/`,
+            token: 'device-token',
+            capabilities: ['upload', 'status'],
+          },
+        ],
+      });
+
+      mockPool
+        .intercept({ path: '/upload', method: 'POST' })
+        .reply(200, { saved: true, path: '/data/fallback.mp3' });
+      mockPool
+        .intercept({ path: '/status', method: 'GET' })
+        .reply(200, {
+          stream_url: '',
+          volume: 1,
+          mode: 'auto',
+          source: 'file',
+          fallback_exists: true,
+        });
+
+      const app = createApp();
+      const response = await supertest(app)
+        .post('/audio/devices/pi-audio-upload/upload')
+        .set('Authorization', 'Bearer test-token')
+        .attach('file', Buffer.from('audio-bytes'), 'fallback.mp3')
+        .expect(201);
+
+      expect(response.body).toMatchObject({
+        deviceId: 'pi-audio-upload',
+        fallbackExists: true,
+        saved: true,
+        path: '/data/fallback.mp3',
+      });
+
+      const logs = await supertest(app)
+        .get('/logs/query?limit=10')
+        .set('Authorization', 'Bearer test-token')
+        .expect(200);
+
+      const logMessages = (logs.body.items ?? []).map((entry: any) => entry.message ?? entry.meta?.msg);
+      expect(logMessages).toContain('audio.upload');
+    });
+
+    it('rejects files over 50 MB', async () => {
+      setRegistryForTests({
+        devices: [
+          {
+            id: 'pi-audio-upload',
+            name: 'Upload Device',
+            role: 'audio',
+            module: 'audio',
+            baseUrl: `${deviceOrigin}/`,
+            token: 'device-token',
+            capabilities: ['upload', 'status'],
+          },
+        ],
+      });
+
+      const oversized = Buffer.alloc(50 * 1024 * 1024 + 1);
+      const app = createApp();
+      const response = await supertest(app)
+        .post('/audio/devices/pi-audio-upload/upload')
+        .set('Authorization', 'Bearer test-token')
+        .attach('file', oversized, 'big.mp3')
+        .expect(400);
+
+      expect(response.body.message).toBe('File too large. Maximum size is 50 MB.');
+    });
+
+    it('surfaces upstream connectivity failures', async () => {
+      setRegistryForTests({
+        devices: [
+          {
+            id: 'pi-audio-upload',
+            name: 'Upload Device',
+            role: 'audio',
+            module: 'audio',
+            baseUrl: `${deviceOrigin}/`,
+            token: 'device-token',
+            capabilities: ['upload', 'status'],
+          },
+        ],
+      });
+
+      mockPool
+        .intercept({ path: '/upload', method: 'POST' })
+        .replyWithError(new Error('connect ECONNREFUSED'));
+
+      const app = createApp();
+      const response = await supertest(app)
+        .post('/audio/devices/pi-audio-upload/upload')
+        .set('Authorization', 'Bearer test-token')
+        .attach('file', Buffer.from('audio-bytes'), 'fallback.mp3')
+        .expect(502);
+
+      expect(response.body.code).toBe('upstream_unreachable');
+    });
   });
 });
