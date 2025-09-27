@@ -65,7 +65,9 @@ export const setVideoPower = async (
     return mockApi.videoSetPower(power);
   }
 
-  await VideoService.setVideoPower(PRIMARY_VIDEO_DEVICE_ID, { power: power });
+  // Map generic PowerState to video-specific VideoPowerState
+  const videoPower = power === 'off' ? 'standby' : power;
+  await VideoService.setVideoPower(PRIMARY_VIDEO_DEVICE_ID, { power: videoPower });
   return getVideoOverview(options);
 };
 
