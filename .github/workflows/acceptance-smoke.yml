@@ -58,8 +58,11 @@ jobs:
             "audio")
               echo "🎵 Testing audio endpoints..."
 
+              AUDIO_BASE="http://localhost:3020/audio"
+              AUTH_HEADER=(-H "Authorization: Bearer demo")
+
               # Test audio overview
-              response=$(curl -sf http://localhost:3020/audio/overview || echo "FAILED")
+              response=$(curl -sf "${AUTH_HEADER[@]}" "${AUDIO_BASE}/overview" || echo "FAILED")
               if [ "$response" = "FAILED" ]; then
                 echo "❌ GET /audio/overview failed"
                 exit 1
@@ -67,7 +70,7 @@ jobs:
               echo "✅ GET /audio/overview: OK"
 
               # Test audio library endpoint exists
-              response=$(curl -sf -X POST http://localhost:3020/audio/library \
+              response=$(curl -sf -X POST "${AUTH_HEADER[@]}" "${AUDIO_BASE}/library" \
                 -H "Content-Type: application/json" \
                 -d '{"title":"test"}' || echo "FAILED")
               if [ "$response" = "FAILED" ]; then
@@ -76,11 +79,71 @@ jobs:
               fi
               echo "✅ POST /audio/library: OK"
 
+              # Ensure device inventory is exposed
+              status=$(curl -sf -w "%{http_code}" "${AUTH_HEADER[@]}" "${AUDIO_BASE}/devices" \
+                -o /tmp/audio-devices.json || echo "000")
+              if [ "$status" != "200" ]; then
+                echo "❌ GET /audio/devices failed (status: $status)"
+                exit 1
+              fi
+              if ! grep -q 'pi-audio-01' /tmp/audio-devices.json || ! grep -q 'pi-audio-02' /tmp/audio-devices.json; then
+                echo "❌ GET /audio/devices missing expected Pi inventory"
+                exit 1
+              fi
+              echo "✅ GET /audio/devices lists both Pi players"
+              rm -f /tmp/audio-devices.json
+
+              # Pull individual device snapshot
+              status=$(curl -sf -w "%{http_code}" "${AUTH_HEADER[@]}" "${AUDIO_BASE}/devices/pi-audio-01" \
+                -o /dev/null || echo "000")
+              if [ "$status" != "200" ]; then
+                echo "❌ GET /audio/devices/pi-audio-01 failed (status: $status)"
+                exit 1
+              fi
+              echo "✅ GET /audio/devices/{id}: OK"
+
+              # Exercise playback controls
+              status=$(curl -sf -w "%{http_code}" -X POST "${AUTH_HEADER[@]}" "${AUDIO_BASE}/devices/pi-audio-01/play" \
+                -H "Content-Type: application/json" \
+                -d '{"source":"stream"}' -o /dev/null || echo "000")
+              if [ "$status" != "200" ] && [ "$status" != "202" ]; then
+                echo "❌ POST /audio/devices/{id}/play failed (status: $status)"
+                exit 1
+              fi
+              echo "✅ POST /audio/devices/{id}/play: OK"
+
+              status=$(curl -sf -w "%{http_code}" -X POST "${AUTH_HEADER[@]}" "${AUDIO_BASE}/devices/pi-audio-01/stop" \
+                -o /dev/null || echo "000")
+              if [ "$status" != "200" ] && [ "$status" != "202" ]; then
+                echo "❌ POST /audio/devices/{id}/stop failed (status: $status)"
+                exit 1
+              fi
+              echo "✅ POST /audio/devices/{id}/stop: OK"
+
+              status=$(curl -sf -w "%{http_code}" -X POST "${AUTH_HEADER[@]}" "${AUDIO_BASE}/devices/pi-audio-01/volume" \
+                -H "Content-Type: application/json" \
+                -d '{"volume":0.8}' -o /dev/null || echo "000")
+              if [ "$status" != "200" ]; then
+                echo "❌ POST /audio/devices/{id}/volume failed (status: $status)"
+                exit 1
+              fi
+              echo "✅ POST /audio/devices/{id}/volume: OK"
+
+              status=$(curl -sf -w "%{http_code}" -X PUT "${AUTH_HEADER[@]}" "${AUDIO_BASE}/devices/pi-audio-01/config" \
+                -H "Content-Type: application/json" \
+                -d '{"streamUrl":"http://stream.example.com/test","mode":"auto","source":"stream"}' \
+                -o /dev/null || echo "000")
+              if [ "$status" != "200" ]; then
+                echo "❌ PUT /audio/devices/{id}/config failed (status: $status)"
+                exit 1
+              fi
+              echo "✅ PUT /audio/devices/{id}/config: OK"
+
               # Test device upload endpoint (should exist)
-              status=$(curl -sf -w "%{http_code}" -X POST http://localhost:3020/audio/devices/pi-audio-01/upload \
+              status=$(curl -sf -w "%{http_code}" -X POST "${AUTH_HEADER[@]}" "${AUDIO_BASE}/devices/pi-audio-01/upload" \
                 -H "Content-Type: multipart/form-data" \
                 -F "file=@package.json" -o /dev/null || echo "000")
-              if [ "$status" != "200" ] && [ "$status" != "422" ] && [ "$status" != "400" ]; then
+              if [ "$status" != "201" ] && [ "$status" != "422" ] && [ "$status" != "400" ]; then
                 echo "❌ POST /audio/devices/{id}/upload endpoint missing (status: $status)"
                 exit 1
               fi
