@@ -80,6 +80,7 @@ export const requestCameraClip = async (
     throw new UiApiError('Clip not available in mock data', 404);
   }
 
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const fetchImpl = ensureFetch(options.fetch);
   throw new UiApiError('Camera clip export unavailable while hardware is offline', 503);
 };
@@ -96,6 +97,7 @@ export const refreshCameraPreview = async (
     return getCameraOverview(options);
   }
 
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const fetchImpl = ensureFetch(options.fetch);
   console.info('Camera preview refresh ignored while hardware is offline', {
     cameraId: cameraId ?? null,
