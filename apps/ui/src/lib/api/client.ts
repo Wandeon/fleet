@@ -152,47 +152,10 @@ export const AudioApi = {
     AudioService.setAudioMasterVolume(payload),
 };
 
-interface LegacyTvStatus {
-  id: string;
-  displayName: string;
-  online?: boolean;
-  power: 'on' | 'off';
-  input: string;
-  availableInputs?: string[];
-  volume: number;
-  mute: boolean;
-  lastSeen: string;
-}
-
 export const VideoApi = {
   getOverview: () => VideoService.getVideoOverview(),
   getRecordings: () => VideoService.getVideoRecordings(),
   generatePreview: (payload?: VideoPreviewRequest) => VideoService.generateVideoPreview(payload),
-  getTv: () => request<LegacyTvStatus>('/video/tv'),
-  setPower: (payload: { on: boolean }) =>
-    request<LegacyTvStatus>('/video/tv/power', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(payload),
-    }),
-  setInput: (payload: { input: string }) =>
-    request<LegacyTvStatus>('/video/tv/input', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(payload),
-    }),
-  setVolume: (payload: { level: number }) =>
-    request<LegacyTvStatus>('/video/tv/volume', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(payload),
-    }),
-  setMute: (payload: { mute: boolean }) =>
-    request<LegacyTvStatus>('/video/tv/mute', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(payload),
-    }),
 };
 
 export const ZigbeeApi = {

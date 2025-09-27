@@ -38,6 +38,29 @@ const pairingState: {
   confirmed: [],
 };
 
+let pairingTimeout: NodeJS.Timeout | null = null;
+
+function closePairingWindow() {
+  if (pairingTimeout) {
+    clearTimeout(pairingTimeout);
+    pairingTimeout = null;
+  }
+  pairingState.active = false;
+  pairingState.startedAt = null;
+  pairingState.expiresAt = null;
+  pairingState.discovered = [];
+}
+
+function refreshPairingWindow() {
+  if (!pairingState.active || !pairingState.expiresAt) {
+    return;
+  }
+  const expiresAt = new Date(pairingState.expiresAt).getTime();
+  if (Number.isNaN(expiresAt) || Date.now() >= expiresAt) {
+    closePairingWindow();
+  }
+}
+
 const pairingStartSchema = z.object({
   durationSeconds: z.coerce.number().int().min(30).max(900).default(300),
   channel: z.coerce.number().int().min(11).max(26).optional(),
@@ -54,6 +77,7 @@ const { update: ruleUpdateSchema, simulation: ruleSimulationSchema } = getZigbee
 router.get('/overview', async (_req, res, next) => {
   res.locals.routePath = '/zigbee/overview';
   try {
+    refreshPairingWindow();
     const devices = deviceRegistry
       .list()
       .filter((device) => device.module === 'zigbee' || device.role.includes('zigbee'))
@@ -97,6 +121,7 @@ router.get('/overview', async (_req, res, next) => {
 
 router.get('/', (_req, res) => {
   res.locals.routePath = '/zigbee';
+  refreshPairingWindow();
   const devices = deviceRegistry
     .list()
     .filter((device) => device.module === 'zigbee' || device.role.includes('zigbee'));
@@ -115,6 +140,7 @@ router.get('/', (_req, res) => {
 
 router.get('/devices/:id/status', (req, res) => {
   res.locals.routePath = '/zigbee/devices/:id/status';
+  refreshPairingWindow();
   const { id } = req.params;
   const device = deviceRegistry.getDevice(id);
 
@@ -135,6 +161,7 @@ router.get('/devices/:id/status', (req, res) => {
 
 router.get('/devices', (_req, res) => {
   res.locals.routePath = '/zigbee/devices';
+  refreshPairingWindow();
   const devices = deviceRegistry
     .list()
     .filter((device) => device.module === 'zigbee' || device.role.includes('zigbee'))
@@ -170,6 +197,7 @@ router.post('/pairing', (req, res, next) => {
   try {
     const payload = pairingStartSchema.parse(req.body ?? {});
     const now = new Date();
+    closePairingWindow();
     pairingState.active = true;
     pairingState.startedAt = now.toISOString();
     pairingState.expiresAt = new Date(now.getTime() + payload.durationSeconds * 1000).toISOString();
@@ -182,6 +210,9 @@ router.post('/pairing', (req, res, next) => {
         signal: -52,
       },
     ];
+    pairingTimeout = setTimeout(() => {
+      closePairingWindow();
+    }, payload.durationSeconds * 1000);
     res.json({
       active: pairingState.active,
       startedAt: pairingState.startedAt,
@@ -196,9 +227,7 @@ router.post('/pairing', (req, res, next) => {
 
 router.delete('/pairing', (_req, res) => {
   res.locals.routePath = '/zigbee/pairing';
-  pairingState.active = false;
-  pairingState.startedAt = null;
-  pairingState.expiresAt = null;
+  closePairingWindow();
   res.json({
     active: pairingState.active,
     startedAt: pairingState.startedAt,
@@ -210,6 +239,7 @@ router.delete('/pairing', (_req, res) => {
 
 router.get('/pairing/discovered', (_req, res) => {
   res.locals.routePath = '/zigbee/pairing/discovered';
+  refreshPairingWindow();
   res.json({
     active: pairingState.active,
     startedAt: pairingState.startedAt,
@@ -222,7 +252,7 @@ router.get('/pairing/discovered', (_req, res) => {
 router.post('/pairing/:deviceId', (req, res) => {
   res.locals.routePath = '/zigbee/pairing/:deviceId';
   const { deviceId } = req.params;
-  pairingState.confirmed.push(deviceId);
+  pairingState.confirmed = Array.from(new Set([...pairingState.confirmed, deviceId]));
   pairingState.discovered = pairingState.discovered.filter((device) => device.id !== deviceId);
   res.status(202).json({ accepted: true, deviceId });
 });

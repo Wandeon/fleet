@@ -1,6 +1,5 @@
-import { API_BASE_URL, rawRequest, USE_MOCKS, UiApiError, VideoApi } from '$lib/api/client';
+import { API_BASE_URL, USE_MOCKS, UiApiError } from '$lib/api/client';
 import { VideoService } from '$lib/api/gen';
-import type { RequestOptions } from '$lib/api/client';
 import { mockApi } from '$lib/api/mock';
 import type { PowerState, VideoRecordingSegment, VideoState } from '$lib/types';
 
@@ -13,48 +12,68 @@ const jsonHeaders = {
 // Primary video device ID from inventory
 const PRIMARY_VIDEO_DEVICE_ID = 'pi-video-01';
 
-const mapFallbackState = (status: Awaited<ReturnType<typeof VideoApi.getTv>>): VideoState => ({
-  power: status.power,
-  input: status.input,
-  availableInputs: (status.availableInputs ?? []).map((input) => ({
-    id: input,
-    label: input,
-    kind: input.toLowerCase().startsWith('hdmi') ? 'hdmi' : 'other',
-  })),
+const toPowerState = (power: 'on' | 'standby'): PowerState => (power === 'on' ? 'on' : 'off');
+
+// Convert PowerState to VideoPowerState for API compatibility
+const toVideoPowerState = (power: PowerState): 'on' | 'standby' => (power === 'off' ? 'standby' : 'on');
+
+const toInputOption = (inputId: string) => {
+  const normalized = inputId.toUpperCase();
+  const lower = inputId.toLowerCase();
+  let kind: 'hdmi' | 'cast' | 'app' | 'other' = 'other';
+  if (lower.startsWith('hdmi')) {
+    kind = 'hdmi';
+  } else if (lower.includes('cast')) {
+    kind = 'cast';
+  }
+  return { id: normalized, label: normalized, kind };
+};
+
+const mapDeviceStateToVideo = (device: {
+  id: string;
+  name: string;
+  power: 'on' | 'standby';
+  mute: boolean;
+  input: string;
+  volumePercent?: number;
+  availableInputs?: string[];
+  lastUpdated: string;
+}): VideoState => ({
+  power: toPowerState(device.power),
+  input: device.input.toUpperCase(),
+  availableInputs: (device.availableInputs ?? []).map(toInputOption),
   livePreview: null,
   recordings: [],
-  volume: status.volume,
-  muted: status.mute,
-  lastSignal: status.lastSeen,
+  volume: device.volumePercent ?? 0,
+  muted: device.mute,
+  lastSignal: device.lastUpdated,
   cecDevices: [
     {
-      id: status.id,
-      name: status.displayName,
-      power: status.power,
-      input: status.input,
+      id: device.id,
+      name: device.name,
+      power: toPowerState(device.power),
+      input: device.input.toUpperCase(),
     },
   ],
 });
 
 export const getVideoOverview = async (
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   options: { fetch?: typeof fetch } = {}
 ): Promise<VideoState> => {
   if (USE_MOCKS) {
     return mockApi.video();
   }
 
-  const fetchImpl = ensureFetch(options.fetch);
-
-  try {
-    return await rawRequest<VideoState>('/video/overview', {
-      method: 'GET',
-      fetch: fetchImpl as RequestOptions['fetch'],
-    });
-  } catch (error) {
-    console.warn('TODO(backlog): implement /video/overview endpoint', error);
-    const status = await VideoApi.getTv();
-    return mapFallbackState(status);
+  const devices = await VideoService.listVideoDevices();
+  if (!devices.devices.length) {
+    throw new UiApiError('No video devices registered', 404);
   }
+
+  const primary =
+    devices.devices.find((device) => device.id === PRIMARY_VIDEO_DEVICE_ID) ?? devices.devices[0];
+
+  return mapDeviceStateToVideo(primary);
 };
 
 export const setVideoPower = async (
@@ -65,9 +84,7 @@ export const setVideoPower = async (
     return mockApi.videoSetPower(power);
   }
 
-  // Map generic PowerState to video-specific VideoPowerState
-  const videoPower = power === 'off' ? 'standby' : power;
-  await VideoService.setVideoPower(PRIMARY_VIDEO_DEVICE_ID, { power: videoPower });
+  await VideoService.setVideoPower(PRIMARY_VIDEO_DEVICE_ID, { power: toVideoPowerState(power) });
   return getVideoOverview(options);
 };
 
@@ -92,7 +109,7 @@ export const setVideoVolume = async (
     return mockApi.videoSetVolume(safeVolume);
   }
 
-  await VideoApi.setVolume({ level: safeVolume });
+  await VideoService.setVideoVolume(PRIMARY_VIDEO_DEVICE_ID, { volumePercent: safeVolume });
   return getVideoOverview(options);
 };
 
@@ -117,16 +134,17 @@ export const fetchRecordingTimeline = async (
 
   const fetchImpl = ensureFetch(options.fetch);
 
-  try {
-    return await rawRequest<VideoRecordingSegment[]>('/video/recordings', {
-      method: 'GET',
-      fetch: fetchImpl as RequestOptions['fetch'],
-    });
-  } catch (error) {
-    console.warn('TODO(backlog): implement /video/recordings backend endpoint', error);
-    const fallback = await getVideoOverview(options);
-    return fallback.recordings;
+  const response = await fetchImpl(`${API_BASE_URL}/video/recordings`, {
+    method: 'GET',
+    headers: { Accept: 'application/json' },
+  });
+
+  if (!response.ok) {
+    throw new UiApiError('Failed to load recording timeline', response.status, await response.text());
   }
+
+  const { items } = (await response.json()) as { items: VideoRecordingSegment[] };
+  return items;
 };
 
 export const generateLivePreviewUrl = async (): Promise<string> => {

@@ -414,56 +414,65 @@ const buildRoutes = (): RouteDefinition[] => [
     },
   },
   {
-    pattern: /^\/video$/,
-    handlers: {
-      GET: () => mockApi.video(),
-      POST: async (ctx) => {
-        const payload = (await ctx.json()) as { power?: 'on' | 'off' } | null;
-        const next = payload?.power ?? 'on';
-        return mockApi.videoSetPower(next === 'on' ? 'on' : 'off');
-      },
-    },
-  },
-  {
     pattern: /^\/video\/recordings$/,
     handlers: {
       GET: () => mockApi.video().recordings,
     },
   },
   {
-    pattern: /^\/video\/power$/,
+    pattern: /^\/video\/devices$/,
+    handlers: {
+      GET: () => mockApi.videoDevices(),
+    },
+  },
+  {
+    pattern: /^\/video\/devices\/([^/]+)\/power$/,
     handlers: {
       POST: async (ctx) => {
-        const payload = (await ctx.json()) as { on?: boolean } | null;
-        return mockApi.videoSetPower(payload?.on ? 'on' : 'off');
+        const payload = (await ctx.json()) as { power?: 'on' | 'standby' } | null;
+        const desired = payload?.power === 'standby' ? 'off' : 'on';
+        return mockApi.videoAcceptPower(desired as 'on' | 'off');
       },
     },
   },
   {
-    pattern: /^\/video\/input$/,
-    handlers: {
-      POST: async (ctx) => {
-        const payload = (await ctx.json()) as { input?: string } | null;
-        return mockApi.videoSetInput(payload?.input ?? 'hdmi-1');
-      },
-    },
-  },
-  {
-    pattern: /^\/video\/volume$/,
-    handlers: {
-      POST: async (ctx) => {
-        const payload = (await ctx.json()) as { level?: number } | null;
-        const level = typeof payload?.level === 'number' ? payload.level : 50;
-        return mockApi.videoSetVolume(level);
-      },
-    },
-  },
-  {
-    pattern: /^\/video\/mute$/,
+    pattern: /^\/video\/devices\/([^/]+)\/mute$/,
     handlers: {
       POST: async (ctx) => {
         const payload = (await ctx.json()) as { mute?: boolean } | null;
-        return mockApi.videoSetMute(Boolean(payload?.mute));
+        return mockApi.videoAcceptMute(Boolean(payload?.mute));
+      },
+    },
+  },
+  {
+    pattern: /^\/video\/devices\/([^/]+)\/input$/,
+    handlers: {
+      POST: async (ctx) => {
+        const payload = (await ctx.json()) as { input?: string } | null;
+        const input = typeof payload?.input === 'string' ? payload.input : 'hdmi1';
+        return mockApi.videoAcceptInput(input);
+      },
+    },
+  },
+  {
+    pattern: /^\/video\/devices\/([^/]+)\/volume$/,
+    handlers: {
+      POST: async (ctx) => {
+        const payload = (await ctx.json()) as { volumePercent?: number } | null;
+        const level = typeof payload?.volumePercent === 'number' ? payload.volumePercent : 50;
+        return mockApi.videoAcceptVolume(level);
+      },
+    },
+  },
+  {
+    pattern: /^\/video\/devices\/([^/]+)\/playback$/,
+    handlers: {
+      POST: async (ctx) => {
+        const payload = (await ctx.json()) as
+          | { action?: 'play' | 'pause' | 'resume' | 'stop'; url?: string | null }
+          | null;
+        const action = payload?.action ?? 'stop';
+        return mockApi.videoAcceptPlayback(action, { url: payload?.url ?? null });
       },
     },
   },
