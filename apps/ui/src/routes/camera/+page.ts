@@ -1,9 +1,15 @@
+import { error } from '@sveltejs/kit';
 import type { PageLoad } from './$types';
 import { loadCameraState } from '$lib/api/camera-operations';
 import type { CameraState } from '$lib/types';
+import { isFeatureEnabled } from '$lib/config/features';
 
 export const load: PageLoad = async ({ fetch, depends }) => {
   depends('app:camera');
+
+  if (!isFeatureEnabled('camera')) {
+    throw error(404, 'Camera module disabled');
+  }
 
   try {
     const camera = await loadCameraState({ fetch });

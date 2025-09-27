@@ -1,16 +1,9 @@
 import { browser } from '$app/environment';
-import {
-  API_BASE_URL,
-  rawRequest,
-  USE_MOCKS,
-  UiApiError,
-  type RequestOptions,
-} from '$lib/api/client';
+import { rawRequest, USE_MOCKS, UiApiError, type RequestOptions } from '$lib/api/client';
 import { mockApi } from '$lib/api/mock';
 import type { CameraEvent, CameraState } from '$lib/types';
 
 const ensureFetch = (fetchImpl?: typeof fetch) => fetchImpl ?? fetch;
-const jsonHeaders = { 'Content-Type': 'application/json' } as const;
 
 export interface CameraQueryOptions {
   fetch?: typeof fetch;
@@ -22,19 +15,10 @@ export const getCameraOverview = async (options: CameraQueryOptions = {}): Promi
   }
 
   const fetchImpl = ensureFetch(options.fetch);
-  try {
-    return await rawRequest<CameraState>('/camera/overview', {
-      method: 'GET',
-      fetch: fetchImpl as RequestOptions['fetch'],
-    });
-  } catch (error) {
-    console.warn('Falling back to /camera snapshot', error);
-    const fallback = await rawRequest<CameraState>('/camera', {
-      method: 'GET',
-      fetch: fetchImpl as RequestOptions['fetch'],
-    });
-    return fallback;
-  }
+  return rawRequest<CameraState>('/camera/summary', {
+    method: 'GET',
+    fetch: fetchImpl as RequestOptions['fetch'],
+  });
 };
 
 export const loadCameraState = async (options: CameraQueryOptions = {}): Promise<CameraState> =>
@@ -48,17 +32,7 @@ export const selectCamera = async (
     return mockApi.cameraSelect(cameraId);
   }
 
-  const fetchImpl = ensureFetch(options.fetch);
-  try {
-    await rawRequest(`/camera/active`, {
-      method: 'PUT',
-      headers: jsonHeaders,
-      body: JSON.stringify({ cameraId }),
-      fetch: fetchImpl as RequestOptions['fetch'],
-    });
-  } catch (error) {
-    console.warn('TODO(backlog): implement /camera/active endpoint', error);
-  }
+  console.info('Camera selection request ignored while hardware is offline', { cameraId });
   return getCameraOverview(options);
 };
 
@@ -77,8 +51,14 @@ export const acknowledgeCameraEvent = async (
       fetch: fetchImpl as RequestOptions['fetch'],
     });
   } catch (error) {
-    console.warn('TODO(backlog): implement /camera/events/{id}/ack endpoint', error);
+    const status =
+      typeof (error as { status?: number }).status === 'number'
+        ? (error as { status?: number }).status!
+        : 422;
+    const detail = error instanceof Error ? error.message : error;
+    throw new UiApiError('Unable to acknowledge camera event', status, detail);
   }
+
   return getCameraOverview(options);
 };
 
@@ -100,19 +80,9 @@ export const requestCameraClip = async (
     throw new UiApiError('Clip not available in mock data', 404);
   }
 
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const fetchImpl = ensureFetch(options.fetch);
-  const response = await fetchImpl(`${API_BASE_URL}/camera/events/${event.id}/clip`, {
-    method: 'POST',
-    headers: jsonHeaders,
-    body: JSON.stringify({ cameraId: event.cameraId }),
-  });
-
-  if (!response.ok) {
-    throw new UiApiError('Failed to request camera clip', response.status, await response.text());
-  }
-
-  const body = (await response.json()) as { url: string };
-  return body.url;
+  throw new UiApiError('Camera clip export unavailable while hardware is offline', 503);
 };
 
 export const refreshCameraPreview = async (
@@ -127,14 +97,10 @@ export const refreshCameraPreview = async (
     return getCameraOverview(options);
   }
 
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const fetchImpl = ensureFetch(options.fetch);
-  try {
-    await rawRequest(`/camera/${cameraId ?? 'active'}/refresh`, {
-      method: 'POST',
-      fetch: fetchImpl as RequestOptions['fetch'],
-    });
-  } catch (error) {
-    console.warn('TODO(backlog): implement /camera/{id}/refresh endpoint', error);
-  }
+  console.info('Camera preview refresh ignored while hardware is offline', {
+    cameraId: cameraId ?? null,
+  });
   return getCameraOverview(options);
 };

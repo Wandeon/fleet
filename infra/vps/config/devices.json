@@ -42,14 +42,15 @@
     {
       "id": "pi-camera-01",
       "name": "Camera Pi 01",
-      "role": "camera",
+      "role": "camera-node",
       "module": "camera",
-      "baseUrl": "http://pi-camera-01:8081",
+      "baseUrl": "http://pi-camera-01:8083",
       "tokenEnv": "CAMERA_PI_CAMERA_01_TOKEN",
       "capabilities": ["recording", "streaming", "motion-detection"],
       "metadata": {
         "location": "Front Entrance",
-        "hardware": "Raspberry Pi 4 + Camera Module"
+        "hardware": "Raspberry Pi 4 + Camera Module",
+        "state": "awaiting-camera-hardware"
       }
     }
   ]

@@ -809,7 +809,7 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/camera/overview": {
+    "/api/camera/summary": {
         parameters: {
             query?: never;
             header?: never;
@@ -820,7 +820,7 @@ export interface paths {
          * Retrieve consolidated camera state for the operator dashboard.
          * @description Retrieve consolidated camera state for the operator dashboard.
          */
-        get: operations["getCameraOverview"];
+        get: operations["getCameraSummary"];
         put?: never;
         post?: never;
         delete?: never;
@@ -829,27 +829,7 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/camera/active": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        /**
-         * Select the active camera for preview and clip operations.
-         * @description Select the active camera for preview and clip operations.
-         */
-        put: operations["selectCamera"];
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/camera/events": {
+    "/api/camera/events": {
         parameters: {
             query?: never;
             header?: never;
@@ -869,27 +849,7 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/camera/events/{eventId}": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /**
-         * Retrieve a single camera event with metadata and clip reference.
-         * @description Retrieve a single camera event with metadata and clip reference.
-         */
-        get: operations["getCameraEvent"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/camera/events/{eventId}/ack": {
+    "/api/camera/events/{eventId}/ack": {
         parameters: {
             query?: never;
             header?: never;
@@ -909,40 +869,40 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/camera/events/{eventId}/clip": {
+    "/api/camera/preview/{cameraId}": {
         parameters: {
             query?: never;
             header?: never;
             path?: never;
             cookie?: never;
         };
-        get?: never;
-        put?: never;
         /**
-         * Generate or retrieve a clip for a camera event.
-         * @description Generate or retrieve a clip for a camera event.
+         * Retrieve preview status for a camera.
+         * @description Retrieve preview readiness for a specific camera including offline reasons.
          */
-        post: operations["requestCameraClip"];
+        get: operations["getCameraPreview"];
+        put?: never;
+        post?: never;
         delete?: never;
         options?: never;
         head?: never;
         patch?: never;
         trace?: never;
     };
-    "/camera/{cameraId}/refresh": {
+    "/api/camera/streams": {
         parameters: {
             query?: never;
             header?: never;
             path?: never;
             cookie?: never;
         };
-        get?: never;
-        put?: never;
         /**
-         * Refresh the preview for a camera or the active camera when cameraId is 'active'.
-         * @description Refresh the preview for a camera or the active camera when cameraId is 'active'.
+         * List camera stream metadata and availability.
+         * @description Enumerate camera streams, providing status and offline reasons for monitoring.
          */
-        post: operations["refreshCamera"];
+        get: operations["listCameraStreams"];
+        put?: never;
+        post?: never;
         delete?: never;
         options?: never;
         head?: never;
@@ -1889,6 +1849,25 @@ export interface components {
             /** Format: uri */
             streamUrl: string | null;
             reason?: string | null;
+            /** Format: date-time */
+            updatedAt: string;
+        };
+        CameraStream: {
+            id: string;
+            name: string;
+            /** @enum {string} */
+            status: "online" | "offline" | "degraded";
+            reason?: string | null;
+            /** Format: uri */
+            streamUrl?: string | null;
+            module?: string | null;
+            /** Format: date-time */
+            updatedAt: string;
+        };
+        CameraStreamListResponse: {
+            streams: components["schemas"]["CameraStream"][];
+            /** Format: int32 */
+            total: number;
             /** Format: date-time */
             updatedAt: string;
         };
@@ -3740,7 +3719,7 @@ export interface operations {
             501: components["responses"]["NotImplementedError"];
         };
     };
-    getCameraOverview: {
+    getCameraSummary: {
         parameters: {
             query?: never;
             header?: never;
@@ -3762,38 +3741,6 @@ export interface operations {
             403: components["responses"]["ForbiddenError"];
             429: components["responses"]["RateLimitError"];
             500: components["responses"]["InternalError"];
-            501: components["responses"]["NotImplementedError"];
-            502: components["responses"]["BadGatewayError"];
-            504: components["responses"]["GatewayTimeoutError"];
-        };
-    };
-    selectCamera: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["CameraSelectionRequest"];
-            };
-        };
-        responses: {
-            /** @description Camera selection accepted. */
-            202: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content?: never;
-            };
-            400: components["responses"]["ValidationError"];
-            401: components["responses"]["UnauthorizedError"];
-            403: components["responses"]["ForbiddenError"];
-            404: components["responses"]["NotFoundError"];
-            429: components["responses"]["RateLimitError"];
-            500: components["responses"]["InternalError"];
-            501: components["responses"]["NotImplementedError"];
         };
     };
     listCameraEvents: {
@@ -3839,34 +3786,6 @@ export interface operations {
             500: components["responses"]["InternalError"];
         };
     };
-    getCameraEvent: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                eventId: string;
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Camera event detail response. */
-            200: {
-                headers: {
-                    "x-correlation-id": components["headers"]["CorrelationId"];
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["CameraEventDetailResponse"];
-                };
-            };
-            401: components["responses"]["UnauthorizedError"];
-            403: components["responses"]["ForbiddenError"];
-            404: components["responses"]["NotFoundError"];
-            429: components["responses"]["RateLimitError"];
-            500: components["responses"]["InternalError"];
-        };
-    };
     acknowledgeCameraEvent: {
         parameters: {
             query?: never;
@@ -3887,45 +3806,12 @@ export interface operations {
             };
             401: components["responses"]["UnauthorizedError"];
             403: components["responses"]["ForbiddenError"];
-            404: components["responses"]["NotFoundError"];
+            422: components["responses"]["ValidationError"];
             429: components["responses"]["RateLimitError"];
             500: components["responses"]["InternalError"];
-            501: components["responses"]["NotImplementedError"];
         };
     };
-    requestCameraClip: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                eventId: string;
-            };
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["CameraClipRequest"];
-            };
-        };
-        responses: {
-            /** @description Clip URL response. */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["CameraClipResponse"];
-                };
-            };
-            401: components["responses"]["UnauthorizedError"];
-            403: components["responses"]["ForbiddenError"];
-            404: components["responses"]["NotFoundError"];
-            429: components["responses"]["RateLimitError"];
-            500: components["responses"]["InternalError"];
-            501: components["responses"]["NotImplementedError"];
-        };
-    };
-    refreshCamera: {
+    getCameraPreview: {
         parameters: {
             query?: never;
             header?: never;
@@ -3936,19 +3822,44 @@ export interface operations {
         };
         requestBody?: never;
         responses: {
-            /** @description Refresh request accepted. */
-            202: {
+            /** @description Preview status response. */
+            200: {
                 headers: {
                     [name: string]: unknown;
                 };
-                content?: never;
+                content: {
+                    "application/json": components["schemas"]["CameraPreviewState"];
+                };
             };
             401: components["responses"]["UnauthorizedError"];
             403: components["responses"]["ForbiddenError"];
             404: components["responses"]["NotFoundError"];
             429: components["responses"]["RateLimitError"];
             500: components["responses"]["InternalError"];
-            501: components["responses"]["NotImplementedError"];
+        };
+    };
+    listCameraStreams: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Camera stream collection. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CameraStreamListResponse"];
+                };
+            };
+            401: components["responses"]["UnauthorizedError"];
+            403: components["responses"]["ForbiddenError"];
+            429: components["responses"]["RateLimitError"];
+            500: components["responses"]["InternalError"];
         };
     };
     getLogs: {

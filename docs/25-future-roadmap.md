@@ -2,7 +2,7 @@
 
 ## Backend enablement
 
-- Implement `/camera/overview`, `/camera/events/:id/ack`, `/camera/events/:id/clip`, and `/camera/:id/refresh` endpoints so the UI can drop mock fallbacks.
+- Replace offline placeholders on `/api/camera/summary`, `/api/camera/events`, `/api/camera/events/{id}/ack`, and `/api/camera/preview/{id}` with live MediaMTX integrations once hardware is attached.
 - Expose `/settings` PATCH routes for proxy updates, allowed origins, pairing lifecycle, and operator CRUD operations.
 - Add `/fleet/overview`, `/fleet/devices/:id`, and `/fleet/devices/:id/actions/:actionId` endpoints mirroring the mocked contract used in the UI helpers.
 

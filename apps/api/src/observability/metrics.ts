@@ -50,6 +50,13 @@ const deviceOnlineGauge = new Gauge({
   registers: [registry],
 });
 
+const cameraStreamOnlineGauge = new Gauge({
+  name: 'camera_stream_online',
+  help: 'Camera stream availability (1 = online, 0 = offline)',
+  labelNames: ['camera_id'],
+  registers: [registry],
+});
+
 const sseConnectionsGauge = new Gauge({
   name: 'sse_connections',
   help: 'Number of active Server-Sent Events connections',
@@ -121,6 +128,7 @@ export const metrics = {
   upstream_device_failures_total: upstreamDeviceFailuresTotal,
   circuit_breaker_state: circuitBreakerStateGauge,
   device_online: deviceOnlineGauge,
+  camera_stream_online: cameraStreamOnlineGauge,
   sse_connections: sseConnectionsGauge,
   jobs_duration: jobsDurationHistogram,
   jobs_success: jobsSuccessCounter,

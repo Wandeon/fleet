@@ -60,6 +60,7 @@ export function createApp() {
   app.use('/audio', audioRouter);
   app.use('/video', videoRouter);
   app.use('/zigbee', zigbeeRouter);
+  app.use('/api/camera', cameraRouter);
   app.use('/camera', cameraRouter);
   app.use('/health', healthSummaryRouter);
   app.use('/logs', logsRouter);

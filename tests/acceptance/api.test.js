@@ -65,4 +65,19 @@ test.describe('Fleet API acceptance', () => {
     const stopBody = await stopResponse.json();
     expect(stopBody).toMatchObject({ active: false });
   });
+
+  test('camera summary reports offline readiness while hardware is absent', async ({ request }) => {
+    const json = await requestJson(request, `${apiBase}/camera/summary`);
+    expect(json).toBeTruthy();
+    expect(json).toHaveProperty('status', 'offline');
+    expect(Array.isArray(json.devices)).toBe(true);
+  });
+
+  test('camera events endpoint responds with offline placeholders', async ({ request }) => {
+    const json = await requestJson(request, `${apiBase}/camera/events`);
+    expect(json).toBeTruthy();
+    expect(json).toHaveProperty('status', 'offline');
+    expect(Array.isArray(json.events)).toBe(true);
+    expect(json.pagination).toBeTruthy();
+  });
 });

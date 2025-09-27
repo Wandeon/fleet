@@ -328,12 +328,13 @@ devices:
           group: zigbee
           result: json
   - id: pi-camera-01
-    name: 'Camera'
-    role: camera
+    name: 'AI Surveillance Camera'
+    role: camera-node
     kind: camera
     management:
-      summary: 'Primary video camera feeding MediaMTX'
+      summary: 'Primary surveillance node for vestibule (camera attachment pending)'
       host: pi-camera-01
+      location: 'Front entry'
     api:
       base_url: http://pi-camera-01:8083
       health_path: /healthz
