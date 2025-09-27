@@ -58,6 +58,7 @@ const mapDeviceStateToVideo = (device: {
 });
 
 export const getVideoOverview = async (
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   options: { fetch?: typeof fetch } = {}
 ): Promise<VideoState> => {
   if (USE_MOCKS) {

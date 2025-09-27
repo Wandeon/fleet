@@ -64,7 +64,7 @@ let fleetOverviewCache: FleetOverview | null = null;
 const fleetDeviceCache = new Map<string, FleetDeviceDetail>();
 const VIDEO_DEVICE_ID = 'pi-video-01';
 
-type MockPlaybackState = {
+interface MockPlaybackState {
   status: 'idle' | 'playing' | 'paused' | 'stopped';
   source: string | null;
   startedAt: string | null;

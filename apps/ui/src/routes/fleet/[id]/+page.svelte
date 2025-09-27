@@ -9,6 +9,8 @@
   import type { FleetDeviceAction, FleetDeviceDetail, FleetDeviceMetric } from '$lib/types';
   import { getFleetDeviceDetail, triggerDeviceAction } from '$lib/api/fleet-operations';
   import { goto } from '$app/navigation';
+  import { resolve } from '$app/paths';
+  import { base } from '$app/paths';
 
   export let data: PageData;
 
@@ -86,7 +88,7 @@
 {:else}
   <div class="device">
     <div class="breadcrumb">
-      <button on:click={() => goto('/fleet')}>Fleet</button>
+      <button on:click={() => goto(resolve('/fleet'))}>Fleet</button>
       <span>›</span>
       <span>{detail.summary.name}</span>
     </div>
@@ -185,7 +187,8 @@
               </li>
             {/each}
           </ul>
-          <button class="link" on:click={() => detail && goto(`/logs?source=${detail.summary.id}`)}>Open in logs console →</button>
+          <!-- eslint-disable-next-line svelte/no-navigation-without-resolve -->
+          <button class="link" on:click={() => detail && goto(`${base}/logs?source=${detail.summary.id}`)}>Open in logs console →</button>
         {/if}
       </Card>
 

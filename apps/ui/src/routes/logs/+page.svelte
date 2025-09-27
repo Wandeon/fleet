@@ -13,6 +13,7 @@
     type LogStreamSubscription,
   } from '$lib/api/logs-operations';
   import { goto } from '$app/navigation';
+  import { resolve } from '$app/paths';
 
   export let data: PageData;
 
@@ -299,7 +300,7 @@
               <StatusPill status={severityToStatus(entry.severity)} label={entry.severity} />
               <span class="source">{entry.source}</span>
               {#if entry.deviceId}
-                <button class="device" on:click={() => goto(`/fleet/${entry.deviceId}`)}>{entry.deviceId}</button>
+                <button class="device" on:click={() => goto(resolve(`/fleet/${entry.deviceId}`))}>{entry.deviceId}</button>
               {/if}
               {#if entry.correlationId}
                 <span class="correlation">{entry.correlationId}</span>

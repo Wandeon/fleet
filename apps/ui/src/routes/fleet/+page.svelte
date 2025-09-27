@@ -8,6 +8,7 @@
   import type { FleetDeviceSummary, FleetOverview } from '$lib/types';
   import { getFleetOverview } from '$lib/api/fleet-operations';
   import { goto } from '$app/navigation';
+  import { resolve } from '$app/paths';
 
   export let data: PageData;
 
@@ -140,7 +141,7 @@
       {:else}
         <div class="device-grid">
           {#each filteredDevices() as device (device.id)}
-            <button class="device-card" on:click={() => goto(`/fleet/${device.id}`)}>
+            <button class="device-card" on:click={() => goto(resolve(`/fleet/${device.id}`))}>
               <div class="device-header">
                 <h3>{device.name}</h3>
                 <StatusPill status={statusToPill(device.status)} label={device.status} />
