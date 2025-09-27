@@ -91,6 +91,8 @@ export class LogsService {
    * @param level Filter log entries to a specific severity level.
    * @param deviceId Filter to a specific device identifier.
    * @param correlationId Filter by correlation identifier.
+   * @param start Filter logs from this timestamp onwards (ISO 8601).
+   * @param end Filter logs up to this timestamp (ISO 8601).
    * @param limit
    * @returns any Filtered log entries.
    * @throws ApiError
@@ -99,6 +101,8 @@ export class LogsService {
     level?: 'trace' | 'debug' | 'info' | 'warn' | 'error' | 'fatal',
     deviceId?: string,
     correlationId?: string,
+    start?: string,
+    end?: string,
     limit: number = 100,
   ): CancelablePromise<{
     items: Array<LogEntry>;
@@ -112,6 +116,8 @@ export class LogsService {
         'level': level,
         'deviceId': deviceId,
         'correlationId': correlationId,
+        'start': start,
+        'end': end,
         'limit': limit,
       },
       errors: {
@@ -142,6 +148,32 @@ export class LogsService {
         400: `One or more request parameters failed validation.`,
         401: `Authentication failed or credentials missing.`,
         403: `Authenticated user does not have permission to access the resource.`,
+        429: `Request rate limit exceeded.`,
+        500: `Unexpected server error occurred.`,
+      },
+    });
+  }
+
+  /**
+   * Retrieve the status and download URL for a log export job.
+   * Check the processing status of a log export job and get the download URL when ready.
+   * @param id The export job ID returned from the /logs/export endpoint.
+   * @returns LogsExportResponse Export job status and details.
+   * @throws ApiError
+   */
+  public static getLogExportJob(
+    id: string,
+  ): CancelablePromise<LogsExportResponse> {
+    return __request(OpenAPI, {
+      method: 'GET',
+      url: '/logs/jobs/{id}',
+      path: {
+        'id': id,
+      },
+      errors: {
+        401: `Authentication failed or credentials missing.`,
+        403: `Authenticated user does not have permission to access the resource.`,
+        404: `Requested resource does not exist.`,
         429: `Request rate limit exceeded.`,
         500: `Unexpected server error occurred.`,
       },
