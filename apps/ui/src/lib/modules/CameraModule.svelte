@@ -26,14 +26,14 @@
 
   let working = false;
   let selectedCamera = data?.activeCameraId ?? null;
-  let previewUrl: string | null = data?.overview.streamUrl ?? null;
-  let snapshotUrl: string | null = data?.overview.previewImage ?? null;
+  let previewUrl: string | null = data?.overview?.streamUrl ?? null;
+  let snapshotUrl: string | null = data?.overview?.previewImage ?? null;
   let clipError: string | null = null;
 
   $: devices = data?.devices ?? [];
   $: events = data?.events ?? [];
   $: clips = data?.clips ?? [];
-  $: activeDevice = devices.find((device) => device.id === selectedCamera) ?? devices[0];
+  $: activeDevice = devices.find((device) => device.id === selectedCamera) ?? devices[0] ?? null;
 
   const healthStatus = (value: DeviceStatus | undefined) => {
     if (value === 'online') return 'ok';
@@ -48,8 +48,8 @@
       const latest = await getCameraOverview({ fetch });
       data = latest;
       selectedCamera = latest.activeCameraId ?? latest.devices[0]?.id ?? null;
-      previewUrl = latest.overview.streamUrl;
-      snapshotUrl = latest.overview.previewImage;
+      previewUrl = latest.overview?.streamUrl ?? null;
+      snapshotUrl = latest.overview?.previewImage ?? null;
       clipError = null;
       dispatch('updated', latest);
     } catch (error) {
@@ -66,8 +66,8 @@
       const next = await selectCamera(cameraId, { fetch });
       data = next;
       selectedCamera = next.activeCameraId;
-      previewUrl = next.overview.streamUrl;
-      snapshotUrl = next.overview.previewImage;
+      previewUrl = next.overview?.streamUrl ?? null;
+      snapshotUrl = next.overview?.previewImage ?? null;
       clipError = null;
     } catch (error) {
       console.error('Failed to select camera', error);
@@ -95,8 +95,8 @@
     try {
       const next = await refreshCameraPreview(selectedCamera ?? undefined, { fetch });
       data = next;
-      previewUrl = next.overview.streamUrl;
-      snapshotUrl = next.overview.previewImage;
+      previewUrl = next.overview?.streamUrl ?? null;
+      snapshotUrl = next.overview?.previewImage ?? null;
     } catch (error) {
       console.error('Failed to refresh preview', error);
     } finally {
@@ -120,8 +120,8 @@
 
   onMount(() => {
     selectedCamera = data?.activeCameraId ?? data?.devices[0]?.id ?? null;
-    previewUrl = data?.overview.streamUrl ?? null;
-    snapshotUrl = data?.overview.previewImage ?? null;
+    previewUrl = data?.overview?.streamUrl ?? null;
+    snapshotUrl = data?.overview?.previewImage ?? null;
   });
 </script>
 
