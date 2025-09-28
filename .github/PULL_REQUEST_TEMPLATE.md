@@ -15,25 +15,20 @@
 ---
 
 ## 🔍 **Release Readiness Checklist**
+<!-- Replace each YES/NO placeholder with an explicit YES or NO. -->
 
-### OpenAPI Schema Changes
+### Contract Discipline
 - [ ] **OpenAPI schema touched?** (Check if `apps/api/openapi.yaml` was modified)
-- [ ] **Client regenerated?** (If schema changed, run `npm run openapi:generate` and commit generated files)
-- [ ] **Contract CI passed?** (Verify generated clients match spec)
+- [ ] **OpenAPI clients regenerated & committed:** YES/NO
 
-### Database Changes
-- [ ] **Migrations added?** (Check if new Prisma migrations were created)
-- [ ] **Migration CI passed?** (Verify migrations apply cleanly and smoke tests pass)
+### UI Reliability
+- [ ] **Feature-flag review complete (no unflagged placeholders):** YES/NO
+- [ ] **SSR-safety verified (no unguarded access in server/layout):** YES/NO
+- [ ] **First-render contract tests passed for changed pages:** YES/NO
+- [ ] **Playwright acceptance updated (modules affected):** YES/NO
 
-### Infrastructure Changes
-- [ ] **Caddy vs Compose port check passed?** (Ensure proxy config matches container ports)
-- [ ] **Inventory → Prom targets updated?** (If devices added/changed, update monitoring targets)
-
-### Feature Development
-- [ ] **Feature flags adjusted?** (Check if new features need flags or placeholder guards)
-- [ ] **No unguarded placeholders?** (Critical workflows must have tests or be feature-flagged)
-
-### CI/CD Status
+### Deployment Hygiene
+- [ ] **No drift-producing changes (local-only overrides masquerading as prod):** YES/NO
 - [ ] **All CI checks green?** (Required before merge)
 - [ ] **Release Readiness artifact attached?** → [📋 View Release Readiness Report](../../actions)
 

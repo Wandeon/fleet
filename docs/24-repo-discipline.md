@@ -1,117 +1,36 @@
 # Repository Discipline
 
 ## OpenAPI Contract Management
+- **Single source of truth:** `apps/api/openapi.yaml`
+- **Generation command:** `npm run openapi:generate`
+- **Required outputs:** Commit updates under `apps/ui/src/lib/api/` and any server SDKs.
+- **CI enforcement:** The `contract` workflow lints the spec, regenerates clients, and fails on drift.
+- **Developer action:** After editing the spec run the command above, ensure `git status` is clean, and update changelog notes.
 
-### Single Source of Truth
-The OpenAPI specification at `apps/api/openapi.yaml` is the **single source of truth** for our API contract.
+## Environment Schema
+- UI environment variables are defined in `apps/ui/.env.schema.ts` with the following required keys:
+  - `VITE_API_BASE`
+  - `VITE_USE_MOCKS`
+  - `VITE_FEATURE_VIDEO`
+  - `VITE_FEATURE_ZIGBEE`
+  - `VITE_FEATURE_CAMERA`
+- Example values live in `/apps/ui/.env.example` and must be updated when new keys are introduced.
+- The `ui-env-validation` workflow fails when variables are missing or malformed.
 
-### Client Generation Rule
-**Any change to the OpenAPI specification MUST include regenerated client files.**
+## SSR & Placeholder Discipline
+- Loader modules must avoid unsafe browser access and return null-safe data structures.
+- Use `isFeatureEnabled(flag)` for every feature gate. Ad-hoc `import.meta.env` checks are forbidden in route files.
+- The `placeholder-guard` workflow scans for placeholders rendered while a flag default is OFF.
 
-#### When to Regenerate
-Run client regeneration whenever you:
-- Add new endpoints
-- Modify request/response schemas
-- Change parameter definitions
-- Update API metadata
+## Test Enforcement
+- **First-render contract tests:** Run `npm run test:first-render --workspace apps/ui` when modifying routes listed in `/docs/05-ui-structure.md`.
+- **Playwright smokes:** Run `npm run test:playwright -- --project smoke` locally before submitting UI changes.
+- **Docs:** Update `/docs/05-ui-structure.md` and `/docs/runbooks/ui-stabilization.md` when adding new routes, flags, or loaders.
 
-#### How to Regenerate
-Use the standardized script:
-```bash
-./scripts/generate-openapi-clients.sh
-```
-
-This script will:
-1. Validate the OpenAPI specification
-2. Generate the fetch client for UI (`apps/ui/src/lib/api/gen/`)
-3. Generate TypeScript types (`apps/ui/src/lib/api/generated/`)
-
-#### Committing Generated Files
-**Always commit generated files** along with your API changes:
-```bash
-git add apps/api/openapi.yaml
-git add apps/ui/src/lib/api/gen/
-git add apps/ui/src/lib/api/generated/
-git commit -m "feat: add new audio upload endpoint with generated clients"
-```
-
-### CI Enforcement
-The `contract-check.yml` workflow enforces this discipline:
-- ✅ Validates OpenAPI specification syntax
-- ✅ Regenerates clients and checks for drift
-- ❌ Fails if generated files don't match the spec
-- ❌ Fails if there are uncommitted generated files
-
-### Manual Override (Emergency Only)
-In critical situations, you can temporarily skip client generation:
-1. Add `[skip contract]` to your commit message
-2. Create a follow-up issue to regenerate clients
-3. Never merge to main without proper client generation
-
-## Database Migration Discipline
-
-### Migration Requirements
-All database schema changes MUST include proper Prisma migrations:
-
-```bash
-# Create migration
-npx prisma migrate dev --name descriptive_migration_name
-
-# Validate migration
-npx prisma migrate deploy
-```
-
-### Migration Testing
-Every migration must:
-- Apply cleanly to an empty database
-- Not break existing data
-- Include rollback instructions in comments
-
-## Feature Flag Discipline
-
-### Placeholder Code Rules
-**No placeholder implementations in critical workflows without:**
-1. A feature flag to disable in production
-2. A test that validates the placeholder behavior
-3. Documentation of the planned implementation
-
-Example:
-```typescript
-// ❌ BAD: Unguarded placeholder
-export function uploadAudio() {
-  throw new Error("TODO: implement audio upload");
-}
-
-// ✅ GOOD: Guarded placeholder
-export function uploadAudio() {
-  if (!featureFlags.AUDIO_UPLOAD_ENABLED) {
-    throw new Error("Audio upload is disabled");
-  }
-  // TODO: implement actual upload logic
-  throw new Error("Audio upload not yet implemented");
-}
-```
-
-### Critical Workflows
-These workflows require special attention:
-- Audio upload (`/audio/library`, `/audio/devices/{id}/upload`)
-- Zigbee pairing (`/zigbee/pair`)
-- Camera switching (`/camera/active`)
-- Log streaming (`/logs/stream`)
-
-## Documentation Standards
-
-### API Documentation
-- Every endpoint must have OpenAPI documentation
-- Include example requests and responses
-- Document error codes and their meanings
-
-### Infrastructure Documentation
-- Document port mappings in deployment configs
-- Explain environment variable requirements
-- Include troubleshooting guides
-
-### Runbook Requirements
-- Include step-by-step procedures
-- Reference CI artifacts and automation
-- Provide manual fallback procedures
+## Definition of Done for UI Changes
+1. Regenerate OpenAPI clients and commit artifacts (no drift in `git diff`).
+2. SSR loaders/components handle null data and unauthorized responses gracefully.
+3. Feature flags default to safe OFF states with tests covering both OFF and ON.
+4. First-render contract tests updated and passing for affected routes.
+5. Playwright smokes updated for affected modules.
+6. Documentation updated for spec, flags, env schema, or ops procedures.

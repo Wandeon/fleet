@@ -3,74 +3,49 @@
 ## Protected Branches
 
 ### `main` Branch
-The `main` branch is protected with the following rules:
+The `main` branch is protected with the following rules. These settings must be configured in **Settings → Branches** on GitHub and may not be bypassed.
 
 #### Required Status Checks
-All of the following CI checks must pass before merge:
-- ✅ **CI Essentials** (`ci.yml`) - TypeScript, build, test, lint
-- ✅ **Contract Check** - OpenAPI client generation and drift detection
-- ✅ **Database Migrations** - Migration validation and smoke tests
-- ✅ **Infrastructure Checks** - Caddy/Compose port validation
-- ✅ **Inventory Sync** - Device inventory vs monitoring targets
-- ✅ **Acceptance Smoke** - Module-level endpoint validation
-- ✅ **Release Readiness** - Artifact generation
+All merges into `main` must have a green build for the exact workflow names below:
 
-#### Required Reviews
-- **Minimum 1 review** from code owners
-- **API team review** required for:
-  - `apps/api/openapi.yaml`
-  - `apps/api/src/**`
-  - `apps/api/prisma/**`
-- **Infrastructure team review** required for:
-  - `infra/vps/**`
-  - `*.Caddyfile`
-  - `docker-compose*.yml`
+1. `contract` – OpenAPI lint, client generation, and drift guard
+2. `typecheck` – Type checking for API and UI workspaces
+3. `build` – Production builds for API and UI
+4. `ui-env-validation` – UI environment schema validation
+5. `placeholder-guard` – Feature flag discipline and placeholder enforcement
+6. `first-render-contract-tests` – Route-level contract assertions
+7. `playwright-smokes` – Operator-critical Playwright smoke suite
+8. `caddy-compose-port-check` – Reverse proxy vs Compose port drift check
+9. `inventory-monitoring-sync` – Device inventory vs monitoring target sync
+10. `release-readiness-report` – Aggregated deployment readiness artifact
 
-#### Restrictions
-- ❌ **No admin bypass** - Even repository admins must follow the rules
-- ❌ **No force push** - History must be preserved
-- ❌ **No deletion** - Branch cannot be deleted
-- ✅ **Require branches to be up to date** - Must rebase on latest main
+> **Note:** The workflow names above must match the `name:` field inside `.github/workflows/*.yml` exactly so GitHub can enforce them.
 
-## Team Structure
+#### Review Requirements
+- Require **review from code owners** for every pull request.
+- Require **linear history** (use rebase/merge or squash) and **dismiss stale reviews on new commits**.
+- Enforce **no admin bypass** and **disallow force pushes**.
 
-### @fleet-team/api
-Responsible for:
-- Backend API development
-- Database schema changes
-- OpenAPI specification
-- Core business logic
+#### Scope-Based Reviews via CODEOWNERS
+- `apps/api/**` and `apps/api/openapi.yaml` changes request **@fleet-team/api**.
+- `infra/**`, any `*.Caddyfile`, and `docker-compose*.yml` request **@fleet-team/infra**.
+- `apps/ui/src/**` and UI libraries request **@fleet-team/ui**.
 
-### @fleet-team/infra
-Responsible for:
-- Deployment configurations
-- Infrastructure as code
-- Monitoring setup
-- Network and proxy configuration
+## How to Configure
+1. Navigate to **Settings → Branches**.
+2. Create or edit the rule for `main`.
+3. Enable “Require a pull request before merging” and “Require review from Code Owners”.
+4. Turn on “Dismiss stale pull request approvals when new commits are pushed”.
+5. Select “Require linear history”.
+6. Add all status checks from the list above and mark them as required.
+7. Disable “Allow force pushes” and “Allow deletions”.
+8. Save the rule.
 
-## Setting Up Branch Protection
+## Enforcement Sources
+- GitHub Branch Protection
+- `.github/CODEOWNERS`
+- Required CI workflows listed in `/docs/03-ci-pipelines.md`
+- Pull request template checklist
 
-Repository administrators should configure these settings in GitHub:
-1. Go to **Settings** → **Branches**
-2. Add rule for `main` branch
-3. Enable all required status checks listed above
-4. Require review from code owners
-5. Disable admin bypass
-6. Require branches to be up to date
-
-## Enforcement
-
-These policies are enforced by:
-- GitHub branch protection rules
-- CODEOWNERS file automatic review requests
-- CI pipeline status checks
-- Release readiness validation
-
-## Emergency Procedures
-
-In case of critical production issues:
-1. Create hotfix branch from `main`
-2. Apply minimal fix
-3. Fast-track review with both teams
-4. Merge with all checks passing
-5. Deploy immediately using release readiness artifact
+## Emergency Procedure
+Production fixes still follow the same protections. Coordinate with reviewers for expedited approval, keep the change minimal, and ensure all status checks pass before merging.
