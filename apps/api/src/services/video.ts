@@ -198,7 +198,7 @@ export async function runDevicePlayback(
       break;
     }
     default: {
-      throw createHttpError(400, 'invalid_action', `Unsupported playback action: ${action}`);
+      throw createHttpError(400, 'invalid_action', `Unsupported playback action: ${action as string}`);
     }
   }
 
