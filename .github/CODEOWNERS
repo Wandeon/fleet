@@ -1,42 +1,40 @@
 # Fleet Repository Code Owners
-#
-# This file defines who must review changes to specific parts of the codebase.
-# GitHub will automatically request reviews from the appropriate teams.
-#
-# See: https://docs.github.com/en/repositories/managing-your-repositorys-settings-and-features/customizing-your-repository/about-code-owners
+# Automatically requested reviewers per path. The repository enforces contract-first development
+# by routing API, infrastructure, and UI changes to the responsible teams.
 
-# API and OpenAPI Schema Changes
-# Require review from API team for any backend changes
-apps/api/openapi.yaml        @fleet-team/api
-apps/api/src/**              @fleet-team/api
-apps/api/prisma/**           @fleet-team/api
+# API and OpenAPI schema changes
+apps/api/openapi.yaml       @fleet-team/api
+apps/api/src/**             @fleet-team/api
+apps/api/prisma/**          @fleet-team/api
+apps/api/package.json       @fleet-team/api
+apps/api/package-lock.json  @fleet-team/api
 
-# Infrastructure and Deployment
-# Require review from Infrastructure team for deployment configs
-infra/vps/**                 @fleet-team/infra
-*.Caddyfile                  @fleet-team/infra
-docker-compose*.yml          @fleet-team/infra
-Dockerfile                   @fleet-team/infra
+# Generated API clients shared with the UI
+apps/ui/src/lib/api/**      @fleet-team/api @fleet-team/ui
 
-# CI/CD Pipeline Changes
-# Require review from both teams for CI changes
-.github/workflows/**         @fleet-team/api @fleet-team/infra
-.github/CODEOWNERS           @fleet-team/api @fleet-team/infra
+# UI routes and libraries (SvelteKit)
+apps/ui/src/routes/**       @fleet-team/ui
+apps/ui/src/lib/**          @fleet-team/ui
+apps/ui/static/**           @fleet-team/ui
+apps/ui/package.json        @fleet-team/ui
+apps/ui/package-lock.json   @fleet-team/ui
 
-# Monitoring and Observability
-# Require Infrastructure team review for monitoring configs
-infra/vps/targets-*.json     @fleet-team/infra
-inventory/**                 @fleet-team/infra
-prometheus/**                @fleet-team/infra
-grafana/**                   @fleet-team/infra
+# Infrastructure, Compose, and reverse proxy configuration
+infra/**                    @fleet-team/infra
+*.Caddyfile                 @fleet-team/infra
+caddy/**                    @fleet-team/infra
+docker-compose*.yml         @fleet-team/infra
+Dockerfile                  @fleet-team/infra
+monitoring/**               @fleet-team/infra
+inventory/**                @fleet-team/infra
+
+# CI/CD configuration and repository meta
+.github/workflows/**        @fleet-team/api @fleet-team/infra
+.github/CODEOWNERS          @fleet-team/api @fleet-team/infra
+.github/PULL_REQUEST_TEMPLATE.md @fleet-team/api @fleet-team/infra @fleet-team/ui
 
 # Documentation
-# Require appropriate team review based on content
-docs/deployment/**           @fleet-team/infra
-docs/api/**                  @fleet-team/api
-docs/ci-pipelines.md         @fleet-team/api @fleet-team/infra
+docs/**                     @fleet-team/api @fleet-team/infra @fleet-team/ui
 
-# Root-level configuration files
-package.json                 @fleet-team/api
-package-lock.json            @fleet-team/api
-tsconfig*.json               @fleet-team/api
+# Fallback
+*                           @fleet-team/api @fleet-team/infra @fleet-team/ui
