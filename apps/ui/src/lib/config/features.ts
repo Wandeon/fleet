@@ -1,4 +1,4 @@
-const defaultFeatureState = import.meta.env.DEV ? '0' : '1';
+const defaultFeatureState = '0';
 
 function resolveFlag(value: string | undefined): boolean {
   const raw = (value ?? defaultFeatureState).trim();
