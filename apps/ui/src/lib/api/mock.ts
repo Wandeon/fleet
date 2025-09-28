@@ -18,6 +18,7 @@ import type {
   LogSource,
   PowerState,
   SettingsState,
+  SystemHealthSummary,
   VideoState,
   ZigbeeState,
 } from '$lib/types';
@@ -730,6 +731,7 @@ const mockApiBase = {
 };
 
 interface MockApiExtensions {
+  health(): SystemHealthSummary;
   camera(): CameraState;
   cameraSummary(): {
     status: 'online' | 'offline' | 'degraded';
@@ -800,6 +802,44 @@ type MockApi = typeof mockApiBase & MockApiExtensions;
 export const mockApi = mockApiBase as MockApi;
 
 const mockApiExtensions: MockApiExtensions = {
+  health(): SystemHealthSummary {
+    const timestamp = nowIso();
+    return {
+      overall: 'UP',
+      components: {
+        'pi-audio-01': 'UP',
+        'pi-video-01': 'DEGRADED',
+        'zigbee-hub': 'UP',
+      },
+      devices: [
+        {
+          id: 'pi-audio-01',
+          name: 'Audio Pi #1',
+          kind: 'audio',
+          status: 'UP',
+          updatedAt: timestamp,
+          lastSeen: timestamp,
+        },
+        {
+          id: 'pi-video-01',
+          name: 'Video Wall Bridge',
+          kind: 'video',
+          status: 'DEGRADED',
+          updatedAt: timestamp,
+          lastSeen: timestamp,
+        },
+        {
+          id: 'zigbee-hub',
+          name: 'Zigbee Hub',
+          kind: 'zigbee',
+          status: 'UP',
+          updatedAt: timestamp,
+          lastSeen: timestamp,
+        },
+      ],
+      timestamp,
+    } satisfies SystemHealthSummary;
+  },
   camera(): CameraState {
     return clone(getCameraState());
   },

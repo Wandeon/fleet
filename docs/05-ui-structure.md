@@ -6,6 +6,7 @@ Each first-render must hydrate data exclusively through generated OpenAPI client
 | Route | Loader Module | Primary Client Call | Test File |
 | --- | --- | --- | --- |
 | `/` | `apps/ui/src/routes/+page.ts` | `client.fleet.getOverview()` | `tests/first-render/home.spec.ts` |
+| `/console` | `apps/ui/src/routes/console/+page.server.ts` | `apiClient.fetchSystemHealth()` | Flagged - add contract test when feature flag flips |
 | `/fleet/overview` | `apps/ui/src/routes/fleet/overview/+page.ts` | `client.fleet.getOverview()` | `tests/first-render/fleet-overview.spec.ts` |
 | `/logs` | `apps/ui/src/routes/logs/+page.ts` | `client.logs.stream()` | `tests/first-render/logs.spec.ts` |
 | `/settings` | `apps/ui/src/routes/settings/+page.ts` | `client.settings.list()` | `tests/first-render/settings.spec.ts` |

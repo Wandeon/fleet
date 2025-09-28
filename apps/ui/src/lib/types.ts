@@ -199,6 +199,24 @@ export interface CameraEventEntry {
   snapshotUrl?: string | null;
 }
 
+export type SystemHealthStatus = 'UP' | 'DEGRADED' | 'DOWN' | 'UNKNOWN';
+
+export interface SystemHealthDevice {
+  id: string;
+  name: string;
+  kind: string;
+  status: SystemHealthStatus;
+  updatedAt: string | null;
+  lastSeen: string | null;
+}
+
+export interface SystemHealthSummary {
+  overall: SystemHealthStatus;
+  components: Record<string, SystemHealthStatus>;
+  devices: SystemHealthDevice[];
+  timestamp: string;
+}
+
 export interface CameraSummaryItem {
   id: string;
   name: string;

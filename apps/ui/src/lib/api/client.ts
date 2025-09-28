@@ -216,6 +216,7 @@ import type {
   CameraState,
   FleetOverviewState,
   LayoutData,
+  SystemHealthSummary,
   VideoState,
   ZigbeeState,
 } from '$lib/types';
@@ -324,6 +325,8 @@ async function request<T>(path: string, options: RequestOptions = {}): Promise<T
   if (USE_MOCKS) {
     await wait(browser ? 200 : 20);
     switch (path) {
+      case '/health':
+        return mockApi.health() as T;
       case '/fleet/layout':
         return mockApi.layout() as T;
       case '/fleet/state':
@@ -377,6 +380,9 @@ async function request<T>(path: string, options: RequestOptions = {}): Promise<T
 }
 
 export const apiClient = {
+  async fetchSystemHealth(options?: RequestOptions): Promise<SystemHealthSummary> {
+    return request<SystemHealthSummary>('/health', options);
+  },
   async fetchLayout(options?: RequestOptions): Promise<LayoutData> {
     return request<LayoutData>('/fleet/layout', options);
   },
