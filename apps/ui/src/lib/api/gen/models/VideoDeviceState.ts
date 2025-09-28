@@ -2,6 +2,7 @@
 /* tslint:disable */
 /* eslint-disable */
 
+import type { VideoPlaybackState } from './VideoPlaybackState';
 import type { VideoPowerState } from './VideoPowerState';
 
 export type VideoDeviceState = {
@@ -13,6 +14,11 @@ export type VideoDeviceState = {
   power: VideoPowerState;
   mute: boolean;
   input: string;
+  volumePercent: number;
+  availableInputs: Array<string>;
+  playback: VideoPlaybackState;
+  busy: boolean;
+  lastJobId?: string | null;
   lastUpdated: string;
 };
 

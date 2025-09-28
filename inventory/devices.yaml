@@ -12,7 +12,8 @@ devices:
     logs: true
     loki_source: pi-video-01
   pi-camera-01:
-    role: camera
+    role: camera-node
+    location: front-entry
     logs: true
     loki_source: pi-camera-01
   # Example HDMI media device

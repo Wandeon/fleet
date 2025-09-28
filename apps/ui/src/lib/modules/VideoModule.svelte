@@ -8,6 +8,7 @@
   import { createEventDispatcher } from 'svelte';
   import { goto, invalidate } from '$app/navigation';
   import { resolve } from '$app/paths';
+  import { isFeatureEnabled } from '$lib/config/features';
   import {
     fetchRecordingTimeline,
     generateLivePreviewUrl,
@@ -134,7 +135,7 @@
   const refreshRecordings = async () => {
     try {
       timeline = await fetchRecordingTimeline();
-      if (timeline.length && !selectedSegmentId) {
+      if ((timeline ?? []).length && !selectedSegmentId) {
         selectedSegmentId = timeline[0].id;
       }
     } catch (error) {
@@ -280,52 +281,54 @@
         </div>
       </section>
 
-      <section class="controls">
-        <header>
-          <h2>Display controls</h2>
-        </header>
-        <div class="controls-grid">
-          <div class="power">
-            <Button
-              variant={data.power === 'on' ? 'primary' : 'secondary'}
-              disabled={busy}
-              on:click={() => handlePower('on')}
-            >
-              Power on
-            </Button>
-            <Button
-              variant={data.power === 'off' ? 'primary' : 'secondary'}
-              disabled={busy}
-              on:click={() => handlePower('off')}
-            >
-              Power off
-            </Button>
-          </div>
-          <div class="inputs" role="radiogroup" aria-label="Video input">
-            {#each data.availableInputs as input (input.id)}
+      {#if isFeatureEnabled('video')}
+        <section class="controls">
+          <header>
+            <h2>Display controls</h2>
+          </header>
+          <div class="controls-grid">
+            <div class="power">
               <Button
-                variant={input.id === data.input ? 'primary' : 'ghost'}
+                variant={data.power === 'on' ? 'primary' : 'secondary'}
                 disabled={busy}
-                on:click={() => handleInput(input.id)}
-                aria-pressed={input.id === data.input}
+                on:click={() => handlePower('on')}
               >
-                {input.label}
+                Power on
               </Button>
-            {/each}
+              <Button
+                variant={data.power === 'off' ? 'primary' : 'secondary'}
+                disabled={busy}
+                on:click={() => handlePower('off')}
+              >
+                Power off
+              </Button>
+            </div>
+            <div class="inputs" role="radiogroup" aria-label="Video input">
+              {#each (data.availableInputs ?? []) as input (input.id)}
+                <Button
+                  variant={input.id === data.input ? 'primary' : 'ghost'}
+                  disabled={busy}
+                  on:click={() => handleInput(input.id)}
+                  aria-pressed={input.id === data.input}
+                >
+                  {input.label}
+                </Button>
+              {/each}
+            </div>
+            <Slider
+              label="Output volume"
+              min={0}
+              max={100}
+              value={data.volume}
+              unit="%"
+              on:change={(event) => handleVolume(event.detail)}
+            />
+            <Button variant={data.muted ? 'primary' : 'ghost'} on:click={handleMute}>
+              {data.muted ? 'Unmute' : 'Mute'}
+            </Button>
           </div>
-          <Slider
-            label="Output volume"
-            min={0}
-            max={100}
-            value={data.volume}
-            unit="%"
-            on:change={(event) => handleVolume(event.detail)}
-          />
-          <Button variant={data.muted ? 'primary' : 'ghost'} on:click={handleMute}>
-            {data.muted ? 'Unmute' : 'Mute'}
-          </Button>
-        </div>
-      </section>
+        </section>
+      {/if}
 
       <section class="timeline">
         <header>
@@ -380,11 +383,11 @@
         <header>
           <h2>CEC devices</h2>
         </header>
-        {#if !data.cecDevices.length}
+        {#if !(data.cecDevices ?? []).length}
           <p class="muted">No downstream CEC devices reported.</p>
         {:else}
           <ul class="cec-list">
-            {#each data.cecDevices as device (device.id)}
+            {#each (data.cecDevices ?? []) as device (device.id)}
               <li>
                 <div>
                   <strong>{device.name}</strong>

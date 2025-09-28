@@ -1,0 +1,40 @@
+# Fleet Repository Code Owners
+# Automatically requested reviewers per path. The repository enforces contract-first development
+# by routing API, infrastructure, and UI changes to the responsible teams.
+
+# API and OpenAPI schema changes
+apps/api/openapi.yaml       @fleet-team/api
+apps/api/src/**             @fleet-team/api
+apps/api/prisma/**          @fleet-team/api
+apps/api/package.json       @fleet-team/api
+apps/api/package-lock.json  @fleet-team/api
+
+# Generated API clients shared with the UI
+apps/ui/src/lib/api/**      @fleet-team/api @fleet-team/ui
+
+# UI routes and libraries (SvelteKit)
+apps/ui/src/routes/**       @fleet-team/ui
+apps/ui/src/lib/**          @fleet-team/ui
+apps/ui/static/**           @fleet-team/ui
+apps/ui/package.json        @fleet-team/ui
+apps/ui/package-lock.json   @fleet-team/ui
+
+# Infrastructure, Compose, and reverse proxy configuration
+infra/**                    @fleet-team/infra
+*.Caddyfile                 @fleet-team/infra
+caddy/**                    @fleet-team/infra
+docker-compose*.yml         @fleet-team/infra
+Dockerfile                  @fleet-team/infra
+monitoring/**               @fleet-team/infra
+inventory/**                @fleet-team/infra
+
+# CI/CD configuration and repository meta
+.github/workflows/**        @fleet-team/api @fleet-team/infra
+.github/CODEOWNERS          @fleet-team/api @fleet-team/infra
+.github/PULL_REQUEST_TEMPLATE.md @fleet-team/api @fleet-team/infra @fleet-team/ui
+
+# Documentation
+docs/**                     @fleet-team/api @fleet-team/infra @fleet-team/ui
+
+# Fallback
+*                           @fleet-team/api @fleet-team/infra @fleet-team/ui

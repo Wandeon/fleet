@@ -4,6 +4,7 @@ import {
   AudioApi,
   USE_MOCKS,
   UiApiError,
+  apiClient,
   type AudioDeviceSnapshot as ApiAudioDeviceSnapshot,
   type AudioLibraryTrack as ApiAudioLibraryTrack,
   type AudioPlaylist as ApiAudioPlaylist,
@@ -110,16 +111,22 @@ const normalisePlayback = (
   lastError: playback.lastError ?? null,
 });
 
-const normaliseDevice = (device: ApiAudioDeviceSnapshot): AudioDeviceSnapshot => ({
-  id: device.id,
-  name: device.name,
-  status: device.status,
-  group: device.group ?? null,
-  volumePercent: device.volumePercent,
-  capabilities: device.capabilities ?? [],
-  playback: normalisePlayback(device.playback),
-  lastUpdated: device.lastUpdated,
-});
+const normaliseDevice = (device: ApiAudioDeviceSnapshot): AudioDeviceSnapshot => {
+  const extras = device as unknown as Record<string, unknown>;
+  const fallbackExists = Boolean(extras.fallbackExists ?? extras.fallback_exists);
+
+  return {
+    id: device.id,
+    name: device.name,
+    status: device.status,
+    group: device.group ?? null,
+    volumePercent: device.volumePercent,
+    capabilities: device.capabilities ?? [],
+    playback: normalisePlayback(device.playback),
+    lastUpdated: device.lastUpdated,
+    fallbackExists,
+  };
+};
 
 const normaliseTrack = (track: ApiAudioLibraryTrack): AudioLibraryTrack => ({
   id: track.id,
@@ -237,6 +244,32 @@ export const uploadTrack = async (options: UploadTrackOptions): Promise<AudioLib
   );
 
   return normaliseTrack(track);
+};
+
+export interface UploadFallbackResult {
+  deviceId: string;
+  fallbackExists: boolean;
+  saved: boolean;
+  path: string;
+  status?: unknown;
+}
+
+export const uploadFallback = async (
+  deviceId: string,
+  file: File | Blob
+): Promise<UploadFallbackResult> => {
+  if (USE_MOCKS) {
+    const isFile = typeof File !== 'undefined' && file instanceof File;
+    const sourceFile = isFile ? (file as File) : undefined;
+    const sizeBytes = typeof file.size === 'number' ? file.size : sourceFile?.size ?? 0;
+    return mockApi.audioUploadFallback(deviceId, {
+      fileName: sourceFile?.name ?? 'fallback.mp3',
+      fileSizeBytes: sizeBytes,
+      mimeType: sourceFile?.type ?? (file as { type?: string }).type,
+    });
+  }
+
+  return callAudioApi({}, 'Failed to upload fallback audio', () => apiClient.audio.upload(deviceId, file));
 };
 
 export const createPlaylist = async (
@@ -408,4 +441,20 @@ export const setMasterVolume = async (
   );
 
   return getAudioOverview(options);
+};
+
+export const getDeviceSnapshot = async (
+  deviceId: string,
+  options: { fetch?: typeof fetch } = {}
+): Promise<AudioDeviceSnapshot> => {
+  if (USE_MOCKS) {
+    const state = mockApi.audio();
+    const snapshot = state.devices.find((device) => device.id === deviceId);
+    if (!snapshot) {
+      throw new UiApiError(`Audio device ${deviceId} not found`, 404, null);
+    }
+    return snapshot;
+  }
+
+  return refreshDevice(deviceId, options);
 };

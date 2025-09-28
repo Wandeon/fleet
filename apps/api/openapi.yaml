@@ -331,6 +331,9 @@ components:
         lastUpdated:
           type: string
           format: date-time
+        fallbackExists:
+          type: boolean
+          description: Indicates whether a fallback file is currently stored on the device.
     AudioLibraryTrack:
       type: object
       required:
@@ -663,6 +666,53 @@ components:
         expiresAt:
           type: string
           format: date-time
+    AudioDeviceUploadResponse:
+      type: object
+      required:
+        - deviceId
+        - saved
+        - path
+        - fallbackExists
+      properties:
+        deviceId:
+          type: string
+          description: Identifier of the audio device that processed the upload.
+        saved:
+          type: boolean
+          description: Indicates whether the device persisted the uploaded file.
+        path:
+          type: string
+          description: Absolute path reported by the device for the stored fallback asset.
+        fallbackExists:
+          type: boolean
+          description: Flag reflecting whether the device reports an on-disk fallback file after the upload.
+        status:
+          type: object
+          description: Raw status payload returned from the device following the upload.
+          required:
+            - stream_url
+            - volume
+            - mode
+            - source
+            - fallback_exists
+          properties:
+            stream_url:
+              type: string
+            volume:
+              type: number
+            mode:
+              type: string
+              enum:
+                - auto
+                - manual
+            source:
+              type: string
+              enum:
+                - stream
+                - file
+                - stop
+            fallback_exists:
+              type: boolean
         fields:
           type: object
           additionalProperties:
@@ -803,6 +853,27 @@ components:
             - available
             - processing
             - failed
+    VideoPlaybackState:
+      type: object
+      required:
+        - status
+        - source
+        - startedAt
+      properties:
+        status:
+          type: string
+          enum:
+            - idle
+            - playing
+            - paused
+            - stopped
+        source:
+          type: string
+          nullable: true
+        startedAt:
+          type: string
+          format: date-time
+          nullable: true
     VideoDeviceState:
       type: object
       required:
@@ -814,6 +885,10 @@ components:
         - power
         - mute
         - input
+        - volumePercent
+        - availableInputs
+        - playback
+        - busy
         - lastUpdated
       properties:
         id:
@@ -832,9 +907,42 @@ components:
           type: boolean
         input:
           type: string
+        volumePercent:
+          type: integer
+          format: int32
+          minimum: 0
+          maximum: 100
+        availableInputs:
+          type: array
+          items:
+            type: string
+        playback:
+          $ref: '#/components/schemas/VideoPlaybackState'
+        busy:
+          type: boolean
+        lastJobId:
+          type: string
+          nullable: true
         lastUpdated:
           type: string
           format: date-time
+    VideoJobAcknowledgement:
+      type: object
+      required:
+        - deviceId
+        - lastUpdated
+        - jobId
+        - accepted
+      properties:
+        deviceId:
+          type: string
+        lastUpdated:
+          type: string
+          format: date-time
+        jobId:
+          type: string
+        accepted:
+          type: boolean
     VideoOverview:
       type: object
       required:
@@ -1587,6 +1695,54 @@ components:
         reason:
           type: string
           nullable: true
+        updatedAt:
+          type: string
+          format: date-time
+    CameraStream:
+      type: object
+      required:
+        - id
+        - name
+        - status
+        - updatedAt
+      properties:
+        id:
+          type: string
+        name:
+          type: string
+        status:
+          type: string
+          enum:
+            - online
+            - offline
+            - degraded
+        reason:
+          type: string
+          nullable: true
+        streamUrl:
+          type: string
+          format: uri
+          nullable: true
+        module:
+          type: string
+          nullable: true
+        updatedAt:
+          type: string
+          format: date-time
+    CameraStreamListResponse:
+      type: object
+      required:
+        - streams
+        - total
+        - updatedAt
+      properties:
+        streams:
+          type: array
+          items:
+            $ref: '#/components/schemas/CameraStream'
+        total:
+          type: integer
+          format: int32
         updatedAt:
           type: string
           format: date-time
@@ -3205,6 +3361,54 @@ paths:
           $ref: '#/components/responses/NotImplementedError'
         '500':
           $ref: '#/components/responses/InternalError'
+  /audio/devices/{deviceId}/upload:
+    post:
+      tags:
+        - Audio
+      summary: Upload a fallback audio file to an audio device.
+      description: Forward a multipart upload to the target device which atomically replaces `/data/fallback.mp3`.
+      operationId: uploadAudioDeviceFallback
+      parameters:
+        - name: deviceId
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              required:
+                - file
+              properties:
+                file:
+                  type: string
+                  format: binary
+      responses:
+        '201':
+          description: Fallback upload completed.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AudioDeviceUploadResponse'
+        '400':
+          description: Upload failed due to missing file or size limits.
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '403':
+          $ref: '#/components/responses/ForbiddenError'
+        '404':
+          $ref: '#/components/responses/NotFoundError'
+        '429':
+          $ref: '#/components/responses/RateLimitError'
+        '502':
+          $ref: '#/components/responses/BadGatewayError'
+        '504':
+          $ref: '#/components/responses/GatewayTimeoutError'
+        '500':
+          $ref: '#/components/responses/InternalError'
   /audio/master-volume:
     post:
       tags:
@@ -3571,19 +3775,14 @@ paths:
           content:
             application/json:
               schema:
-                type: object
-                required:
-                  - deviceId
-                  - power
-                  - lastUpdated
-                properties:
-                  deviceId:
-                    type: string
-                  power:
-                    $ref: '#/components/schemas/VideoPowerState'
-                  lastUpdated:
-                    type: string
-                    format: date-time
+                allOf:
+                  - $ref: '#/components/schemas/VideoJobAcknowledgement'
+                  - type: object
+                    required:
+                      - power
+                    properties:
+                      power:
+                        $ref: '#/components/schemas/VideoPowerState'
         '400':
           $ref: '#/components/responses/ValidationError'
         '401':
@@ -3592,6 +3791,12 @@ paths:
           $ref: '#/components/responses/ForbiddenError'
         '404':
           $ref: '#/components/responses/NotFoundError'
+        '409':
+          description: HDMI-CEC bus is busy and cannot accept another power command yet.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
         '429':
           $ref: '#/components/responses/RateLimitError'
         '500':
@@ -3626,19 +3831,14 @@ paths:
           content:
             application/json:
               schema:
-                type: object
-                required:
-                  - deviceId
-                  - mute
-                  - lastUpdated
-                properties:
-                  deviceId:
-                    type: string
-                  mute:
-                    type: boolean
-                  lastUpdated:
-                    type: string
-                    format: date-time
+                allOf:
+                  - $ref: '#/components/schemas/VideoJobAcknowledgement'
+                  - type: object
+                    required:
+                      - mute
+                    properties:
+                      mute:
+                        type: boolean
         '400':
           $ref: '#/components/responses/ValidationError'
         '401':
@@ -3647,6 +3847,12 @@ paths:
           $ref: '#/components/responses/ForbiddenError'
         '404':
           $ref: '#/components/responses/NotFoundError'
+        '409':
+          description: HDMI-CEC bus is busy and cannot accept another mute command yet.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
         '429':
           $ref: '#/components/responses/RateLimitError'
         '500':
@@ -3681,19 +3887,14 @@ paths:
           content:
             application/json:
               schema:
-                type: object
-                required:
-                  - deviceId
-                  - input
-                  - lastUpdated
-                properties:
-                  deviceId:
-                    type: string
-                  input:
-                    type: string
-                  lastUpdated:
-                    type: string
-                    format: date-time
+                allOf:
+                  - $ref: '#/components/schemas/VideoJobAcknowledgement'
+                  - type: object
+                    required:
+                      - input
+                    properties:
+                      input:
+                        type: string
         '400':
           $ref: '#/components/responses/ValidationError'
         '401':
@@ -3702,6 +3903,141 @@ paths:
           $ref: '#/components/responses/ForbiddenError'
         '404':
           $ref: '#/components/responses/NotFoundError'
+        '409':
+          description: HDMI-CEC bus is busy and cannot accept another input change yet.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '429':
+          $ref: '#/components/responses/RateLimitError'
+        '500':
+          $ref: '#/components/responses/InternalError'
+  /video/devices/{deviceId}/volume:
+    post:
+      tags:
+        - Video
+      summary: Set the output volume for a video endpoint.
+      description: Adjust the HDMI output volume or amplifier gain for a managed display.
+      operationId: setVideoVolume
+      parameters:
+        - name: deviceId
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - volumePercent
+              properties:
+                volumePercent:
+                  type: integer
+                  minimum: 0
+                  maximum: 100
+      responses:
+        '202':
+          description: Volume update accepted.
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/VideoJobAcknowledgement'
+                  - type: object
+                    required:
+                      - volumePercent
+                    properties:
+                      volumePercent:
+                        type: integer
+                        minimum: 0
+                        maximum: 100
+        '400':
+          $ref: '#/components/responses/ValidationError'
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '403':
+          $ref: '#/components/responses/ForbiddenError'
+        '404':
+          $ref: '#/components/responses/NotFoundError'
+        '409':
+          description: HDMI-CEC bus is busy and cannot accept another volume change yet.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '429':
+          $ref: '#/components/responses/RateLimitError'
+        '500':
+          $ref: '#/components/responses/InternalError'
+  /video/devices/{deviceId}/playback:
+    post:
+      tags:
+        - Video
+      summary: Control playback on a managed video endpoint.
+      description: Issue play, pause, resume, or stop commands to the HDMI media player.
+      operationId: controlVideoPlayback
+      parameters:
+        - name: deviceId
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - action
+              properties:
+                action:
+                  type: string
+                  enum:
+                    - play
+                    - pause
+                    - resume
+                    - stop
+                url:
+                  type: string
+                  format: uri
+                  nullable: true
+                startSeconds:
+                  type: number
+                  format: float
+                  nullable: true
+      responses:
+        '202':
+          description: Playback command accepted.
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/VideoJobAcknowledgement'
+                  - type: object
+                    required:
+                      - playback
+                    properties:
+                      playback:
+                        $ref: '#/components/schemas/VideoPlaybackState'
+        '400':
+          $ref: '#/components/responses/ValidationError'
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '403':
+          $ref: '#/components/responses/ForbiddenError'
+        '404':
+          $ref: '#/components/responses/NotFoundError'
+        '409':
+          description: Playback command conflicts with current HDMI-CEC activity.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
         '429':
           $ref: '#/components/responses/RateLimitError'
         '500':
@@ -4004,13 +4340,13 @@ paths:
           $ref: '#/components/responses/NotImplementedError'
         '500':
           $ref: '#/components/responses/InternalError'
-  /camera/overview:
+  /api/camera/summary:
     get:
       tags:
         - Camera
       summary: Retrieve consolidated camera state for the operator dashboard.
       description: Retrieve consolidated camera state for the operator dashboard.
-      operationId: getCameraOverview
+      operationId: getCameraSummary
       responses:
         '200':
           description: Camera overview payload.
@@ -4024,45 +4360,9 @@ paths:
           $ref: '#/components/responses/ForbiddenError'
         '429':
           $ref: '#/components/responses/RateLimitError'
-        '501':
-          $ref: '#/components/responses/NotImplementedError'
-        '502':
-          $ref: '#/components/responses/BadGatewayError'
-        '504':
-          $ref: '#/components/responses/GatewayTimeoutError'
         '500':
           $ref: '#/components/responses/InternalError'
-  /camera/active:
-    put:
-      tags:
-        - Camera
-      summary: Select the active camera for preview and clip operations.
-      description: Select the active camera for preview and clip operations.
-      operationId: selectCamera
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              $ref: '#/components/schemas/CameraSelectionRequest'
-      responses:
-        '202':
-          description: Camera selection accepted.
-        '400':
-          $ref: '#/components/responses/ValidationError'
-        '401':
-          $ref: '#/components/responses/UnauthorizedError'
-        '403':
-          $ref: '#/components/responses/ForbiddenError'
-        '404':
-          $ref: '#/components/responses/NotFoundError'
-        '429':
-          $ref: '#/components/responses/RateLimitError'
-        '501':
-          $ref: '#/components/responses/NotImplementedError'
-        '500':
-          $ref: '#/components/responses/InternalError'
-  /camera/events:
+  /api/camera/events:
     get:
       tags:
         - Camera
@@ -4151,40 +4451,7 @@ paths:
           $ref: '#/components/responses/RateLimitError'
         '500':
           $ref: '#/components/responses/InternalError'
-  /camera/events/{eventId}:
-    get:
-      tags:
-        - Camera
-      summary: Retrieve a single camera event with metadata and clip reference.
-      description: Retrieve a single camera event with metadata and clip reference.
-      operationId: getCameraEvent
-      parameters:
-        - name: eventId
-          in: path
-          required: true
-          schema:
-            type: string
-      responses:
-        '200':
-          description: Camera event detail response.
-          headers:
-            x-correlation-id:
-              $ref: '#/components/headers/CorrelationId'
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/CameraEventDetailResponse'
-        '401':
-          $ref: '#/components/responses/UnauthorizedError'
-        '403':
-          $ref: '#/components/responses/ForbiddenError'
-        '404':
-          $ref: '#/components/responses/NotFoundError'
-        '429':
-          $ref: '#/components/responses/RateLimitError'
-        '500':
-          $ref: '#/components/responses/InternalError'
-  /camera/events/{eventId}/ack:
+  /api/camera/events/{eventId}/ack:
     post:
       tags:
         - Camera
@@ -4200,63 +4467,23 @@ paths:
       responses:
         '202':
           description: Event acknowledgement accepted.
+        '422':
+          $ref: '#/components/responses/ValidationError'
         '401':
           $ref: '#/components/responses/UnauthorizedError'
         '403':
           $ref: '#/components/responses/ForbiddenError'
-        '404':
-          $ref: '#/components/responses/NotFoundError'
         '429':
           $ref: '#/components/responses/RateLimitError'
-        '501':
-          $ref: '#/components/responses/NotImplementedError'
         '500':
           $ref: '#/components/responses/InternalError'
-  /camera/events/{eventId}/clip:
-    post:
+  /api/camera/preview/{cameraId}:
+    get:
       tags:
         - Camera
-      summary: Generate or retrieve a clip for a camera event.
-      description: Generate or retrieve a clip for a camera event.
-      operationId: requestCameraClip
-      parameters:
-        - name: eventId
-          in: path
-          required: true
-          schema:
-            type: string
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              $ref: '#/components/schemas/CameraClipRequest'
-      responses:
-        '200':
-          description: Clip URL response.
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/CameraClipResponse'
-        '401':
-          $ref: '#/components/responses/UnauthorizedError'
-        '403':
-          $ref: '#/components/responses/ForbiddenError'
-        '404':
-          $ref: '#/components/responses/NotFoundError'
-        '429':
-          $ref: '#/components/responses/RateLimitError'
-        '501':
-          $ref: '#/components/responses/NotImplementedError'
-        '500':
-          $ref: '#/components/responses/InternalError'
-  /camera/{cameraId}/refresh:
-    post:
-      tags:
-        - Camera
-      summary: Refresh the preview for a camera or the active camera when cameraId is 'active'.
-      description: Refresh the preview for a camera or the active camera when cameraId is 'active'.
-      operationId: refreshCamera
+      summary: Retrieve preview status for a camera.
+      description: Retrieve preview readiness for a specific camera including offline reasons.
+      operationId: getCameraPreview
       parameters:
         - name: cameraId
           in: path
@@ -4264,8 +4491,12 @@ paths:
           schema:
             type: string
       responses:
-        '202':
-          description: Refresh request accepted.
+        '200':
+          description: Preview status response.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CameraPreviewState'
         '401':
           $ref: '#/components/responses/UnauthorizedError'
         '403':
@@ -4274,8 +4505,28 @@ paths:
           $ref: '#/components/responses/NotFoundError'
         '429':
           $ref: '#/components/responses/RateLimitError'
-        '501':
-          $ref: '#/components/responses/NotImplementedError'
+        '500':
+          $ref: '#/components/responses/InternalError'
+  /api/camera/streams:
+    get:
+      tags:
+        - Camera
+      summary: List camera stream metadata and availability.
+      description: Enumerate camera streams, providing status and offline reasons for monitoring.
+      operationId: listCameraStreams
+      responses:
+        '200':
+          description: Camera stream collection.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CameraStreamListResponse'
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '403':
+          $ref: '#/components/responses/ForbiddenError'
+        '429':
+          $ref: '#/components/responses/RateLimitError'
         '500':
           $ref: '#/components/responses/InternalError'
   /logs:

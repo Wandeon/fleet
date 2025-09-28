@@ -8,6 +8,7 @@
   import type { FleetDeviceSummary, FleetOverview } from '$lib/types';
   import { getFleetOverview } from '$lib/api/fleet-operations';
   import { goto } from '$app/navigation';
+  import { resolve } from '$app/paths';
 
   export let data: PageData;
 
@@ -32,13 +33,14 @@
   const filteredDevices = () => {
     if (!overview) return [] as FleetDeviceSummary[];
     return overview.devices.filter((device) => {
-      const moduleMatch = filterModule === 'all' || device.module === filterModule;
+      const deviceModule = device.module || device.role || 'unknown';
+      const moduleMatch = filterModule === 'all' || deviceModule === filterModule;
       const statusMatch =
         filterStatus === 'all' ||
         (filterStatus === 'error' && device.status === 'error') ||
         (filterStatus === 'offline' && device.status === 'offline') ||
         (filterStatus === 'online' && device.status === 'online') ||
-        (filterStatus === 'degraded' && device.status === 'error');
+        (filterStatus === 'degraded' && device.status === 'degraded');
       return moduleMatch && statusMatch;
     });
   };
@@ -140,7 +142,7 @@
       {:else}
         <div class="device-grid">
           {#each filteredDevices() as device (device.id)}
-            <button class="device-card" on:click={() => goto(`/fleet/${device.id}`)}>
+            <button class="device-card" on:click={() => goto(resolve(`/fleet/${device.id}`))}>
               <div class="device-header">
                 <h3>{device.name}</h3>
                 <StatusPill status={statusToPill(device.status)} label={device.status} />
@@ -148,7 +150,7 @@
               <dl>
                 <div>
                   <dt>Module</dt>
-                  <dd>{device.module}</dd>
+                  <dd>{device.module || 'Unknown'}</dd>
                 </div>
                 <div>
                   <dt>Location</dt>
@@ -156,11 +158,11 @@
                 </div>
                 <div>
                   <dt>Last seen</dt>
-                  <dd>{new Date(device.lastSeen).toLocaleString()}</dd>
+                  <dd>{device.lastSeen ? new Date(device.lastSeen).toLocaleString() : 'Never'}</dd>
                 </div>
                 <div>
                   <dt>Version</dt>
-                  <dd>{device.version}</dd>
+                  <dd>{device.version || 'Unknown'}</dd>
                 </div>
               </dl>
             </button>

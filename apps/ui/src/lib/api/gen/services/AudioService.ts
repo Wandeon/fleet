@@ -2,6 +2,7 @@
 /* tslint:disable */
 /* eslint-disable */
 import type { AudioDeviceSnapshot } from '../models/AudioDeviceSnapshot';
+import type { AudioDeviceUploadResponse } from '../models/AudioDeviceUploadResponse';
 import type { AudioLibraryTrack } from '../models/AudioLibraryTrack';
 import type { AudioLibraryUploadRegistration } from '../models/AudioLibraryUploadRegistration';
 import type { AudioLibraryUploadRegistrationRequest } from '../models/AudioLibraryUploadRegistrationRequest';
@@ -522,6 +523,41 @@ export class AudioService {
         429: `Request rate limit exceeded.`,
         500: `Unexpected server error occurred.`,
         501: `Endpoint contract defined but backend implementation is pending.`,
+      },
+    });
+  }
+
+  /**
+   * Upload a fallback audio file to an audio device.
+   * Forward a multipart upload to the target device which atomically replaces `/data/fallback.mp3`.
+   * @param deviceId
+   * @param formData
+   * @returns AudioDeviceUploadResponse Fallback upload completed.
+   * @throws ApiError
+   */
+  public static uploadAudioDeviceFallback(
+    deviceId: string,
+    formData: {
+      file: Blob;
+    },
+  ): CancelablePromise<AudioDeviceUploadResponse> {
+    return __request(OpenAPI, {
+      method: 'POST',
+      url: '/audio/devices/{deviceId}/upload',
+      path: {
+        'deviceId': deviceId,
+      },
+      formData: formData,
+      mediaType: 'multipart/form-data',
+      errors: {
+        400: `Upload failed due to missing file or size limits.`,
+        401: `Authentication failed or credentials missing.`,
+        403: `Authenticated user does not have permission to access the resource.`,
+        404: `Requested resource does not exist.`,
+        429: `Request rate limit exceeded.`,
+        500: `Unexpected server error occurred.`,
+        502: `Upstream device returned an invalid response or is unreachable.`,
+        504: `Upstream device timed out while processing the request.`,
       },
     });
   }

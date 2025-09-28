@@ -1,0 +1,98 @@
+name: 'CI Main'
+
+on:
+  pull_request:
+    branches: [main]
+  push:
+    branches: [main]
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  # Core CI checks
+  ci-essentials:
+    name: 'CI Essentials'
+    uses: ./.github/workflows/ci.yml
+    secrets: inherit
+
+  # Specialized checks (run in parallel)
+  contract-check:
+    name: 'Contract Check'
+    uses: ./.github/workflows/contract-check.yml
+    if: contains(github.event.pull_request.changed_files, 'apps/api/openapi.yaml') || contains(github.event.pull_request.changed_files, 'apps/ui/src/lib/api/gen') || contains(github.event.pull_request.changed_files, 'apps/ui/src/lib/api/generated')
+
+  database-migrations:
+    name: 'Database Migrations'
+    uses: ./.github/workflows/database-migrations.yml
+    if: contains(github.event.pull_request.changed_files, 'apps/api/prisma/')
+
+  infrastructure-checks:
+    name: 'Infrastructure Checks'
+    uses: ./.github/workflows/infrastructure-checks.yml
+    if: contains(github.event.pull_request.changed_files, 'infra/') || contains(github.event.pull_request.changed_files, 'inventory/') || contains(github.event.pull_request.changed_files, '*.Caddyfile')
+
+  acceptance-smoke:
+    name: 'Acceptance Smoke Tests'
+    uses: ./.github/workflows/acceptance-smoke.yml
+    if: contains(github.event.pull_request.changed_files, 'apps/api/') || contains(github.event.pull_request.changed_files, 'apps/ui/')
+
+  placeholder-guard:
+    name: 'Placeholder Guard'
+    uses: ./.github/workflows/placeholder-guard.yml
+    if: contains(github.event.pull_request.changed_files, 'apps/')
+
+  # Final readiness check (depends on all others)
+  release-readiness:
+    name: 'Release Readiness'
+    needs: [ci-essentials]
+    # Only require checks that actually ran
+    uses: ./.github/workflows/release-readiness.yml
+    if: github.event_name == 'pull_request'
+
+  # Post-merge image building
+  build-and-push:
+    name: 'Build and Push Images'
+    needs: [ci-essentials]
+    uses: ./.github/workflows/build-and-push.yml
+    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+    secrets: inherit
+
+  # Status reporting
+  status-summary:
+    name: 'Status Summary'
+    runs-on: ubuntu-latest
+    needs: [ci-essentials, release-readiness]
+    if: always() && github.event_name == 'pull_request'
+
+    steps:
+      - name: Generate status summary
+        run: |
+          echo "## CI Status Summary" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+
+          # CI Essentials status
+          if [ "${{ needs.ci-essentials.result }}" = "success" ]; then
+            echo "✅ **CI Essentials**: Passed" >> $GITHUB_STEP_SUMMARY
+          else
+            echo "❌ **CI Essentials**: Failed" >> $GITHUB_STEP_SUMMARY
+          fi
+
+          # Release Readiness status
+          if [ "${{ needs.release-readiness.result }}" = "success" ]; then
+            echo "✅ **Release Readiness**: Ready to deploy" >> $GITHUB_STEP_SUMMARY
+          elif [ "${{ needs.release-readiness.result }}" = "failure" ]; then
+            echo "❌ **Release Readiness**: Not ready - check report" >> $GITHUB_STEP_SUMMARY
+          else
+            echo "⏳ **Release Readiness**: In progress" >> $GITHUB_STEP_SUMMARY
+          fi
+
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "### Next Steps" >> $GITHUB_STEP_SUMMARY
+
+          if [ "${{ needs.ci-essentials.result }}" = "success" ] && [ "${{ needs.release-readiness.result }}" = "success" ]; then
+            echo "🚀 **Ready to merge** - All checks passed" >> $GITHUB_STEP_SUMMARY
+          else
+            echo "🔧 **Action required** - Fix failing checks before merge" >> $GITHUB_STEP_SUMMARY
+          fi

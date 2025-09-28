@@ -7,10 +7,16 @@ export const load: PageLoad = async ({ fetch, depends }) => {
 
   try {
     const overview = await getFleetOverview({ fetch });
-    return { overview, error: null as string | null } satisfies {
-      overview: FleetOverview;
-      error: string | null;
+
+    // Null-safety: ensure overview has required structure
+    const safeOverview: FleetOverview = {
+      totals: overview?.totals ?? { devices: 0, online: 0, offline: 0, degraded: 0 },
+      modules: overview?.modules ?? [],
+      devices: overview?.devices ?? [],
+      updatedAt: overview?.updatedAt ?? new Date().toISOString()
     };
+
+    return { overview: safeOverview, error: null as string | null };
   } catch (error) {
     const message = error instanceof Error ? error.message : 'Unable to load fleet overview';
     return { overview: null, error: message };

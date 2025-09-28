@@ -2,8 +2,6 @@
 /* tslint:disable */
 /* eslint-disable */
 
-import type { AudioSyncMode } from './AudioSyncMode';
-
 export type AudioLibraryUploadRegistration = {
   uploadId: string;
   filename: string;
@@ -15,10 +13,5 @@ export type AudioLibraryUploadRegistration = {
   metadata?: Record<string, string> | null;
   uploadUrl: string;
   expiresAt: string;
-  fields?: Record<string, string>;
-  syncMode?: AudioSyncMode;
-  resume?: boolean;
-  startAtSeconds?: number;
-  loop?: boolean;
 };
 

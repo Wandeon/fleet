@@ -4,7 +4,7 @@
 
 export type LogsExportResponse = {
   exportId: string;
-  status: 'queued';
+  status: 'queued' | 'processing' | 'completed' | 'failed';
   format: 'json' | 'csv';
   filters: {
     deviceId?: string | null;

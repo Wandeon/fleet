@@ -23,6 +23,7 @@ If you only read one file to understand and operate the system, read this README
 - `docs/` - runbooks and ADRs
   - `docs/runbooks/provisioning.md:1` - OS + agent provisioning
   - `docs/runbooks/audio.md:1` - audio system: server, playback, API
+  - `docs/devices/audio.md:1` - pi-audio-01/02 device blueprint & control contract
   - `docs/runbooks/api-troubleshooting.md:1` - fix API container ES module startup failures
   - `docs/runbooks/logging.md:1` - unified Loki log pipeline setup and verification
 

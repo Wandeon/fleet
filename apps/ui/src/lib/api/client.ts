@@ -152,47 +152,10 @@ export const AudioApi = {
     AudioService.setAudioMasterVolume(payload),
 };
 
-interface LegacyTvStatus {
-  id: string;
-  displayName: string;
-  online?: boolean;
-  power: 'on' | 'off';
-  input: string;
-  availableInputs?: string[];
-  volume: number;
-  mute: boolean;
-  lastSeen: string;
-}
-
 export const VideoApi = {
   getOverview: () => VideoService.getVideoOverview(),
   getRecordings: () => VideoService.getVideoRecordings(),
   generatePreview: (payload?: VideoPreviewRequest) => VideoService.generateVideoPreview(payload),
-  getTv: () => request<LegacyTvStatus>('/video/tv'),
-  setPower: (payload: { on: boolean }) =>
-    request<LegacyTvStatus>('/video/tv/power', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(payload),
-    }),
-  setInput: (payload: { input: string }) =>
-    request<LegacyTvStatus>('/video/tv/input', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(payload),
-    }),
-  setVolume: (payload: { level: number }) =>
-    request<LegacyTvStatus>('/video/tv/volume', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(payload),
-    }),
-  setMute: (payload: { mute: boolean }) =>
-    request<LegacyTvStatus>('/video/tv/mute', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(payload),
-    }),
 };
 
 export const ZigbeeApi = {
@@ -429,6 +392,58 @@ export const apiClient = {
   },
   async fetchCamera(options?: RequestOptions): Promise<CameraState> {
     return request('/camera', options);
+  },
+  audio: {
+    async upload(deviceId: string, file: Blob) {
+      if (USE_MOCKS) {
+        const isFile = typeof File !== 'undefined' && file instanceof File;
+        const sourceFile = isFile ? (file as File) : undefined;
+        return mockApi.audioUploadFallback(deviceId, {
+          fileName: sourceFile?.name ?? 'fallback.mp3',
+          fileSizeBytes: typeof file.size === 'number' ? file.size : sourceFile?.size ?? 0,
+          mimeType: sourceFile?.type ?? (file as { type?: string }).type,
+        });
+      }
+
+      const form = new FormData();
+      const filename = typeof File !== 'undefined' && file instanceof File ? file.name : 'upload';
+      form.append('file', file, filename);
+
+      const headers = createHeaders();
+      headers.delete('Content-Type');
+      const correlationId = typeof crypto !== 'undefined' && 'randomUUID' in crypto
+        ? crypto.randomUUID()
+        : Math.random().toString(16).slice(2);
+      headers.set('x-correlation-id', correlationId);
+
+      const response = await fetch(`${API_BASE}/audio/devices/${deviceId}/upload`, {
+        method: 'POST',
+        headers,
+        body: form,
+      });
+
+      if (response.ok) {
+        try {
+          return await response.json();
+        } catch {
+          return {};
+        }
+      }
+
+      let detail: unknown = null;
+      const contentType = response.headers.get('content-type') ?? '';
+      try {
+        if (contentType.includes('application/json')) {
+          detail = await response.json();
+        } else if (contentType.startsWith('text/')) {
+          detail = await response.text();
+        }
+      } catch {
+        detail = null;
+      }
+
+      throw new UiApiError(response.statusText || 'Upload failed', response.status, detail);
+    },
   },
 };
 

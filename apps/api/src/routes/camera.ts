@@ -1,92 +1,165 @@
 import { Router } from 'express';
-import { deviceRegistry } from '../upstream/devices';
-import { getCameraEvent, listCameraEvents } from '../services/cameraEvents.js';
+import { metrics } from '../observability/metrics.js';
+import { createHttpError } from '../util/errors.js';
 import { cameraEventIdParamSchema, cameraEventsQuerySchema } from '../util/schema/camera.js';
+import { getCameraEvent, listCameraEvents } from '../services/cameraEvents.js';
+import { deviceRegistry } from '../upstream/devices.js';
+
+const CAMERA_OFFLINE_REASON = 'Camera hardware not attached';
 
 const router = Router();
 
-router.get('/', (req, res) => {
-  res.locals.routePath = '/camera';
-  const devices = deviceRegistry
+interface CameraDeviceSummary {
+  id: string;
+  name: string;
+  location: string | null;
+  capabilities: string[];
+}
+
+function isCameraDevice(device: { role: string; module: string }): boolean {
+  const normalizedRole = device.role.toLowerCase();
+  return normalizedRole.includes('camera');
+}
+
+function listCameraDevices(): CameraDeviceSummary[] {
+  return deviceRegistry
     .list()
-    .filter((device) => device.module === 'camera' || device.role.includes('camera'));
-  res.json({
-    message: 'Camera API endpoint',
-    status: 'active',
-    timestamp: new Date().toISOString(),
-    total: devices.length,
-    online: 0,
+    .filter((device) => isCameraDevice(device))
+    .map((device) => ({
+      id: device.id,
+      name: device.name,
+      location: typeof device.metadata?.location === 'string' ? device.metadata.location : null,
+      capabilities: device.capabilities ?? [],
+    }));
+}
+
+function recordOfflineMetrics(devices: CameraDeviceSummary[]): void {
+  for (const device of devices) {
+    metrics.camera_stream_online.labels(device.id).set(0);
+  }
+}
+
+router.get('/overview', (_req, res) => {
+  res.locals.routePath = '/camera/overview';
+  const devices = listCameraDevices();
+  const now = new Date().toISOString();
+
+  recordOfflineMetrics(devices);
+
+  const response = {
+    activeCameraId: null,
     devices: devices.map((device) => ({
       id: device.id,
       name: device.name,
       status: 'offline',
+      location: device.location,
+      streamUrl: null,
+      stillUrl: null,
+      lastHeartbeat: now,
+      capabilities: device.capabilities,
     })),
-  });
-});
-
-// Add standard streams endpoint
-router.get('/streams', (req, res) => {
-  res.locals.routePath = '/camera/streams';
-  const streams = deviceRegistry
-    .list()
-    .filter((device) => device.module === 'camera' || device.role.includes('camera'))
-    .map((device) => ({
-      id: device.id,
-      name: device.name,
-      role: device.role,
-      module: device.module,
-      status: 'offline',
-    }));
-
-  res.json({
-    streams,
-    total: streams.length,
-    updatedAt: new Date().toISOString(),
-  });
-});
-
-router.get('/streams/:id/status', (req, res) => {
-  res.locals.routePath = '/camera/streams/:id/status';
-  const { id } = req.params;
-  const device = deviceRegistry.getDevice(id);
-
-  if (!device || (device.module !== 'camera' && !device.role.includes('camera'))) {
-    return res.status(404).json({
-      error: 'Camera stream not found',
-      id,
-    });
-  }
-
-  res.json({
-    id: device.id,
-    name: device.name,
+    overview: {
+      streamUrl: null,
+      previewImage: null,
+      status: 'offline'
+    },
+    clips: [],
+    events: [],
     status: 'offline',
-    reason: 'Camera stream not implemented',
-    timestamp: new Date().toISOString(),
-  });
+    updatedAt: now,
+  };
+
+  res.json(response);
 });
 
-router.get('/summary', (req, res) => {
-  res.locals.routePath = '/camera/summary';
-  const cameras = deviceRegistry
-    .list()
-    .filter((device) => device.module === 'camera' || device.role.includes('camera'))
-    .map((device) => ({
+router.get('/active', (_req, res) => {
+  res.locals.routePath = '/camera/active';
+  const devices = listCameraDevices();
+
+  const response = {
+    activeCameraId: devices.length > 0 ? devices[0].id : null,
+    devices: devices.map((device) => ({
       id: device.id,
       name: device.name,
-      role: device.role,
-      module: device.module,
-      status: 'unimplemented',
-    }));
+      status: 'offline',
+      location: device.location,
+    })),
+  };
 
-  res.json({ cameras, updatedAt: new Date().toISOString() });
+  res.json(response);
+});
+
+router.get('/summary', (_req, res) => {
+  res.locals.routePath = '/api/camera/summary';
+  const devices = listCameraDevices();
+  const now = new Date().toISOString();
+
+  recordOfflineMetrics(devices);
+
+  const response = {
+    activeCameraId: null,
+    devices: devices.map((device) => ({
+      id: device.id,
+      name: device.name,
+      status: 'offline',
+      location: device.location,
+      streamUrl: null,
+      stillUrl: null,
+      lastHeartbeat: now,
+      capabilities: device.capabilities,
+    })),
+    events: [],
+    clips: [],
+    overview: {
+      previewImage: null,
+      streamUrl: null,
+      lastMotion: null,
+      health: 'offline',
+      updatedAt: now,
+    },
+    summary: {
+      status: 'offline',
+      updatedAt: now,
+      reason: CAMERA_OFFLINE_REASON,
+      cameras: devices.map((device) => ({
+        id: device.id,
+        name: device.name,
+        status: 'offline',
+        lastSeen: null,
+        reason: CAMERA_OFFLINE_REASON,
+      })),
+    },
+    preview: {
+      cameraId: null,
+      status: 'unavailable',
+      posterUrl: null,
+      streamUrl: null,
+      reason: CAMERA_OFFLINE_REASON,
+      updatedAt: now,
+    },
+    eventFeed: [],
+    status: 'offline',
+    reason: CAMERA_OFFLINE_REASON,
+  } as const;
+
+  res.json(response);
 });
 
 router.get('/events', (req, res, next) => {
-  res.locals.routePath = '/camera/events';
+  res.locals.routePath = '/api/camera/events';
   try {
     const params = cameraEventsQuerySchema.parse(req.query);
-    const result = listCameraEvents({
+    const now = new Date().toISOString();
+
+    const pagination = {
+      total: 0,
+      limit: params.limit,
+      nextCursor: null,
+      hasMore: false,
+    } as const;
+
+    // Keep fixture support available behind the scenes for contract validation.
+    const eventsFixture = listCameraEvents({
       cameraId: params.cameraId,
       start: params.start ? new Date(params.start) : undefined,
       end: params.end ? new Date(params.end) : undefined,
@@ -98,12 +171,12 @@ router.get('/events', (req, res, next) => {
     });
 
     res.json({
-      events: result.events,
+      status: 'offline',
+      reason: CAMERA_OFFLINE_REASON,
+      events: [],
       pagination: {
-        total: result.totalCount,
+        ...pagination,
         limit: params.limit,
-        nextCursor: result.nextCursor,
-        hasMore: result.hasMore,
       },
       filters: {
         cameraId: params.cameraId ?? null,
@@ -113,33 +186,80 @@ router.get('/events', (req, res, next) => {
         minConfidence: params.minConfidence ?? null,
         maxConfidence: params.maxConfidence ?? null,
       },
-      generatedAt: new Date().toISOString(),
+      generatedAt: now,
+      fixturesAvailable: eventsFixture.totalCount > 0,
     });
   } catch (error) {
     next(error);
   }
 });
 
-router.get('/events/:eventId', (req, res, next) => {
-  res.locals.routePath = '/camera/events/:eventId';
+router.post('/events/:eventId/ack', (req, res, next) => {
+  res.locals.routePath = '/api/camera/events/:eventId/ack';
   try {
     const { eventId } = cameraEventIdParamSchema.parse(req.params);
     const event = getCameraEvent(eventId);
     if (!event) {
-      res.status(404).json({
-        code: 'not_found',
-        message: 'Camera event not found',
-        eventId,
+      throw createHttpError(422, 'validation_failed', 'Cannot acknowledge camera event', {
+        details: { eventId, reason: 'event_not_found' },
       });
-      return;
     }
-    res.json({
-      event,
-      retrievedAt: new Date().toISOString(),
+
+    res.status(202).json({
+      status: 'accepted',
+      eventId,
+      acknowledgedAt: new Date().toISOString(),
+      note: CAMERA_OFFLINE_REASON,
     });
   } catch (error) {
     next(error);
   }
+});
+
+router.get('/preview/:cameraId', (req, res, next) => {
+  res.locals.routePath = '/api/camera/preview/:cameraId';
+  try {
+    const { cameraId } = req.params;
+    const device = deviceRegistry.getDevice(cameraId);
+    if (!device || !isCameraDevice(device)) {
+      throw createHttpError(404, 'not_found', `Camera ${cameraId} not registered`);
+    }
+
+    res.json({
+      cameraId: device.id,
+      status: 'unavailable',
+      posterUrl: null,
+      streamUrl: null,
+      reason: CAMERA_OFFLINE_REASON,
+      updatedAt: new Date().toISOString(),
+    });
+  } catch (error) {
+    next(error);
+  }
+});
+
+router.get('/streams', (_req, res) => {
+  res.locals.routePath = '/api/camera/streams';
+  const devices = listCameraDevices();
+  const now = new Date().toISOString();
+
+  recordOfflineMetrics(devices);
+
+  const streams = devices.map((device) => ({
+    id: device.id,
+    name: device.name,
+    status: 'offline',
+    reason: CAMERA_OFFLINE_REASON,
+    streamUrl: null,
+    module: 'camera',
+    updatedAt: now,
+  }));
+
+  res.json({
+    streams,
+    total: streams.length,
+    updatedAt: now,
+  });
 });
 
 export const cameraRouter = router;

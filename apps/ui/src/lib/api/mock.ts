@@ -62,6 +62,15 @@ let logsStateCache: { entries: LogEntry[]; sources: LogSource[]; lastUpdated: st
 let settingsStateCache: SettingsState | null = null;
 let fleetOverviewCache: FleetOverview | null = null;
 const fleetDeviceCache = new Map<string, FleetDeviceDetail>();
+const VIDEO_DEVICE_ID = 'pi-video-01';
+
+interface MockPlaybackState {
+  status: 'idle' | 'playing' | 'paused' | 'stopped';
+  source: string | null;
+  startedAt: string | null;
+};
+
+let videoPlaybackState: MockPlaybackState = { status: 'idle', source: null, startedAt: null };
 
 const getAudioState = (): AudioState => {
   if (!audioStateCache) {
@@ -85,6 +94,112 @@ const getVideoState = (): VideoState => {
 const commitVideoState = (next: VideoState): VideoState => {
   videoStateCache = next;
   return clone(next);
+};
+
+const toVideoPowerState = (power: PowerState): 'on' | 'standby' => (power === 'on' ? 'on' : 'standby');
+
+const buildVideoDeviceDocument = () => {
+  const state = getVideoState();
+  return {
+    id: VIDEO_DEVICE_ID,
+    name: state.cecDevices?.[0]?.name ?? 'Salon Display',
+    module: 'video',
+    role: 'hdmi-media',
+    status: state.power === 'on' ? 'online' : 'standby',
+    power: toVideoPowerState(state.power),
+    mute: state.muted,
+    input: state.input.toLowerCase(),
+    volumePercent: state.volume,
+    availableInputs: (state.availableInputs ?? []).map((input) => input.id.toLowerCase()),
+    playback: videoPlaybackState,
+    busy: false,
+    lastJobId: null,
+    lastUpdated: nowIso(),
+  };
+};
+
+const createVideoJobAck = (payload: Record<string, unknown>) => ({
+  deviceId: VIDEO_DEVICE_ID,
+  accepted: true,
+  jobId: uuid(),
+  lastUpdated: nowIso(),
+  ...payload,
+});
+
+const setVideoPowerState = (power: PowerState): VideoState => {
+  const state = clone(getVideoState());
+  state.power = power;
+  if (state.livePreview) {
+    state.livePreview = {
+      ...state.livePreview,
+      status: power === 'on' ? 'ready' : 'connecting',
+      startedAt: nowIso(),
+    };
+  }
+  state.lastSignal = nowIso();
+  if (power === 'off') {
+    videoPlaybackState = { status: 'stopped', source: null, startedAt: null };
+  } else if (videoPlaybackState.status === 'stopped') {
+    videoPlaybackState = { status: 'idle', source: null, startedAt: null };
+  }
+  return commitVideoState(state);
+};
+
+const setVideoInputState = (inputId: string): VideoState => {
+  const state = clone(getVideoState());
+  state.input = inputId;
+  if (state.livePreview) {
+    state.livePreview = {
+      ...state.livePreview,
+      status: 'connecting',
+      startedAt: nowIso(),
+      streamUrl: state.livePreview.streamUrl.replace(
+        /(input=)[^&]*/,
+        `$1${encodeURIComponent(inputId)}`
+      ),
+    };
+  }
+  state.lastSignal = nowIso();
+  return commitVideoState(state);
+};
+
+const setVideoVolumeState = (volume: number): VideoState => {
+  const state = clone(getVideoState());
+  state.volume = Math.max(0, Math.min(100, Math.round(volume)));
+  return commitVideoState(state);
+};
+
+const setVideoMuteState = (muted: boolean): VideoState => {
+  const state = clone(getVideoState());
+  state.muted = muted;
+  return commitVideoState(state);
+};
+
+const applyVideoPlayback = (
+  action: 'play' | 'pause' | 'resume' | 'stop',
+  payload: { url?: string | null }
+) => {
+  switch (action) {
+    case 'play':
+      videoPlaybackState = {
+        status: 'playing',
+        source: payload.url ?? videoPlaybackState.source,
+        startedAt: nowIso(),
+      };
+      break;
+    case 'pause':
+      videoPlaybackState = { ...videoPlaybackState, status: 'paused' };
+      break;
+    case 'resume':
+      videoPlaybackState = { ...videoPlaybackState, status: 'playing' };
+      break;
+    case 'stop':
+      videoPlaybackState = { status: 'stopped', source: null, startedAt: null };
+      break;
+    default:
+      break;
+  }
+  return createVideoJobAck({ playback: videoPlaybackState });
 };
 
 const getZigbeeState = (): ZigbeeState => {
@@ -321,6 +436,33 @@ const mockApiBase = {
     commitAudioState(state);
     return clone(track);
   },
+  audioUploadFallback(
+    deviceId: string,
+    payload: { fileName: string; fileSizeBytes: number; mimeType?: string }
+  ) {
+    const state = clone(getAudioState());
+    const device = state.devices.find((item) => item.id === deviceId);
+    if (!device) {
+      throw new Error(`Audio device ${deviceId} not found in mock state`);
+    }
+    device.fallbackExists = true;
+    device.lastUpdated = nowIso();
+    commitAudioState(state);
+
+    return {
+      deviceId,
+      fallbackExists: true,
+      saved: true,
+      path: `/mock/${payload.fileName || 'fallback.mp3'}`,
+      status: {
+        stream_url: '',
+        volume: device.volumePercent / 100,
+        mode: 'auto',
+        source: device.playback?.state === 'playing' ? 'stream' : 'file',
+        fallback_exists: true,
+      },
+    };
+  },
   audioCreatePlaylist(payload: {
     name: string;
     description?: string | null;
@@ -481,44 +623,39 @@ const mockApiBase = {
     return clone(getVideoState());
   },
   videoSetPower(power: PowerState): VideoState {
-    const state = clone(getVideoState());
-    state.power = power;
-    if (state.livePreview) {
-      state.livePreview = {
-        ...state.livePreview,
-        status: power === 'on' ? 'ready' : 'connecting',
-        startedAt: nowIso(),
-      };
-    }
-    state.lastSignal = nowIso();
-    return commitVideoState(state);
+    return setVideoPowerState(power);
   },
   videoSetInput(inputId: string): VideoState {
-    const state = clone(getVideoState());
-    state.input = inputId;
-    if (state.livePreview) {
-      state.livePreview = {
-        ...state.livePreview,
-        status: 'connecting',
-        startedAt: nowIso(),
-        streamUrl: state.livePreview.streamUrl.replace(
-          /(input=)[^&]*/,
-          `$1${encodeURIComponent(inputId)}`
-        ),
-      };
-    }
-    state.lastSignal = nowIso();
-    return commitVideoState(state);
+    return setVideoInputState(inputId);
   },
   videoSetVolume(volume: number): VideoState {
-    const state = clone(getVideoState());
-    state.volume = Math.max(0, Math.min(100, Math.round(volume)));
-    return commitVideoState(state);
+    return setVideoVolumeState(volume);
   },
   videoSetMute(muted: boolean): VideoState {
-    const state = clone(getVideoState());
-    state.muted = muted;
-    return commitVideoState(state);
+    return setVideoMuteState(muted);
+  },
+  videoDevices() {
+    return { devices: [buildVideoDeviceDocument()], updatedAt: nowIso() };
+  },
+  videoAcceptPower(power: PowerState) {
+    const state = setVideoPowerState(power);
+    return createVideoJobAck({ power: toVideoPowerState(state.power) });
+  },
+  videoAcceptMute(muted: boolean) {
+    const state = setVideoMuteState(muted);
+    return createVideoJobAck({ mute: state.muted });
+  },
+  videoAcceptInput(inputId: string) {
+    const normalized = inputId.toLowerCase();
+    setVideoInputState(normalized);
+    return createVideoJobAck({ input: normalized });
+  },
+  videoAcceptVolume(volume: number) {
+    const state = setVideoVolumeState(volume);
+    return createVideoJobAck({ volumePercent: state.volume });
+  },
+  videoAcceptPlayback(action: 'play' | 'pause' | 'resume' | 'stop', payload: { url?: string | null }) {
+    return applyVideoPlayback(action, payload);
   },
   zigbee(): ZigbeeState {
     return clone(getZigbeeState());

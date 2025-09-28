@@ -8,6 +8,7 @@
   import StatusPill from '$lib/components/StatusPill.svelte';
   import { createEventDispatcher } from 'svelte';
   import { SvelteSet } from 'svelte/reactivity';
+  import { browser } from '$app/environment';
   import { goto, invalidate } from '$app/navigation';
   import { resolve } from '$app/paths';
   import {
@@ -22,6 +23,8 @@
     stopDevice,
     updatePlaylist,
     uploadTrack,
+    uploadFallback,
+    getDeviceSnapshot,
   } from '$lib/api/audio-operations';
   import type { PanelState } from '$lib/stores/app';
   import type {
@@ -98,6 +101,7 @@
   let uploadTags = '';
   let uploadError = '';
   let uploadBusy = false;
+  let deviceUploadBusy: Record<string, boolean> = {};
 
   let playlistModalOpen = false;
   let playlistEditingId: string | null = null;
@@ -146,6 +150,64 @@
     dispatch('refresh');
     invalidate('app:audio');
     onRetry?.();
+  };
+
+  const setDeviceUploadBusy = (deviceId: string, busy: boolean) => {
+    deviceUploadBusy = { ...deviceUploadBusy, [deviceId]: busy };
+  };
+
+  const handleDeviceUpload = (device: AudioDeviceSnapshot) => {
+    if (!browser || deviceUploadBusy[device.id]) {
+      return;
+    }
+
+    const input = document.createElement('input');
+    input.type = 'file';
+    input.accept = 'audio/*';
+    input.addEventListener('change', async () => {
+      const selected = input.files?.[0] ?? null;
+      input.remove();
+      if (!selected) return;
+
+      if (selected.size > 50 * 1024 * 1024) {
+        showError('File too large. Maximum size is 50 MB.');
+        return;
+      }
+
+      setDeviceUploadBusy(device.id, true);
+      try {
+        await uploadFallback(device.id, selected);
+        const snapshot = await getDeviceSnapshot(device.id);
+        updateDevice(snapshot);
+        showSuccess('Upload successful');
+        broadcastRefresh();
+      } catch (error) {
+        console.error('fallback upload error', error);
+        const status = typeof (error as { status?: number })?.status === 'number'
+          ? (error as { status: number }).status
+          : undefined;
+        const detail = (error as { detail?: unknown })?.detail;
+        if (status === 401 || status === 403) {
+          showError('Not authorized to upload audio. Refresh and try again.');
+        } else if (
+          status === 400 &&
+          typeof detail === 'object' &&
+          detail !== null &&
+          'code' in (detail as { code?: unknown }) &&
+          (detail as { code?: unknown }).code === 'file_too_large'
+        ) {
+          showError('File too large. Maximum size is 50 MB.');
+        } else if (status && [502, 503, 504].includes(status)) {
+          showError('Device offline. Check power or network and retry.');
+        } else {
+          showError('Upload failed');
+        }
+      } finally {
+        setDeviceUploadBusy(device.id, false);
+      }
+    });
+
+    input.click();
   };
 
   const openAudioControl = () => {
@@ -588,7 +650,7 @@
               title={device.name}
               subtitle={device.playback.trackTitle ?? 'Idle'}
               status={computeStatus(device)}
-              busy={playbackBusy}
+              busy={playbackBusy || !!deviceUploadBusy[device.id]}
             >
               <div class="device-controls">
                 <div class="device-meta">
@@ -655,6 +717,21 @@
                 </div>
               </div>
               <svelte:fragment slot="actions">
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  disabled={!!deviceUploadBusy[device.id]}
+                  on:click={() => handleDeviceUpload(device)}
+                >
+                  {deviceUploadBusy[device.id] ? 'Uploading…' : 'Upload fallback'}
+                </Button>
+                <span
+                  class={`pill ${device.fallbackExists ? 'success' : 'warn'}`}
+                  role="status"
+                  aria-live="polite"
+                >
+                  {device.fallbackExists ? 'Fallback ready' : 'No fallback'}
+                </span>
                 {#if device.playback.playlistId}
                   <span class="pill">Playlist · {device.playback.playlistId}</span>
                 {/if}
@@ -1209,6 +1286,16 @@
   .pill.alert {
     background: rgba(248, 113, 113, 0.18);
     color: var(--color-red-200);
+  }
+
+  .pill.success {
+    background: rgba(34, 197, 94, 0.18);
+    color: rgb(187, 247, 208);
+  }
+
+  .pill.warn {
+    background: rgba(251, 191, 36, 0.18);
+    color: rgb(253, 224, 71);
   }
 
   .orchestrator-body {

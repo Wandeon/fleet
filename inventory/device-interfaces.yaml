@@ -21,6 +21,8 @@ devices:
         url: http://pi-audio-01:8081/healthz
       - label: Prometheus metrics
         url: http://pi-audio-01:8081/metrics
+      - label: Config
+        url: http://pi-audio-01:8081/config
     monitoring:
       prometheus_targets:
         - job: audio-player
@@ -63,12 +65,18 @@ devices:
       - id: stop
         label: Stop Playback
         method: POST
-        path: /play
-        body:
-          source: stop
+        path: /stop
         ui:
           type: button
           group: control
+      - id: config
+        label: View Config
+        method: GET
+        path: /config
+        ui:
+          type: button
+          group: diagnostics
+          result: json
       - id: volume
         label: Set Volume
         method: POST
@@ -103,6 +111,8 @@ devices:
         url: http://pi-audio-02:8081/healthz
       - label: Prometheus metrics
         url: http://pi-audio-02:8081/metrics
+      - label: Config
+        url: http://pi-audio-02:8081/config
     monitoring:
       prometheus_targets:
         - job: audio-player
@@ -145,12 +155,18 @@ devices:
       - id: stop
         label: Stop Playback
         method: POST
-        path: /play
-        body:
-          source: stop
+        path: /stop
         ui:
           type: button
           group: control
+      - id: config
+        label: View Config
+        method: GET
+        path: /config
+        ui:
+          type: button
+          group: diagnostics
+          result: json
       - id: volume
         label: Set Volume
         method: POST
@@ -191,6 +207,8 @@ devices:
       prometheus_targets:
         - job: media-control
           target: pi-video-01:8082
+        - job: zigbee-coordinator
+          target: pi-video-01:8082
     operations:
       - id: health_check
         label: Run Health Check
@@ -208,48 +226,115 @@ devices:
           type: button
           group: diagnostics
           result: json
-      - id: pause
-        label: Pause
+      - id: video_power_on
+        label: Power On Display
         method: POST
-        path: /pause
+        path: /video/devices/pi-video-01/power
+        body:
+          power: on
         ui:
           type: button
-          group: control
-      - id: resume
-        label: Resume
+          group: video
+      - id: video_power_standby
+        label: Enter Standby
         method: POST
-        path: /resume
+        path: /video/devices/pi-video-01/power
+        body:
+          power: standby
         ui:
           type: button
-          group: control
-      - id: stop
-        label: Stop Playback
+          group: video
+      - id: video_input_hdmi1
+        label: Switch to HDMI 1
         method: POST
-        path: /stop
+        path: /video/devices/pi-video-01/input
+        body:
+          input: HDMI1
         ui:
           type: button
-          group: control
-      - id: tv_power_on
-        label: TV Power On
+          group: video
+      - id: video_input_hdmi2
+        label: Switch to HDMI 2
         method: POST
-        path: /tv/power_on
+        path: /video/devices/pi-video-01/input
+        body:
+          input: HDMI2
         ui:
           type: button
-          group: control
-      - id: tv_power_off
-        label: TV Power Off
+          group: video
+      - id: video_input_cast
+        label: Switch to Chromecast
         method: POST
-        path: /tv/power_off
+        path: /video/devices/pi-video-01/input
+        body:
+          input: CHROMECAST
         ui:
           type: button
-          group: control
+          group: video
+      - id: video_set_volume
+        label: Set Output Volume
+        method: POST
+        path: /video/devices/pi-video-01/volume
+        body:
+          volumePercent: '{{volume}}'
+        ui:
+          type: slider
+          group: video
+          min: 0
+          max: 100
+          step: 5
+          default: 40
+          body_key: volumePercent
+      - id: video_mute
+        label: Mute Output
+        method: POST
+        path: /video/devices/pi-video-01/mute
+        body:
+          mute: true
+        ui:
+          type: button
+          group: video
+      - id: video_unmute
+        label: Unmute Output
+        method: POST
+        path: /video/devices/pi-video-01/mute
+        body:
+          mute: false
+        ui:
+          type: button
+          group: video
+      - id: zigbee_pairing_start
+        label: Open Zigbee Pairing Window
+        method: POST
+        path: /zigbee/pairing
+        body:
+          durationSeconds: 120
+        ui:
+          type: button
+          group: zigbee
+      - id: zigbee_pairing_stop
+        label: Close Zigbee Pairing Window
+        method: DELETE
+        path: /zigbee/pairing
+        ui:
+          type: button
+          group: zigbee
+      - id: zigbee_refresh_devices
+        label: Refresh Zigbee Devices
+        method: GET
+        path: /zigbee/devices
+        ui:
+          type: button
+          group: zigbee
+          result: json
   - id: pi-camera-01
-    name: 'Camera'
-    role: camera
+    name: 'AI Surveillance Camera'
+    role: camera-node
     kind: camera
     management:
-      summary: 'Primary video camera feeding MediaMTX'
+      summary: 'Primary surveillance node for vestibule (camera attachment pending)'
       host: pi-camera-01
+      location: 'Front entry'
     api:
       base_url: http://pi-camera-01:8083
       health_path: /healthz
