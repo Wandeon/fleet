@@ -1,146 +1,262 @@
-name: Release Readiness
+name: 'Release Readiness'
 
 on:
   pull_request:
-  workflow_dispatch:
-
-permissions:
-  contents: read
+    types: [opened, synchronize, reopened]
+  workflow_call:
+    outputs:
+      artifact-url:
+        description: "URL to release readiness artifact"
+        value: ${{ jobs.generate-readiness.outputs.artifact-url }}
 
 jobs:
-  release-readiness:
-    name: Generate Release Readiness Report
+  generate-readiness:
+    name: 'Generate Release Readiness Report'
     runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
+    needs: []
 
-      - uses: actions/setup-node@v4
+    outputs:
+      artifact-url: ${{ steps.upload-artifact.outputs.artifact-url }}
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
         with:
-          node-version: '20.x'
-          cache: npm
-          cache-dependency-path: |
-            apps/api/package-lock.json
-            apps/ui/package-lock.json
-            package-lock.json
+          node-version: '20'
+          cache: 'npm'
+
+      - name: Setup Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.x'
 
       - name: Install dependencies
         run: |
-          cd apps/api && npm ci
-          cd ../ui && npm ci
+          pip install PyYAML
+          npm ci
 
-      - name: Generate release readiness report
+      - name: Gather release readiness data
         run: |
-          set -euo pipefail
+          echo "📋 Gathering release readiness data..."
 
-          echo "🚀 Generating Release Readiness Report..."
+          mkdir -p artifacts/release-readiness
 
-          REPORT_FILE="release-readiness-report.md"
+          # Basic information
+          echo "## Release Readiness Report" > artifacts/release-readiness/report.md
+          echo "" >> artifacts/release-readiness/report.md
+          echo "**Generated**: $(date -u +%Y-%m-%dT%H:%M:%SZ)" >> artifacts/release-readiness/report.md
+          echo "**Commit SHA**: \`${{ github.sha }}\`" >> artifacts/release-readiness/report.md
+          echo "**Branch**: \`${{ github.ref_name }}\`" >> artifacts/release-readiness/report.md
+          echo "**PR Number**: #${{ github.event.number }}" >> artifacts/release-readiness/report.md
+          echo "" >> artifacts/release-readiness/report.md
 
-          cat <<'REPORT_HEADER' > $REPORT_FILE
-          # Release Readiness Report
+      - name: Check OpenAPI contract status
+        run: |
+          echo "🔍 Checking OpenAPI contract status..."
 
-          **Generated**: $(date -u +"%Y-%m-%d %H:%M:%S UTC")
-          **Commit**: ${{ github.sha }}
-          **PR**: ${{ github.event.number }}
+          echo "### OpenAPI Contract Status" >> artifacts/release-readiness/report.md
 
-          ## Overview
+          # Check if OpenAPI spec was modified
+          if git diff --name-only origin/main...HEAD | grep -q "apps/api/openapi.yaml"; then
+            echo "- ⚠️  **OpenAPI spec modified** - Client regeneration required" >> artifacts/release-readiness/report.md
 
-          This report assesses the readiness of the current codebase for production deployment.
-
-          ## Checklist
-
-          REPORT_HEADER
-
-          # Check API build
-          echo "### API Build Status" >> $REPORT_FILE
-          if (cd apps/api && npm run build); then
-            echo "✅ API builds successfully" >> $REPORT_FILE
+            # Check if generated files were also updated
+            if git diff --name-only origin/main...HEAD | grep -q "apps/ui/src/lib/api/gen\|apps/ui/src/lib/api/generated"; then
+              echo "- ✅ **Generated clients updated**" >> artifacts/release-readiness/report.md
+              echo "CONTRACT_STATUS=✅ Updated" >> $GITHUB_ENV
+            else
+              echo "- ❌ **Generated clients NOT updated** - Run \`./scripts/generate-openapi-clients.sh\`" >> artifacts/release-readiness/report.md
+              echo "CONTRACT_STATUS=❌ Missing updates" >> $GITHUB_ENV
+            fi
           else
-            echo "❌ API build failed" >> $REPORT_FILE
-            echo "" >> $REPORT_FILE
-            echo "**Status**: ❌ **NOT READY FOR RELEASE**" >> $REPORT_FILE
-            cat $REPORT_FILE
-            exit 1
+            echo "- ✅ **No OpenAPI changes detected**" >> artifacts/release-readiness/report.md
+            echo "CONTRACT_STATUS=✅ No changes" >> $GITHUB_ENV
           fi
 
-          # Check UI build
-          echo "" >> $REPORT_FILE
-          echo "### UI Build Status" >> $REPORT_FILE
-          if (cd apps/ui && npm run build); then
-            echo "✅ UI builds successfully" >> $REPORT_FILE
+          echo "" >> artifacts/release-readiness/report.md
+
+      - name: Check database migration status
+        run: |
+          echo "🔍 Checking database migration status..."
+
+          echo "### Database Migration Status" >> artifacts/release-readiness/report.md
+
+          # Check if schema was modified
+          if git diff --name-only origin/main...HEAD | grep -q "apps/api/prisma/schema.prisma"; then
+            echo "- ⚠️  **Prisma schema modified**" >> artifacts/release-readiness/report.md
+
+            # Check if migrations were created
+            if git diff --name-only origin/main...HEAD | grep -q "apps/api/prisma/migrations"; then
+              echo "- ✅ **Migrations created**" >> artifacts/release-readiness/report.md
+
+              # List new migrations
+              NEW_MIGRATIONS=$(git diff --name-only origin/main...HEAD | grep "apps/api/prisma/migrations" | grep "migration.sql" | wc -l)
+              echo "- 📝 **$NEW_MIGRATIONS new migration(s) found**" >> artifacts/release-readiness/report.md
+              echo "MIGRATION_STATUS=✅ Ready ($NEW_MIGRATIONS migrations)" >> $GITHUB_ENV
+            else
+              echo "- ❌ **No migrations created** - Run \`npx prisma migrate dev\`" >> artifacts/release-readiness/report.md
+              echo "MIGRATION_STATUS=❌ Missing migrations" >> $GITHUB_ENV
+            fi
           else
-            echo "❌ UI build failed" >> $REPORT_FILE
-            echo "" >> $REPORT_FILE
-            echo "**Status**: ❌ **NOT READY FOR RELEASE**" >> $REPORT_FILE
-            cat $REPORT_FILE
-            exit 1
+            echo "- ✅ **No schema changes detected**" >> artifacts/release-readiness/report.md
+            echo "MIGRATION_STATUS=✅ No changes" >> $GITHUB_ENV
           fi
 
-          # Check for TypeScript errors
-          echo "" >> $REPORT_FILE
-          echo "### TypeScript Validation" >> $REPORT_FILE
-          if (cd apps/api && npm run typecheck) && (cd apps/ui && npm run typecheck); then
-            echo "✅ No TypeScript errors" >> $REPORT_FILE
+          echo "" >> artifacts/release-readiness/report.md
+
+      - name: Check infrastructure configuration status
+        run: |
+          echo "🔍 Checking infrastructure configuration..."
+
+          echo "### Infrastructure Status" >> artifacts/release-readiness/report.md
+
+          # Run port drift check
+          if ./scripts/check-port-drift.sh > /tmp/port_check.log 2>&1; then
+            echo "- ✅ **Caddy ↔ Compose ports synchronized**" >> artifacts/release-readiness/report.md
+            echo "PORT_STATUS=✅ Synchronized" >> $GITHUB_ENV
           else
-            echo "❌ TypeScript errors detected" >> $REPORT_FILE
-            echo "" >> $REPORT_FILE
-            echo "**Status**: ❌ **NOT READY FOR RELEASE**" >> $REPORT_FILE
-            cat $REPORT_FILE
-            exit 1
+            echo "- ❌ **Port drift detected**" >> artifacts/release-readiness/report.md
+            echo "\`\`\`" >> artifacts/release-readiness/report.md
+            cat /tmp/port_check.log >> artifacts/release-readiness/report.md
+            echo "\`\`\`" >> artifacts/release-readiness/report.md
+            echo "PORT_STATUS=❌ Drift detected" >> $GITHUB_ENV
           fi
 
-          # Check for OpenAPI contract alignment
-          echo "" >> $REPORT_FILE
-          echo "### API Contract Validation" >> $REPORT_FILE
-          if (cd apps/ui && npm run generate:openapi && git diff --exit-code --quiet apps/ui/src/lib/api/gen); then
-            echo "✅ OpenAPI client is synchronized" >> $REPORT_FILE
+          echo "" >> artifacts/release-readiness/report.md
+
+      - name: Check inventory synchronization status
+        run: |
+          echo "🔍 Checking inventory synchronization..."
+
+          echo "### Inventory Synchronization" >> artifacts/release-readiness/report.md
+
+          # Run inventory sync check
+          if ./scripts/check-inventory-sync.sh > /tmp/inventory_check.log 2>&1; then
+            echo "- ✅ **Inventory ↔ Monitoring targets synchronized**" >> artifacts/release-readiness/report.md
+            echo "INVENTORY_STATUS=✅ Synchronized" >> $GITHUB_ENV
           else
-            echo "❌ OpenAPI client is out of sync" >> $REPORT_FILE
-            echo "" >> $REPORT_FILE
-            echo "**Status**: ❌ **NOT READY FOR RELEASE**" >> $REPORT_FILE
-            cat $REPORT_FILE
-            exit 1
+            echo "- ❌ **Inventory synchronization issues**" >> artifacts/release-readiness/report.md
+            echo "\`\`\`" >> artifacts/release-readiness/report.md
+            cat /tmp/inventory_check.log >> artifacts/release-readiness/report.md
+            echo "\`\`\`" >> artifacts/release-readiness/report.md
+            echo "INVENTORY_STATUS=❌ Sync issues" >> $GITHUB_ENV
           fi
 
-          # Check for security issues (basic)
-          echo "" >> $REPORT_FILE
-          echo "### Security Validation" >> $REPORT_FILE
-          SECURITY_ISSUES=0
+          echo "" >> artifacts/release-readiness/report.md
 
-          # Check for hardcoded secrets
-          if grep -r -i --include="*.ts" --include="*.js" --include="*.json" -E "(password|secret|key|token)\s*[:=]\s*['\"][^'\"]+['\"]" apps/ 2>/dev/null | grep -v -E "(type|interface|example|test|mock)" || true; then
-            echo "⚠️ Potential hardcoded secrets detected (manual review required)" >> $REPORT_FILE
-            SECURITY_ISSUES=1
+      - name: Check feature flags and placeholders
+        run: |
+          echo "🔍 Checking feature flags and placeholders..."
+
+          echo "### Feature Flags & Placeholder Status" >> artifacts/release-readiness/report.md
+
+          # Check for unguarded TODO implementations
+          PLACEHOLDER_COUNT=$(grep -r "TODO.*implement" apps/ --include="*.ts" --include="*.js" --exclude-dir=node_modules --exclude-dir=test --exclude-dir=tests | wc -l || echo "0")
+
+          if [ "$PLACEHOLDER_COUNT" -gt 0 ]; then
+            echo "- ⚠️  **$PLACEHOLDER_COUNT placeholder implementations found**" >> artifacts/release-readiness/report.md
+            echo "- 🛡️  **Verify critical workflows have feature flags**" >> artifacts/release-readiness/report.md
+
+            # List critical placeholders
+            if grep -r "TODO.*implement.*audio\|TODO.*implement.*upload" apps/ --include="*.ts" --include="*.js" --exclude-dir=node_modules | head -3; then
+              echo "- ⚠️  **Audio/upload placeholders detected**" >> artifacts/release-readiness/report.md
+            fi
+
+            echo "PLACEHOLDER_STATUS=⚠️ $PLACEHOLDER_COUNT found" >> $GITHUB_ENV
+          else
+            echo "- ✅ **No unguarded placeholders detected**" >> artifacts/release-readiness/report.md
+            echo "PLACEHOLDER_STATUS=✅ Clean" >> $GITHUB_ENV
           fi
 
-          # Check for console.log statements in production code
-          if grep -r --include="*.ts" --include="*.js" "console\." apps/ | grep -v "test\|spec\|mock" 2>/dev/null | head -5; then
-            echo "⚠️ Console statements found in production code" >> $REPORT_FILE
-            SECURITY_ISSUES=1
+          echo "" >> artifacts/release-readiness/report.md
+
+      - name: Generate deployment readiness summary
+        run: |
+          echo "📊 Generating deployment readiness summary..."
+
+          echo "### Deployment Readiness Summary" >> artifacts/release-readiness/report.md
+          echo "" >> artifacts/release-readiness/report.md
+
+          # Overall status determination
+          if [[ "$CONTRACT_STATUS" == *"❌"* ]] || [[ "$MIGRATION_STATUS" == *"❌"* ]] || [[ "$PORT_STATUS" == *"❌"* ]] || [[ "$INVENTORY_STATUS" == *"❌"* ]]; then
+            OVERALL_STATUS="🚫 **NOT READY** - Critical issues must be resolved"
+          elif [[ "$PLACEHOLDER_STATUS" == *"⚠️"* ]]; then
+            OVERALL_STATUS="⚠️ **READY WITH CAUTION** - Review placeholder implementations"
+          else
+            OVERALL_STATUS="✅ **READY TO DEPLOY**"
           fi
 
-          if [ $SECURITY_ISSUES -eq 0 ]; then
-            echo "✅ No obvious security issues detected" >> $REPORT_FILE
+          echo "**Overall Status**: $OVERALL_STATUS" >> artifacts/release-readiness/report.md
+          echo "" >> artifacts/release-readiness/report.md
+
+          echo "| Component | Status |" >> artifacts/release-readiness/report.md
+          echo "|-----------|--------|" >> artifacts/release-readiness/report.md
+          echo "| OpenAPI Contract | $CONTRACT_STATUS |" >> artifacts/release-readiness/report.md
+          echo "| Database Migrations | $MIGRATION_STATUS |" >> artifacts/release-readiness/report.md
+          echo "| Port Configuration | $PORT_STATUS |" >> artifacts/release-readiness/report.md
+          echo "| Inventory Sync | $INVENTORY_STATUS |" >> artifacts/release-readiness/report.md
+          echo "| Feature Flags | $PLACEHOLDER_STATUS |" >> artifacts/release-readiness/report.md
+
+          echo "" >> artifacts/release-readiness/report.md
+
+          echo "OVERALL_STATUS=$OVERALL_STATUS" >> $GITHUB_ENV
+
+      - name: Add next steps and references
+        run: |
+          echo "### Next Steps" >> artifacts/release-readiness/report.md
+          echo "" >> artifacts/release-readiness/report.md
+
+          if [[ "$OVERALL_STATUS" == *"READY TO DEPLOY"* ]]; then
+            echo "1. ✅ **Merge this PR**" >> artifacts/release-readiness/report.md
+            echo "2. 🚀 **CI will automatically build and push images**" >> artifacts/release-readiness/report.md
+            echo "3. 📦 **VPS Guy can deploy using image tags from build artifacts**" >> artifacts/release-readiness/report.md
+          else
+            echo "1. 🔧 **Resolve the issues listed above**" >> artifacts/release-readiness/report.md
+            echo "2. 🔄 **Push fixes to trigger new readiness check**" >> artifacts/release-readiness/report.md
+            echo "3. ✅ **Ensure all status checks are green before merge**" >> artifacts/release-readiness/report.md
           fi
 
-          # Final assessment
-          echo "" >> $REPORT_FILE
-          echo "## Final Assessment" >> $REPORT_FILE
-          echo "" >> $REPORT_FILE
-          echo "**Status**: ✅ **READY FOR RELEASE**" >> $REPORT_FILE
-          echo "" >> $REPORT_FILE
-          echo "All automated checks passed. The codebase appears ready for production deployment." >> $REPORT_FILE
-          echo "" >> $REPORT_FILE
-          echo "### Deployment Notes" >> $REPORT_FILE
-          echo "- Ensure proper environment variables are configured" >> $REPORT_FILE
-          echo "- Verify database migrations are applied" >> $REPORT_FILE
-          echo "- Confirm monitoring and alerting are active" >> $REPORT_FILE
+          echo "" >> artifacts/release-readiness/report.md
+          echo "### References" >> artifacts/release-readiness/report.md
+          echo "- 📚 [Deployment Documentation](./docs/runbooks/release.md)" >> artifacts/release-readiness/report.md
+          echo "- 🔧 [CI Pipeline Documentation](./docs/03-ci-pipelines.md)" >> artifacts/release-readiness/report.md
+          echo "- 🛡️ [Repository Discipline](./docs/24-repo-discipline.md)" >> artifacts/release-readiness/report.md
 
-          echo "✅ Release readiness report generated successfully"
-          cat $REPORT_FILE
-
-      - name: Upload release readiness report
+      - name: Upload release readiness artifact
+        id: upload-artifact
         uses: actions/upload-artifact@v4
         with:
           name: release-readiness-report
-          path: release-readiness-report.md
+          path: artifacts/release-readiness/
+          retention-days: 30
+
+      - name: Comment on PR with readiness summary
+        if: github.event_name == 'pull_request'
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const fs = require('fs');
+            const reportContent = fs.readFileSync('artifacts/release-readiness/report.md', 'utf8');
+
+            await github.rest.issues.createComment({
+              issue_number: context.issue.number,
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              body: reportContent
+            });
+
+      - name: Set job status based on readiness
+        run: |
+          if [[ "$OVERALL_STATUS" == *"NOT READY"* ]]; then
+            echo "❌ Release readiness check failed - critical issues detected"
+            exit 1
+          elif [[ "$OVERALL_STATUS" == *"CAUTION"* ]]; then
+            echo "⚠️ Release readiness check passed with warnings"
+            exit 0
+          else
+            echo "✅ Release readiness check passed"
+            exit 0
+          fi

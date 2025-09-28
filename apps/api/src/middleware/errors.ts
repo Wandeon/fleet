@@ -1,5 +1,6 @@
 import type { ErrorRequestHandler } from 'express';
 import { ZodError } from 'zod';
+import { MulterError } from 'multer';
 import { logger } from './logging';
 import { createHttpError, isHttpError } from '../util/errors';
 
@@ -7,7 +8,13 @@ export const errorHandler: ErrorRequestHandler = (err, req, res, _next) => {
   let httpError = isHttpError(err) ? err : undefined;
 
   if (!httpError) {
-    if (err instanceof ZodError) {
+    if (err instanceof MulterError) {
+      if (err.code === 'LIMIT_FILE_SIZE') {
+        httpError = createHttpError(400, 'file_too_large', 'File too large. Maximum size is 50 MB.');
+      } else {
+        httpError = createHttpError(400, 'bad_request', err.message);
+      }
+    } else if (err instanceof ZodError) {
       httpError = createHttpError(422, 'validation_failed', 'Request validation failed', {
         details: err.flatten(),
       });

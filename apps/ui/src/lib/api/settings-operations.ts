@@ -17,11 +17,66 @@ export const getSettings = async (options: SettingsFetchOptions = {}): Promise<S
   }
 
   const fetchImpl = ensureFetch(options.fetch);
-  return rawRequest<SettingsState>('/settings', {
+  const rawResponse = await rawRequest<any>('/settings', {
     method: 'GET',
     fetch: fetchImpl as RequestOptions['fetch'],
   });
+
+  // Transform API response to match UI expectations
+  return transformSettingsResponse(rawResponse);
 };
+
+function transformSettingsResponse(raw: any): SettingsState {
+  return {
+    api: {
+      bearerTokenMasked: raw.apiTokenPreview || null,
+      lastRotatedAt: null, // API doesn't provide this yet
+      expiresAt: null, // API doesn't provide this yet
+      allowedOrigins: raw.allowedOrigins || [],
+      webhookUrl: null, // API doesn't provide this yet
+    },
+    proxy: {
+      baseUrl: raw.proxy?.upstreamUrl || '',
+      timeoutMs: 8000, // Default since API doesn't provide this
+      health: 'online', // Default since API doesn't provide this
+      latencyMs: 0, // Default since API doesn't provide this
+      errorRate: 0, // Default since API doesn't provide this
+    },
+    pairing: {
+      active: raw.pairing?.active || false,
+      method: 'manual', // Default since API doesn't provide this
+      expiresAt: raw.pairing?.expiresAt || null,
+      discovered: raw.pairing?.candidates || [],
+      history: [], // API doesn't provide this yet
+    },
+    operators: raw.operators || [],
+    roles: [
+      {
+        id: 'admin',
+        name: 'Administrator',
+        description: 'Full access to all settings and controls',
+        permissions: ['read', 'write', 'admin'],
+        assignable: true
+      },
+      {
+        id: 'operator',
+        name: 'Operator',
+        description: 'Can operate devices and view settings',
+        permissions: ['read', 'write'],
+        assignable: true
+      },
+      {
+        id: 'viewer',
+        name: 'Viewer',
+        description: 'Read-only access to monitoring and logs',
+        permissions: ['read'],
+        assignable: true
+      },
+    ], // Default roles since API doesn't provide this
+    pendingRestart: false, // Default since API doesn't provide this
+    lastSavedAt: raw.updatedAt || null,
+  };
+}
 
 export const updateProxySettings = async (
   proxy: Partial<ProxySettings>,

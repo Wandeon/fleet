@@ -31,6 +31,6 @@ app.headspamartina.hr {
 
   # UI (everything else) - PRODUCTION UI
   handle {
-    reverse_proxy fleet-ui:3005
+    reverse_proxy fleet-ui:3000
   }
 }

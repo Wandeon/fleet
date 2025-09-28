@@ -16,6 +16,6 @@ devices:
       base_url: http://pi-video-01:8082
   - id: pi-camera-01
     name: "Camera"
-    role: camera
+    role: camera-node
     api:
       base_url: http://pi-camera-01:8083

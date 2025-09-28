@@ -1,0 +1,74 @@
+name: 'Contract Check'
+
+on:
+  pull_request:
+    paths:
+      - 'apps/api/openapi.yaml'
+      - 'apps/ui/src/lib/api/gen/**'
+      - 'apps/ui/src/lib/api/generated/**'
+  workflow_call:
+
+jobs:
+  openapi-drift-guard:
+    name: 'OpenAPI Drift Guard'
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: |
+          npm ci
+          cd apps/ui && npm ci
+
+      - name: Install OpenAPI tools
+        run: npm install -g @apidevtools/swagger-parser
+
+      - name: Validate OpenAPI specification
+        run: npx swagger-parser validate apps/api/openapi.yaml
+
+      - name: Generate OpenAPI clients
+        run: ./scripts/generate-openapi-clients.sh
+
+      - name: Check for drift in generated files
+        run: |
+          if ! git diff --exit-code apps/ui/src/lib/api/gen/ apps/ui/src/lib/api/generated/; then
+            echo ""
+            echo "❌ OPENAPI DRIFT DETECTED"
+            echo ""
+            echo "The OpenAPI specification has changed but generated client files are out of sync."
+            echo ""
+            echo "To fix this:"
+            echo "1. Run: ./scripts/generate-openapi-clients.sh"
+            echo "2. Commit all generated files:"
+            echo "   git add apps/ui/src/lib/api/gen/ apps/ui/src/lib/api/generated/"
+            echo "   git commit -m 'fix: regenerate OpenAPI clients'"
+            echo ""
+            echo "Generated files that need to be committed:"
+            git diff --name-only apps/ui/src/lib/api/gen/ apps/ui/src/lib/api/generated/ || true
+            echo ""
+            exit 1
+          fi
+
+          echo "✅ OpenAPI clients are in sync with specification"
+
+      - name: Verify no uncommitted changes
+        run: |
+          if [ -n "$(git status --porcelain)" ]; then
+            echo "❌ Uncommitted changes found after client generation"
+            echo ""
+            echo "Files with changes:"
+            git status --porcelain
+            echo ""
+            echo "Please commit all generated files before merging."
+            exit 1
+          fi
+
+          echo "✅ No uncommitted changes detected"

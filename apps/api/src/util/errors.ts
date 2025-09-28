@@ -10,7 +10,13 @@ export type ErrorCode =
   | 'conflict'
   | 'too_many_requests'
   | 'internal_error'
-  | 'circuit_open';
+  | 'circuit_open'
+  | 'file_too_large'
+  | 'device_busy'
+  | 'invalid_input'
+  | 'missing_media_url'
+  | 'invalid_state'
+  | 'invalid_action';
 
 export interface HttpErrorOptions {
   hint?: string;
@@ -75,6 +81,7 @@ export function mapUpstreamError(error: unknown, context: UpstreamErrorContext):
     const causeError = (causeCandidate as NodeJS.ErrnoException | undefined) ?? undefined;
     const causeCode = original.code ?? causeError?.code;
     const errorName = original.name ?? causeError?.name;
+    const message = [original.message, causeError?.message].filter(Boolean).join(' ').toUpperCase();
 
     if (causeCode === 'ETIMEDOUT' || causeCode === 'ABORT_ERR' || errorName === 'AbortError') {
       return Object.assign(
@@ -90,7 +97,12 @@ export function mapUpstreamError(error: unknown, context: UpstreamErrorContext):
       );
     }
 
-    if (causeCode === 'ECONNREFUSED' || causeCode === 'ENOTFOUND' || causeCode === 'EHOSTUNREACH') {
+    const unreachableCodes = ['ECONNREFUSED', 'ENOTFOUND', 'EHOSTUNREACH'];
+    const unreachableDetected =
+      (causeCode && unreachableCodes.includes(causeCode)) ||
+      unreachableCodes.some((code) => message.includes(code));
+
+    if (unreachableDetected) {
       return Object.assign(
         createHttpError(502, 'upstream_unreachable', `Device ${context.deviceId} is unreachable`, {
           cause: error,

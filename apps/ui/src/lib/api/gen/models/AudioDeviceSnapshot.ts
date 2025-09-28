@@ -20,5 +20,9 @@ export type AudioDeviceSnapshot = {
   capabilities: Array<string>;
   playback: AudioDevicePlayback;
   lastUpdated: string;
+  /**
+   * Indicates whether a fallback file is currently stored on the device.
+   */
+  fallbackExists?: boolean;
 };
 

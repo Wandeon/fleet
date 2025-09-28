@@ -52,10 +52,10 @@ Edit `inventory/devices.yaml` on GitHub (replace hostname with your Pi's hostnam
 ```yaml
 devices:
   pi-camera-01:
-    role: camera
+    role: camera-node
 ```
 
-Commit to `main`. Within 2 minutes the Pi will converge to the `camera` role.
+Commit to `main`. Within 2 minutes the Pi will converge to the `camera-node` role.
 
 ## 6) Secrets (SOPS) - example
 

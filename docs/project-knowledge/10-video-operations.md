@@ -13,15 +13,14 @@ Video playback and HDMI/CEC control run on the `hdmi-media` role hosted by `pi-v
 | Endpoint                              | Description                                                                    | Notes                                                            |
 | ------------------------------------- | ------------------------------------------------------------------------------ | ---------------------------------------------------------------- |
 | `GET /healthz`                        | Returns `ok`; used by Prometheus and deploy scripts.                           | No auth required.                                                |
-| `GET /status`                         | Current mpv state, active URL, playback position.                              | Provide context to UI device detail.                             |
-| `POST /play`                          | Body `{ "url": "...", "start": 0 }` to start playback of a given media source. | Validate URL accessibility; mpv handles streaming.               |
-| `POST /pause` / `/resume` / `/stop`   | Standard playback controls.                                                    | Pause/stop maintain mpv session; `stop` halts playback entirely. |
-| `POST /seek`                          | `{ "seconds": 10 }` to jump forward/backward.                                  | Negative values supported for rewind.                            |
-| `POST /volume`                        | `{ "volume": 80 }` sets absolute level.                                        | mpv volume scale 0-100.                                          |
-| `POST /tv/power_on` / `/tv/power_off` | HDMI-CEC power toggles.                                                        | Requires valid `CEC_DEVICE_INDEX`.                               |
-| `POST /tv/input`                      | Body includes desired HDMI input.                                              | Use enumerations matching TV connectors.                         |
+| `GET /video/devices`                  | Fleet-scoped inventory of HDMI displays with power/mute/input/volume state.    | Backed by device registry; returns busy + job telemetry.         |
+| `POST /video/devices/{id}/power`      | `{ "power": "on" \| "standby" }` queue HDMI-CEC power command.                 | Returns `jobId`; 409 when bus is already busy.                   |
+| `POST /video/devices/{id}/mute`       | `{ "mute": boolean }` enqueue mute toggle.                                    | Mirrors physical amplifier mute state.                          |
+| `POST /video/devices/{id}/input`      | `{ "input": "HDMI1" }` select source.                                        | Input names normalized to lowercase in state.                   |
+| `POST /video/devices/{id}/volume`     | `{ "volumePercent": 0-100 }` adjust HDMI output gain.                         | Clamped and acknowledged asynchronously.                         |
+| `POST /video/devices/{id}/playback`   | `{ "action": "play"|"pause"|"resume"|"stop", "url"? }` control media pipeline. | `play` requires signed URL; `stop` resets playback metadata.     |
 
-(Endpoints sourced from `roles/hdmi-media/README.md`; API is fronted by Express via `/video/tv/*` routes in the control plane.)【F:roles/hdmi-media/README.md†L79-L112】【F:apps/api/openapi.yaml†L1344-L1459】
+Device-local endpoints (`/status`, `/play`, `/pause`, etc.) remain for host automation but operators must use Fleet API routes above so jobs are audited and conflicts handled centrally.【F:apps/api/openapi.yaml†L3609-L3814】
 
 ## HDMI/CEC best practices
 

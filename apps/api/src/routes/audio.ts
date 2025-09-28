@@ -21,6 +21,7 @@ import {
   createPlaybackSession,
   recordSessionSync,
   registerLibraryUpload,
+  uploadDeviceFallback,
 } from '../services/audio.js';
 import {
   audioPlaybackRequestSchema,
@@ -265,6 +266,33 @@ router.post('/devices/:deviceId/volume', async (req, res, next) => {
     const payload = audioVolumeSchema.parse(req.body);
     await setDeviceVolume(deviceId, payload.volumePercent);
     res.status(202).json({ accepted: true, volumePercent: payload.volumePercent });
+  } catch (error) {
+    next(error);
+  }
+});
+
+router.post('/devices/:deviceId/upload', upload.single('file'), async (req, res, next) => {
+  res.locals.routePath = '/audio/devices/:deviceId/upload';
+  try {
+    const { deviceId } = deviceIdParamSchema.parse(req.params);
+    res.locals.deviceId = deviceId;
+    const file = req.file;
+    if (!file) {
+      throw createHttpError(400, 'bad_request', 'Missing upload file');
+    }
+
+    const result = await uploadDeviceFallback(
+      deviceId,
+      {
+        buffer: file.buffer,
+        filename: file.originalname || 'upload',
+        mimetype: file.mimetype,
+        size: file.size,
+      },
+      req.correlationId
+    );
+
+    res.status(201).json(result);
   } catch (error) {
     next(error);
   }

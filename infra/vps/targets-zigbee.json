@@ -1,0 +1,1 @@
+[{ "targets": ["pi-video-01:8082"], "labels": { "role": "zigbee", "instance": "pi-video-01" } }]

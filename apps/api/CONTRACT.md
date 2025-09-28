@@ -72,12 +72,12 @@ Timeouts and upstream faults map to 504/502 respectively. Devices marked
 
 ### Video / TV control
 
-- `GET /video/tv`: current TV status (power, input, volume, mute).
-- `POST /video/tv/power`: toggle power with `{ "on": true }` style body.
-- `POST /video/tv/input`: change HDMI input. Returns 409 if another command is
-  processing.
-- `POST /video/tv/volume`: set volume 0–100.
-- `POST /video/tv/mute`: update mute state.
+- `GET /video/devices`: list HDMI endpoints with power, mute, input, volume, playback, and busy state metadata.
+- `POST /video/devices/{id}/power`: `{ "power": "on" | "standby" }` enqueues HDMI-CEC power commands and returns a `jobId`; conflicts surface as 409.
+- `POST /video/devices/{id}/mute`: `{ "mute": boolean }` toggles mute via the job queue.
+- `POST /video/devices/{id}/input`: `{ "input": "HDMI1" }` selects input; identifiers are normalised to lowercase server-side.
+- `POST /video/devices/{id}/volume`: `{ "volumePercent": 0-100 }` adjusts HDMI output gain.
+- `POST /video/devices/{id}/playback`: `{ "action": "play"|"pause"|"resume"|"stop", "url"? }` manages media playback sessions.
 
 ### Zigbee devices
 

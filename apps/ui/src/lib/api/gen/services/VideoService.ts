@@ -3,7 +3,9 @@
 /* eslint-disable */
 import type { VideoClipExport } from '../models/VideoClipExport';
 import type { VideoDeviceState } from '../models/VideoDeviceState';
+import type { VideoJobAcknowledgement } from '../models/VideoJobAcknowledgement';
 import type { VideoOverview } from '../models/VideoOverview';
+import type { VideoPlaybackState } from '../models/VideoPlaybackState';
 import type { VideoPowerState } from '../models/VideoPowerState';
 import type { VideoPreviewRequest } from '../models/VideoPreviewRequest';
 import type { VideoPreviewSession } from '../models/VideoPreviewSession';
@@ -72,11 +74,9 @@ export class VideoService {
     requestBody: {
       power: VideoPowerState;
     },
-  ): CancelablePromise<{
-    deviceId: string;
+  ): CancelablePromise<(VideoJobAcknowledgement & {
     power: VideoPowerState;
-    lastUpdated: string;
-  }> {
+  })> {
     return __request(OpenAPI, {
       method: 'POST',
       url: '/video/devices/{deviceId}/power',
@@ -90,6 +90,7 @@ export class VideoService {
         401: `Authentication failed or credentials missing.`,
         403: `Authenticated user does not have permission to access the resource.`,
         404: `Requested resource does not exist.`,
+        409: `HDMI-CEC bus is busy and cannot accept another power command yet.`,
         429: `Request rate limit exceeded.`,
         500: `Unexpected server error occurred.`,
       },
@@ -109,11 +110,9 @@ export class VideoService {
     requestBody: {
       mute: boolean;
     },
-  ): CancelablePromise<{
-    deviceId: string;
+  ): CancelablePromise<(VideoJobAcknowledgement & {
     mute: boolean;
-    lastUpdated: string;
-  }> {
+  })> {
     return __request(OpenAPI, {
       method: 'POST',
       url: '/video/devices/{deviceId}/mute',
@@ -127,6 +126,7 @@ export class VideoService {
         401: `Authentication failed or credentials missing.`,
         403: `Authenticated user does not have permission to access the resource.`,
         404: `Requested resource does not exist.`,
+        409: `HDMI-CEC bus is busy and cannot accept another mute command yet.`,
         429: `Request rate limit exceeded.`,
         500: `Unexpected server error occurred.`,
       },
@@ -146,11 +146,9 @@ export class VideoService {
     requestBody: {
       input: string;
     },
-  ): CancelablePromise<{
-    deviceId: string;
+  ): CancelablePromise<(VideoJobAcknowledgement & {
     input: string;
-    lastUpdated: string;
-  }> {
+  })> {
     return __request(OpenAPI, {
       method: 'POST',
       url: '/video/devices/{deviceId}/input',
@@ -164,6 +162,81 @@ export class VideoService {
         401: `Authentication failed or credentials missing.`,
         403: `Authenticated user does not have permission to access the resource.`,
         404: `Requested resource does not exist.`,
+        409: `HDMI-CEC bus is busy and cannot accept another input change yet.`,
+        429: `Request rate limit exceeded.`,
+        500: `Unexpected server error occurred.`,
+      },
+    });
+  }
+
+  /**
+   * Set the output volume for a video endpoint.
+   * Adjust the HDMI output volume or amplifier gain for a managed display.
+   * @param deviceId
+   * @param requestBody
+   * @returns any Volume update accepted.
+   * @throws ApiError
+   */
+  public static setVideoVolume(
+    deviceId: string,
+    requestBody: {
+      volumePercent: number;
+    },
+  ): CancelablePromise<(VideoJobAcknowledgement & {
+    volumePercent: number;
+  })> {
+    return __request(OpenAPI, {
+      method: 'POST',
+      url: '/video/devices/{deviceId}/volume',
+      path: {
+        'deviceId': deviceId,
+      },
+      body: requestBody,
+      mediaType: 'application/json',
+      errors: {
+        400: `One or more request parameters failed validation.`,
+        401: `Authentication failed or credentials missing.`,
+        403: `Authenticated user does not have permission to access the resource.`,
+        404: `Requested resource does not exist.`,
+        409: `HDMI-CEC bus is busy and cannot accept another volume change yet.`,
+        429: `Request rate limit exceeded.`,
+        500: `Unexpected server error occurred.`,
+      },
+    });
+  }
+
+  /**
+   * Control playback on a managed video endpoint.
+   * Issue play, pause, resume, or stop commands to the HDMI media player.
+   * @param deviceId
+   * @param requestBody
+   * @returns any Playback command accepted.
+   * @throws ApiError
+   */
+  public static controlVideoPlayback(
+    deviceId: string,
+    requestBody: {
+      action: 'play' | 'pause' | 'resume' | 'stop';
+      url?: string | null;
+      startSeconds?: number | null;
+    },
+  ): CancelablePromise<(VideoJobAcknowledgement & {
+    playback: VideoPlaybackState;
+  })> {
+    return __request(OpenAPI, {
+      method: 'POST',
+      url: '/video/devices/{deviceId}/playback',
+      path: {
+        'deviceId': deviceId,
+      },
+      body: requestBody,
+      mediaType: 'application/json',
+      errors: {
+        400: `One or more request parameters failed validation.`,
+        401: `Authentication failed or credentials missing.`,
+        403: `Authenticated user does not have permission to access the resource.`,
+        404: `Requested resource does not exist.`,
+        409: `Playback command conflicts with current HDMI-CEC activity.`,
         429: `Request rate limit exceeded.`,
         500: `Unexpected server error occurred.`,
       },

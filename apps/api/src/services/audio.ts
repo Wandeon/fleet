@@ -3,8 +3,11 @@ import { randomUUID } from 'node:crypto';
 import { basename, resolve } from 'node:path';
 import { prisma } from '../lib/db.js';
 import { deviceRegistry } from '../upstream/devices.js';
+import { fetchStatus, uploadFallback } from '../upstream/audio.js';
 import { createHttpError } from '../util/errors.js';
-import type { AudioPlaylistReorderInput } from '../util/schema/audio.js';
+import { logger } from '../middleware/logging.js';
+import { recordEvent } from '../observability/events.js';
+import type { AudioPlaylistInput, AudioPlaylistReorderInput } from '../util/schema/audio.js';
 
 export interface LibraryTrackInput {
   title: string;
@@ -122,21 +125,9 @@ export async function deleteLibraryTrack(trackId: string): Promise<void> {
   await prisma.audioTrack.delete({ where: { id: trackId } });
 }
 
-export interface PlaylistTrackInput {
-  trackId: string;
-  order?: number;
-  startOffsetSeconds?: number | null;
-  deviceOverrides?: Record<string, string> | null;
-}
+export type PlaylistTrackInput = AudioPlaylistInput['tracks'][number];
 
-export interface PlaylistInput {
-  id?: string;
-  name: string;
-  description?: string | null;
-  loop: boolean;
-  syncMode: string;
-  tracks: PlaylistTrackInput[];
-}
+export type PlaylistInput = AudioPlaylistInput;
 
 function mapPlaylistTrack(record: {
   trackId: string;
@@ -533,6 +524,83 @@ export async function setMasterVolume(volumePercent: number) {
     create: { key: 'masterVolume', value: String(volumePercent) },
     update: { value: String(volumePercent) },
   });
+}
+
+interface DeviceUploadResult {
+  deviceId: string;
+  saved: boolean;
+  path: string;
+  fallbackExists: boolean;
+  status: Awaited<ReturnType<typeof fetchStatus>>;
+}
+
+export async function uploadDeviceFallback(
+  deviceId: string,
+  file: { buffer: Buffer; filename: string; mimetype?: string; size: number },
+  correlationId?: string
+): Promise<DeviceUploadResult> {
+  const device = deviceRegistry.requireDevice(deviceId);
+
+  const uploadResult = await uploadFallback(
+    device,
+    {
+      buffer: file.buffer,
+      filename: file.filename,
+      mimetype: file.mimetype,
+    },
+    correlationId
+  );
+
+  const status = await fetchStatus(device, correlationId);
+  if (!status.fallback_exists) {
+    throw createHttpError(502, 'upstream_error', `Device ${deviceId} did not report fallback presence`);
+  }
+
+  await ensureDeviceStatus(deviceId);
+  const current = await prisma.audioDeviceStatus.findUniqueOrThrow({ where: { deviceId } });
+  await prisma.audioDeviceStatus.update({
+    where: { deviceId },
+    data: {
+      lastError: null,
+      timelineJson: appendTimeline(current.timelineJson, {
+        event: 'upload',
+        filename: file.filename,
+        sizeBytes: file.size,
+        path: uploadResult.path,
+      }),
+    },
+  });
+
+  logger.info({
+    msg: 'audio.upload',
+    deviceId,
+    filename: file.filename,
+    sizeBytes: file.size,
+    path: uploadResult.path,
+    saved: uploadResult.saved,
+    correlationId,
+  });
+
+  recordEvent({
+    type: 'audio.upload',
+    severity: 'info',
+    target: deviceId,
+    message: `Fallback uploaded (${file.filename})`,
+    metadata: {
+      sizeBytes: file.size,
+      path: uploadResult.path,
+      saved: uploadResult.saved,
+      correlationId,
+    },
+  });
+
+  return {
+    deviceId,
+    saved: uploadResult.saved,
+    path: uploadResult.path,
+    fallbackExists: status.fallback_exists,
+    status,
+  };
 }
 
 export async function getMasterVolume(): Promise<number> {

@@ -236,6 +236,11 @@ audioSeed.items.forEach((device) => {
 });
 
 let tvStatus: TvStatus = clone(tvTemplate);
+let videoPlaybackState: { status: 'idle' | 'playing' | 'paused' | 'stopped'; source: string | null; startedAt: string | null } = {
+  status: 'idle',
+  source: null,
+  startedAt: null,
+};
 const zigbeeDevices = new Map<string, ZigbeeDeviceSummary>();
 zigbeeSeed.items.forEach((device) => {
   zigbeeDevices.set(device.id, clone(device));
@@ -243,6 +248,31 @@ zigbeeSeed.items.forEach((device) => {
 const zigbeeRules = new Map<string, ZigbeeRuleRecord>();
 zigbeeRulesSeed.items.forEach((rule) => {
   zigbeeRules.set(rule.id, clone(rule));
+});
+
+const serializeVideoDevice = () => ({
+  id: tvStatus.id,
+  name: tvStatus.displayName,
+  module: 'video',
+  role: 'hdmi-media',
+  status: tvStatus.online ? 'online' : 'standby',
+  power: tvStatus.power === 'on' ? 'on' : 'standby',
+  mute: tvStatus.mute ?? false,
+  input: (tvStatus.input ?? 'hdmi1').toLowerCase(),
+  volumePercent: tvStatus.volume ?? 0,
+  availableInputs: (tvStatus.availableInputs ?? []).map((input) => input.toLowerCase()),
+  playback: videoPlaybackState,
+  busy: false,
+  lastJobId: null,
+  lastUpdated: new Date().toISOString(),
+});
+
+const createVideoJobAck = (payload: Record<string, unknown>) => ({
+  deviceId: tvStatus.id,
+  accepted: true,
+  jobId: randomUUID(),
+  lastUpdated: new Date().toISOString(),
+  ...payload,
 });
 let cameraSummary: CameraSummary = clone(cameraSummaryTemplate);
 let cameraEvents: CameraEvent[] = cameraEventsSeed.items.map((evt) => clone(evt));
@@ -477,6 +507,43 @@ router.put(
   })
 );
 
+router.post(
+  '/audio/devices/:id/upload',
+  asyncHandler(async (req, res) => {
+    if (await maybeSimulate(res, req)) {
+      return;
+    }
+    const device = audioDevices.get(req.params.id);
+    if (!device) {
+      await sendError(
+        res,
+        404,
+        'RESOURCE_NOT_FOUND',
+        `Audio device ${req.params.id} was not found.`
+      );
+      return;
+    }
+
+    device.lastSeen = new Date().toISOString();
+    const status = {
+      stream_url: device.config?.streamUrl ?? 'http://stream.example.com/fallback',
+      volume: device.volume.level,
+      mode: device.config?.mode ?? 'auto',
+      source: device.playback.source ?? 'stream',
+      fallback_exists: true,
+    };
+
+    await sendJson(res, 201, {
+      deviceId: device.id,
+      saved: true,
+      path: '/data/fallback.mp3',
+      fallbackExists: true,
+      status,
+      uploadedAt: new Date().toISOString(),
+    });
+  })
+);
+
 router.get(
   '/video/tv',
   asyncHandler(async (req, res) => {
@@ -539,6 +606,104 @@ router.post(
     tvStatus.mute = req.body.mute;
     tvStatus.lastSeen = new Date().toISOString();
     await sendJson(res, 200, clone(tvStatus));
+  })
+);
+
+router.get(
+  '/video/devices',
+  asyncHandler(async (req, res) => {
+    if (await maybeSimulate(res, req)) {
+      return;
+    }
+    await sendJson(res, 200, {
+      devices: [serializeVideoDevice()],
+      updatedAt: new Date().toISOString(),
+    });
+  })
+);
+
+router.post(
+  '/video/devices/:id/power',
+  asyncHandler(async (req, res) => {
+    if (await maybeSimulate(res, req)) {
+      return;
+    }
+    const desired = req.body.power === 'standby' ? 'off' : 'on';
+    tvStatus.power = desired;
+    tvStatus.online = desired === 'on';
+    tvStatus.lastSeen = new Date().toISOString();
+    if (desired === 'off') {
+      videoPlaybackState = { status: 'stopped', source: null, startedAt: null };
+    } else if (videoPlaybackState.status === 'stopped') {
+      videoPlaybackState = { status: 'idle', source: null, startedAt: null };
+    }
+    await sendJson(
+      res,
+      202,
+      createVideoJobAck({ power: desired === 'on' ? 'on' : 'standby' })
+    );
+  })
+);
+
+router.post(
+  '/video/devices/:id/mute',
+  asyncHandler(async (req, res) => {
+    if (await maybeSimulate(res, req)) {
+      return;
+    }
+    tvStatus.mute = Boolean(req.body.mute);
+    tvStatus.lastSeen = new Date().toISOString();
+    await sendJson(res, 202, createVideoJobAck({ mute: tvStatus.mute }));
+  })
+);
+
+router.post(
+  '/video/devices/:id/input',
+  asyncHandler(async (req, res) => {
+    if (await maybeSimulate(res, req)) {
+      return;
+    }
+    const input = typeof req.body.input === 'string' ? req.body.input : 'HDMI1';
+    tvStatus.input = input;
+    tvStatus.lastSeen = new Date().toISOString();
+    await sendJson(res, 202, createVideoJobAck({ input: input.toLowerCase() }));
+  })
+);
+
+router.post(
+  '/video/devices/:id/volume',
+  asyncHandler(async (req, res) => {
+    if (await maybeSimulate(res, req)) {
+      return;
+    }
+    const level = Math.max(0, Math.min(100, Number.parseInt(req.body.volumePercent ?? 0, 10)));
+    tvStatus.volume = level;
+    tvStatus.lastSeen = new Date().toISOString();
+    await sendJson(res, 202, createVideoJobAck({ volumePercent: level }));
+  })
+);
+
+router.post(
+  '/video/devices/:id/playback',
+  asyncHandler(async (req, res) => {
+    if (await maybeSimulate(res, req)) {
+      return;
+    }
+    const action = req.body.action ?? 'stop';
+    if (action === 'play') {
+      videoPlaybackState = {
+        status: 'playing',
+        source: req.body.url ?? videoPlaybackState.source,
+        startedAt: new Date().toISOString(),
+      };
+    } else if (action === 'pause') {
+      videoPlaybackState = { ...videoPlaybackState, status: 'paused' };
+    } else if (action === 'resume') {
+      videoPlaybackState = { ...videoPlaybackState, status: 'playing' };
+    } else {
+      videoPlaybackState = { status: 'stopped', source: null, startedAt: null };
+    }
+    await sendJson(res, 202, createVideoJobAck({ playback: videoPlaybackState }));
   })
 );
 

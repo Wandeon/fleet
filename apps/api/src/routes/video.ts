@@ -5,6 +5,8 @@ import {
   setDevicePower,
   setDeviceMute,
   setDeviceInput,
+  setDeviceVolume,
+  runDevicePlayback,
   requestPreviewSession,
   listRecordingSegments,
   createClipExport,
@@ -15,6 +17,12 @@ const router = Router();
 const powerSchema = z.object({ power: z.enum(['on', 'standby']) });
 const muteSchema = z.object({ mute: z.boolean() });
 const inputSchema = z.object({ input: z.string().min(1) });
+const volumeSchema = z.object({ volumePercent: z.coerce.number().int().min(0).max(100) });
+const playbackSchema = z.object({
+  action: z.enum(['play', 'pause', 'resume', 'stop']),
+  url: z.string().url().optional(),
+  startSeconds: z.coerce.number().min(0).optional(),
+});
 const previewSchema = z.object({ deviceId: z.string().min(1).optional() });
 const clipExportSchema = z.object({
   startOffsetSeconds: z.coerce.number().min(0),
@@ -100,43 +108,94 @@ router.post('/devices/:deviceId/commands', (req, res) => {
   });
 });
 
-router.post('/devices/:deviceId/power', (req, res, next) => {
+router.post('/devices/:deviceId/power', async (req, res, next) => {
   res.locals.routePath = '/video/devices/:deviceId/power';
   try {
     const { deviceId } = req.params;
     const payload = powerSchema.parse(req.body);
-    const updated = setDevicePower(deviceId, payload.power);
-    res
-      .status(202)
-      .json({ deviceId: updated.deviceId, power: updated.power, lastUpdated: updated.lastUpdated });
+    const { jobId, state } = await setDevicePower(deviceId, payload.power);
+    res.status(202).json({
+      deviceId: state.deviceId,
+      power: state.power,
+      lastUpdated: state.lastUpdated,
+      accepted: true,
+      jobId,
+    });
   } catch (error) {
     next(error);
   }
 });
 
-router.post('/devices/:deviceId/mute', (req, res, next) => {
+router.post('/devices/:deviceId/mute', async (req, res, next) => {
   res.locals.routePath = '/video/devices/:deviceId/mute';
   try {
     const { deviceId } = req.params;
     const payload = muteSchema.parse(req.body);
-    const updated = setDeviceMute(deviceId, payload.mute);
-    res
-      .status(202)
-      .json({ deviceId: updated.deviceId, mute: updated.mute, lastUpdated: updated.lastUpdated });
+    const { jobId, state } = await setDeviceMute(deviceId, payload.mute);
+    res.status(202).json({
+      deviceId: state.deviceId,
+      mute: state.mute,
+      lastUpdated: state.lastUpdated,
+      accepted: true,
+      jobId,
+    });
   } catch (error) {
     next(error);
   }
 });
 
-router.post('/devices/:deviceId/input', (req, res, next) => {
+router.post('/devices/:deviceId/input', async (req, res, next) => {
   res.locals.routePath = '/video/devices/:deviceId/input';
   try {
     const { deviceId } = req.params;
     const payload = inputSchema.parse(req.body);
-    const updated = setDeviceInput(deviceId, payload.input);
-    res
-      .status(202)
-      .json({ deviceId: updated.deviceId, input: updated.input, lastUpdated: updated.lastUpdated });
+    const { jobId, state } = await setDeviceInput(deviceId, payload.input);
+    res.status(202).json({
+      deviceId: state.deviceId,
+      input: state.input,
+      lastUpdated: state.lastUpdated,
+      accepted: true,
+      jobId,
+    });
+  } catch (error) {
+    next(error);
+  }
+});
+
+router.post('/devices/:deviceId/volume', async (req, res, next) => {
+  res.locals.routePath = '/video/devices/:deviceId/volume';
+  try {
+    const { deviceId } = req.params;
+    const payload = volumeSchema.parse(req.body);
+    const { jobId, state } = await setDeviceVolume(deviceId, payload.volumePercent);
+    res.status(202).json({
+      deviceId: state.deviceId,
+      volumePercent: state.volume,
+      lastUpdated: state.lastUpdated,
+      accepted: true,
+      jobId,
+    });
+  } catch (error) {
+    next(error);
+  }
+});
+
+router.post('/devices/:deviceId/playback', async (req, res, next) => {
+  res.locals.routePath = '/video/devices/:deviceId/playback';
+  try {
+    const { deviceId } = req.params;
+    const payload = playbackSchema.parse(req.body);
+    const { jobId, state } = await runDevicePlayback(deviceId, payload.action, {
+      url: payload.url ?? null,
+      startSeconds: payload.startSeconds ?? null,
+    });
+    res.status(202).json({
+      deviceId: state.deviceId,
+      playback: state.playback,
+      lastUpdated: state.lastUpdated,
+      accepted: true,
+      jobId,
+    });
   } catch (error) {
     next(error);
   }
