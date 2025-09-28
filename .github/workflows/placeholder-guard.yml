@@ -1,0 +1,79 @@
+name: Placeholder Guard
+
+on:
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  check-placeholders:
+    name: Check Placeholder Implementations
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Check for placeholder implementations
+        run: |
+          set -euo pipefail
+
+          echo "🔍 Scanning for placeholder implementations..."
+
+          # Define patterns that indicate placeholder code
+          PLACEHOLDER_PATTERNS=(
+            "TODO"
+            "FIXME"
+            "PLACEHOLDER"
+            "NOT_IMPLEMENTED"
+            "throw new Error.*not implemented"
+            "throw new Error.*placeholder"
+            "console.log.*TODO"
+            "console.log.*FIXME"
+            "// TODO"
+            "// FIXME"
+            "# TODO"
+            "# FIXME"
+          )
+
+          FOUND_ISSUES=()
+
+          # Search for placeholder patterns in source code
+          for pattern in "${PLACEHOLDER_PATTERNS[@]}"; do
+            echo "Checking for pattern: $pattern"
+
+            # Search in TypeScript/JavaScript files
+            if grep -r -n -i --include="*.ts" --include="*.js" --include="*.svelte" "$pattern" apps/ 2>/dev/null; then
+              FOUND_ISSUES+=("Found '$pattern' in source files")
+            fi
+          done
+
+          # Check for specific placeholder function signatures
+          echo "Checking for placeholder function implementations..."
+
+          # Look for functions that only throw "not implemented" errors
+          if grep -r -n --include="*.ts" --include="*.js" "throw.*[Nn]ot.*[Ii]mplemented" apps/ 2>/dev/null; then
+            FOUND_ISSUES+=("Found functions that only throw 'not implemented' errors")
+          fi
+
+          # Look for empty function bodies that should be implemented
+          if grep -r -n --include="*.ts" --include="*.js" -A 2 "function.*{" apps/ | grep -B 1 "^\s*}$" | grep -v "^\-\-$" 2>/dev/null; then
+            echo "Found potentially empty functions (manual review required)"
+          fi
+
+          # Report results
+          if [ ${#FOUND_ISSUES[@]} -eq 0 ]; then
+            echo "✅ No placeholder implementations found"
+            echo "All code appears to be production-ready"
+            exit 0
+          else
+            echo ""
+            echo "❌ Placeholder implementations detected:"
+            for issue in "${FOUND_ISSUES[@]}"; do
+              echo "  • $issue"
+            done
+            echo ""
+            echo "Please complete all placeholder implementations before merging to production."
+            echo "Placeholder code should not be deployed to production environments."
+            exit 1
+          fi

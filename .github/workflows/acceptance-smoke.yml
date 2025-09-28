@@ -1,0 +1,418 @@
+name: Acceptance Smoke Tests
+
+on:
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  checks: write
+
+env:
+  CI: true
+  API_BEARER: ci-test-bearer
+  API_HTTP_PORT: 3015
+  DEVICE_REGISTRY_JSON: '{"devices":[]}'
+
+jobs:
+  smoke-audio:
+    name: Module Smoke Tests (audio)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20.x'
+          cache: npm
+          cache-dependency-path: |
+            apps/api/package-lock.json
+            package-lock.json
+
+      - name: Install API dependencies
+        working-directory: apps/api
+        run: npm ci
+
+      - name: Build API
+        working-directory: apps/api
+        run: npm run build
+
+      - name: Start API server
+        working-directory: apps/api
+        run: |
+          npm start &
+          API_PID=$!
+          echo "API_PID=$API_PID" >> $GITHUB_ENV
+
+      - name: Wait for API to be ready
+        run: |
+          for i in {1..30}; do
+            if curl -f -s "http://127.0.0.1:$API_HTTP_PORT/healthz" > /dev/null 2>&1; then
+              echo "API is ready"
+              exit 0
+            fi
+            echo "Waiting for API... (attempt $i/30)"
+            sleep 2
+          done
+          echo "API failed to start within timeout"
+          exit 1
+
+      - name: Test audio module
+        run: |
+          node -e "
+          const { testModuleEndpoint } = require('./ci/smoke/module-smoke-tests.js');
+          testModuleEndpoint({ name: 'audio', endpoint: '/api/audio/overview' })
+            .then(result => {
+              if (result.status === 'FAIL') {
+                console.error('Audio module test failed:', result.details);
+                process.exit(1);
+              }
+              console.log('Audio module test passed:', result.details);
+            })
+            .catch(error => {
+              console.error('Audio module test error:', error.message);
+              process.exit(1);
+            });
+          "
+
+      - name: Cleanup
+        if: always()
+        run: |
+          if [ ! -z "$API_PID" ]; then
+            kill $API_PID || true
+          fi
+
+  smoke-video:
+    name: Module Smoke Tests (video)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20.x'
+          cache: npm
+          cache-dependency-path: |
+            apps/api/package-lock.json
+            package-lock.json
+
+      - name: Install API dependencies
+        working-directory: apps/api
+        run: npm ci
+
+      - name: Build API
+        working-directory: apps/api
+        run: npm run build
+
+      - name: Start API server
+        working-directory: apps/api
+        run: |
+          npm start &
+          API_PID=$!
+          echo "API_PID=$API_PID" >> $GITHUB_ENV
+
+      - name: Wait for API to be ready
+        run: |
+          for i in {1..30}; do
+            if curl -f -s "http://127.0.0.1:$API_HTTP_PORT/healthz" > /dev/null 2>&1; then
+              echo "API is ready"
+              exit 0
+            fi
+            echo "Waiting for API... (attempt $i/30)"
+            sleep 2
+          done
+          echo "API failed to start within timeout"
+          exit 1
+
+      - name: Test video module
+        run: |
+          node -e "
+          const { testModuleEndpoint } = require('./ci/smoke/module-smoke-tests.js');
+          testModuleEndpoint({ name: 'video', endpoint: '/api/video/overview' })
+            .then(result => {
+              if (result.status === 'FAIL') {
+                console.error('Video module test failed:', result.details);
+                process.exit(1);
+              }
+              console.log('Video module test passed:', result.details);
+            })
+            .catch(error => {
+              console.error('Video module test error:', error.message);
+              process.exit(1);
+            });
+          "
+
+      - name: Cleanup
+        if: always()
+        run: |
+          if [ ! -z "$API_PID" ]; then
+            kill $API_PID || true
+          fi
+
+  smoke-zigbee:
+    name: Module Smoke Tests (zigbee)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20.x'
+          cache: npm
+          cache-dependency-path: |
+            apps/api/package-lock.json
+            package-lock.json
+
+      - name: Install API dependencies
+        working-directory: apps/api
+        run: npm ci
+
+      - name: Build API
+        working-directory: apps/api
+        run: npm run build
+
+      - name: Start API server
+        working-directory: apps/api
+        run: |
+          npm start &
+          API_PID=$!
+          echo "API_PID=$API_PID" >> $GITHUB_ENV
+
+      - name: Wait for API to be ready
+        run: |
+          for i in {1..30}; do
+            if curl -f -s "http://127.0.0.1:$API_HTTP_PORT/healthz" > /dev/null 2>&1; then
+              echo "API is ready"
+              exit 0
+            fi
+            echo "Waiting for API... (attempt $i/30)"
+            sleep 2
+          done
+          echo "API failed to start within timeout"
+          exit 1
+
+      - name: Test zigbee module
+        run: |
+          node -e "
+          const { testModuleEndpoint } = require('./ci/smoke/module-smoke-tests.js');
+          testModuleEndpoint({ name: 'zigbee', endpoint: '/api/zigbee/overview' })
+            .then(result => {
+              if (result.status === 'FAIL') {
+                console.error('Zigbee module test failed:', result.details);
+                process.exit(1);
+              }
+              console.log('Zigbee module test passed:', result.details);
+            })
+            .catch(error => {
+              console.error('Zigbee module test error:', error.message);
+              process.exit(1);
+            });
+          "
+
+      - name: Cleanup
+        if: always()
+        run: |
+          if [ ! -z "$API_PID" ]; then
+            kill $API_PID || true
+          fi
+
+  smoke-camera:
+    name: Module Smoke Tests (camera)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20.x'
+          cache: npm
+          cache-dependency-path: |
+            apps/api/package-lock.json
+            package-lock.json
+
+      - name: Install API dependencies
+        working-directory: apps/api
+        run: npm ci
+
+      - name: Build API
+        working-directory: apps/api
+        run: npm run build
+
+      - name: Start API server
+        working-directory: apps/api
+        run: |
+          npm start &
+          API_PID=$!
+          echo "API_PID=$API_PID" >> $GITHUB_ENV
+
+      - name: Wait for API to be ready
+        run: |
+          for i in {1..30}; do
+            if curl -f -s "http://127.0.0.1:$API_HTTP_PORT/healthz" > /dev/null 2>&1; then
+              echo "API is ready"
+              exit 0
+            fi
+            echo "Waiting for API... (attempt $i/30)"
+            sleep 2
+          done
+          echo "API failed to start within timeout"
+          exit 1
+
+      - name: Test camera module
+        run: |
+          node -e "
+          const { testModuleEndpoint } = require('./ci/smoke/module-smoke-tests.js');
+          testModuleEndpoint({ name: 'camera', endpoint: '/api/camera/overview' })
+            .then(result => {
+              if (result.status === 'FAIL') {
+                console.error('Camera module test failed:', result.details);
+                process.exit(1);
+              }
+              console.log('Camera module test passed:', result.details);
+            })
+            .catch(error => {
+              console.error('Camera module test error:', error.message);
+              process.exit(1);
+            });
+          "
+
+      - name: Cleanup
+        if: always()
+        run: |
+          if [ ! -z "$API_PID" ]; then
+            kill $API_PID || true
+          fi
+
+  smoke-logs:
+    name: Module Smoke Tests (logs)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20.x'
+          cache: npm
+          cache-dependency-path: |
+            apps/api/package-lock.json
+            package-lock.json
+
+      - name: Install API dependencies
+        working-directory: apps/api
+        run: npm ci
+
+      - name: Build API
+        working-directory: apps/api
+        run: npm run build
+
+      - name: Start API server
+        working-directory: apps/api
+        run: |
+          npm start &
+          API_PID=$!
+          echo "API_PID=$API_PID" >> $GITHUB_ENV
+
+      - name: Wait for API to be ready
+        run: |
+          for i in {1..30}; do
+            if curl -f -s "http://127.0.0.1:$API_HTTP_PORT/healthz" > /dev/null 2>&1; then
+              echo "API is ready"
+              exit 0
+            fi
+            echo "Waiting for API... (attempt $i/30)"
+            sleep 2
+          done
+          echo "API failed to start within timeout"
+          exit 1
+
+      - name: Test logs module
+        run: |
+          node -e "
+          const { testModuleEndpoint } = require('./ci/smoke/module-smoke-tests.js');
+          testModuleEndpoint({ name: 'logs', endpoint: '/api/logs/overview' })
+            .then(result => {
+              if (result.status === 'FAIL') {
+                console.error('Logs module test failed:', result.details);
+                process.exit(1);
+              }
+              console.log('Logs module test passed:', result.details);
+            })
+            .catch(error => {
+              console.error('Logs module test error:', error.message);
+              process.exit(1);
+            });
+          "
+
+      - name: Cleanup
+        if: always()
+        run: |
+          if [ ! -z "$API_PID" ]; then
+            kill $API_PID || true
+          fi
+
+  smoke-fleet:
+    name: Module Smoke Tests (fleet)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20.x'
+          cache: npm
+          cache-dependency-path: |
+            apps/api/package-lock.json
+            package-lock.json
+
+      - name: Install API dependencies
+        working-directory: apps/api
+        run: npm ci
+
+      - name: Build API
+        working-directory: apps/api
+        run: npm run build
+
+      - name: Start API server
+        working-directory: apps/api
+        run: |
+          npm start &
+          API_PID=$!
+          echo "API_PID=$API_PID" >> $GITHUB_ENV
+
+      - name: Wait for API to be ready
+        run: |
+          for i in {1..30}; do
+            if curl -f -s "http://127.0.0.1:$API_HTTP_PORT/healthz" > /dev/null 2>&1; then
+              echo "API is ready"
+              exit 0
+            fi
+            echo "Waiting for API... (attempt $i/30)"
+            sleep 2
+          done
+          echo "API failed to start within timeout"
+          exit 1
+
+      - name: Test fleet module
+        run: |
+          node -e "
+          const { testModuleEndpoint } = require('./ci/smoke/module-smoke-tests.js');
+          testModuleEndpoint({ name: 'fleet', endpoint: '/api/fleet/overview' })
+            .then(result => {
+              if (result.status === 'FAIL') {
+                console.error('Fleet module test failed:', result.details);
+                process.exit(1);
+              }
+              console.log('Fleet module test passed:', result.details);
+            })
+            .catch(error => {
+              console.error('Fleet module test error:', error.message);
+              process.exit(1);
+            });
+          "
+
+      - name: Cleanup
+        if: always()
+        run: |
+          if [ ! -z "$API_PID" ]; then
+            kill $API_PID || true
+          fi

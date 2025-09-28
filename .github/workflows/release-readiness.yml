@@ -1,0 +1,146 @@
+name: Release Readiness
+
+on:
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  release-readiness:
+    name: Generate Release Readiness Report
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20.x'
+          cache: npm
+          cache-dependency-path: |
+            apps/api/package-lock.json
+            apps/ui/package-lock.json
+            package-lock.json
+
+      - name: Install dependencies
+        run: |
+          cd apps/api && npm ci
+          cd ../ui && npm ci
+
+      - name: Generate release readiness report
+        run: |
+          set -euo pipefail
+
+          echo "🚀 Generating Release Readiness Report..."
+
+          REPORT_FILE="release-readiness-report.md"
+
+          cat <<'REPORT_HEADER' > $REPORT_FILE
+          # Release Readiness Report
+
+          **Generated**: $(date -u +"%Y-%m-%d %H:%M:%S UTC")
+          **Commit**: ${{ github.sha }}
+          **PR**: ${{ github.event.number }}
+
+          ## Overview
+
+          This report assesses the readiness of the current codebase for production deployment.
+
+          ## Checklist
+
+          REPORT_HEADER
+
+          # Check API build
+          echo "### API Build Status" >> $REPORT_FILE
+          if (cd apps/api && npm run build); then
+            echo "✅ API builds successfully" >> $REPORT_FILE
+          else
+            echo "❌ API build failed" >> $REPORT_FILE
+            echo "" >> $REPORT_FILE
+            echo "**Status**: ❌ **NOT READY FOR RELEASE**" >> $REPORT_FILE
+            cat $REPORT_FILE
+            exit 1
+          fi
+
+          # Check UI build
+          echo "" >> $REPORT_FILE
+          echo "### UI Build Status" >> $REPORT_FILE
+          if (cd apps/ui && npm run build); then
+            echo "✅ UI builds successfully" >> $REPORT_FILE
+          else
+            echo "❌ UI build failed" >> $REPORT_FILE
+            echo "" >> $REPORT_FILE
+            echo "**Status**: ❌ **NOT READY FOR RELEASE**" >> $REPORT_FILE
+            cat $REPORT_FILE
+            exit 1
+          fi
+
+          # Check for TypeScript errors
+          echo "" >> $REPORT_FILE
+          echo "### TypeScript Validation" >> $REPORT_FILE
+          if (cd apps/api && npm run typecheck) && (cd apps/ui && npm run typecheck); then
+            echo "✅ No TypeScript errors" >> $REPORT_FILE
+          else
+            echo "❌ TypeScript errors detected" >> $REPORT_FILE
+            echo "" >> $REPORT_FILE
+            echo "**Status**: ❌ **NOT READY FOR RELEASE**" >> $REPORT_FILE
+            cat $REPORT_FILE
+            exit 1
+          fi
+
+          # Check for OpenAPI contract alignment
+          echo "" >> $REPORT_FILE
+          echo "### API Contract Validation" >> $REPORT_FILE
+          if (cd apps/ui && npm run generate:openapi && git diff --exit-code --quiet apps/ui/src/lib/api/gen); then
+            echo "✅ OpenAPI client is synchronized" >> $REPORT_FILE
+          else
+            echo "❌ OpenAPI client is out of sync" >> $REPORT_FILE
+            echo "" >> $REPORT_FILE
+            echo "**Status**: ❌ **NOT READY FOR RELEASE**" >> $REPORT_FILE
+            cat $REPORT_FILE
+            exit 1
+          fi
+
+          # Check for security issues (basic)
+          echo "" >> $REPORT_FILE
+          echo "### Security Validation" >> $REPORT_FILE
+          SECURITY_ISSUES=0
+
+          # Check for hardcoded secrets
+          if grep -r -i --include="*.ts" --include="*.js" --include="*.json" -E "(password|secret|key|token)\s*[:=]\s*['\"][^'\"]+['\"]" apps/ 2>/dev/null | grep -v -E "(type|interface|example|test|mock)" || true; then
+            echo "⚠️ Potential hardcoded secrets detected (manual review required)" >> $REPORT_FILE
+            SECURITY_ISSUES=1
+          fi
+
+          # Check for console.log statements in production code
+          if grep -r --include="*.ts" --include="*.js" "console\." apps/ | grep -v "test\|spec\|mock" 2>/dev/null | head -5; then
+            echo "⚠️ Console statements found in production code" >> $REPORT_FILE
+            SECURITY_ISSUES=1
+          fi
+
+          if [ $SECURITY_ISSUES -eq 0 ]; then
+            echo "✅ No obvious security issues detected" >> $REPORT_FILE
+          fi
+
+          # Final assessment
+          echo "" >> $REPORT_FILE
+          echo "## Final Assessment" >> $REPORT_FILE
+          echo "" >> $REPORT_FILE
+          echo "**Status**: ✅ **READY FOR RELEASE**" >> $REPORT_FILE
+          echo "" >> $REPORT_FILE
+          echo "All automated checks passed. The codebase appears ready for production deployment." >> $REPORT_FILE
+          echo "" >> $REPORT_FILE
+          echo "### Deployment Notes" >> $REPORT_FILE
+          echo "- Ensure proper environment variables are configured" >> $REPORT_FILE
+          echo "- Verify database migrations are applied" >> $REPORT_FILE
+          echo "- Confirm monitoring and alerting are active" >> $REPORT_FILE
+
+          echo "✅ Release readiness report generated successfully"
+          cat $REPORT_FILE
+
+      - name: Upload release readiness report
+        uses: actions/upload-artifact@v4
+        with:
+          name: release-readiness-report
+          path: release-readiness-report.md

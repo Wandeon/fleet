@@ -184,3 +184,81 @@ jobs:
           UI_HTTP_PORT: ${{ env.UI_HTTP_PORT }}
           VITE_USE_MOCKS: '1'
         run: node ci/smoke/smoke.js
+
+  lint:
+    name: lint
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        node: [20.x]
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ matrix.node }}
+          cache: npm
+          cache-dependency-path: |
+            apps/api/package-lock.json
+            apps/ui/package-lock.json
+            package-lock.json
+
+      - name: Install API dependencies
+        working-directory: apps/api
+        run: npm ci
+
+      - name: Install UI dependencies
+        working-directory: apps/ui
+        run: npm ci
+
+      - name: ESLint (API)
+        working-directory: apps/api
+        run: npm run lint
+
+      - name: ESLint (UI)
+        working-directory: apps/ui
+        run: npm run lint
+
+  test:
+    name: test
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        node: [20.x]
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ matrix.node }}
+          cache: npm
+          cache-dependency-path: |
+            apps/api/package-lock.json
+            apps/ui/package-lock.json
+            package-lock.json
+
+      - name: Install API dependencies
+        working-directory: apps/api
+        run: npm ci
+
+      - name: Install UI dependencies
+        working-directory: apps/ui
+        run: npm ci
+
+      - name: Run API tests
+        working-directory: apps/api
+        run: |
+          if node -e "const pkg=require('./package.json'); process.exit(pkg.scripts?.test ? 0 : 1)"; then
+            npm test
+          else
+            echo "No API tests configured, skipping..."
+          fi
+
+      - name: Run UI tests
+        working-directory: apps/ui
+        run: |
+          if node -e "const pkg=require('./package.json'); process.exit(pkg.scripts?.test ? 0 : 1)"; then
+            npm test
+          else
+            echo "No UI tests configured, skipping..."
+          fi
