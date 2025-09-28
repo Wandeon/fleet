@@ -73,10 +73,24 @@ router.get('/overview', async (req, res) => {
     degraded: 0
   };
 
+  // Enhanced device information for fleet overview
+  const devices = allDevices.map(d => ({
+    id: d.id,
+    name: d.name,
+    role: d.role,
+    module: d.module,
+    status: 'online' as const,
+    location: d.metadata?.location as string || null,
+    lastSeen: new Date().toISOString(), // Use current time as placeholder
+    uptime: '0d 0h 0m', // Placeholder uptime
+    ipAddress: 'unknown', // Placeholder IP
+    version: d.metadata?.version as string || 'unknown'
+  }));
+
   res.json({
     totals,
     modules,
-    devices: allDevices.map(d => ({ id: d.id, name: d.name, role: d.role, status: 'online' })),
+    devices,
     updatedAt: new Date().toISOString(),
   });
 });
