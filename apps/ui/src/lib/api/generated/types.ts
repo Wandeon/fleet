@@ -645,6 +645,46 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/video/devices/{deviceId}/volume": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Set the output volume for a video endpoint.
+         * @description Adjust the HDMI output volume or amplifier gain for a managed display.
+         */
+        post: operations["setVideoVolume"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/video/devices/{deviceId}/playback": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Control playback on a managed video endpoint.
+         * @description Issue play, pause, resume, or stop commands to the HDMI media player.
+         */
+        post: operations["controlVideoPlayback"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/video/recordings/{recordingId}/export": {
         parameters: {
             query?: never;
@@ -1510,6 +1550,13 @@ export interface components {
             /** @enum {string} */
             status: "available" | "processing" | "failed";
         };
+        VideoPlaybackState: {
+            /** @enum {string} */
+            status: "idle" | "playing" | "paused" | "stopped";
+            source: string | null;
+            /** Format: date-time */
+            startedAt: string | null;
+        };
         VideoDeviceState: {
             id: string;
             name: string;
@@ -1519,8 +1566,21 @@ export interface components {
             power: components["schemas"]["VideoPowerState"];
             mute: boolean;
             input: string;
+            /** Format: int32 */
+            volumePercent: number;
+            availableInputs: string[];
+            playback: components["schemas"]["VideoPlaybackState"];
+            busy: boolean;
+            lastJobId?: string | null;
             /** Format: date-time */
             lastUpdated: string;
+        };
+        VideoJobAcknowledgement: {
+            deviceId: string;
+            /** Format: date-time */
+            lastUpdated: string;
+            jobId: string;
+            accepted: boolean;
         };
         VideoOverview: {
             devices: components["schemas"]["VideoDeviceState"][];
@@ -3359,11 +3419,8 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        deviceId: string;
+                    "application/json": components["schemas"]["VideoJobAcknowledgement"] & {
                         power: components["schemas"]["VideoPowerState"];
-                        /** Format: date-time */
-                        lastUpdated: string;
                     };
                 };
             };
@@ -3371,6 +3428,15 @@ export interface operations {
             401: components["responses"]["UnauthorizedError"];
             403: components["responses"]["ForbiddenError"];
             404: components["responses"]["NotFoundError"];
+            /** @description HDMI-CEC bus is busy and cannot accept another power command yet. */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
             429: components["responses"]["RateLimitError"];
             500: components["responses"]["InternalError"];
         };
@@ -3398,11 +3464,8 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        deviceId: string;
+                    "application/json": components["schemas"]["VideoJobAcknowledgement"] & {
                         mute: boolean;
-                        /** Format: date-time */
-                        lastUpdated: string;
                     };
                 };
             };
@@ -3410,6 +3473,15 @@ export interface operations {
             401: components["responses"]["UnauthorizedError"];
             403: components["responses"]["ForbiddenError"];
             404: components["responses"]["NotFoundError"];
+            /** @description HDMI-CEC bus is busy and cannot accept another mute command yet. */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
             429: components["responses"]["RateLimitError"];
             500: components["responses"]["InternalError"];
         };
@@ -3437,11 +3509,8 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        deviceId: string;
+                    "application/json": components["schemas"]["VideoJobAcknowledgement"] & {
                         input: string;
-                        /** Format: date-time */
-                        lastUpdated: string;
                     };
                 };
             };
@@ -3449,6 +3518,110 @@ export interface operations {
             401: components["responses"]["UnauthorizedError"];
             403: components["responses"]["ForbiddenError"];
             404: components["responses"]["NotFoundError"];
+            /** @description HDMI-CEC bus is busy and cannot accept another input change yet. */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            429: components["responses"]["RateLimitError"];
+            500: components["responses"]["InternalError"];
+        };
+    };
+    setVideoVolume: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                deviceId: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    volumePercent: number;
+                };
+            };
+        };
+        responses: {
+            /** @description Volume update accepted. */
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["VideoJobAcknowledgement"] & {
+                        volumePercent: number;
+                    };
+                };
+            };
+            400: components["responses"]["ValidationError"];
+            401: components["responses"]["UnauthorizedError"];
+            403: components["responses"]["ForbiddenError"];
+            404: components["responses"]["NotFoundError"];
+            /** @description HDMI-CEC bus is busy and cannot accept another volume change yet. */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            429: components["responses"]["RateLimitError"];
+            500: components["responses"]["InternalError"];
+        };
+    };
+    controlVideoPlayback: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                deviceId: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** @enum {string} */
+                    action: "play" | "pause" | "resume" | "stop";
+                    /** Format: uri */
+                    url?: string | null;
+                    /** Format: float */
+                    startSeconds?: number | null;
+                };
+            };
+        };
+        responses: {
+            /** @description Playback command accepted. */
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["VideoJobAcknowledgement"] & {
+                        playback: components["schemas"]["VideoPlaybackState"];
+                    };
+                };
+            };
+            400: components["responses"]["ValidationError"];
+            401: components["responses"]["UnauthorizedError"];
+            403: components["responses"]["ForbiddenError"];
+            404: components["responses"]["NotFoundError"];
+            /** @description Playback command conflicts with current HDMI-CEC activity. */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
             429: components["responses"]["RateLimitError"];
             500: components["responses"]["InternalError"];
         };
