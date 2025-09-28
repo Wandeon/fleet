@@ -53,7 +53,7 @@ services:
 
   fleet-ui:
     build: ../../apps/ui
-    image: ${FLEET_UI_IMAGE:-ghcr.io/org/fleet-ui:latest}
+    image: ${FLEET_UI_IMAGE:-fleet-ui:local}
     env_file:
       - ../../vps/fleet.env
     ports:
