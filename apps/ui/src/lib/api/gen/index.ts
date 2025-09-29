@@ -41,6 +41,8 @@ export type { CameraOverviewSummary } from './models/CameraOverviewSummary';
 export type { CameraPreviewState } from './models/CameraPreviewState';
 export type { CameraSelectionRequest } from './models/CameraSelectionRequest';
 export type { CameraState } from './models/CameraState';
+export type { CameraStream } from './models/CameraStream';
+export type { CameraStreamListResponse } from './models/CameraStreamListResponse';
 export type { DeviceStatus } from './models/DeviceStatus';
 export type { Error } from './models/Error';
 export type { FleetDeviceAction } from './models/FleetDeviceAction';

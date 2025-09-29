@@ -2,10 +2,10 @@
 import { spawn } from 'node:child_process';
 import http from 'node:http';
 import { setTimeout as wait } from 'node:timers/promises';
+import { getSmokeConfig } from '../apps/ui/test.config.js';
 
-const uiPort = Number.parseInt(process.env.SMOKE_UI_PORT ?? '4173', 10);
-const apiPort = Number.parseInt(process.env.SMOKE_API_PORT ?? '4010', 10);
-const host = '127.0.0.1';
+const smokeConfig = getSmokeConfig();
+const { host, uiPort, apiPort, testEnv } = smokeConfig;
 
 function prefixLines(prefix, chunk) {
   return chunk
@@ -26,10 +26,7 @@ function startUiProcess(env = {}) {
       cwd: uiDir,
       env: {
         ...process.env,
-        NODE_ENV: 'test',
-        VITE_USE_MOCKS: '1',
-        API_BASE_URL: `http://${host}:${apiPort}/api`,
-        API_BEARER: 'demo',
+        ...testEnv,
         ...env,
       },
       stdio: ['ignore', 'pipe', 'pipe'],
@@ -218,18 +215,18 @@ async function run() {
   });
 
   try {
-    await waitForServer(`http://${host}:${uiPort}/`);
+    await waitForServer(smokeConfig.uiBaseUrl);
 
     console.log('Verifying root HTML response...');
-    await assertHtmlResponse(`http://${host}:${uiPort}/`);
+    await assertHtmlResponse(smokeConfig.uiBaseUrl);
     console.log('✔ GET / returned text/html');
 
     console.log('Verifying fleet overview JSON response...');
-    await assertJsonResponse(`http://${host}:${uiPort}/ui/fleet/overview`);
+    await assertJsonResponse(`${smokeConfig.uiBaseUrl}/ui/fleet/overview`);
     console.log('✔ GET /ui/fleet/overview returned JSON');
 
     console.log('Verifying logs stream SSE response...');
-    await assertSseResponse(`http://${host}:${uiPort}/ui/logs/stream`);
+    await assertSseResponse(`${smokeConfig.uiBaseUrl}/ui/logs/stream`);
     console.log('✔ GET /ui/logs/stream returned text/event-stream');
     console.log('Smoke proxy checks completed successfully.');
   } finally {

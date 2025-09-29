@@ -46,8 +46,8 @@ echo "  UI: $UI_PORT"
 echo "📋 Parsing upstream ports from $CADDY_FILE..."
 
 # Extract upstream ports from Caddyfile
-CADDY_API_PORT=$(grep "reverse_proxy fleet-api:" "$CADDY_FILE" | sed 's/.*fleet-api:\([0-9]\+\).*/\1/')
-CADDY_UI_PORT=$(grep "reverse_proxy fleet-ui:" "$CADDY_FILE" | sed 's/.*fleet-ui:\([0-9]\+\).*/\1/')
+CADDY_API_PORT=$(grep "reverse_proxy fleet-api:" "$CADDY_FILE" | head -1 | sed 's/.*fleet-api:\([0-9]\+\).*/\1/')
+CADDY_UI_PORT=$(grep "reverse_proxy fleet-ui:" "$CADDY_FILE" | head -1 | sed 's/.*fleet-ui:\([0-9]\+\).*/\1/')
 
 if [ -z "$CADDY_API_PORT" ]; then
     echo "❌ Could not determine API upstream port from Caddy file"

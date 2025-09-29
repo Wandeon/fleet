@@ -633,12 +633,6 @@ const buildRoutes = (): RouteDefinition[] => [
     },
   },
   {
-    pattern: /^\/camera\/overview$/,
-    handlers: {
-      GET: () => mockApi.camera(),
-    },
-  },
-  {
     pattern: /^\/camera\/summary$/,
     handlers: {
       GET: () => mockApi.cameraSummary(),

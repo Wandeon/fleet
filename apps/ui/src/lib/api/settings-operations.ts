@@ -2,7 +2,7 @@
 import { rawRequest, USE_MOCKS, UiApiError } from '$lib/api/client';
 import type { RequestOptions } from '$lib/api/client';
 import { mockApi } from '$lib/api/mock';
-import type { OperatorAccount, PairingStatus, ProxySettings, SettingsState } from '$lib/types';
+import type { OperatorAccount, PairingStatus, ProxySettings, SettingsState, PairingDiscoveryCandidate } from '$lib/types';
 
 const ensureFetch = (fetchImpl?: typeof fetch) => fetchImpl ?? fetch;
 const jsonHeaders = { 'Content-Type': 'application/json' } as const;
@@ -17,7 +17,7 @@ export const getSettings = async (options: SettingsFetchOptions = {}): Promise<S
   }
 
   const fetchImpl = ensureFetch(options.fetch);
-  const rawResponse = await rawRequest<any>('/settings', {
+  const rawResponse = await rawRequest<Record<string, unknown>>('/settings', {
     method: 'GET',
     fetch: fetchImpl as RequestOptions['fetch'],
   });
@@ -26,30 +26,30 @@ export const getSettings = async (options: SettingsFetchOptions = {}): Promise<S
   return transformSettingsResponse(rawResponse);
 };
 
-function transformSettingsResponse(raw: any): SettingsState {
+function transformSettingsResponse(raw: Record<string, unknown>): SettingsState {
   return {
     api: {
-      bearerTokenMasked: raw.apiTokenPreview || null,
+      bearerTokenMasked: (raw.apiTokenPreview as string) || null,
       lastRotatedAt: null, // API doesn't provide this yet
       expiresAt: null, // API doesn't provide this yet
-      allowedOrigins: raw.allowedOrigins || [],
+      allowedOrigins: (raw.allowedOrigins as string[]) || [],
       webhookUrl: null, // API doesn't provide this yet
     },
     proxy: {
-      baseUrl: raw.proxy?.upstreamUrl || '',
+      baseUrl: ((raw.proxy as Record<string, unknown>)?.upstreamUrl as string) || '',
       timeoutMs: 8000, // Default since API doesn't provide this
       health: 'online', // Default since API doesn't provide this
       latencyMs: 0, // Default since API doesn't provide this
       errorRate: 0, // Default since API doesn't provide this
     },
     pairing: {
-      active: raw.pairing?.active || false,
+      active: ((raw.pairing as Record<string, unknown>)?.active as boolean) || false,
       method: 'manual', // Default since API doesn't provide this
-      expiresAt: raw.pairing?.expiresAt || null,
-      discovered: raw.pairing?.candidates || [],
+      expiresAt: ((raw.pairing as Record<string, unknown>)?.expiresAt as string) || null,
+      discovered: ((raw.pairing as Record<string, unknown>)?.candidates as PairingDiscoveryCandidate[]) || [],
       history: [], // API doesn't provide this yet
     },
-    operators: raw.operators || [],
+    operators: (raw.operators as OperatorAccount[]) || [],
     roles: [
       {
         id: 'admin',
@@ -74,7 +74,7 @@ function transformSettingsResponse(raw: any): SettingsState {
       },
     ], // Default roles since API doesn't provide this
     pendingRestart: false, // Default since API doesn't provide this
-    lastSavedAt: raw.updatedAt || null,
+    lastSavedAt: (raw.updatedAt as string) || null,
   };
 }
 

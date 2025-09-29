@@ -50,6 +50,10 @@ jobs:
     # Only require checks that actually ran
     uses: ./.github/workflows/release-readiness.yml
     if: github.event_name == 'pull_request'
+    permissions:
+      contents: read
+      issues: write
+      pull-requests: write
 
   # Post-merge image building
   build-and-push:
