@@ -185,7 +185,7 @@ const buildRoutes = (): RouteDefinition[] => [
     pattern: /^\/logs\/query$/,
     handlers: {
       GET: (ctx) => {
-        const url = new URL('http://localhost' + ctx.url);
+        const url = ctx.event.url;
         const limit = parseInt(url.searchParams.get('limit') ?? '100');
         const logs = mockApi.logsSnapshot();
         return {
