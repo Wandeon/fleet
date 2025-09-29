@@ -2,7 +2,8 @@ import { rawRequest, USE_MOCKS } from '$lib/api/client';
 import type { RequestOptions } from '$lib/api/client';
 import { mockApi } from '$lib/api/mock';
 import type { ZigbeeState } from '$lib/types';
-import { guardPlaceholder } from '$lib/feature-flags';
+import { ZigbeeService } from '$lib/api/gen/services/ZigbeeService';
+import type { ZigbeePairingState } from '$lib/api/gen/models/ZigbeePairingState';
 
 interface PairingState {
   active: boolean;
@@ -76,19 +77,14 @@ export const runZigbeeAction = async (
     return mockApi.zigbeeRunAction(deviceId, actionId);
   }
 
-  // Guard placeholder implementation with feature flag
-  guardPlaceholder('ZIGBEE_QUICK_ACTIONS_ENABLED', 'Zigbee quick actions are not yet implemented', 'Planned for v2.1 - requires zigbee action endpoint');
-
-  const fetchImpl = ensureFetch(options.fetch);
   try {
-    await rawRequest(`/zigbee/devices/${deviceId}/action`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ actionId }),
-      fetch: fetchImpl as RequestOptions['fetch'],
+    await ZigbeeService.runZigbeeAction(deviceId, {
+      deviceId,
+      command: actionId,
     });
   } catch (error) {
-    console.warn('TODO(backlog): implement zigbee action endpoint', error);
+    console.error('Zigbee action failed:', error);
+    throw error;
   }
   return getZigbeeOverview(options);
 };
@@ -101,24 +97,23 @@ export const startPairing = async (
     return mockApi.zigbeeStartPairing(durationSeconds) ?? { active: true, discovered: [] };
   }
 
-  // Guard placeholder implementation with feature flag
-  guardPlaceholder('ZIGBEE_PAIRING_ENABLED', 'Zigbee device pairing is not yet implemented', 'Planned for v2.1 - requires zigbee pairing endpoint');
-
-  const fetchImpl = ensureFetch(options.fetch);
   try {
-    return await rawRequest<PairingState>('/zigbee/pairing', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ durationSeconds }),
-      fetch: fetchImpl as RequestOptions['fetch'],
+    const result: ZigbeePairingState = await ZigbeeService.startZigbeePairing({
+      durationSeconds,
     });
-  } catch (error) {
-    console.warn('TODO(backlog): implement zigbee pairing endpoint', error);
     return {
-      active: true,
-      discovered: [],
-      expiresAt: new Date(Date.now() + durationSeconds * 1000).toISOString(),
+      active: result.active,
+      expiresAt: result.expiresAt ?? undefined,
+      discovered: result.discovered.map(candidate => ({
+        id: candidate.id,
+        name: candidate.model,
+        type: candidate.manufacturer,
+        signal: candidate.signal,
+      })),
     };
+  } catch (error) {
+    console.error('Zigbee pairing failed:', error);
+    throw error;
   }
 };
 
@@ -129,18 +124,21 @@ export const stopPairing = async (
     return mockApi.zigbeeStopPairing() ?? { active: false, discovered: [] };
   }
 
-  // Guard placeholder implementation with feature flag
-  guardPlaceholder('ZIGBEE_PAIRING_ENABLED', 'Zigbee device pairing is not yet implemented', 'Planned for v2.1 - requires pairing stop endpoint');
-
-  const fetchImpl = ensureFetch(options.fetch);
   try {
-    return await rawRequest<PairingState>('/zigbee/pairing', {
-      method: 'DELETE',
-      fetch: fetchImpl as RequestOptions['fetch'],
-    });
+    const result: ZigbeePairingState = await ZigbeeService.stopZigbeePairing();
+    return {
+      active: result.active,
+      expiresAt: result.expiresAt ?? undefined,
+      discovered: result.discovered.map(candidate => ({
+        id: candidate.id,
+        name: candidate.model,
+        type: candidate.manufacturer,
+        signal: candidate.signal,
+      })),
+    };
   } catch (error) {
-    console.warn('TODO(backlog): implement pairing stop endpoint', error);
-    return { active: false, discovered: [] };
+    console.error('Zigbee stop pairing failed:', error);
+    throw error;
   }
 };
 
@@ -151,18 +149,21 @@ export const pollDiscoveredDevices = async (
     return mockApi.zigbeeDiscoverCandidate() ?? { active: true, discovered: [] };
   }
 
-  // Guard placeholder implementation with feature flag
-  guardPlaceholder('ZIGBEE_PAIRING_ENABLED', 'Zigbee device pairing is not yet implemented', 'Planned for v2.1 - requires pairing discovery endpoint');
-
-  const fetchImpl = ensureFetch(options.fetch);
   try {
-    return await rawRequest<PairingState>('/zigbee/pairing/discovered', {
-      method: 'GET',
-      fetch: fetchImpl as RequestOptions['fetch'],
-    });
+    const result: ZigbeePairingState = await ZigbeeService.pollZigbeeDiscovered();
+    return {
+      active: result.active,
+      expiresAt: result.expiresAt ?? undefined,
+      discovered: result.discovered.map(candidate => ({
+        id: candidate.id,
+        name: candidate.model,
+        type: candidate.manufacturer,
+        signal: candidate.signal,
+      })),
+    };
   } catch (error) {
-    console.warn('TODO(backlog): implement pairing discovery endpoint', error);
-    return { active: false, discovered: [] };
+    console.error('Zigbee poll discovered failed:', error);
+    throw error;
   }
 };
 
@@ -174,17 +175,11 @@ export const confirmPairing = async (
     return mockApi.zigbeeConfirmPairing(deviceId);
   }
 
-  // Guard placeholder implementation with feature flag
-  guardPlaceholder('ZIGBEE_PAIRING_ENABLED', 'Zigbee device pairing is not yet implemented', 'Planned for v2.1 - requires pairing confirm endpoint');
-
-  const fetchImpl = ensureFetch(options.fetch);
   try {
-    await rawRequest(`/zigbee/pairing/${deviceId}`, {
-      method: 'POST',
-      fetch: fetchImpl as RequestOptions['fetch'],
-    });
+    await ZigbeeService.confirmZigbeePairing(deviceId);
   } catch (error) {
-    console.warn('TODO(backlog): implement pairing confirm endpoint', error);
+    console.error('Zigbee confirm pairing failed:', error);
+    throw error;
   }
 
   return getZigbeeOverview(options);

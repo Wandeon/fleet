@@ -14,11 +14,14 @@
   } from '$lib/api/logs-operations';
   import { goto } from '$app/navigation';
   import { resolve } from '$app/paths';
+  import { addToast } from '$lib/stores/app';
+  import { UiApiError } from '$lib/api/client';
 
   export let data: PageData;
 
   let snapshot: LogsSnapshot | null = data.snapshot ?? null;
   let error: string | null = data.error ?? null;
+  let errorCorrelationId: string | null = null;
 
   const resolveSources = (value: LogsSnapshot | null | undefined) => value?.sources ?? [];
 
@@ -57,6 +60,7 @@
   const loadLogs = async (options: Partial<LogQueryOptions> = {}) => {
     loading = true;
     error = null;
+    errorCorrelationId = null;
     try {
       const result = await fetchLogSnapshot({
         fetch,
@@ -67,8 +71,24 @@
         ...options,
       });
       applySnapshot(result);
+
+      // Show success toast with result count
+      const count = result.entries.length;
+      addToast({
+        message: `Loaded ${count} log ${count === 1 ? 'entry' : 'entries'}`,
+        variant: 'success',
+        timeout: 3000,
+      });
     } catch (err) {
-      error = err instanceof Error ? err.message : 'Failed to load logs';
+      if (err instanceof UiApiError) {
+        error = err.message || 'Failed to load logs';
+        // Extract correlationId from error detail if available
+        if (err.detail && typeof err.detail === 'object' && 'correlationId' in err.detail) {
+          errorCorrelationId = String(err.detail.correlationId);
+        }
+      } else {
+        error = err instanceof Error ? err.message : 'Failed to load logs';
+      }
     } finally {
       loading = false;
     }
@@ -168,6 +188,8 @@
 
   const download = async (format: 'json' | 'text') => {
     downloading = true;
+    error = null;
+    errorCorrelationId = null;
     try {
       const blob = await exportLogs({
         fetch,
@@ -185,6 +207,22 @@
       anchor.click();
       document.body.removeChild(anchor);
       URL.revokeObjectURL(url);
+
+      // Show success toast
+      addToast({
+        message: `Log export downloaded successfully`,
+        variant: 'success',
+        timeout: 3000,
+      });
+    } catch (err) {
+      if (err instanceof UiApiError) {
+        error = `Export failed: ${err.message}`;
+        if (err.detail && typeof err.detail === 'object' && 'correlationId' in err.detail) {
+          errorCorrelationId = String(err.detail.correlationId);
+        }
+      } else {
+        error = err instanceof Error ? `Export failed: ${err.message}` : 'Failed to export logs';
+      }
     } finally {
       downloading = false;
     }
@@ -270,6 +308,9 @@
     <div class="error" role="alert">
       <strong>Log stream unavailable:</strong>
       {error}
+      {#if errorCorrelationId}
+        <div class="correlation-id">Correlation ID: <code>{errorCorrelationId}</code></div>
+      {/if}
     </div>
   {/if}
 
@@ -378,6 +419,19 @@
     background: rgba(239, 68, 68, 0.15);
     border: 1px solid rgba(239, 68, 68, 0.3);
     color: var(--color-red-200);
+  }
+
+  .correlation-id {
+    margin-top: var(--spacing-2);
+    font-size: var(--font-size-xs);
+    opacity: 0.85;
+  }
+
+  .correlation-id code {
+    background: rgba(0, 0, 0, 0.2);
+    padding: var(--spacing-1) var(--spacing-2);
+    border-radius: var(--radius-sm);
+    font-family: 'Monaco', 'Courier New', monospace;
   }
 
   .loading {

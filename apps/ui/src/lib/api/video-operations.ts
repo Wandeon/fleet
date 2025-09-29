@@ -1,13 +1,8 @@
-import { API_BASE_URL, USE_MOCKS, UiApiError } from '$lib/api/client';
+import { USE_MOCKS, UiApiError } from '$lib/api/client';
 import { VideoService } from '$lib/api/gen';
 import { mockApi } from '$lib/api/mock';
-import type { PowerState, VideoRecordingSegment, VideoState } from '$lib/types';
-
-const ensureFetch = (fetchImpl?: typeof fetch) => fetchImpl ?? fetch;
-
-const jsonHeaders = {
-  'Content-Type': 'application/json',
-};
+import type { PowerState, VideoState } from '$lib/types';
+import type { VideoRecordingSegment as ApiVideoRecordingSegment } from '$lib/api/gen';
 
 // Primary video device ID from inventory
 const PRIMARY_VIDEO_DEVICE_ID = 'pi-video-01';
@@ -78,73 +73,79 @@ export const getVideoOverview = async (
 
 export const setVideoPower = async (
   power: PowerState,
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   options: { fetch?: typeof fetch } = {}
-): Promise<VideoState> => {
+): Promise<{ state: VideoState; jobId: string }> => {
   if (USE_MOCKS) {
-    return mockApi.videoSetPower(power);
+    return { state: mockApi.videoSetPower(power), jobId: 'mock-job-123' };
   }
 
-  await VideoService.setVideoPower(PRIMARY_VIDEO_DEVICE_ID, { power: toVideoPowerState(power) });
-  return getVideoOverview(options);
+  const response = await VideoService.setVideoPower(PRIMARY_VIDEO_DEVICE_ID, { power: toVideoPowerState(power) });
+  const state = await getVideoOverview(options);
+  return { state, jobId: response.jobId };
 };
 
 export const setVideoInput = async (
   inputId: string,
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   options: { fetch?: typeof fetch } = {}
-): Promise<VideoState> => {
+): Promise<{ state: VideoState; jobId: string }> => {
   if (USE_MOCKS) {
-    return mockApi.videoSetInput(inputId);
+    return { state: mockApi.videoSetInput(inputId), jobId: 'mock-job-124' };
   }
 
-  await VideoService.setVideoInput(PRIMARY_VIDEO_DEVICE_ID, { input: inputId });
-  return getVideoOverview(options);
+  const response = await VideoService.setVideoInput(PRIMARY_VIDEO_DEVICE_ID, { input: inputId });
+  const state = await getVideoOverview(options);
+  return { state, jobId: response.jobId };
 };
 
 export const setVideoVolume = async (
   volume: number,
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   options: { fetch?: typeof fetch } = {}
-): Promise<VideoState> => {
+): Promise<{ state: VideoState; jobId: string }> => {
   const safeVolume = Math.max(0, Math.min(100, Math.round(volume)));
   if (USE_MOCKS) {
-    return mockApi.videoSetVolume(safeVolume);
+    return { state: mockApi.videoSetVolume(safeVolume), jobId: 'mock-job-125' };
   }
 
-  await VideoService.setVideoVolume(PRIMARY_VIDEO_DEVICE_ID, { volumePercent: safeVolume });
-  return getVideoOverview(options);
+  const response = await VideoService.setVideoVolume(PRIMARY_VIDEO_DEVICE_ID, { volumePercent: safeVolume });
+  const state = await getVideoOverview(options);
+  return { state, jobId: response.jobId };
 };
 
 export const setVideoMute = async (
   muted: boolean,
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   options: { fetch?: typeof fetch } = {}
-): Promise<VideoState> => {
+): Promise<{ state: VideoState; jobId: string }> => {
   if (USE_MOCKS) {
-    return mockApi.videoSetMute(muted);
+    return { state: mockApi.videoSetMute(muted), jobId: 'mock-job-126' };
   }
 
-  await VideoService.setVideoMute(PRIMARY_VIDEO_DEVICE_ID, { mute: muted });
-  return getVideoOverview(options);
+  const response = await VideoService.setVideoMute(PRIMARY_VIDEO_DEVICE_ID, { mute: muted });
+  const state = await getVideoOverview(options);
+  return { state, jobId: response.jobId };
 };
 
+const mapRecordingSegment = (segment: ApiVideoRecordingSegment): import('$lib/types').VideoRecordingSegment => ({
+  id: segment.id,
+  start: segment.startedAt,
+  end: segment.endedAt,
+  label: segment.id,
+  url: `/api/video/recordings/${segment.id}/stream`,
+});
+
 export const fetchRecordingTimeline = async (
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   options: { fetch?: typeof fetch } = {}
-): Promise<VideoRecordingSegment[]> => {
+): Promise<import('$lib/types').VideoRecordingSegment[]> => {
   if (USE_MOCKS) {
     return mockApi.video().recordings;
   }
 
-  const fetchImpl = ensureFetch(options.fetch);
-
-  const response = await fetchImpl(`${API_BASE_URL}/video/recordings`, {
-    method: 'GET',
-    headers: { Accept: 'application/json' },
-  });
-
-  if (!response.ok) {
-    throw new UiApiError('Failed to load recording timeline', response.status, await response.text());
-  }
-
-  const { items } = (await response.json()) as { items: VideoRecordingSegment[] };
-  return items;
+  const response = await VideoService.getVideoRecordings();
+  return response.items.map(mapRecordingSegment);
 };
 
 export const generateLivePreviewUrl = async (): Promise<string> => {
@@ -154,16 +155,9 @@ export const generateLivePreviewUrl = async (): Promise<string> => {
     return live.streamUrl;
   }
 
-  const response = await fetch(`${API_BASE_URL}/video/preview`, {
-    method: 'POST',
-    headers: jsonHeaders,
-    body: JSON.stringify({ deviceId: 'tv-main-hall' }),
+  const response = await VideoService.generateVideoPreview({
+    deviceId: PRIMARY_VIDEO_DEVICE_ID
   });
 
-  if (!response.ok) {
-    throw new UiApiError('Failed to generate live preview', response.status, await response.text());
-  }
-
-  const body = (await response.json()) as { streamUrl: string };
-  return body.streamUrl;
+  return response.streamUrl;
 };

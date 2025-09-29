@@ -84,11 +84,17 @@
     if (!data || busy) return;
     busy = true;
     try {
-      data = await setVideoPower(power);
-      showMessage(`Display ${power === 'on' ? 'powered on' : 'powered off'}`);
+      const result = await setVideoPower(power);
+      data = result.state;
+      showMessage(`Display ${power === 'on' ? 'powered on' : 'powered off'} (Job: ${result.jobId})`);
     } catch (error) {
       console.error('set power', error);
-      showMessage(error instanceof Error ? error.message : 'Power control failed');
+      if (error && typeof error === 'object' && 'status' in error && error.status === 409) {
+        showMessage('Device busy - please wait for current operation to complete');
+      } else {
+        const msg = error instanceof Error ? error.message : 'Power control failed';
+        showMessage(msg);
+      }
     } finally {
       busy = false;
       broadcastRefresh();
@@ -99,11 +105,17 @@
     if (!data || busy) return;
     busy = true;
     try {
-      data = await setVideoInput(inputId);
-      showMessage(`Switched to ${inputId}`);
+      const result = await setVideoInput(inputId);
+      data = result.state;
+      showMessage(`Switched to ${inputId} (Job: ${result.jobId})`);
     } catch (error) {
       console.error('set input', error);
-      showMessage(error instanceof Error ? error.message : 'Input control failed');
+      if (error && typeof error === 'object' && 'status' in error && error.status === 409) {
+        showMessage('Device busy - please wait for current operation to complete');
+      } else {
+        const msg = error instanceof Error ? error.message : 'Input control failed';
+        showMessage(msg);
+      }
     } finally {
       busy = false;
       broadcastRefresh();
@@ -113,10 +125,15 @@
   const handleVolume = async (value: number) => {
     if (!data) return;
     try {
-      data = await setVideoVolume(value);
+      const result = await setVideoVolume(value);
+      data = result.state;
     } catch (error) {
       console.error('set volume', error);
-      showMessage('Unable to set volume');
+      if (error && typeof error === 'object' && 'status' in error && error.status === 409) {
+        showMessage('Device busy - please wait for current operation to complete');
+      } else {
+        showMessage('Unable to set volume');
+      }
     }
   };
 
@@ -124,11 +141,16 @@
     if (!data) return;
     const muted = !data.muted;
     try {
-      data = await setVideoMute(muted);
-      showMessage(muted ? 'Muted output' : 'Unmuted output');
+      const result = await setVideoMute(muted);
+      data = result.state;
+      showMessage(`${muted ? 'Muted' : 'Unmuted'} output (Job: ${result.jobId})`);
     } catch (error) {
       console.error('set mute', error);
-      showMessage('Unable to toggle mute');
+      if (error && typeof error === 'object' && 'status' in error && error.status === 409) {
+        showMessage('Device busy - please wait for current operation to complete');
+      } else {
+        showMessage('Unable to toggle mute');
+      }
     }
   };
 
