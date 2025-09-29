@@ -198,6 +198,8 @@ jobs:
           echo "| Database Migrations | $MIGRATION_STATUS |" >> artifacts/release-readiness/report.md
           echo "| Port Configuration | $PORT_STATUS |" >> artifacts/release-readiness/report.md
           echo "| Inventory Sync | $INVENTORY_STATUS |" >> artifacts/release-readiness/report.md
+          echo "| Security Scan | $SECURITY_STATUS |" >> artifacts/release-readiness/report.md
+          echo "| Build & TypeCheck | $BUILD_STATUS |" >> artifacts/release-readiness/report.md
           echo "| Feature Flags | $PLACEHOLDER_STATUS |" >> artifacts/release-readiness/report.md
 
           echo "" >> artifacts/release-readiness/report.md

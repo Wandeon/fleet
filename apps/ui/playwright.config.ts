@@ -1,23 +1,23 @@
 import { defineConfig, devices } from '@playwright/test';
+import testConfig from './test.config.js';
 
 export default defineConfig({
   testDir: 'tests/e2e',
   fullyParallel: true,
   retries: process.env.CI ? 2 : 0,
+  timeout: testConfig.timeouts.DEFAULT,
   use: {
-    baseURL: 'http://127.0.0.1:5173',
+    baseURL: testConfig.uiBaseUrl,
     trace: 'on-first-retry',
     headless: true,
   },
   webServer: {
-    command: 'npm run dev -- --host --port 5173',
-    port: 5173,
+    command: `npm run dev -- --host ${testConfig.host} --port ${testConfig.uiPort}`,
+    port: testConfig.uiPort,
     reuseExistingServer: !process.env.CI,
     stdout: 'ignore',
     stderr: 'pipe',
-    env: {
-      VITE_USE_MOCKS: '1',
-    },
+    env: testConfig.testEnv,
   },
   projects: [
     {

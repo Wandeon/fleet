@@ -1,6 +1,7 @@
 import { test } from '@playwright/test';
 import fs from 'fs';
 import path from 'path';
+import testConfig from '../../test.config.js';
 
 const routes = [
   { slug: 'dashboard', path: '/' },
@@ -39,7 +40,7 @@ test.describe('UX capture', () => {
     test(`capture ${route.slug}`, async ({ page }) => {
       const target = new URL(
         route.path,
-        test.info().project.use?.baseURL ?? 'http://127.0.0.1:5173'
+        test.info().project.use?.baseURL ?? testConfig.uiBaseUrl
       );
       await page.goto(target.toString(), { waitUntil: 'networkidle' });
       await page.waitForTimeout(1500);

@@ -16,8 +16,6 @@ import type {
   AudioPlaylistTrack, // eslint-disable-line @typescript-eslint/no-unused-vars
   AudioSeekRequest,
   AudioVolumeRequest,
-  CameraClipRequest,
-  CameraSelectionRequest,
   InviteOperatorRequest,
   PairingClaimRequest,
   PairingStartRequest,
@@ -40,13 +38,9 @@ export type {
   AudioSession,
   AudioState,
   AudioVolumeRequest,
-  CameraClip,
-  CameraClipRequest,
-  CameraClipResponse,
   CameraDevice,
   CameraEvent,
   CameraPreviewState,
-  CameraSelectionRequest,
   CameraState,
   DeviceStatus,
   FleetDeviceAction,
@@ -169,12 +163,20 @@ export const ZigbeeApi = {
 };
 
 export const CameraApi = {
-  getOverview: () => CameraService.getCameraOverview(),
-  selectCamera: (payload: CameraSelectionRequest) => CameraService.selectCamera(payload),
+  getOverview: () => CameraService.getCameraSummary(),
   acknowledgeEvent: (eventId: string) => CameraService.acknowledgeCameraEvent(eventId),
-  requestClip: (eventId: string, payload: CameraClipRequest) =>
-    CameraService.requestCameraClip(eventId, payload),
-  refreshCamera: (cameraId: string) => CameraService.refreshCamera(cameraId),
+  getPreview: (cameraId: string) => CameraService.getCameraPreview(cameraId),
+  listEvents: (
+    start?: string,
+    end?: string,
+    cameraId?: string,
+    tags?: string[],
+    minConfidence?: number,
+    maxConfidence?: number,
+    limit?: number,
+    cursor?: string
+  ) => CameraService.listCameraEvents(start, end, cameraId, tags, minConfidence, maxConfidence, limit, cursor),
+  listStreams: () => CameraService.listCameraStreams(),
 };
 
 export const LogsApi = {
