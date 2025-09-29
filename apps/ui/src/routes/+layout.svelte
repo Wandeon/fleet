@@ -5,6 +5,8 @@
   import Toast from '$lib/components/Toast.svelte';
   import Button from '$lib/components/Button.svelte';
   import Skeleton from '$lib/components/Skeleton.svelte';
+  import { attachEventHandlers, reattachOnNavigation } from '$lib/svelte5-compat';
+  import { onMount } from 'svelte';
   import { mainNavigation } from '$lib/nav';
   import { resolve } from '$app/paths';
   import { page } from '$app/stores';
@@ -64,6 +66,12 @@
   function changeModuleState(key: ModuleKey, value: PanelState) {
     setModuleState(key, value);
   }
+
+  // Initialize Svelte 5 compatibility shim for event handlers
+  onMount(() => {
+    attachEventHandlers();
+    reattachOnNavigation();
+  });
 </script>
 
 <div class={`app-shell ${mockPanelOpen ? 'mock-open' : ''}`}>
