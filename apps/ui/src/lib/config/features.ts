@@ -6,6 +6,7 @@ function resolveFlag(value: string | undefined): boolean {
 }
 
 export const featureFlags = {
+  console: resolveFlag(import.meta.env.VITE_FEATURE_CONSOLE),
   video: resolveFlag(import.meta.env.VITE_FEATURE_VIDEO),
   zigbee: resolveFlag(import.meta.env.VITE_FEATURE_ZIGBEE),
   camera: resolveFlag(import.meta.env.VITE_FEATURE_CAMERA),

@@ -10,6 +10,7 @@ WORKDIR /app
 COPY --from=deps /app/node_modules ./node_modules
 COPY . .
 # Set feature flags to disabled by default for production safety
+ENV VITE_FEATURE_CONSOLE=0
 ENV VITE_FEATURE_VIDEO=0
 ENV VITE_FEATURE_ZIGBEE=0
 ENV VITE_FEATURE_CAMERA=0

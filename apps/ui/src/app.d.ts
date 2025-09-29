@@ -12,6 +12,7 @@ declare global {
   interface ImportMetaEnv {
     readonly VITE_API_BASE: string;
     readonly VITE_USE_MOCKS?: string;
+    readonly VITE_FEATURE_CONSOLE?: string;
     readonly VITE_FEATURE_VIDEO?: string;
     readonly VITE_FEATURE_ZIGBEE?: string;
     readonly VITE_FEATURE_CAMERA?: string;

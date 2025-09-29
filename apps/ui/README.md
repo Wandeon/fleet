@@ -51,10 +51,11 @@ The dev server runs on [http://localhost:5173](http://localhost:5173). The mock 
 
 ### Local development (Vite)
 
-| Name             | Description                                             | Default |
-| ---------------- | ------------------------------------------------------- | ------- |
-| `VITE_API_BASE`  | Base path for Fleet API requests during development     | `/api`  |
-| `VITE_USE_MOCKS` | Serve mock JSON (`"1"`) instead of calling the live API | `1`     |
+| Name                  | Description                                                      | Default |
+| --------------------- | ---------------------------------------------------------------- | ------- |
+| `VITE_API_BASE`       | Base path for Fleet API requests during development              | `/api`  |
+| `VITE_USE_MOCKS`      | Serve mock JSON (`"1"`) instead of calling the live API          | `1`     |
+| `VITE_FEATURE_CONSOLE`| Toggle the single-page console scaffold during development builds | `0`     |
 
 Copy `.env.example` to `.env` to customise local settings before running `npm run dev`.
 
@@ -62,15 +63,16 @@ Copy `.env.example` to `.env` to customise local settings before running `npm ru
 
 These values are injected by `infra/vps/compose.fleet.yml` and mirrored in `vps/fleet.env`.
 
-| Name             | Required | Description                                               | Example                         |
-| ---------------- | -------- | --------------------------------------------------------- | ------------------------------- |
-| `HOST`           | ✓        | Interface the Node adapter binds to                       | `0.0.0.0`                       |
-| `PORT`           | ✓        | Port exposed by the SvelteKit server                      | `3000`                          |
-| `ORIGIN`         | ✓        | Public HTTPS origin served via Caddy                      | `https://app.headspamartina.hr` |
-| `API_BASE_URL`   | ✓        | Internal API base URL for SSR/proxy fetches               | `http://fleet-api:3015`         |
-| `API_BEARER`     | ✓        | Server-only bearer token injected into proxy/SSR requests | `<redacted>`                    |
-| `VITE_API_BASE`  | ✓        | Compile-time base path for SSR fallback requests          | `/api`                          |
-| `VITE_USE_MOCKS` | ✓        | Set to `0` in production to enable live data              | `0`                             |
+| Name                  | Required | Description                                               | Example                         |
+| --------------------- | -------- | --------------------------------------------------------- | ------------------------------- |
+| `HOST`                | ✓        | Interface the Node adapter binds to                       | `0.0.0.0`                       |
+| `PORT`                | ✓        | Port exposed by the SvelteKit server                      | `3000`                          |
+| `ORIGIN`              | ✓        | Public HTTPS origin served via Caddy                      | `https://app.headspamartina.hr` |
+| `API_BASE_URL`        | ✓        | Internal API base URL for SSR/proxy fetches               | `http://fleet-api:3015`         |
+| `API_BEARER`          | ✓        | Server-only bearer token injected into proxy/SSR requests | `<redacted>`                    |
+| `VITE_API_BASE`       | ✓        | Compile-time base path for SSR fallback requests          | `/api`                          |
+| `VITE_USE_MOCKS`      | ✓        | Set to `0` in production to enable live data              | `0`                             |
+| `VITE_FEATURE_CONSOLE`| ✕ (staging) | Enable the single-page console during phased rollout       | `0` or `1`                      |
 
 See `vps/fleet.env.example` for an up-to-date template of the production secrets/values required during deployment.
 

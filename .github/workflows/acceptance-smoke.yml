@@ -38,7 +38,7 @@ jobs:
         env:
           MODULE_FILTER: ${{ matrix.module }}
 
-  parameter-drift-check:
+  ui-api-drift-check:
     name: 'UI ↔ API Parameter Drift'
     runs-on: ubuntu-latest
 
@@ -52,25 +52,30 @@ jobs:
           node-version: '20'
           cache: 'npm'
 
-      - name: Install dependencies
+      - name: Check for parameter mismatches
         run: |
-          npm ci
-          cd apps/api-mock && npm ci
-          cd ../ui && npm ci
+          echo "🔍 Checking for UI ↔ API parameter drift..."
 
-      - name: Check for parameter drift
-        run: |
-          echo "🔍 Checking UI ↔ API parameter drift..."
+          # Check for deviceId vs source parameter issues
+          if grep -r "deviceId" apps/ui/src/lib/api/ | grep -i log; then
+            echo "⚠️  Found 'deviceId' parameter in logs API calls"
+            echo "Logs endpoints should use 'source' parameter, not 'deviceId'"
+            grep -r "deviceId" apps/ui/src/lib/api/ | grep -i log
+            echo ""
+          fi
 
-          # Check for consistent API endpoint usage
-          if grep -r "/camera/overview" apps/ui/src/ --include="*.ts" --include="*.js"; then
-            echo "❌ Found deprecated /camera/overview usage. Use /camera/summary instead."
+          # Check for legacy video endpoints
+          if grep -r "/video/tv/" apps/ui/src/; then
+            echo "❌ Found legacy /video/tv/* endpoints in UI"
+            echo "Should use /video/devices/{id}/* instead"
+            grep -r "/video/tv/" apps/ui/src/
             exit 1
           fi
 
-          if grep -r "/api/video/overview" apps/ui/src/ --include="*.ts" --include="*.js"; then
-            echo "❌ Found deprecated /api/video/overview usage. Use /api/video/devices instead."
-            exit 1
+          # Check for unguarded TODO/placeholder implementations
+          if grep -r "TODO.*implement" apps/ui/src/ | grep -v "test" | grep -v ".spec"; then
+            echo "⚠️  Found TODO implementations in UI that may need feature flags"
+            grep -r "TODO.*implement" apps/ui/src/ | grep -v "test" | grep -v ".spec"
           fi
 
-          echo "✅ No parameter drift detected"
+          echo "✅ UI ↔ API drift check complete"

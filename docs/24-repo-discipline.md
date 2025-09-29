@@ -11,6 +11,7 @@
 - UI environment variables are defined in `apps/ui/.env.schema.ts` with the following required keys:
   - `VITE_API_BASE`
   - `VITE_USE_MOCKS`
+  - `VITE_FEATURE_CONSOLE`
   - `VITE_FEATURE_VIDEO`
   - `VITE_FEATURE_ZIGBEE`
   - `VITE_FEATURE_CAMERA`

@@ -5,6 +5,7 @@ The SvelteKit UI provides the operator console for Fleet. It uses a shared two-c
 ## Layout & routing
 
 - `src/routes/+layout.svelte` renders the persistent shell (top bar, status banner, sidebar navigation, right-rail health feed). Layout data (`+layout.ts`) fetches app metadata and connection status once per navigation, exposing `parent()` data to child routes.【F:apps/ui/ARCHITECTURE.md†L3-L15】
+- `src/routes/console` hosts the feature-flagged single-page console. While `VITE_FEATURE_CONSOLE=0`, it remains hidden from operators but can be loaded directly for development. The scaffold renders shared panel shells and a health summary placeholder without altering legacy module routes.【F:apps/ui/src/routes/console/+page.svelte†L1-L197】
 - Primary routes live under `src/routes/<module>` with matching `+page.svelte` files. Each page consumes the mock/API client via `apiClient` and renders module-specific Svelte components from `src/lib/modules`.【F:apps/ui/src/routes/+page.svelte†L1-L80】【F:apps/ui/src/lib/modules/AudioModule.svelte†L1-L40】
 - Server-only API routes under `src/routes/api/fleet/*` call `proxyFleetRequest` to fetch `/fleet/layout` and `/fleet/state`, providing SSR data to the dashboard and list pages.【F:apps/ui/src/routes/api/fleet/state/+server.ts†L1-L7】【F:apps/ui/src/lib/server/proxy.ts†L59-L103】
 
@@ -13,6 +14,7 @@ The SvelteKit UI provides the operator console for Fleet. It uses a shared two-c
 | Path          | Purpose                                                                                                  | Data source                                                                                                  |
 | ------------- | -------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------ |
 | `/`           | Dashboard cards summarizing module health, recent errors, and event feed.                                | `mockApi` during development, `/api/fleet/state` in production via proxy.                                    |
+| `/console`    | Feature-flagged single-page console scaffold (panel placeholders + health summary).                     | `/health` ping via `apiClient.fetchSystemHealth()`; remaining data static placeholders.                        |
 | `/audio`      | Playback controls (play/pause, upload fallback) with mock data until live API integration.               | `AudioModule` + `mockApi.audio()`.                                                                           |
 | `/video`      | HDMI/CEC control layout with power, input, volume cards.                                                 | `VideoModule` + `mockApi.video()`.                                                                           |
 | `/zigbee`     | Device table skeleton for Zigbee endpoints.                                                              | `ZigbeeModule` + `mockApi.zigbee()`.                                                                         |
