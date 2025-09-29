@@ -182,6 +182,21 @@ const buildRoutes = (): RouteDefinition[] => [
     },
   },
   {
+    pattern: /^\/logs\/query$/,
+    handlers: {
+      GET: (ctx) => {
+        const url = new URL('http://localhost' + ctx.url);
+        const limit = parseInt(url.searchParams.get('limit') ?? '100');
+        const logs = mockApi.logsSnapshot();
+        return {
+          items: logs.entries.slice(0, limit),
+          total: logs.entries.length,
+          fetchedAt: new Date().toISOString(),
+        };
+      },
+    },
+  },
+  {
     pattern: /^\/fleet\/layout$/,
     handlers: {
       GET: () => mockApi.layout(),
@@ -405,6 +420,12 @@ const buildRoutes = (): RouteDefinition[] => [
     pattern: /^\/audio\/library$/,
     handlers: {
       POST: () => json({ message: 'Audio uploads are mocked only in UI' }, { status: 501 }),
+    },
+  },
+  {
+    pattern: /^\/video$/,
+    handlers: {
+      GET: () => mockApi.video(),
     },
   },
   {
