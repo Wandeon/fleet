@@ -104,7 +104,7 @@ jobs:
             "commit": {
               "sha": "${{ github.sha }}",
               "ref": "${{ github.ref }}",
-              "message": $(echo '${{ github.event.head_commit.message }}' | jq -R .)
+              "message": $(printf '%s' '${{ github.event.head_commit.message }}' | jq -R -s .)
             },
             "images": {
               "api": {
