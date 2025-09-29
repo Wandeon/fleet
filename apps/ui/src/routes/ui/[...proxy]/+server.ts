@@ -189,10 +189,9 @@ const buildRoutes = (): RouteDefinition[] => [
         const limit = parseInt(url.searchParams.get('limit') ?? '100');
         const logs = mockApi.logsSnapshot();
         return {
-          entries: logs.entries.slice(0, limit),
-          cursor: null,
+          items: logs.entries.slice(0, limit),
           total: logs.entries.length,
-          hasMore: false,
+          fetchedAt: new Date().toISOString(),
         };
       },
     },
