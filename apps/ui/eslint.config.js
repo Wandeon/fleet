@@ -1,3 +1,4 @@
+// CI lint fix: ensuring fresh dependency resolution
 import js from '@eslint/js';
 import eslintConfigPrettier from 'eslint-config-prettier';
 import sveltePlugin from 'eslint-plugin-svelte';
