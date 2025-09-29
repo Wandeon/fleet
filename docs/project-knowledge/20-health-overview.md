@@ -13,7 +13,10 @@ Health reporting spans API endpoints, device `/healthz` checks, and Prometheus m
 
 ## Device health probes
 
-- Audio: `GET http://<pi>:8081/healthz` (no auth). Health check ensures `status.json` freshness.<br>- Video: `GET http://<pi>:8082/healthz` (requires token). Should include mpv/CEC status.<br>- Camera: `GET http://<pi>:8083/healthz` verifies RTSP/HLS availability.<br>- Zigbee: Expose future health endpoint via `zigbee2mqtt` or dedicated exporter; currently rely on service logs.【F:inventory/device-interfaces.yaml†L1-L162】【F:roles/audio-player/40-app.yml†L1-L86】【F:roles/camera/README.md†L1-L40】
+- Audio: `GET http://<pi>:8081/healthz` (no auth). Health check ensures `status.json` freshness.
+- Video: `GET http://<pi>:8082/healthz` (requires token). Should include mpv/CEC status.
+- Camera: `GET http://<pi>:8083/healthz` verifies RTSP/HLS availability.
+- Zigbee: Expose future health endpoint via `zigbee2mqtt` or dedicated exporter; currently rely on service logs.【F:inventory/device-interfaces.yaml†L1-L162】【F:roles/audio-player/40-app.yml†L1-L86】【F:roles/camera/README.md†L1-L40】
 
 Prometheus scrapes these endpoints based on targets defined in `infra/vps/targets-*.json`; update files whenever inventory changes.【F:infra/vps/README.md†L33-L74】
 

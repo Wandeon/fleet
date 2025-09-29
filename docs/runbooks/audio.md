@@ -331,11 +331,12 @@ with `vps/targets-audio.json` so Prometheus scrapes each player directly.
 
 Follow [`docs/acceptance-audio.md`](../acceptance-audio.md) to run the automated
 acceptance script and document the playback proof for both devices.
-=======
+
+**Additional verification commands:**
+```bash
 curl -fsS http://${PI_HOST}:8081/healthz
 curl -fsS -H "Authorization: Bearer ${AUDIO_TOKEN}" http://${PI_HOST}:8081/metrics
-
-````
+```
 
 ## 5. Fallback upload procedure
 
