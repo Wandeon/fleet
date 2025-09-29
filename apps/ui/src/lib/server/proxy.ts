@@ -147,7 +147,16 @@ export async function proxyFleetRequest(
   }
 
   const target = buildTarget(targetPath);
-  const headers = new Headers({ Accept: 'application/json' });
+  const headers = new Headers();
+
+  // Preserve Accept header for SSE streaming, fallback to JSON
+  const originalAccept = event.request.headers.get('accept');
+  if (originalAccept) {
+    headers.set('accept', originalAccept);
+  } else {
+    headers.set('accept', 'application/json');
+  }
+
   const originalContentType = event.request.headers.get('content-type');
   if (originalContentType) {
     headers.set('content-type', originalContentType);
