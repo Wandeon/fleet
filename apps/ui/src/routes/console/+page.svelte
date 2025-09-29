@@ -2,12 +2,17 @@
   import type { PageData } from './$types';
   import type { ConsolePanelDefinition } from '$lib/console/panels';
   import type { SystemHealthSummary } from '$lib/types';
+  import FleetPanel from '$lib/components/console/FleetPanel.svelte';
+  import AudioPanel from '$lib/components/console/AudioPanel.svelte';
+  import VideoPanel from '$lib/components/console/VideoPanel.svelte';
+  import CameraPanel from '$lib/components/console/CameraPanel.svelte';
+  import LogsPanel from '$lib/components/console/LogsPanel.svelte';
 
   export let data: PageData;
 
-  const panels = (data.panels ?? []) as ConsolePanelDefinition[];
+  $: panels = (data.panels ?? []) as ConsolePanelDefinition[];
 
-  const health = (data.health ?? {
+  $: health = (data.health ?? {
     data: null,
     error: null,
   }) as {
@@ -48,7 +53,19 @@
             <p class="panel-description">{panel.description}</p>
           </header>
           <div class="panel-content" role="presentation">
-            <p class="panel-placeholder">Panel content will render here once wired.</p>
+            {#if panel.id === 'fleet'}
+              <FleetPanel />
+            {:else if panel.id === 'audio'}
+              <AudioPanel />
+            {:else if panel.id === 'video'}
+              <VideoPanel />
+            {:else if panel.id === 'camera'}
+              <CameraPanel />
+            {:else if panel.id === 'logs'}
+              <LogsPanel />
+            {:else}
+              <p class="panel-placeholder">Panel content will render here once wired.</p>
+            {/if}
           </div>
         </article>
       {/each}
@@ -72,7 +89,7 @@
       </dl>
       {#if componentEntries.length > 0}
         <ul class="health-components">
-          {#each componentEntries as [identifier, status]}
+          {#each componentEntries as [identifier, status] (identifier)}
             <li>
               <span class="component-id">{identifier}</span>
               <span class={`component-status status-${status.toLowerCase()}`}>{status}</span>
@@ -158,10 +175,16 @@
   .panel-content {
     flex: 1;
     display: flex;
+    flex-direction: column;
+    min-height: 20rem;
+    border-radius: 0.5rem;
+    overflow: hidden;
+  }
+
+  .panel-content:has(.panel-placeholder) {
     align-items: center;
     justify-content: center;
     min-height: 6rem;
-    border-radius: 0.5rem;
     border: 1px dashed rgba(255, 255, 255, 0.08);
   }
 

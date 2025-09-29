@@ -5,10 +5,10 @@ import { consolePanels } from '$lib/console/panels';
 import { featureFlags, isFeatureEnabled } from '$lib/config/features';
 import type { SystemHealthSummary } from '$lib/types';
 
-type LoadResult<T> = {
+interface LoadResult<T> {
   data: T | null;
   error: string | null;
-};
+}
 
 const toResult = async <T>(promise: Promise<T>): Promise<LoadResult<T>> => {
   try {
