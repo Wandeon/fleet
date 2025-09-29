@@ -34,7 +34,7 @@ router.get('/layout', (req, res) => {
   });
 });
 
-router.get('/overview', async (req, res) => {
+router.get('/overview', (req, res) => {
   res.locals.routePath = '/fleet/overview';
   const allDevices = deviceRegistry.list();
   const moduleStats = new Map<string, { online: number; offline: number; degraded: number; devices: any[] }>();
