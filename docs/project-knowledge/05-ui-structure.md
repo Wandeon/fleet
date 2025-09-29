@@ -46,7 +46,7 @@ Cross-reference [04-api-surface](./04-api-surface.md) for matching endpoints and
 
 ---
 
-# UI Enablement Rules (Phase 2)
+## UI Enablement Rules (Phase 2)
 
 **Contract Status**: ✅ **FROZEN** - All control endpoints defined and accessible via PR #131
 

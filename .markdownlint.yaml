@@ -1,0 +1,47 @@
+# Markdownlint configuration for Fleet documentation
+# This configuration disables overly strict formatting rules while maintaining readability
+
+# Disable line length rule - many technical docs have long lines
+MD013: false
+
+# Allow missing blank lines around headings in dense documentation
+MD022: false
+
+# Allow missing blank lines around lists for compact formatting
+MD032: false
+
+# Allow fenced code blocks without language specification for simple examples
+MD040: false
+
+# Allow missing blank lines around fenced code blocks for compact docs
+MD031: false
+
+# Allow multiple trailing newlines for git compatibility
+MD047: false
+
+# Allow trailing punctuation in headings for questions/exclamations
+MD026: false
+
+# Allow bare URLs for quick reference links
+MD034: false
+
+# Disable emphasis used instead of heading for flexibility
+MD036: false
+
+# Allow leading/trailing spaces in headers for formatting flexibility
+MD019: false
+
+# Allow multiple consecutive blank lines for document structure
+MD012: false
+
+# Allow emphasis markers inconsistency (* vs _) for flexibility
+MD049: false
+
+# Allow inconsistent heading styles (ATX vs Setext) for existing docs
+MD003: false
+
+# Allow unordered list style inconsistency (- vs *) for existing docs
+MD004: false
+
+# Allow ordered list item prefix inconsistency for existing docs
+MD029: false
