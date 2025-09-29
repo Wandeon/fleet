@@ -146,9 +146,11 @@ export function reattachOnNavigation() {
       if (mutation.type === 'childList' && mutation.addedNodes.length > 0) {
         // Check if new buttons were added
         mutation.addedNodes.forEach(node => {
-          if (node.nodeType === Node.ELEMENT_NODE &&
-              (node.tagName === 'BUTTON' || node.querySelector('button'))) {
-            shouldReattach = true;
+          if (node.nodeType === Node.ELEMENT_NODE) {
+            const element = /** @type {Element} */ (node);
+            if (element.tagName === 'BUTTON' || element.querySelector('button')) {
+              shouldReattach = true;
+            }
           }
         });
       }

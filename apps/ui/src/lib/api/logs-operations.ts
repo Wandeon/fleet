@@ -51,10 +51,10 @@ export interface LogsStream {
 
 const ensureFetch = (fetchImpl?: typeof fetch) => fetchImpl ?? fetch;
 
-const severityToApi = (severity: LogSeverity): string => {
+const severityToApi = (severity: LogSeverity): 'trace' | 'debug' | 'info' | 'warn' | 'error' | 'fatal' => {
   switch (severity) {
     case 'critical':
-      return 'critical';
+      return 'fatal';
     case 'error':
       return 'error';
     case 'warning':
@@ -101,23 +101,51 @@ const normaliseEntry = (entry: LogEntry): LogEntry => {
   };
 };
 
-const buildQuery = (options: LogQueryOptions): URLSearchParams => {
+// Build query params for /logs/query endpoint (filtering endpoint)
+const buildQueryParams = (options: LogQueryOptions): URLSearchParams => {
   const params = new URLSearchParams();
+
+  // For /logs/query endpoint: level, deviceId, correlationId, start, end, limit
+  // sourceId maps to deviceId (if it's not 'all')
   if (options.sourceId && options.sourceId !== 'all') {
     params.set('deviceId', options.sourceId);
   }
+
+  // severity maps to level
   if (options.severity && options.severity !== 'all') {
     params.set('level', severityToApi(options.severity as LogSeverity));
   }
+
+  // search can be either a deviceId, correlationId, or general text
+  // For now, treat search as correlationId if provided
   if (options.search) {
     params.set('correlationId', options.search);
   }
+
   if (options.limit) {
-    params.set('limit', String(Math.max(1, options.limit)));
+    params.set('limit', String(Math.max(1, Math.min(500, options.limit))));
   }
-  if (options.cursor) {
-    params.set('cursor', options.cursor);
+
+  return params;
+};
+
+// Build query params for /logs/stream endpoint
+const buildStreamParams = (options: Partial<LogsFilterState>): URLSearchParams => {
+  const params = new URLSearchParams();
+
+  // For /logs/stream endpoint: source, level, q
+  if (options.sourceId && options.sourceId !== 'all') {
+    params.set('source', options.sourceId);
   }
+
+  if (options.severity && options.severity !== 'all') {
+    params.set('level', severityToApi(options.severity as LogSeverity));
+  }
+
+  if (options.search) {
+    params.set('q', options.search);
+  }
+
   return params;
 };
 
@@ -127,7 +155,7 @@ export const fetchLogSnapshot = async (options: LogQueryOptions = {}): Promise<L
   }
 
   const fetchImpl = ensureFetch(options.fetch);
-  const params = buildQuery(options);
+  const params = buildQueryParams(options);
   const result = await rawRequest<{
     items: LogEntry[];
     total: number;
@@ -183,7 +211,7 @@ export const subscribeToLogStream = (options: LogStreamOptions): LogStreamSubscr
     return { stop };
   }
 
-  const params = buildQuery(options.filters);
+  const params = buildStreamParams(options.filters);
   const url = `${API_BASE_URL}/logs/stream?${params.toString()}`;
   const eventSource = new EventSource(url, { withCredentials: false });
 

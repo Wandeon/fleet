@@ -9,6 +9,7 @@
   import type { ZigbeeState } from '$lib/types';
   import { createEventDispatcher, onDestroy } from 'svelte';
   import { invalidate } from '$app/navigation';
+  import { addToast } from '$lib/stores/app';
   import {
     confirmPairing,
     getZigbeeOverview,
@@ -32,6 +33,9 @@
   let pairingTimeLeft = 0;
   let pairingTimer: ReturnType<typeof setInterval> | null = null;
   let discoveryTimer: ReturnType<typeof setInterval> | null = null;
+  let actionInProgress: string | null = null;
+  let errorMessage: string | null = null;
+  let correlationId: string | null = null;
 
   const refresh = async () => {
     try {
@@ -105,37 +109,90 @@
 
   async function startPairing() {
     if (isPairing) return;
+
+    if (data?.hubStatus === 'offline') {
+      addToast({
+        message: 'Cannot start pairing: Zigbee hub is offline',
+        variant: 'error',
+        timeout: 5000,
+      });
+      return;
+    }
+
     showPairingModal = true;
     isPairing = true;
     pairingStatus = 'Pairing mode active. Press the pairing button on your device.';
     discoveredDevices = [];
     pairingTimeLeft = 60;
+    errorMessage = null;
 
-    const session = await startPairingSession(60);
-    pairingTimeLeft = 60;
-    startPairingTimer(session?.expiresAt);
-    startDiscovery();
+    try {
+      const session = await startPairingSession(60);
+      pairingTimeLeft = 60;
+      startPairingTimer(session?.expiresAt);
+      startDiscovery();
+      addToast({
+        message: `Pairing mode active for ${pairingTimeLeft} seconds`,
+        variant: 'success',
+        timeout: 3000,
+      });
+    } catch (error: any) {
+      isPairing = false;
+      const errMsg = error?.message ?? 'Failed to start pairing mode';
+      errorMessage = errMsg;
+      correlationId = error?.correlationId ?? null;
+      addToast({
+        message: errMsg,
+        variant: 'error',
+        timeout: 5000,
+      });
+    }
   }
 
   async function stopPairing() {
     clearTimers();
-    await stopPairingSession();
-    isPairing = false;
-    pairingTimeLeft = 0;
-    pairingStatus = discoveredDevices.length
-      ? `Found ${discoveredDevices.length} device(s)`
-      : 'No devices found';
+    try {
+      await stopPairingSession();
+      isPairing = false;
+      pairingTimeLeft = 0;
+      pairingStatus = discoveredDevices.length
+        ? `Found ${discoveredDevices.length} device(s)`
+        : 'No devices found';
+    } catch (error: any) {
+      console.error('Failed to stop pairing:', error);
+      isPairing = false;
+      pairingTimeLeft = 0;
+    }
   }
 
   async function pairDevice(deviceId: string) {
     pairingStatus = 'Confirming device...';
-    const state = await confirmPairing(deviceId);
-    data = state;
-    discoveredDevices = [];
-    pairingStatus = 'Device paired successfully.';
-    clearTimers();
-    isPairing = false;
-    broadcastRefresh();
+    errorMessage = null;
+
+    try {
+      const state = await confirmPairing(deviceId);
+      data = state;
+      discoveredDevices = [];
+      pairingStatus = 'Device paired successfully.';
+      clearTimers();
+      isPairing = false;
+      addToast({
+        message: 'Device paired successfully',
+        variant: 'success',
+        timeout: 3000,
+      });
+      broadcastRefresh();
+    } catch (error: any) {
+      const errMsg = error?.message ?? 'Failed to confirm pairing';
+      errorMessage = errMsg;
+      correlationId = error?.correlationId ?? null;
+      pairingStatus = errMsg;
+      addToast({
+        message: errMsg,
+        variant: 'error',
+        timeout: 5000,
+      });
+    }
   }
 
   function closePairingModal() {
@@ -148,10 +205,41 @@
 
   const triggerQuickAction = async (actionId: string) => {
     if (!data) return;
-    for (const device of data.devices) {
-      data = await runZigbeeAction(device.id, actionId);
+
+    if (data.hubStatus === 'offline') {
+      addToast({
+        message: 'Cannot execute action: Zigbee hub is offline',
+        variant: 'error',
+        timeout: 5000,
+      });
+      return;
     }
-    broadcastRefresh();
+
+    actionInProgress = actionId;
+    errorMessage = null;
+
+    try {
+      for (const device of data.devices) {
+        data = await runZigbeeAction(device.id, actionId);
+      }
+      addToast({
+        message: `Action "${actionId}" executed successfully`,
+        variant: 'success',
+        timeout: 3000,
+      });
+      broadcastRefresh();
+    } catch (error: any) {
+      const errMsg = error?.message ?? `Failed to execute action "${actionId}"`;
+      errorMessage = errMsg;
+      correlationId = error?.correlationId ?? null;
+      addToast({
+        message: errMsg,
+        variant: 'error',
+        timeout: 5000,
+      });
+    } finally {
+      actionInProgress = null;
+    }
   };
 
   onDestroy(() => clearTimers());
@@ -177,13 +265,49 @@
     </EmptyState>
   {:else if data}
     <div class="zigbee-grid">
+      {#if errorMessage}
+        <div class="error-banner" role="alert">
+          <span class="error-icon">⚠️</span>
+          <div class="error-content">
+            <p class="error-text">{errorMessage}</p>
+            {#if correlationId}
+              <p class="correlation-id">Correlation ID: {correlationId}</p>
+            {/if}
+          </div>
+          <button
+            type="button"
+            class="dismiss-error"
+            aria-label="Dismiss error"
+            on:click={() => {
+              errorMessage = null;
+              correlationId = null;
+            }}
+          >
+            ×
+          </button>
+        </div>
+      {/if}
+      {#if data.hubStatus === 'offline'}
+        <div class="warning-banner" role="alert">
+          <span class="warning-icon">⚠️</span>
+          <p>Zigbee hub is currently unavailable. Controls are disabled.</p>
+        </div>
+      {/if}
       <div class="actions">
-        <Button variant="primary" on:click={startPairing} disabled={isPairing}>
+        <Button
+          variant="primary"
+          on:click={startPairing}
+          disabled={isPairing || data.hubStatus === 'offline'}
+        >
           {isPairing ? 'Pairing...' : 'Pair Device'}
         </Button>
         {#each data.quickActions as action (action.id)}
-          <Button variant="secondary" on:click={() => triggerQuickAction(action.id)}>
-            {action.label}
+          <Button
+            variant="secondary"
+            on:click={() => triggerQuickAction(action.id)}
+            disabled={actionInProgress !== null || data.hubStatus === 'offline'}
+          >
+            {actionInProgress === action.id ? 'Running...' : action.label}
           </Button>
         {/each}
       </div>
@@ -208,7 +332,13 @@
                     label={formatStateLabel(device.state)}
                   />
                 </td>
-                <td>{new Date(device.lastSeen).toLocaleTimeString()}</td>
+                <td>
+                  {#if typeof window !== 'undefined'}
+                    {new Date(device.lastSeen).toLocaleTimeString()}
+                  {:else}
+                    {device.lastSeen}
+                  {/if}
+                </td>
               </tr>
             {/each}
           </tbody>
@@ -519,5 +649,76 @@
     gap: var(--spacing-3);
     padding: var(--spacing-4);
     border-top: 1px solid rgba(148, 163, 184, 0.1);
+  }
+
+  .error-banner,
+  .warning-banner {
+    display: grid;
+    grid-template-columns: auto 1fr auto;
+    gap: var(--spacing-3);
+    align-items: start;
+    padding: var(--spacing-3);
+    border-radius: var(--radius-md);
+    border: 1px solid;
+  }
+
+  .error-banner {
+    background: rgba(127, 29, 29, 0.2);
+    border-color: rgba(248, 113, 113, 0.4);
+  }
+
+  .warning-banner {
+    background: rgba(113, 63, 18, 0.2);
+    border-color: rgba(250, 204, 21, 0.4);
+    display: flex;
+    align-items: center;
+    gap: var(--spacing-3);
+  }
+
+  .error-icon,
+  .warning-icon {
+    font-size: 1.25rem;
+  }
+
+  .error-content {
+    display: flex;
+    flex-direction: column;
+    gap: var(--spacing-1);
+  }
+
+  .error-text {
+    margin: 0;
+    color: var(--color-text);
+    font-size: var(--font-size-sm);
+  }
+
+  .correlation-id {
+    margin: 0;
+    color: var(--color-text-muted);
+    font-size: var(--font-size-xs);
+    font-family: monospace;
+  }
+
+  .warning-banner p {
+    margin: 0;
+    color: var(--color-text);
+    font-size: var(--font-size-sm);
+  }
+
+  .dismiss-error {
+    background: none;
+    border: none;
+    color: var(--color-text-muted);
+    cursor: pointer;
+    font-size: 1.25rem;
+    line-height: 1;
+    padding: 0;
+    width: 1.5rem;
+    height: 1.5rem;
+  }
+
+  .dismiss-error:hover,
+  .dismiss-error:focus-visible {
+    color: var(--color-text);
   }
 </style>
