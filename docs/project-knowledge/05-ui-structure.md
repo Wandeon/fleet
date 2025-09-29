@@ -43,3 +43,103 @@ The SvelteKit UI provides the operator console for Fleet. It uses a shared two-c
 - When enabling live mode (`VITE_USE_MOCKS=0`), ensure `API_BEARER` is populated in UI runtime env (`vps/fleet.env`) so SSR proxies can reach the API. UI fetches should flow through `/ui/*` to reuse correlation IDs and error handling.
 
 Cross-reference [04-api-surface](./04-api-surface.md) for matching endpoints and [18-device-detail-pages](./18-device-detail-pages.md) for device view expectations.
+
+---
+
+# UI Enablement Rules (Phase 2)
+
+**Contract Status**: ✅ **FROZEN** - All control endpoints defined and accessible via PR #131
+
+## Parallel Work Guardrails
+
+### ✅ Teams Can Modify
+- **Module UI components**: `/apps/ui/src/lib/modules/[Module]Module.svelte`
+- **Module operations**: `/apps/ui/src/lib/api/[module]-operations.ts`
+- **Module pages**: `/apps/ui/src/routes/[module]/+page.svelte`
+- **Module tests**: `/apps/ui/src/lib/modules/__tests__/[Module]*.test.ts`
+
+### 🚫 Files Under Freeze
+- **Generated client**: `/apps/ui/src/lib/api/generated/**` (auto-regenerated only)
+- **Feature flags**: `/apps/ui/src/lib/config/featureFlags.ts`
+- **OpenAPI spec**: `/apps/api/openapi.yaml`
+- **UI proxy routes**: `/apps/ui/src/routes/ui/[...proxy]/+server.ts` (coordinator fixes only)
+
+### 📋 Shared Done-Definition
+
+Every visible control must:
+1. **Trigger exactly one API call** via generated client (`LogsService.queryLogs()`, `AudioService.pauseDevice()`, etc.)
+2. **Show success/failure feedback** with correlationId (toast notification or status banner)
+3. **Refresh panel state** after mutation (refetch data to show updated state)
+4. **Handle SSR safely** (no `undefined` property access, proper loading states)
+5. **Pass CI checks**: lint/typecheck/build + module smoke tests for that module
+6. **Include Playwright test** proving network request was generated
+
+### 🎯 Module Assignments
+
+#### Audio UI Team
+**Target Controls**: Play/Pause/Stop, Volume sliders, Upload track, Start playback, Playlist operations
+**API Endpoints**: `AudioService.pauseDevice()`, `setDeviceVolume()`, `startPlayback()`, etc.
+**Evidence Required**: Network requests visible in Chrome DevTools when clicking buttons
+
+#### Video UI Team
+**Target Controls**: Power on/off, Input switching (HDMI1/2/Chromecast), Volume/Mute, Preview refresh
+**API Endpoints**: `VideoService.setDevicePower()`, `setDeviceInput()`, `setDeviceMute()`, etc.
+**Evidence Required**: Job creation in backend via control API calls
+
+#### Zigbee UI Team
+**Target Controls**: Pair Device, Scene controls (Open/Close/Evening), Device discovery
+**API Endpoints**: `ZigbeeService.openPairing()`, `quickActions()`, device control endpoints
+**Evidence Required**: Pairing workflow triggers actual zigbee commands
+
+#### Logs UI Team
+**Target Controls**: Query filtering, Export functionality, Stream controls
+**API Endpoints**: `LogsService.queryLogs()`, `exportLogs()`, streaming endpoints
+**Evidence Required**: Log filtering generates API calls with proper query parameters
+
+## Implementation Rules
+
+### 🔄 API Integration Pattern
+```typescript
+// ✅ Correct: Use generated client + error handling
+import { AudioService } from '$lib/api/generated';
+import { showToast } from '$lib/stores/app';
+
+async function handlePause(deviceId: string) {
+  try {
+    const result = await AudioService.pauseDevice(deviceId);
+    showToast(`Device paused (Job: ${result.jobId})`, 'success');
+    await refreshAudioData(); // Trigger state refresh
+  } catch (error) {
+    showToast(`Pause failed: ${error.message}`, 'error');
+  }
+}
+```
+
+### ❌ Anti-Patterns to Avoid
+```typescript
+// ❌ Wrong: Direct fetch without client
+await fetch('/ui/audio/pause', { ... });
+
+// ❌ Wrong: No error handling or feedback
+AudioService.pauseDevice(deviceId);
+
+// ❌ Wrong: No state refresh after mutation
+await AudioService.pauseDevice(deviceId);
+// Missing: refreshAudioData();
+```
+
+### 🧪 Testing Requirements
+Each module must include:
+- **Unit tests**: Component behavior with mocked API calls
+- **Integration test**: End-to-end click → API call → UI update
+- **Playwright test**: `page.locator('button[data-testid="pause"]').click()` → network request assertion
+
+### 🚦 Ready for Review Criteria
+- ✅ All visible buttons generate API calls (confirmed via DevTools)
+- ✅ Error states handled gracefully with user feedback
+- ✅ Success states refresh UI data appropriately
+- ✅ No console errors or undefined property access
+- ✅ Module-specific CI checks pass
+- ✅ Playwright test proves network integration
+
+**Coordination**: Report blocking issues to Repo Lead. Do not modify frozen files without approval.
