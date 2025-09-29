@@ -26,24 +26,53 @@ export function attachEventHandlers() {
 
       // Audio control buttons
       if (text === 'Play' || text === 'Pause') {
-        button.addEventListener('click', (e) => {
+        button.addEventListener('click', async (e) => {
           console.log(`🎵 ${text} button clicked`);
-          // Dispatch custom event that can be caught by Svelte components
-          button.dispatchEvent(new CustomEvent('svelte:click', {
-            detail: { action: text.toLowerCase() },
-            bubbles: true
-          }));
+
+          // Find device ID from the button context
+          const deviceCard = button.closest('[class*="device"]') || button.closest('div');
+          const deviceHeading = deviceCard?.querySelector('h3');
+          const deviceId = deviceHeading?.textContent?.trim()?.toLowerCase().replace(/\s+/g, '-') || 'pi-audio-01';
+
+          console.log(`🎵 Calling ${text.toLowerCase()} for device: ${deviceId}`);
+
+          try {
+            // Import and call audio operations directly
+            const { pauseDevice, resumeDevice } = await import('$lib/api/audio-operations');
+
+            if (text === 'Play') {
+              await resumeDevice(deviceId);
+              console.log(`✅ Resume device ${deviceId} completed`);
+            } else {
+              await pauseDevice(deviceId);
+              console.log(`✅ Pause device ${deviceId} completed`);
+            }
+          } catch (error) {
+            console.error(`❌ Audio operation failed for ${deviceId}:`, error);
+          }
         });
         handlersAttached++;
       }
 
       if (text === 'Stop') {
-        button.addEventListener('click', (e) => {
+        button.addEventListener('click', async (e) => {
           console.log('🛑 Stop button clicked');
-          button.dispatchEvent(new CustomEvent('svelte:click', {
-            detail: { action: 'stop' },
-            bubbles: true
-          }));
+
+          // Find device ID from the button context
+          const deviceCard = button.closest('[class*="device"]') || button.closest('div');
+          const deviceHeading = deviceCard?.querySelector('h3');
+          const deviceId = deviceHeading?.textContent?.trim()?.toLowerCase().replace(/\s+/g, '-') || 'pi-audio-01';
+
+          console.log(`🛑 Calling stop for device: ${deviceId}`);
+
+          try {
+            // Import and call audio operations directly
+            const { stopDevice } = await import('$lib/api/audio-operations');
+            await stopDevice(deviceId);
+            console.log(`✅ Stop device ${deviceId} completed`);
+          } catch (error) {
+            console.error(`❌ Stop operation failed for ${deviceId}:`, error);
+          }
         });
         handlersAttached++;
       }
