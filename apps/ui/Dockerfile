@@ -9,11 +9,7 @@ FROM node:20-alpine AS build
 WORKDIR /app
 COPY --from=deps /app/node_modules ./node_modules
 COPY . .
-# Set feature flags - console disabled, individual tabs enabled
-ENV VITE_FEATURE_CONSOLE=0
-ENV VITE_FEATURE_VIDEO=1
-ENV VITE_FEATURE_ZIGBEE=0
-ENV VITE_FEATURE_CAMERA=1
+# Feature flags are read from .env file during build
 RUN npm run build
 
 FROM node:20-alpine AS runner
