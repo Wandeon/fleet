@@ -2,6 +2,7 @@ import { rawRequest, USE_MOCKS } from '$lib/api/client';
 import type { RequestOptions } from '$lib/api/client';
 import { mockApi } from '$lib/api/mock';
 import type { ZigbeeState } from '$lib/types';
+import { guardPlaceholder } from '$lib/feature-flags';
 
 interface PairingState {
   active: boolean;
@@ -75,6 +76,9 @@ export const runZigbeeAction = async (
     return mockApi.zigbeeRunAction(deviceId, actionId);
   }
 
+  // Guard placeholder implementation with feature flag
+  guardPlaceholder('ZIGBEE_QUICK_ACTIONS_ENABLED', 'Zigbee quick actions are not yet implemented', 'Planned for v2.1 - requires zigbee action endpoint');
+
   const fetchImpl = ensureFetch(options.fetch);
   try {
     await rawRequest(`/zigbee/devices/${deviceId}/action`, {
@@ -96,6 +100,9 @@ export const startPairing = async (
   if (USE_MOCKS) {
     return mockApi.zigbeeStartPairing(durationSeconds) ?? { active: true, discovered: [] };
   }
+
+  // Guard placeholder implementation with feature flag
+  guardPlaceholder('ZIGBEE_PAIRING_ENABLED', 'Zigbee device pairing is not yet implemented', 'Planned for v2.1 - requires zigbee pairing endpoint');
 
   const fetchImpl = ensureFetch(options.fetch);
   try {
@@ -121,6 +128,10 @@ export const stopPairing = async (
   if (USE_MOCKS) {
     return mockApi.zigbeeStopPairing() ?? { active: false, discovered: [] };
   }
+
+  // Guard placeholder implementation with feature flag
+  guardPlaceholder('ZIGBEE_PAIRING_ENABLED', 'Zigbee device pairing is not yet implemented', 'Planned for v2.1 - requires pairing stop endpoint');
+
   const fetchImpl = ensureFetch(options.fetch);
   try {
     return await rawRequest<PairingState>('/zigbee/pairing', {
@@ -139,6 +150,10 @@ export const pollDiscoveredDevices = async (
   if (USE_MOCKS) {
     return mockApi.zigbeeDiscoverCandidate() ?? { active: true, discovered: [] };
   }
+
+  // Guard placeholder implementation with feature flag
+  guardPlaceholder('ZIGBEE_PAIRING_ENABLED', 'Zigbee device pairing is not yet implemented', 'Planned for v2.1 - requires pairing discovery endpoint');
+
   const fetchImpl = ensureFetch(options.fetch);
   try {
     return await rawRequest<PairingState>('/zigbee/pairing/discovered', {
@@ -158,6 +173,9 @@ export const confirmPairing = async (
   if (USE_MOCKS) {
     return mockApi.zigbeeConfirmPairing(deviceId);
   }
+
+  // Guard placeholder implementation with feature flag
+  guardPlaceholder('ZIGBEE_PAIRING_ENABLED', 'Zigbee device pairing is not yet implemented', 'Planned for v2.1 - requires pairing confirm endpoint');
 
   const fetchImpl = ensureFetch(options.fetch);
   try {

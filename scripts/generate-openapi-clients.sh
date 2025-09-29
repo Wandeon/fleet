@@ -13,7 +13,7 @@ if [ ! -f "apps/api/openapi.yaml" ]; then
 fi
 
 echo "📋 Validating OpenAPI specification..."
-npx @apidevtools/swagger-parser validate apps/api/openapi.yaml
+npx swagger-cli validate apps/api/openapi.yaml
 
 echo "🔄 Generating fetch client for UI..."
 npm run openapi:generate

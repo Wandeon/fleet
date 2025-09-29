@@ -1,12 +1,10 @@
 /* istanbul ignore file */
 /* tslint:disable */
 /* eslint-disable */
-import type { CameraClipRequest } from '../models/CameraClipRequest';
-import type { CameraClipResponse } from '../models/CameraClipResponse';
-import type { CameraEventDetailResponse } from '../models/CameraEventDetailResponse';
 import type { CameraEventListResponse } from '../models/CameraEventListResponse';
-import type { CameraSelectionRequest } from '../models/CameraSelectionRequest';
+import type { CameraPreviewState } from '../models/CameraPreviewState';
 import type { CameraState } from '../models/CameraState';
+import type { CameraStreamListResponse } from '../models/CameraStreamListResponse';
 
 import type { CancelablePromise } from '../core/CancelablePromise';
 import { OpenAPI } from '../core/OpenAPI';
@@ -20,45 +18,15 @@ export class CameraService {
    * @returns CameraState Camera overview payload.
    * @throws ApiError
    */
-  public static getCameraOverview(): CancelablePromise<CameraState> {
+  public static getCameraSummary(): CancelablePromise<CameraState> {
     return __request(OpenAPI, {
       method: 'GET',
-      url: '/camera/overview',
+      url: '/api/camera/summary',
       errors: {
         401: `Authentication failed or credentials missing.`,
         403: `Authenticated user does not have permission to access the resource.`,
         429: `Request rate limit exceeded.`,
         500: `Unexpected server error occurred.`,
-        501: `Endpoint contract defined but backend implementation is pending.`,
-        502: `Upstream device returned an invalid response or is unreachable.`,
-        504: `Upstream device timed out while processing the request.`,
-      },
-    });
-  }
-
-  /**
-   * Select the active camera for preview and clip operations.
-   * Select the active camera for preview and clip operations.
-   * @param requestBody
-   * @returns any Camera selection accepted.
-   * @throws ApiError
-   */
-  public static selectCamera(
-    requestBody: CameraSelectionRequest,
-  ): CancelablePromise<any> {
-    return __request(OpenAPI, {
-      method: 'PUT',
-      url: '/camera/active',
-      body: requestBody,
-      mediaType: 'application/json',
-      errors: {
-        400: `One or more request parameters failed validation.`,
-        401: `Authentication failed or credentials missing.`,
-        403: `Authenticated user does not have permission to access the resource.`,
-        404: `Requested resource does not exist.`,
-        429: `Request rate limit exceeded.`,
-        500: `Unexpected server error occurred.`,
-        501: `Endpoint contract defined but backend implementation is pending.`,
       },
     });
   }
@@ -89,7 +57,7 @@ export class CameraService {
   ): CancelablePromise<CameraEventListResponse> {
     return __request(OpenAPI, {
       method: 'GET',
-      url: '/camera/events',
+      url: '/api/camera/events',
       query: {
         'start': start,
         'end': end,
@@ -111,32 +79,6 @@ export class CameraService {
   }
 
   /**
-   * Retrieve a single camera event with metadata and clip reference.
-   * Retrieve a single camera event with metadata and clip reference.
-   * @param eventId
-   * @returns CameraEventDetailResponse Camera event detail response.
-   * @throws ApiError
-   */
-  public static getCameraEvent(
-    eventId: string,
-  ): CancelablePromise<CameraEventDetailResponse> {
-    return __request(OpenAPI, {
-      method: 'GET',
-      url: '/camera/events/{eventId}',
-      path: {
-        'eventId': eventId,
-      },
-      errors: {
-        401: `Authentication failed or credentials missing.`,
-        403: `Authenticated user does not have permission to access the resource.`,
-        404: `Requested resource does not exist.`,
-        429: `Request rate limit exceeded.`,
-        500: `Unexpected server error occurred.`,
-      },
-    });
-  }
-
-  /**
    * Mark a camera event as acknowledged.
    * Mark a camera event as acknowledged.
    * @param eventId
@@ -148,65 +90,33 @@ export class CameraService {
   ): CancelablePromise<any> {
     return __request(OpenAPI, {
       method: 'POST',
-      url: '/camera/events/{eventId}/ack',
+      url: '/api/camera/events/{eventId}/ack',
       path: {
         'eventId': eventId,
       },
       errors: {
         401: `Authentication failed or credentials missing.`,
         403: `Authenticated user does not have permission to access the resource.`,
-        404: `Requested resource does not exist.`,
+        422: `One or more request parameters failed validation.`,
         429: `Request rate limit exceeded.`,
         500: `Unexpected server error occurred.`,
-        501: `Endpoint contract defined but backend implementation is pending.`,
       },
     });
   }
 
   /**
-   * Generate or retrieve a clip for a camera event.
-   * Generate or retrieve a clip for a camera event.
-   * @param eventId
-   * @param requestBody
-   * @returns CameraClipResponse Clip URL response.
-   * @throws ApiError
-   */
-  public static requestCameraClip(
-    eventId: string,
-    requestBody: CameraClipRequest,
-  ): CancelablePromise<CameraClipResponse> {
-    return __request(OpenAPI, {
-      method: 'POST',
-      url: '/camera/events/{eventId}/clip',
-      path: {
-        'eventId': eventId,
-      },
-      body: requestBody,
-      mediaType: 'application/json',
-      errors: {
-        401: `Authentication failed or credentials missing.`,
-        403: `Authenticated user does not have permission to access the resource.`,
-        404: `Requested resource does not exist.`,
-        429: `Request rate limit exceeded.`,
-        500: `Unexpected server error occurred.`,
-        501: `Endpoint contract defined but backend implementation is pending.`,
-      },
-    });
-  }
-
-  /**
-   * Refresh the preview for a camera or the active camera when cameraId is 'active'.
-   * Refresh the preview for a camera or the active camera when cameraId is 'active'.
+   * Retrieve preview status for a camera.
+   * Retrieve preview readiness for a specific camera including offline reasons.
    * @param cameraId
-   * @returns any Refresh request accepted.
+   * @returns CameraPreviewState Preview status response.
    * @throws ApiError
    */
-  public static refreshCamera(
+  public static getCameraPreview(
     cameraId: string,
-  ): CancelablePromise<any> {
+  ): CancelablePromise<CameraPreviewState> {
     return __request(OpenAPI, {
-      method: 'POST',
-      url: '/camera/{cameraId}/refresh',
+      method: 'GET',
+      url: '/api/camera/preview/{cameraId}',
       path: {
         'cameraId': cameraId,
       },
@@ -216,7 +126,25 @@ export class CameraService {
         404: `Requested resource does not exist.`,
         429: `Request rate limit exceeded.`,
         500: `Unexpected server error occurred.`,
-        501: `Endpoint contract defined but backend implementation is pending.`,
+      },
+    });
+  }
+
+  /**
+   * List camera stream metadata and availability.
+   * Enumerate camera streams, providing status and offline reasons for monitoring.
+   * @returns CameraStreamListResponse Camera stream collection.
+   * @throws ApiError
+   */
+  public static listCameraStreams(): CancelablePromise<CameraStreamListResponse> {
+    return __request(OpenAPI, {
+      method: 'GET',
+      url: '/api/camera/streams',
+      errors: {
+        401: `Authentication failed or credentials missing.`,
+        403: `Authenticated user does not have permission to access the resource.`,
+        429: `Request rate limit exceeded.`,
+        500: `Unexpected server error occurred.`,
       },
     });
   }

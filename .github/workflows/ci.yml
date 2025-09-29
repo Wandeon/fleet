@@ -140,14 +140,49 @@ jobs:
     name: smoke verification (node ${{ matrix.node }})
     runs-on: ubuntu-latest
     needs: [build, contract]
+    timeout-minutes: 10
     strategy:
       matrix:
         node: [20.x]
-    env:
-      API_BEARER: ci-test-bearer
-      DEVICE_REGISTRY_JSON: '{"devices":[]}'
-      API_HTTP_PORT: '3015'
-      UI_HTTP_PORT: '4173'
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ matrix.node }}
+          cache: npm
+          cache-dependency-path: |
+            apps/api/package-lock.json
+            apps/ui/package-lock.json
+            package-lock.json
+
+      - name: Install dependencies
+        run: |
+          npm ci
+          cd apps/api && npm ci
+          cd ../ui && npm ci
+          cd ../api-mock && npm ci
+
+      - name: Run centralized smoke verification
+        run: node scripts/smoke-proxy.mjs
+        timeout-minutes: 8
+
+      - name: Upload artifacts on failure
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: smoke-verification-logs
+          path: |
+            apps/api/logs/
+            apps/ui/dist/
+          retention-days: 7
+
+  lint:
+    name: lint
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        node: [20.x]
     steps:
       - uses: actions/checkout@v4
 
@@ -168,19 +203,54 @@ jobs:
         working-directory: apps/ui
         run: npm ci
 
-      - name: Build API
+      - name: ESLint (API)
         working-directory: apps/api
-        run: npm run build
+        run: npm run lint
 
-      - name: Build UI
+      - name: ESLint (UI)
         working-directory: apps/ui
-        run: npm run build
+        run: npm run lint
 
-      - name: Run smoke checks
-        env:
-          API_BEARER: ${{ env.API_BEARER }}
-          DEVICE_REGISTRY_JSON: ${{ env.DEVICE_REGISTRY_JSON }}
-          API_HTTP_PORT: ${{ env.API_HTTP_PORT }}
-          UI_HTTP_PORT: ${{ env.UI_HTTP_PORT }}
-          VITE_USE_MOCKS: '1'
-        run: node ci/smoke/smoke.js
+  test:
+    name: test
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        node: [20.x]
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ matrix.node }}
+          cache: npm
+          cache-dependency-path: |
+            apps/api/package-lock.json
+            apps/ui/package-lock.json
+            package-lock.json
+
+      - name: Install API dependencies
+        working-directory: apps/api
+        run: npm ci
+
+      - name: Install UI dependencies
+        working-directory: apps/ui
+        run: npm ci
+
+      - name: Run API tests
+        working-directory: apps/api
+        run: |
+          if node -e "const pkg=require('./package.json'); process.exit(pkg.scripts?.test ? 0 : 1)"; then
+            npm test
+          else
+            echo "No API tests configured, skipping..."
+          fi
+
+      - name: Run UI tests
+        working-directory: apps/ui
+        run: |
+          if node -e "const pkg=require('./package.json'); process.exit(pkg.scripts?.test ? 0 : 1)"; then
+            npm test
+          else
+            echo "No UI tests configured, skipping..."
+          fi

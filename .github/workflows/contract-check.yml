@@ -29,10 +29,10 @@ jobs:
           cd apps/ui && npm ci
 
       - name: Install OpenAPI tools
-        run: npm install -g @apidevtools/swagger-parser
+        run: npm install -g swagger-cli
 
       - name: Validate OpenAPI specification
-        run: npx swagger-parser validate apps/api/openapi.yaml
+        run: npx swagger-cli validate apps/api/openapi.yaml
 
       - name: Generate OpenAPI clients
         run: ./scripts/generate-openapi-clients.sh
