@@ -36,6 +36,7 @@ import {
   audioLibraryUploadRegistrationSchema,
 } from '../util/schema/audio.js';
 import { createHttpError } from '../util/errors.js';
+import { log } from '../observability/logging.js';
 
 const router = Router();
 const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 50 * 1024 * 1024 } });
@@ -65,6 +66,15 @@ router.post('/library', upload.single('file'), async (req, res, next) => {
       format: z.string().min(1).optional(),
     });
     const payload = schema.parse(req.body ?? {});
+    log.info(
+      {
+        title: payload.title,
+        artist: payload.artist,
+        sizeBytes: file.size,
+        filename: file.originalname,
+      },
+      'Track upload to library requested'
+    );
     const track = await createLibraryTrack({
       title: payload.title,
       artist: payload.artist,
@@ -80,8 +90,18 @@ router.post('/library', upload.single('file'), async (req, res, next) => {
       buffer: file.buffer,
       filename: file.originalname,
     });
+    log.info(
+      {
+        trackId: track.id,
+        title: track.title,
+        artist: track.artist,
+        sizeBytes: track.sizeBytes,
+      },
+      'Track uploaded to library'
+    );
     res.status(201).json(track);
   } catch (error) {
+    log.error({ error }, 'Failed to upload track to library');
     next(error);
   }
 });
@@ -90,9 +110,12 @@ router.post('/library/uploads', (req, res, next) => {
   res.locals.routePath = '/audio/library/uploads';
   try {
     const payload = audioLibraryUploadRegistrationSchema.parse(req.body ?? {});
+    log.info({ filename: payload.filename, sizeBytes: payload.sizeBytes }, 'Library upload registration requested');
     const registration = registerLibraryUpload(payload);
+    log.info({ uploadId: registration.uploadId }, 'Library upload registered');
     res.status(201).json(registration);
   } catch (error) {
+    log.error({ error }, 'Failed to register library upload');
     next(error);
   }
 });
@@ -101,9 +124,26 @@ router.post('/playlists', async (req, res, next) => {
   res.locals.routePath = '/audio/playlists';
   try {
     const payload = audioPlaylistSchema.parse(req.body);
+    log.info(
+      {
+        name: payload.name,
+        trackCount: payload.tracks.length,
+        syncMode: payload.syncMode,
+      },
+      'Playlist creation requested'
+    );
     const playlist = await createPlaylist(payload);
+    log.info(
+      {
+        playlistId: playlist.id,
+        name: playlist.name,
+        trackCount: playlist.tracks.length,
+      },
+      'Playlist created'
+    );
     res.status(201).json(playlist);
   } catch (error) {
+    log.error({ error }, 'Failed to create playlist');
     next(error);
   }
 });
@@ -123,9 +163,26 @@ router.put('/playlists/:playlistId', async (req, res, next) => {
   try {
     const params = z.object({ playlistId: z.string().min(1) }).parse(req.params);
     const payload = audioPlaylistSchema.parse(req.body);
+    log.info(
+      {
+        playlistId: params.playlistId,
+        name: payload.name,
+        trackCount: payload.tracks.length,
+      },
+      'Playlist update requested'
+    );
     const playlist = await updatePlaylist(params.playlistId, payload);
+    log.info(
+      {
+        playlistId: playlist.id,
+        name: playlist.name,
+        trackCount: playlist.tracks.length,
+      },
+      'Playlist updated'
+    );
     res.json(playlist);
   } catch (error) {
+    log.error({ playlistId: req.params.playlistId, error }, 'Failed to update playlist');
     next(error);
   }
 });
@@ -134,9 +191,12 @@ router.delete('/playlists/:playlistId', async (req, res, next) => {
   res.locals.routePath = '/audio/playlists/:playlistId';
   try {
     const params = z.object({ playlistId: z.string().min(1) }).parse(req.params);
+    log.info({ playlistId: params.playlistId }, 'Playlist deletion requested');
     await deletePlaylist(params.playlistId);
+    log.info({ playlistId: params.playlistId }, 'Playlist deleted');
     res.status(204).send();
   } catch (error) {
+    log.error({ playlistId: req.params.playlistId, error }, 'Failed to delete playlist');
     next(error);
   }
 });
@@ -146,9 +206,12 @@ router.post('/playlists/:playlistId/reorder', async (req, res, next) => {
   try {
     const params = z.object({ playlistId: z.string().min(1) }).parse(req.params);
     const payload = audioPlaylistReorderSchema.parse(req.body);
+    log.info({ playlistId: params.playlistId, trackCount: payload.ordering.length }, 'Playlist reorder requested');
     const playlist = await reorderPlaylistTracks(params.playlistId, payload);
+    log.info({ playlistId: playlist.id }, 'Playlist reordered');
     res.json(playlist);
   } catch (error) {
+    log.error({ playlistId: req.params.playlistId, error }, 'Failed to reorder playlist');
     next(error);
   }
 });
@@ -157,9 +220,27 @@ router.post('/playback', async (req, res, next) => {
   res.locals.routePath = '/audio/playback';
   try {
     const payload = audioPlaybackRequestSchema.parse(req.body);
+    log.info(
+      {
+        deviceIds: payload.deviceIds,
+        trackId: payload.trackId,
+        playlistId: payload.playlistId,
+        syncMode: payload.syncMode,
+      },
+      'Audio playback start requested'
+    );
     await startPlayback(payload);
+    log.info(
+      {
+        deviceIds: payload.deviceIds,
+        trackId: payload.trackId,
+        playlistId: payload.playlistId,
+      },
+      'Audio playback started'
+    );
     res.status(202).json({ accepted: true });
   } catch (error) {
+    log.error({ error }, 'Failed to start audio playback');
     next(error);
   }
 });
@@ -178,9 +259,12 @@ router.post('/playback/sessions', async (req, res, next) => {
   res.locals.routePath = '/audio/playback/sessions';
   try {
     const payload = audioPlaybackSessionSchema.parse(req.body);
+    log.info({ deviceIds: payload.deviceIds, syncMode: payload.syncMode }, 'Playback session creation requested');
     const session = await createPlaybackSession(payload);
+    log.info({ sessionId: session.id }, 'Playback session created');
     res.status(201).json(session);
   } catch (error) {
+    log.error({ error }, 'Failed to create playback session');
     next(error);
   }
 });
@@ -214,9 +298,12 @@ router.post('/devices/:deviceId/pause', async (req, res, next) => {
   try {
     const { deviceId } = deviceIdParamSchema.parse(req.params);
     res.locals.deviceId = deviceId;
+    log.info({ deviceId }, 'Audio device pause requested');
     await pauseDevice(deviceId);
+    log.info({ deviceId }, 'Audio device paused');
     res.status(202).json({ accepted: true });
   } catch (error) {
+    log.error({ deviceId: req.params.deviceId, error }, 'Failed to pause audio device');
     next(error);
   }
 });
@@ -226,9 +313,12 @@ router.post('/devices/:deviceId/resume', async (req, res, next) => {
   try {
     const { deviceId } = deviceIdParamSchema.parse(req.params);
     res.locals.deviceId = deviceId;
+    log.info({ deviceId }, 'Audio device resume requested');
     await resumeDevice(deviceId);
+    log.info({ deviceId }, 'Audio device resumed');
     res.status(202).json({ accepted: true });
   } catch (error) {
+    log.error({ deviceId: req.params.deviceId, error }, 'Failed to resume audio device');
     next(error);
   }
 });
@@ -238,9 +328,12 @@ router.post('/devices/:deviceId/stop', async (req, res, next) => {
   try {
     const { deviceId } = deviceIdParamSchema.parse(req.params);
     res.locals.deviceId = deviceId;
+    log.info({ deviceId }, 'Audio device stop requested');
     await stopDevice(deviceId);
+    log.info({ deviceId }, 'Audio device stopped');
     res.status(202).json({ accepted: true });
   } catch (error) {
+    log.error({ deviceId: req.params.deviceId, error }, 'Failed to stop audio device');
     next(error);
   }
 });
@@ -251,9 +344,12 @@ router.post('/devices/:deviceId/seek', async (req, res, next) => {
     const { deviceId } = deviceIdParamSchema.parse(req.params);
     res.locals.deviceId = deviceId;
     const payload = audioSeekSchema.parse(req.body);
+    log.info({ deviceId, positionSeconds: payload.positionSeconds }, 'Audio device seek requested');
     await seekDevice(deviceId, payload.positionSeconds);
+    log.info({ deviceId, positionSeconds: payload.positionSeconds }, 'Audio device seeked');
     res.status(202).json({ accepted: true });
   } catch (error) {
+    log.error({ deviceId: req.params.deviceId, error }, 'Failed to seek audio device');
     next(error);
   }
 });
@@ -264,9 +360,12 @@ router.post('/devices/:deviceId/volume', async (req, res, next) => {
     const { deviceId } = deviceIdParamSchema.parse(req.params);
     res.locals.deviceId = deviceId;
     const payload = audioVolumeSchema.parse(req.body);
+    log.info({ deviceId, volumePercent: payload.volumePercent }, 'Audio device volume change requested');
     await setDeviceVolume(deviceId, payload.volumePercent);
+    log.info({ deviceId, volumePercent: payload.volumePercent }, 'Audio device volume changed');
     res.status(202).json({ accepted: true, volumePercent: payload.volumePercent });
   } catch (error) {
+    log.error({ deviceId: req.params.deviceId, error }, 'Failed to change audio device volume');
     next(error);
   }
 });
@@ -281,6 +380,14 @@ router.post('/devices/:deviceId/upload', upload.single('file'), async (req, res,
       throw createHttpError(400, 'bad_request', 'Missing upload file');
     }
 
+    log.info(
+      {
+        deviceId,
+        filename: file.originalname,
+        sizeBytes: file.size,
+      },
+      'Device fallback upload requested'
+    );
     const result = await uploadDeviceFallback(
       deviceId,
       {
@@ -291,9 +398,18 @@ router.post('/devices/:deviceId/upload', upload.single('file'), async (req, res,
       },
       req.correlationId
     );
-
+    log.info(
+      {
+        deviceId,
+        filename: file.originalname,
+        saved: result.saved,
+        path: result.path,
+      },
+      'Device fallback uploaded'
+    );
     res.status(201).json(result);
   } catch (error) {
+    log.error({ deviceId: req.params.deviceId, error }, 'Failed to upload device fallback');
     next(error);
   }
 });
@@ -302,9 +418,12 @@ router.post('/master-volume', async (req, res, next) => {
   res.locals.routePath = '/audio/master-volume';
   try {
     const payload = audioMasterVolumeSchema.parse(req.body);
+    log.info({ volumePercent: payload.volumePercent }, 'Master volume change requested');
     await setMasterVolume(payload.volumePercent);
+    log.info({ volumePercent: payload.volumePercent }, 'Master volume changed');
     res.status(202).json({ accepted: true, volumePercent: payload.volumePercent });
   } catch (error) {
+    log.error({ error }, 'Failed to change master volume');
     next(error);
   }
 });

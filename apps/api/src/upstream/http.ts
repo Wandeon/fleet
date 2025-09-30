@@ -152,6 +152,14 @@ export async function httpRequest(
 
   if (isCircuitOpen(device.id)) {
     recordFailure(device.id, 'circuit_open');
+    logger.warn(
+      {
+        deviceId: device.id,
+        url,
+        method,
+      },
+      'Device circuit breaker is open'
+    );
     throw Object.assign(
       createHttpError(503, 'circuit_open', `Circuit open for device ${device.id}`),
       {
@@ -180,7 +188,26 @@ export async function httpRequest(
         const text = await response.text();
         const httpError = handleHttpError(device, response, text);
         recordFailure(device.id, 'http');
+        logger.error(
+          {
+            deviceId: device.id,
+            url,
+            method,
+            statusCode: response.status,
+            expectedStatus: options.expectedStatus,
+          },
+          'Device returned unexpected status code'
+        );
         if (idempotent && response.status >= 500 && attempt < attempts - 1) {
+          logger.warn(
+            {
+              deviceId: device.id,
+              url,
+              attempt: attempt + 1,
+              maxRetries: attempts - 1,
+            },
+            'Retrying device request after error'
+          );
           await delayWithBackoff(attempt + 1);
           continue;
         }
@@ -191,7 +218,25 @@ export async function httpRequest(
         const text = await response.text();
         const httpError = handleHttpError(device, response, text);
         recordFailure(device.id, 'http');
+        logger.error(
+          {
+            deviceId: device.id,
+            url,
+            method,
+            statusCode: response.status,
+          },
+          'Device returned error status'
+        );
         if (idempotent && response.status >= 500 && attempt < attempts - 1) {
+          logger.warn(
+            {
+              deviceId: device.id,
+              url,
+              attempt: attempt + 1,
+              maxRetries: attempts - 1,
+            },
+            'Retrying device request after 5xx error'
+          );
           await delayWithBackoff(attempt + 1);
           continue;
         }
@@ -209,7 +254,49 @@ export async function httpRequest(
 
       recordFailure(device.id, upstreamError.reason);
 
+      if (upstreamError.reason === 'unreachable') {
+        logger.error(
+          {
+            deviceId: device.id,
+            url,
+            method,
+            timeoutMs,
+            errorCode: (error as { code?: string }).code,
+          },
+          'Device unreachable'
+        );
+      } else if (upstreamError.reason === 'http') {
+        logger.error(
+          {
+            deviceId: device.id,
+            url,
+            method,
+          },
+          'Device returned HTTP error'
+        );
+      } else {
+        logger.error(
+          {
+            deviceId: device.id,
+            url,
+            method,
+            reason: upstreamError.reason,
+          },
+          'Device request failed'
+        );
+      }
+
       if (idempotent && attempt < attempts - 1 && upstreamError.status >= 500) {
+        logger.warn(
+          {
+            deviceId: device.id,
+            url,
+            attempt: attempt + 1,
+            maxRetries: attempts - 1,
+            reason: upstreamError.reason,
+          },
+          'Retrying device request after failure'
+        );
         await delayWithBackoff(attempt + 1);
         continue;
       }
