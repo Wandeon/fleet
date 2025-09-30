@@ -4,6 +4,7 @@ import { createHttpError } from '../util/errors.js';
 import { cameraEventIdParamSchema, cameraEventsQuerySchema } from '../util/schema/camera.js';
 import { getCameraEvent, listCameraEvents } from '../services/cameraEvents.js';
 import { deviceRegistry } from '../upstream/devices.js';
+import { log } from '../observability/logging.js';
 
 const CAMERA_OFFLINE_REASON = 'Camera hardware not attached';
 
@@ -200,11 +201,13 @@ router.post('/events/:eventId/ack', (req, res, next) => {
     const { eventId } = cameraEventIdParamSchema.parse(req.params);
     const event = getCameraEvent(eventId);
     if (!event) {
+      log.warn({ eventId }, 'Camera event not found for acknowledgment');
       throw createHttpError(422, 'validation_failed', 'Cannot acknowledge camera event', {
         details: { eventId, reason: 'event_not_found' },
       });
     }
 
+    log.info({ eventId, cameraId: event.cameraId }, 'Camera event acknowledged');
     res.status(202).json({
       status: 'accepted',
       eventId,
@@ -212,6 +215,7 @@ router.post('/events/:eventId/ack', (req, res, next) => {
       note: CAMERA_OFFLINE_REASON,
     });
   } catch (error) {
+    log.error({ eventId: req.params.eventId, error }, 'Failed to acknowledge camera event');
     next(error);
   }
 });
@@ -222,9 +226,11 @@ router.get('/preview/:cameraId', (req, res, next) => {
     const { cameraId } = req.params;
     const device = deviceRegistry.getDevice(cameraId);
     if (!device || !isCameraDevice(device)) {
+      log.warn({ cameraId }, 'Camera preview requested for unregistered camera');
       throw createHttpError(404, 'not_found', `Camera ${cameraId} not registered`);
     }
 
+    log.info({ cameraId }, 'Camera preview requested');
     res.json({
       cameraId: device.id,
       status: 'unavailable',
@@ -234,6 +240,7 @@ router.get('/preview/:cameraId', (req, res, next) => {
       updatedAt: new Date().toISOString(),
     });
   } catch (error) {
+    log.error({ cameraId: req.params.cameraId, error }, 'Failed to get camera preview');
     next(error);
   }
 });

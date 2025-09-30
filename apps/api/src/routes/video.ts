@@ -11,6 +11,7 @@ import {
   listRecordingSegments,
   createClipExport,
 } from '../services/video.js';
+import { log } from '../observability/logging.js';
 
 const router = Router();
 
@@ -113,7 +114,9 @@ router.post('/devices/:deviceId/power', async (req, res, next) => {
   try {
     const { deviceId } = req.params;
     const payload = powerSchema.parse(req.body);
+    log.info({ deviceId, power: payload.power }, 'Video device power change requested');
     const { jobId, state } = await setDevicePower(deviceId, payload.power);
+    log.info({ deviceId, power: state.power, jobId }, 'Video device power changed');
     res.status(202).json({
       deviceId: state.deviceId,
       power: state.power,
@@ -122,6 +125,7 @@ router.post('/devices/:deviceId/power', async (req, res, next) => {
       jobId,
     });
   } catch (error) {
+    log.error({ deviceId: req.params.deviceId, error }, 'Failed to change video device power');
     next(error);
   }
 });
@@ -131,7 +135,9 @@ router.post('/devices/:deviceId/mute', async (req, res, next) => {
   try {
     const { deviceId } = req.params;
     const payload = muteSchema.parse(req.body);
+    log.info({ deviceId, mute: payload.mute }, 'Video device mute change requested');
     const { jobId, state } = await setDeviceMute(deviceId, payload.mute);
+    log.info({ deviceId, mute: state.mute, jobId }, 'Video device mute changed');
     res.status(202).json({
       deviceId: state.deviceId,
       mute: state.mute,
@@ -140,6 +146,7 @@ router.post('/devices/:deviceId/mute', async (req, res, next) => {
       jobId,
     });
   } catch (error) {
+    log.error({ deviceId: req.params.deviceId, error }, 'Failed to change video device mute');
     next(error);
   }
 });
@@ -149,7 +156,9 @@ router.post('/devices/:deviceId/input', async (req, res, next) => {
   try {
     const { deviceId } = req.params;
     const payload = inputSchema.parse(req.body);
+    log.info({ deviceId, input: payload.input }, 'Video device input change requested');
     const { jobId, state } = await setDeviceInput(deviceId, payload.input);
+    log.info({ deviceId, input: state.input, jobId }, 'Video device input changed');
     res.status(202).json({
       deviceId: state.deviceId,
       input: state.input,
@@ -158,6 +167,7 @@ router.post('/devices/:deviceId/input', async (req, res, next) => {
       jobId,
     });
   } catch (error) {
+    log.error({ deviceId: req.params.deviceId, error }, 'Failed to change video device input');
     next(error);
   }
 });
@@ -167,7 +177,9 @@ router.post('/devices/:deviceId/volume', async (req, res, next) => {
   try {
     const { deviceId } = req.params;
     const payload = volumeSchema.parse(req.body);
+    log.info({ deviceId, volumePercent: payload.volumePercent }, 'Video device volume change requested');
     const { jobId, state } = await setDeviceVolume(deviceId, payload.volumePercent);
+    log.info({ deviceId, volumePercent: state.volume, jobId }, 'Video device volume changed');
     res.status(202).json({
       deviceId: state.deviceId,
       volumePercent: state.volume,
@@ -176,6 +188,7 @@ router.post('/devices/:deviceId/volume', async (req, res, next) => {
       jobId,
     });
   } catch (error) {
+    log.error({ deviceId: req.params.deviceId, error }, 'Failed to change video device volume');
     next(error);
   }
 });
@@ -185,10 +198,20 @@ router.post('/devices/:deviceId/playback', async (req, res, next) => {
   try {
     const { deviceId } = req.params;
     const payload = playbackSchema.parse(req.body);
+    log.info(
+      {
+        deviceId,
+        action: payload.action,
+        url: payload.url,
+        startSeconds: payload.startSeconds,
+      },
+      'Video device playback control requested'
+    );
     const { jobId, state } = await runDevicePlayback(deviceId, payload.action, {
       url: payload.url ?? null,
       startSeconds: payload.startSeconds ?? null,
     });
+    log.info({ deviceId, action: payload.action, jobId }, 'Video device playback control applied');
     res.status(202).json({
       deviceId: state.deviceId,
       playback: state.playback,
@@ -197,6 +220,7 @@ router.post('/devices/:deviceId/playback', async (req, res, next) => {
       jobId,
     });
   } catch (error) {
+    log.error({ deviceId: req.params.deviceId, error }, 'Failed to control video device playback');
     next(error);
   }
 });
@@ -212,9 +236,19 @@ router.post('/recordings/:recordingId/export', (req, res, next) => {
   try {
     const { recordingId } = req.params;
     const payload = clipExportSchema.parse(req.body);
+    log.info(
+      {
+        recordingId,
+        startOffsetSeconds: payload.startOffsetSeconds,
+        endOffsetSeconds: payload.endOffsetSeconds,
+      },
+      'Video clip export requested'
+    );
     const result = createClipExport(recordingId, payload);
+    log.info({ recordingId, exportId: result.exportId }, 'Video clip export created');
     res.status(202).json(result);
   } catch (error) {
+    log.error({ recordingId: req.params.recordingId, error }, 'Failed to export video clip');
     next(error);
   }
 });
@@ -223,9 +257,12 @@ router.post('/preview', (req, res, next) => {
   res.locals.routePath = '/video/preview';
   try {
     const payload = previewSchema.parse(req.body ?? {});
+    log.info({ deviceId: payload.deviceId }, 'Video preview session requested');
     const session = requestPreviewSession(payload.deviceId);
+    log.info({ sessionId: session.sessionId, deviceId: session.device.id }, 'Video preview session created');
     res.json(session);
   } catch (error) {
+    log.error({ error }, 'Failed to create video preview session');
     next(error);
   }
 });

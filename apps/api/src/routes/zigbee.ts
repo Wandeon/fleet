@@ -13,6 +13,7 @@ import {
   validateZigbeeRuleDefinition,
 } from '../services/zigbeeRules';
 import { createHttpError } from '../util/errors';
+import { log } from '../observability/logging.js';
 
 const router = Router();
 
@@ -180,14 +181,24 @@ router.post('/actions', (req, res, next) => {
   res.locals.routePath = '/zigbee/actions';
   try {
     const payload = actionSchema.parse(req.body);
+    const commandId = randomUUID();
+    log.info(
+      {
+        deviceId: payload.deviceId,
+        command: payload.command,
+        commandId,
+      },
+      'Zigbee device command sent'
+    );
     res.status(202).json({
       accepted: true,
-      commandId: randomUUID(),
+      commandId,
       deviceId: payload.deviceId,
       command: payload.command,
       receivedAt: new Date().toISOString(),
     });
   } catch (error) {
+    log.error({ error }, 'Failed to send zigbee device command');
     next(error);
   }
 });
@@ -197,6 +208,7 @@ router.post('/pairing', (req, res, next) => {
   try {
     const payload = pairingStartSchema.parse(req.body ?? {});
     const now = new Date();
+    log.info({ durationSeconds: payload.durationSeconds, channel: payload.channel }, 'Zigbee pairing mode started');
     closePairingWindow();
     pairingState.active = true;
     pairingState.startedAt = now.toISOString();
@@ -221,12 +233,14 @@ router.post('/pairing', (req, res, next) => {
       confirmed: pairingState.confirmed,
     });
   } catch (error) {
+    log.error({ error }, 'Failed to start zigbee pairing mode');
     next(error);
   }
 });
 
 router.delete('/pairing', (_req, res) => {
   res.locals.routePath = '/zigbee/pairing';
+  log.info({ discovered: pairingState.discovered.length }, 'Zigbee pairing mode stopped');
   closePairingWindow();
   res.json({
     active: pairingState.active,
@@ -252,6 +266,7 @@ router.get('/pairing/discovered', (_req, res) => {
 router.post('/pairing/:deviceId', (req, res) => {
   res.locals.routePath = '/zigbee/pairing/:deviceId';
   const { deviceId } = req.params;
+  log.info({ deviceId }, 'Zigbee device pairing confirmed');
   pairingState.confirmed = Array.from(new Set([...pairingState.confirmed, deviceId]));
   pairingState.discovered = pairingState.discovered.filter((device) => device.id !== deviceId);
   res.status(202).json({ accepted: true, deviceId });
@@ -280,9 +295,12 @@ router.post('/rules/validate', (req, res, next) => {
 router.post('/rules', async (req, res, next) => {
   res.locals.routePath = '/zigbee/rules';
   try {
+    log.info({ ruleName: req.body?.name }, 'Zigbee rule creation requested');
     const record = await createZigbeeRule(req.body);
+    log.info({ ruleId: record.id, ruleName: record.name, enabled: record.enabled }, 'Zigbee rule created');
     res.status(201).json(record);
   } catch (error) {
+    log.error({ error }, 'Failed to create zigbee rule');
     next(error);
   }
 });
@@ -304,9 +322,12 @@ router.put('/rules/:ruleId', async (req, res, next) => {
     if (!payload || Object.keys(payload).length === 0) {
       throw createHttpError(400, 'bad_request', 'No fields provided for update');
     }
+    log.info({ ruleId: req.params.ruleId, fields: Object.keys(payload) }, 'Zigbee rule update requested');
     const updated = await updateZigbeeRule(req.params.ruleId, payload);
+    log.info({ ruleId: updated.id, ruleName: updated.name }, 'Zigbee rule updated');
     res.json(updated);
   } catch (error) {
+    log.error({ ruleId: req.params.ruleId, error }, 'Failed to update zigbee rule');
     next(error);
   }
 });
@@ -314,9 +335,12 @@ router.put('/rules/:ruleId', async (req, res, next) => {
 router.delete('/rules/:ruleId', async (req, res, next) => {
   res.locals.routePath = '/zigbee/rules/:ruleId';
   try {
+    log.info({ ruleId: req.params.ruleId }, 'Zigbee rule deletion requested');
     await deleteZigbeeRule(req.params.ruleId);
+    log.info({ ruleId: req.params.ruleId }, 'Zigbee rule deleted');
     res.status(204).send();
   } catch (error) {
+    log.error({ ruleId: req.params.ruleId, error }, 'Failed to delete zigbee rule');
     next(error);
   }
 });
@@ -325,9 +349,12 @@ router.patch('/rules/:ruleId/enable', async (req, res, next) => {
   res.locals.routePath = '/zigbee/rules/:ruleId/enable';
   try {
     const body = z.object({ enabled: z.boolean().default(true) }).parse(req.body ?? {});
+    log.info({ ruleId: req.params.ruleId, enabled: body.enabled }, 'Zigbee rule enable/disable requested');
     const updated = await updateZigbeeRule(req.params.ruleId, { enabled: body.enabled });
+    log.info({ ruleId: updated.id, ruleName: updated.name, enabled: updated.enabled }, 'Zigbee rule toggled');
     res.json(updated);
   } catch (error) {
+    log.error({ ruleId: req.params.ruleId, error }, 'Failed to toggle zigbee rule');
     next(error);
   }
 });
@@ -336,9 +363,12 @@ router.post('/rules/simulate', async (req, res, next) => {
   res.locals.routePath = '/zigbee/rules/simulate';
   try {
     const payload = ruleSimulationSchema.parse(req.body ?? {});
+    log.info({ ruleId: payload.ruleId }, 'Zigbee rule simulation requested');
     const result = await simulateZigbeeRule(payload);
+    log.info({ ruleId: payload.ruleId, matched: result.matched }, 'Zigbee rule simulated');
     res.json(result);
   } catch (error) {
+    log.error({ error }, 'Failed to simulate zigbee rule');
     next(error);
   }
 });
