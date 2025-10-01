@@ -10,7 +10,10 @@ WORKDIR /app
 
 COPY requirements.txt ./
 RUN pip install --upgrade pip setuptools wheel && \
-    pip install --no-cache-dir --timeout 300 --retries 5 -r requirements.txt
+    pip install --no-cache-dir --timeout 300 --retries 5 \
+    --index-url https://www.piwheels.org/simple \
+    --extra-index-url https://pypi.org/simple \
+    -r requirements.txt
 
 COPY app.py ./
 
