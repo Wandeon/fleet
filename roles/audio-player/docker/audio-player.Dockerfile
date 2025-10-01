@@ -5,4 +5,5 @@ RUN apk add --no-cache ffmpeg alsa-utils inotify-tools jq ca-certificates && \
 
 WORKDIR /app
 
+COPY app/common.py /app/common.py
 COPY app/player.py /app/player.py
