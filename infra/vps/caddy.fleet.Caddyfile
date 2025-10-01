@@ -34,3 +34,8 @@ app.headspamartina.hr {
     reverse_proxy fleet-ui:3000
   }
 }
+
+log.headspamartina.hr {
+  encode zstd gzip
+  reverse_proxy grafana:3000
+}

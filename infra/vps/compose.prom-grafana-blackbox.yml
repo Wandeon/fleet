@@ -12,6 +12,9 @@ services:
       - ./targets-audio.json:/etc/prometheus/targets/audio.json:ro
       - ./targets-hdmi-media.json:/etc/prometheus/targets/hdmi-media.json:ro
       - ./targets-camera.json:/etc/prometheus/targets/camera.json:ro
+    networks:
+      - default
+      - fleet-network
     depends_on:
       - alertmanager
       - loki
@@ -29,6 +32,9 @@ services:
       - grafana-data:/var/lib/grafana
       - ./grafana/provisioning:/etc/grafana/provisioning:ro
       - ../../grafana/dashboards:/var/lib/grafana/dashboards:ro
+    networks:
+      - default
+      - fleet-network
     depends_on:
       - loki
   loki:
@@ -59,6 +65,11 @@ services:
     volumes:
       - ./alertmanager.yml:/etc/alertmanager/alertmanager.yml:ro
       - ./secrets/slack-webhook.url:/etc/alertmanager/slack_webhook.url:ro
+networks:
+  fleet-network:
+    external: true
+    name: vps_fleet-network
+
 volumes:
   grafana-data: {}
   loki-data: {}

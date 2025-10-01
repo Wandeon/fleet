@@ -1,6 +1,6 @@
 [
   {
-    "targets": ["pi-audio-01:8081"],
+    "targets": ["172.18.0.1:8081"],
     "labels": { "role": "audio-player", "instance": "pi-audio-01" }
   },
   {

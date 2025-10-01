@@ -38,7 +38,7 @@ scrape_configs:
     scrape_interval: 30s
     bearer_token: '3e4f6b2f76cb888ff5730a98e2de066cdbc11cb41b7575ef6f58536a180cc3fc'
     static_configs:
-      - targets: ['localhost:3005']
+      - targets: ['fleet-api:3015']
   - job_name: 'audio-player'
     metrics_path: /metrics
     file_sd_configs:
@@ -58,9 +58,5 @@ scrape_configs:
     metrics_path: /metrics
     static_configs:
       - targets: ['loki:3100']
-  - job_name: 'promtail'
-    metrics_path: /metrics
-    static_configs:
-      - targets: ['promtail:9080']
 rule_files:
   - /etc/prometheus/alerts.yml
