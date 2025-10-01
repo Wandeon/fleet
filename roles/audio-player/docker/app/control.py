@@ -78,7 +78,8 @@ def _authed() -> bool:
 
 @app.before_request
 def require_auth():
-    if request.path == "/healthz":
+    # Allow unauthenticated access to read-only monitoring endpoints
+    if request.path in ("/healthz", "/status", "/config", "/metrics"):
         return None
     if not _authed():
         return jsonify({"error": "unauthorized"}), 401

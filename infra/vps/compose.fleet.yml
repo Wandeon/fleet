@@ -22,7 +22,11 @@ services:
       - SSE_HEARTBEAT_MS=15000
       - POLL_INTERVAL_MS=5000
       - LOKI_BASE_URL=http://vps-loki-1:3100
-      - DEVICE_REGISTRY_JSON={"devices":[{"id":"pi-audio-01","name":"Audio Pi 01","role":"audio","module":"audio","baseUrl":"http://pi-audio-01:8081","tokenEnv":"AUDIO_PI_AUDIO_01_TOKEN","capabilities":["playback","volume","routing"],"metadata":{"location":"Living Room","hardware":"Raspberry Pi 4"}}]}
+      - DEVICE_REGISTRY_PATH=/config/devices.json
+      - AUDIO_PI_AUDIO_01_TOKEN=${AUDIO_PI_AUDIO_01_TOKEN:-}
+      - AUDIO_PI_AUDIO_02_TOKEN=${AUDIO_PI_AUDIO_02_TOKEN:-}
+      - HDMI_PI_VIDEO_01_TOKEN=${HDMI_PI_VIDEO_01_TOKEN:-}
+      - CAMERA_PI_CAMERA_01_TOKEN=${CAMERA_PI_CAMERA_01_TOKEN:-}
       - LOG_SERVICE=fleet-api
       - LOG_ROLE=control-plane
       - LOG_COMMIT=${FLEET_LOG_COMMIT:-unknown}
