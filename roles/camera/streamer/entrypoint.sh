@@ -26,4 +26,4 @@ wait_for_rtsp() {
 
 wait_for_rtsp "$RTSP_HOST" "$RTSP_PORT"
 
-exec bash -lc "rpicam-vid -t 0 --inline --codec h264 --width $WIDTH --height $HEIGHT --framerate $FPS --bitrate $BITRATE --awb $AWB --exposure $EXPOSURE --libav-format h264 -o - | ffmpeg -f h264 -i - -c copy -f rtsp $STREAM_URL"
+exec bash -lc "rpicam-vid -t 0 --inline --codec h264 --width $WIDTH --height $HEIGHT --framerate $FPS --bitrate $BITRATE --awb $AWB --exposure $EXPOSURE --libav-format h264 -o - | ffmpeg -use_wallclock_as_timestamps 1 -fflags +genpts -f h264 -i - -c copy -f rtsp $STREAM_URL"
