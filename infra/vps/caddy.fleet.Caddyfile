@@ -10,8 +10,8 @@ app.headspamartina.hr {
       flush_interval -1
     }
   }
-  handle /ui/logs/stream {
-    reverse_proxy fleet-api:3015/logs/stream {
+  handle_path /ui {
+    reverse_proxy fleet-api:3015 {
       header_up Authorization {>Authorization}
       header_up Accept "text/event-stream"
       flush_interval -1

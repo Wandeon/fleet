@@ -10,7 +10,7 @@ RUN apt-get update \
     && echo "deb [signed-by=/etc/apt/keyrings/raspberrypi-archive-keyring.gpg arch=arm64] http://archive.raspberrypi.com/debian/ bookworm main" \
          > /etc/apt/sources.list.d/raspi.list \
     && apt-get update \
-    && apt-get install -y --no-install-recommends libcamera-apps ffmpeg jq netcat-openbsd \
+    && apt-get install -y --no-install-recommends rpicam-apps ffmpeg jq netcat-openbsd \
     && apt-get clean \
     && rm -rf /var/lib/apt/lists/*
 
