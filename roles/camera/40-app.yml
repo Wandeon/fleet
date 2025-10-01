@@ -47,6 +47,8 @@ services:
     volumes:
       - /dev:/dev
       - /dev/shm:/dev/shm
+      - /sys:/sys:ro
+      - /run/udev:/run/udev:ro
     environment:
       CAMERA_RTSP_URL: ${CAMERA_RTSP_URL:-rtsp://127.0.0.1:8554/camera}
       CAMERA_WIDTH: ${CAMERA_WIDTH:-1920}
@@ -56,7 +58,7 @@ services:
       CAMERA_AWB: ${CAMERA_AWB:-auto}
       CAMERA_EXPOSURE: ${CAMERA_EXPOSURE:-normal}
     healthcheck:
-      test: ['CMD', 'pgrep', '-f', 'libcamera-vid']
+      test: ['CMD', 'pgrep', '-f', 'rpicam-vid']
       interval: 30s
       timeout: 5s
       retries: 3
