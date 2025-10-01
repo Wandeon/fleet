@@ -43,10 +43,9 @@ services:
       camera-rtsp:
         condition: service_started
     network_mode: host
-    devices:
-      - /dev/video0:/dev/video0
-      - /dev/vchiq:/dev/vchiq
+    privileged: true
     volumes:
+      - /dev:/dev
       - /dev/shm:/dev/shm
     environment:
       CAMERA_RTSP_URL: ${CAMERA_RTSP_URL:-rtsp://127.0.0.1:8554/camera}
