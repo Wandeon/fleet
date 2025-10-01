@@ -12,7 +12,7 @@ devices:
     logs: true
     loki_source: pi-video-01
   pi-camera-01:
-    role: camera-node
+    role: camera
     location: front-entry
     logs: true
     loki_source: pi-camera-01
