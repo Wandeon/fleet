@@ -15,7 +15,7 @@ services:
       - >-
         set -e;
         if [ -n "$$MOSQUITTO_USERNAME" ] && [ -n "$$MOSQUITTO_PASSWORD" ]; then
-          mosquitto_passwd -b /mosquitto/data/passwordfile "$$MOSQUITTO_USERNAME" "$$MOSQUITTO_PASSWORD";
+          mosquitto_passwd -c -b /mosquitto/data/passwordfile "$$MOSQUITTO_USERNAME" "$$MOSQUITTO_PASSWORD";
         fi;
         exec /docker-entrypoint.sh mosquitto -c /mosquitto/config/mosquitto.conf
     healthcheck:
@@ -33,7 +33,7 @@ services:
       start_period: 10s
 
   zigbee2mqtt:
-    image: koenkk/zigbee2mqtt:1.39.0
+    image: koenkk/zigbee2mqtt:1.37.1
     restart: unless-stopped
     depends_on:
       zigbee-mqtt:
@@ -41,34 +41,17 @@ services:
     privileged: true
     network_mode: host
     devices:
-      - ${ZIGBEE_SERIAL_PORT:-/dev/ttyACM0}:${ZIGBEE_SERIAL_PORT:-/dev/ttyACM0}
+      - /dev/ttyUSB0:/dev/ttyUSB0
     volumes:
       - zigbee2mqtt_data:/app/data
-      - ./zigbee2mqtt/devices.example.yaml:/app/devices.example.yaml:ro
     environment:
       TZ: ${TZ:-UTC}
-      ZIGBEE2MQTT_CONFIG_HOMEASSISTANT: 'false'
-      ZIGBEE2MQTT_CONFIG_MQTT_SERVER: mqtt://127.0.0.1:1883
-      ZIGBEE2MQTT_CONFIG_MQTT_USER: ${ZIGBEE_MQTT_USER}
-      ZIGBEE2MQTT_CONFIG_MQTT_PASSWORD: ${ZIGBEE_MQTT_PASSWORD}
-      ZIGBEE2MQTT_CONFIG_SERIAL_PORT: ${ZIGBEE_SERIAL_PORT:-/dev/ttyACM0}
-      ZIGBEE2MQTT_CONFIG_ADVANCED_NETWORK_KEY: ${ZIGBEE_NETWORK_KEY:-GENERATE}
-      ZIGBEE2MQTT_CONFIG_ADVANCED_PAN_ID: ${ZIGBEE_PAN_ID:-0x1A62}
-      ZIGBEE2MQTT_CONFIG_ADVANCED_EXT_PAN_ID: ${ZIGBEE_EXT_PAN_ID:-0xdddddddddddddddd}
-      ZIGBEE2MQTT_CONFIG_ADVANCED_CHANNEL: ${ZIGBEE_CHANNEL:-11}
-      ZIGBEE2MQTT_CONFIG_ADVANCED_LOG_LEVEL: info
-      ZIGBEE2MQTT_CONFIG_ADVANCED_LOG_DIRECTORY: /app/data/log
-      ZIGBEE2MQTT_CONFIG_FRONTEND_ENABLED: 'true'
-      ZIGBEE2MQTT_CONFIG_FRONTEND_PORT: ${ZIGBEE_FRONTEND_PORT:-8084}
-      ZIGBEE2MQTT_CONFIG_PERMIT_JOIN: ${ZIGBEE_PERMIT_JOIN:-false}
-      ZIGBEE2MQTT_CONFIG_DEVICES: /app/data/devices.yaml
-      ZIGBEE2MQTT_CONFIG_GROUPS: /app/data/groups.yaml
     healthcheck:
-      test: ['CMD', 'node', '/app/node_modules/zigbee2mqtt/lib/healthcheck.js']
+      test: ['CMD', 'wget', '--quiet', '--tries=1', '--spider', 'http://localhost:8084']
       interval: 30s
       timeout: 10s
       retries: 3
-      start_period: 20s
+      start_period: 30s
 
 volumes:
   zigbee_mosquitto_data: {}
