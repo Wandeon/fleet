@@ -3,6 +3,7 @@
   import VideoModule from '$lib/modules/VideoModule.svelte';
   import ZigbeeModule from '$lib/modules/ZigbeeModule.svelte';
   import CameraModule from '$lib/modules/CameraModule.svelte';
+  import StatusPill from '$lib/components/StatusPill.svelte';
   import { createModuleStateStore, type PanelState } from '$lib/stores/app';
   import { invalidate } from '$app/navigation';
   import { featureFlags } from '$lib/config/features';
@@ -20,6 +21,12 @@
   $: zigbeePanelState = deriveState($zigbeeStateStore, data.zigbee.error);
   $: cameraPanelState = deriveState($cameraStateStore, data.camera.error);
 
+  $: fleetState = data.fleetState?.data;
+  $: fleetError = data.fleetState?.error;
+  $: connectionStatus = fleetState?.connection?.status ?? 'offline';
+  $: totalDevices = fleetState?.audio?.total ?? 0;
+  $: onlineDevices = fleetState?.audio?.online ?? 0;
+
   function deriveState(base: PanelState, hasError: string | null): PanelState {
     if (hasError && base === 'success') return 'error';
     return base;
@@ -27,6 +34,33 @@
 
   const refreshDashboard = () => invalidate('app:dashboard');
 </script>
+
+{#if fleetState}
+  <div class="status-banner">
+    <div class="status-item">
+      <span class="label">Connection</span>
+      <StatusPill
+        status={connectionStatus === 'online' ? 'ok' : connectionStatus === 'degraded' ? 'warn' : 'error'}
+        label={connectionStatus}
+      />
+    </div>
+    <div class="status-item">
+      <span class="label">Devices</span>
+      <span class="value">{onlineDevices}/{totalDevices} online</span>
+    </div>
+    {#if fleetState.build}
+      <div class="status-item">
+        <span class="label">Version</span>
+        <span class="value">{fleetState.build.version}</span>
+      </div>
+    {/if}
+  </div>
+{:else if fleetError}
+  <div class="status-banner error">
+    <span class="label">Fleet status unavailable:</span>
+    <span class="value">{fleetError}</span>
+  </div>
+{/if}
 
 <div class="modules">
   <AudioModule
@@ -47,6 +81,39 @@
 </div>
 
 <style>
+  .status-banner {
+    display: flex;
+    gap: var(--spacing-4);
+    padding: var(--spacing-3) var(--spacing-4);
+    background: rgba(56, 189, 248, 0.1);
+    border: 1px solid rgba(56, 189, 248, 0.25);
+    border-radius: var(--radius-md);
+    align-items: center;
+    flex-wrap: wrap;
+  }
+
+  .status-banner.error {
+    background: rgba(239, 68, 68, 0.1);
+    border-color: rgba(239, 68, 68, 0.3);
+  }
+
+  .status-item {
+    display: flex;
+    align-items: center;
+    gap: var(--spacing-2);
+  }
+
+  .label {
+    font-size: var(--font-size-sm);
+    color: var(--color-text-muted);
+  }
+
+  .value {
+    font-size: var(--font-size-sm);
+    color: var(--color-text);
+    font-weight: 500;
+  }
+
   .modules {
     display: flex;
     flex-direction: column;
