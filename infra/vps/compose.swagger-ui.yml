@@ -4,7 +4,7 @@ services:
     image: swaggerapi/swagger-ui:latest
     restart: unless-stopped
     ports:
-      - '8084:8080'
+      - '8085:8080'
     environment:
       # Configure Swagger UI to support multiple API specs
       - URLS=[
