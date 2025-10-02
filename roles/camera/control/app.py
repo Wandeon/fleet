@@ -190,7 +190,7 @@ def openapi_spec():
     """Serve OpenAPI specification for API documentation and testing."""
     from pathlib import Path
 
-    spec_path = Path(__file__).parent.parent / "openapi.yaml"
+    spec_path = Path(__file__).parent / "openapi.yaml"
     try:
         return PlainTextResponse(spec_path.read_text(), media_type="text/yaml")
     except FileNotFoundError:

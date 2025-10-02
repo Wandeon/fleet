@@ -202,7 +202,7 @@ def openapi_spec():
     from pathlib import Path
     from fastapi.responses import PlainTextResponse
 
-    spec_path = Path(__file__).parent.parent / "openapi.yaml"
+    spec_path = Path(__file__).parent / "openapi.yaml"
     try:
         return PlainTextResponse(spec_path.read_text(), media_type="text/yaml")
     except FileNotFoundError:
