@@ -242,6 +242,43 @@ router.post('/devices/:id/command', (req, res, next) => {
   }
 });
 
+router.post('/devices/:id/action', (req, res, next) => {
+  res.locals.routePath = '/zigbee/devices/:id/action';
+  try {
+    const { id } = req.params;
+    const { deviceId, command } = req.body;
+
+    if (!deviceId || !command) {
+      throw createHttpError(400, 'bad_request', 'deviceId and command are required');
+    }
+
+    const device = deviceRegistry.getDevice(id);
+    if (!device || (device.module !== 'zigbee' && !device.role.includes('zigbee'))) {
+      throw createHttpError(404, 'not_found', `Zigbee device ${id} not found`);
+    }
+
+    log.info(
+      {
+        deviceId: id,
+        command,
+      },
+      'Zigbee device action requested (stub)'
+    );
+
+    // Return stub response with accepted: false
+    res.status(202).json({
+      accepted: false,
+      deviceId: id,
+      command,
+      reason: 'Direct device actions are not yet implemented. Use automation rules instead.',
+      receivedAt: new Date().toISOString(),
+    });
+  } catch (error) {
+    log.error({ deviceId: req.params.id, error }, 'Failed to execute zigbee device action');
+    next(error);
+  }
+});
+
 router.post('/pairing', (req, res, next) => {
   res.locals.routePath = '/zigbee/pairing';
   try {
