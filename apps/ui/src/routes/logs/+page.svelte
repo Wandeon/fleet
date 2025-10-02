@@ -306,11 +306,18 @@
 
   {#if error}
     <div class="error" role="alert">
-      <strong>Log stream unavailable:</strong>
-      {error}
-      {#if errorCorrelationId}
-        <div class="correlation-id">Correlation ID: <code>{errorCorrelationId}</code></div>
-      {/if}
+      <div class="error-content">
+        <div>
+          <strong>Log stream unavailable:</strong>
+          {error}
+          {#if errorCorrelationId}
+            <div class="correlation-id">Correlation ID: <code>{errorCorrelationId}</code></div>
+          {/if}
+        </div>
+        <Button variant="primary" on:click={refresh} disabled={loading}>
+          Retry now
+        </Button>
+      </div>
     </div>
   {/if}
 
@@ -414,11 +421,19 @@
   }
 
   .error {
-    padding: var(--spacing-3);
+    padding: var(--spacing-4);
     border-radius: var(--radius-md);
     background: rgba(239, 68, 68, 0.15);
     border: 1px solid rgba(239, 68, 68, 0.3);
     color: var(--color-red-200);
+  }
+
+  .error-content {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: var(--spacing-4);
+    flex-wrap: wrap;
   }
 
   .correlation-id {

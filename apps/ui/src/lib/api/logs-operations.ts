@@ -211,34 +211,75 @@ export const subscribeToLogStream = (options: LogStreamOptions): LogStreamSubscr
     return { stop };
   }
 
-  const params = buildStreamParams(options.filters);
-  const url = `${API_BASE_URL}/logs/stream?${params.toString()}`;
-  const eventSource = new EventSource(url, { withCredentials: false });
+  let eventSource: EventSource | null = null;
+  let reconnectAttempt = 0;
+  let reconnectTimer: ReturnType<typeof setTimeout> | null = null;
+  let isStopped = false;
 
-  const handleMessage = (event: MessageEvent) => {
-    if (!event.data) return;
-    try {
-      const payload = JSON.parse(event.data) as LogEntry;
-      options.onEvent(normaliseEntry(payload));
-    } catch (error) {
-      console.warn('Failed to parse log stream payload', error);
-    }
+  const connect = () => {
+    if (isStopped) return;
+
+    const params = buildStreamParams(options.filters);
+    const url = `${API_BASE_URL}/logs/stream?${params.toString()}`;
+    eventSource = new EventSource(url, { withCredentials: false });
+
+    const handleMessage = (event: MessageEvent) => {
+      // Reset reconnect attempt on successful message
+      reconnectAttempt = 0;
+
+      if (!event.data) return;
+      try {
+        const payload = JSON.parse(event.data) as LogEntry;
+        options.onEvent(normaliseEntry(payload));
+      } catch (error) {
+        console.warn('Failed to parse log stream payload', error);
+      }
+    };
+
+    const handleError = () => {
+      if (isStopped) return;
+
+      eventSource?.close();
+
+      // Calculate exponential backoff delay
+      const maxAttempts = 5;
+      if (reconnectAttempt < maxAttempts) {
+        const delay = Math.min(
+          500 * Math.pow(2, reconnectAttempt),
+          10000
+        );
+
+        reconnectAttempt++;
+        reconnectTimer = setTimeout(() => {
+          if (!isStopped) {
+            connect();
+          }
+        }, delay);
+      } else {
+        // Max retries exceeded
+        const error = new UiApiError('Log stream disconnected after max retries', 502, {
+          attempts: reconnectAttempt,
+        });
+        options.onError?.(error);
+      }
+    };
+
+    eventSource.addEventListener('message', handleMessage);
+    eventSource.addEventListener('error', handleError);
   };
 
-  const handleError = (event: Event) => {
-    eventSource.close();
-    const error = new UiApiError('Log stream disconnected', 502, event);
-    options.onError?.(error);
-  };
-
-  eventSource.addEventListener('message', handleMessage);
-  eventSource.addEventListener('error', handleError);
+  // Initial connection
+  connect();
 
   return {
     stop: () => {
-      eventSource.removeEventListener('message', handleMessage);
-      eventSource.removeEventListener('error', handleError);
-      eventSource.close();
+      isStopped = true;
+      if (reconnectTimer) {
+        clearTimeout(reconnectTimer);
+        reconnectTimer = null;
+      }
+      eventSource?.close();
+      eventSource = null;
     },
   };
 };
