@@ -1,7 +1,7 @@
 version: '3.9'
 services:
   icecast:
-    image: dockage/icecast:2.4.4
+    image: libretime/icecast:2.4.4
     container_name: icecast
     restart: unless-stopped
     ports:
