@@ -134,3 +134,73 @@ export const refreshCameraPreview = async (
 
   return getCameraOverview(options);
 };
+
+export interface CameraProbeResult {
+  cameraId?: string;
+  probedAt: string;
+  status?: 'reachable' | 'unreachable';
+  reason?: string;
+  result?: {
+    rtsp_reachable: boolean;
+    hls_available: boolean;
+    preview_available: boolean;
+    last_success: string | null;
+    cached: boolean;
+  } | null;
+  cameras?: {
+    cameraId: string;
+    name: string;
+    status: 'reachable' | 'unreachable';
+    reason: string;
+    rtsp_reachable: boolean;
+    hls_available: boolean;
+  }[];
+  summary?: {
+    total: number;
+    reachable: number;
+    unreachable: number;
+  };
+}
+
+export const probeCameraStream = async (
+  cameraId?: string | null,
+  options: CameraQueryOptions = {}
+): Promise<CameraProbeResult> => {
+  if (USE_MOCKS) {
+    // Return mock probe result
+    return {
+      probedAt: new Date().toISOString(),
+      cameras: [
+        {
+          cameraId: 'cam-001',
+          name: 'Front Door',
+          status: 'unreachable',
+          reason: 'Camera hardware not attached',
+          rtsp_reachable: false,
+          hls_available: false,
+        },
+      ],
+      summary: {
+        total: 1,
+        reachable: 0,
+        unreachable: 1,
+      },
+    };
+  }
+
+  const fetchImpl = ensureFetch(options.fetch);
+  try {
+    return rawRequest<CameraProbeResult>('/camera/probe', {
+      method: 'POST',
+      body: cameraId ? { cameraId } : {},
+      fetch: fetchImpl as RequestOptions['fetch'],
+    });
+  } catch (error) {
+    const status =
+      typeof (error as { status?: number }).status === 'number'
+        ? (error as { status?: number }).status!
+        : 503;
+    const detail = error instanceof Error ? error.message : error;
+    throw new UiApiError('Unable to probe camera stream', status, detail);
+  }
+};

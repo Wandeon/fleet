@@ -29,6 +29,63 @@ export interface LogStreamSubscription {
   stop: () => void;
 }
 
+// Retry utility with exponential backoff
+interface RetryOptions {
+  maxAttempts?: number;
+  initialDelayMs?: number;
+  maxDelayMs?: number;
+  backoffMultiplier?: number;
+  retryableStatuses?: number[];
+}
+
+const DEFAULT_RETRY_OPTIONS: Required<RetryOptions> = {
+  maxAttempts: 3,
+  initialDelayMs: 500,
+  maxDelayMs: 10000,
+  backoffMultiplier: 2,
+  retryableStatuses: [408, 429, 500, 502, 503, 504],
+};
+
+async function sleep(ms: number): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+async function withRetry<T>(
+  fn: () => Promise<T>,
+  options: RetryOptions = {}
+): Promise<T> {
+  const opts = { ...DEFAULT_RETRY_OPTIONS, ...options };
+  let lastError: Error | null = null;
+
+  for (let attempt = 0; attempt < opts.maxAttempts; attempt++) {
+    try {
+      return await fn();
+    } catch (error) {
+      lastError = error as Error;
+
+      // Check if error is retryable
+      const isRetryable =
+        error instanceof UiApiError &&
+        opts.retryableStatuses.includes(error.status);
+
+      // Don't retry on last attempt or non-retryable errors
+      if (attempt === opts.maxAttempts - 1 || !isRetryable) {
+        throw error;
+      }
+
+      // Calculate delay with exponential backoff
+      const delay = Math.min(
+        opts.initialDelayMs * Math.pow(opts.backoffMultiplier, attempt),
+        opts.maxDelayMs
+      );
+
+      await sleep(delay);
+    }
+  }
+
+  throw lastError ?? new Error('Retry failed with unknown error');
+}
+
 export interface FetchLogsOptions {
   level?: LogLevel;
   limit?: number;
@@ -156,24 +213,32 @@ export const fetchLogSnapshot = async (options: LogQueryOptions = {}): Promise<L
 
   const fetchImpl = ensureFetch(options.fetch);
   const params = buildQueryParams(options);
-  const result = await rawRequest<{
-    items: LogEntry[];
-    total: number;
-    fetchedAt: string;
-    sources?: LogsSnapshot['sources'];
-    cursor?: string | null;
-    lastUpdated?: string;
-  }>(`/logs/query?${params.toString()}`, {
-    method: 'GET',
-    fetch: fetchImpl as RequestOptions['fetch'],
-  });
 
-  return {
-    entries: (result?.items ?? []).map(normaliseEntry),
-    sources: result?.sources ?? [],
-    cursor: result?.cursor ?? null,
-    lastUpdated: result?.fetchedAt ?? new Date().toISOString(),
-  } satisfies LogsSnapshot;
+  // Use retry logic for 5xx errors
+  return withRetry(async () => {
+    const result = await rawRequest<{
+      items: LogEntry[];
+      total: number;
+      fetchedAt: string;
+      sources?: LogsSnapshot['sources'];
+      cursor?: string | null;
+      lastUpdated?: string;
+    }>(`/logs/query?${params.toString()}`, {
+      method: 'GET',
+      fetch: fetchImpl as RequestOptions['fetch'],
+    });
+
+    return {
+      entries: (result?.items ?? []).map(normaliseEntry),
+      sources: result?.sources ?? [],
+      cursor: result?.cursor ?? null,
+      lastUpdated: result?.fetchedAt ?? new Date().toISOString(),
+    } satisfies LogsSnapshot;
+  }, {
+    maxAttempts: 3,
+    initialDelayMs: 500,
+    maxDelayMs: 5000,
+  });
 };
 
 export const fetchLogsSnapshot = async (options: FetchLogsOptions = {}): Promise<LogsSnapshot> => {
@@ -211,34 +276,75 @@ export const subscribeToLogStream = (options: LogStreamOptions): LogStreamSubscr
     return { stop };
   }
 
-  const params = buildStreamParams(options.filters);
-  const url = `${API_BASE_URL}/logs/stream?${params.toString()}`;
-  const eventSource = new EventSource(url, { withCredentials: false });
+  let eventSource: EventSource | null = null;
+  let reconnectAttempt = 0;
+  let reconnectTimer: ReturnType<typeof setTimeout> | null = null;
+  let isStopped = false;
 
-  const handleMessage = (event: MessageEvent) => {
-    if (!event.data) return;
-    try {
-      const payload = JSON.parse(event.data) as LogEntry;
-      options.onEvent(normaliseEntry(payload));
-    } catch (error) {
-      console.warn('Failed to parse log stream payload', error);
-    }
+  const connect = () => {
+    if (isStopped) return;
+
+    const params = buildStreamParams(options.filters);
+    const url = `${API_BASE_URL}/logs/stream?${params.toString()}`;
+    eventSource = new EventSource(url, { withCredentials: false });
+
+    const handleMessage = (event: MessageEvent) => {
+      // Reset reconnect attempt on successful message
+      reconnectAttempt = 0;
+
+      if (!event.data) return;
+      try {
+        const payload = JSON.parse(event.data) as LogEntry;
+        options.onEvent(normaliseEntry(payload));
+      } catch (error) {
+        console.warn('Failed to parse log stream payload', error);
+      }
+    };
+
+    const handleError = () => {
+      if (isStopped) return;
+
+      eventSource?.close();
+
+      // Calculate exponential backoff delay
+      const maxAttempts = 5;
+      if (reconnectAttempt < maxAttempts) {
+        const delay = Math.min(
+          500 * Math.pow(2, reconnectAttempt),
+          10000
+        );
+
+        reconnectAttempt++;
+        reconnectTimer = setTimeout(() => {
+          if (!isStopped) {
+            connect();
+          }
+        }, delay);
+      } else {
+        // Max retries exceeded
+        const error = new UiApiError('Log stream disconnected after max retries', 502, {
+          attempts: reconnectAttempt,
+        });
+        options.onError?.(error);
+      }
+    };
+
+    eventSource.addEventListener('message', handleMessage);
+    eventSource.addEventListener('error', handleError);
   };
 
-  const handleError = (event: Event) => {
-    eventSource.close();
-    const error = new UiApiError('Log stream disconnected', 502, event);
-    options.onError?.(error);
-  };
-
-  eventSource.addEventListener('message', handleMessage);
-  eventSource.addEventListener('error', handleError);
+  // Initial connection
+  connect();
 
   return {
     stop: () => {
-      eventSource.removeEventListener('message', handleMessage);
-      eventSource.removeEventListener('error', handleError);
-      eventSource.close();
+      isStopped = true;
+      if (reconnectTimer) {
+        clearTimeout(reconnectTimer);
+        reconnectTimer = null;
+      }
+      eventSource?.close();
+      eventSource = null;
     },
   };
 };
