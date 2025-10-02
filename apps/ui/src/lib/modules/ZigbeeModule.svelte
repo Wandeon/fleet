@@ -34,6 +34,7 @@
   let pairingTimer: ReturnType<typeof setInterval> | null = null;
   let discoveryTimer: ReturnType<typeof setInterval> | null = null;
   let actionInProgress: string | null = null;
+  let deviceActionInProgress: string | null = null;
   let errorMessage: string | null = null;
   let correlationId: string | null = null;
 

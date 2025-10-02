@@ -29,6 +29,63 @@ export interface LogStreamSubscription {
   stop: () => void;
 }
 
+// Retry utility with exponential backoff for 5xx errors
+interface RetryOptions {
+  maxAttempts?: number;
+  initialDelayMs?: number;
+  maxDelayMs?: number;
+  backoffMultiplier?: number;
+  retryableStatuses?: number[];
+}
+
+const DEFAULT_RETRY_OPTIONS: Required<RetryOptions> = {
+  maxAttempts: 3,
+  initialDelayMs: 500,
+  maxDelayMs: 10000,
+  backoffMultiplier: 2,
+  retryableStatuses: [408, 429, 500, 502, 503, 504],
+};
+
+async function sleep(ms: number): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+async function withRetry<T>(
+  fn: () => Promise<T>,
+  options: RetryOptions = {}
+): Promise<T> {
+  const opts = { ...DEFAULT_RETRY_OPTIONS, ...options };
+  let lastError: Error | null = null;
+
+  for (let attempt = 0; attempt < opts.maxAttempts; attempt++) {
+    try {
+      return await fn();
+    } catch (error) {
+      lastError = error as Error;
+
+      // Check if error is retryable
+      const isRetryable =
+        error instanceof UiApiError &&
+        opts.retryableStatuses.includes(error.status);
+
+      // Don't retry on last attempt or non-retryable errors
+      if (attempt === opts.maxAttempts - 1 || !isRetryable) {
+        throw error;
+      }
+
+      // Calculate delay with exponential backoff
+      const delay = Math.min(
+        opts.initialDelayMs * Math.pow(opts.backoffMultiplier, attempt),
+        opts.maxDelayMs
+      );
+
+      await sleep(delay);
+    }
+  }
+
+  throw lastError ?? new Error('Retry failed with unknown error');
+}
+
 export interface FetchLogsOptions {
   level?: LogLevel;
   limit?: number;
@@ -156,24 +213,32 @@ export const fetchLogSnapshot = async (options: LogQueryOptions = {}): Promise<L
 
   const fetchImpl = ensureFetch(options.fetch);
   const params = buildQueryParams(options);
-  const result = await rawRequest<{
-    items: LogEntry[];
-    total: number;
-    fetchedAt: string;
-    sources?: LogsSnapshot['sources'];
-    cursor?: string | null;
-    lastUpdated?: string;
-  }>(`/logs/query?${params.toString()}`, {
-    method: 'GET',
-    fetch: fetchImpl as RequestOptions['fetch'],
-  });
 
-  return {
-    entries: (result?.items ?? []).map(normaliseEntry),
-    sources: result?.sources ?? [],
-    cursor: result?.cursor ?? null,
-    lastUpdated: result?.fetchedAt ?? new Date().toISOString(),
-  } satisfies LogsSnapshot;
+  // Use retry logic with exponential backoff for 5xx errors
+  return withRetry(async () => {
+    const result = await rawRequest<{
+      items: LogEntry[];
+      total: number;
+      fetchedAt: string;
+      sources?: LogsSnapshot['sources'];
+      cursor?: string | null;
+      lastUpdated?: string;
+    }>(`/logs/query?${params.toString()}`, {
+      method: 'GET',
+      fetch: fetchImpl as RequestOptions['fetch'],
+    });
+
+    return {
+      entries: (result?.items ?? []).map(normaliseEntry),
+      sources: result?.sources ?? [],
+      cursor: result?.cursor ?? null,
+      lastUpdated: result?.fetchedAt ?? new Date().toISOString(),
+    } satisfies LogsSnapshot;
+  }, {
+    maxAttempts: 3,
+    initialDelayMs: 500,
+    maxDelayMs: 5000,
+  });
 };
 
 export const fetchLogsSnapshot = async (options: FetchLogsOptions = {}): Promise<LogsSnapshot> => {

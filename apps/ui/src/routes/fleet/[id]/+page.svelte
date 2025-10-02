@@ -18,6 +18,79 @@
   let loading = false;
   let actionLoading = new SvelteSet<string>();
   let error: string | null = null;
+  let deviceLogs: LogEntry[] = [];
+  let logsLoading = false;
+
+  // Generate actions based on device module/type
+  $: deviceActions = detail ? generateDeviceActions(detail) : [];
+
+  // Fetch device logs when detail changes
+  $: if (detail) {
+    fetchDeviceLogs(detail.summary.id);
+  }
+
+  function generateDeviceActions(device: FleetDeviceDetail): FleetDeviceAction[] {
+    const actions: FleetDeviceAction[] = [];
+    const module = device.summary.module?.toLowerCase() || '';
+    const deviceId = device.summary.id;
+
+    if (module.includes('audio')) {
+      actions.push(
+        {
+          id: 'play',
+          label: 'Play',
+          description: 'Resume playback',
+          group: 'audio',
+          method: 'POST',
+          endpoint: `/api/audio/${deviceId}/play`,
+        },
+        {
+          id: 'stop',
+          label: 'Stop',
+          description: 'Stop playback',
+          group: 'audio',
+          method: 'POST',
+          endpoint: `/api/audio/${deviceId}/stop`,
+        }
+      );
+    } else if (module.includes('video')) {
+      actions.push({
+        id: 'power-toggle',
+        label: 'Toggle Power',
+        description: 'Toggle TV power',
+        group: 'video',
+        method: 'POST',
+        endpoint: `/api/video/${deviceId}/power`,
+      });
+    } else if (module.includes('camera')) {
+      actions.push({
+        id: 'probe',
+        label: 'Probe Stream',
+        description: 'Check camera stream status',
+        group: 'video',
+        method: 'POST',
+        endpoint: `/api/camera/${deviceId}/probe`,
+      });
+    }
+
+    // Include any actions from the backend
+    return [...actions, ...device.actions];
+  }
+
+  const fetchDeviceLogs = async (deviceId: string) => {
+    logsLoading = true;
+    try {
+      const response = await fetch(`/api/logs?deviceId=${encodeURIComponent(deviceId)}`);
+      if (response.ok) {
+        const data = await response.json();
+        deviceLogs = data.entries || [];
+      }
+    } catch (err) {
+      console.error('Failed to fetch device logs:', err);
+    } finally {
+      logsLoading = false;
+    }
+  };
 
   const refresh = async () => {
     if (!detail) return;
@@ -25,6 +98,8 @@
     try {
       detail = await getFleetDeviceDetail(detail.summary.id, { fetch });
       error = null;
+      // Also refresh logs
+      await fetchDeviceLogs(detail.summary.id);
     } catch (err) {
       error = err instanceof Error ? err.message : 'Unable to refresh device';
     } finally {
@@ -49,7 +124,22 @@
     if (!detail || actionLoading.has(action.id)) return;
     addActionLoading(action.id);
     try {
-      detail = await triggerDeviceAction(detail.summary.id, action.id, { fetch });
+      // Call the actual API endpoint based on action configuration
+      const response = await fetch(action.endpoint, {
+        method: action.method,
+        headers: { 'Content-Type': 'application/json' },
+        body: action.method !== 'GET' ? JSON.stringify({}) : undefined,
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({ message: 'Action failed' }));
+        throw new Error(errorData.message || `Action failed with status ${response.status}`);
+      }
+
+      const result = await response.json();
+
+      // Refresh device detail after action
+      await refresh();
       error = null;
     } catch (err) {
       error = err instanceof Error ? err.message : `Unable to execute ${action.label}`;
@@ -175,11 +265,13 @@
       </Card>
 
       <Card title="Recent logs" subtitle="Latest activity">
-        {#if !detail.logs.length}
+        {#if logsLoading}
+          <p class="muted">Loading logs...</p>
+        {:else if !deviceLogs.length}
           <p class="muted">No device-level logs recorded.</p>
         {:else}
           <ul class="logs">
-            {#each detail.logs.slice(0, 8) as log (log.id)}
+            {#each deviceLogs.slice(0, 8) as log (log.id)}
               <li>
                 <time datetime={log.timestamp}>{new Date(log.timestamp).toLocaleTimeString()}</time>
                 <span class={`severity-${log.severity}`}>{log.severity}</span>
@@ -193,11 +285,11 @@
       </Card>
 
       <Card title="Actions" subtitle="Control plane operations">
-        {#if !detail.actions.length}
+        {#if !deviceActions.length}
           <p class="muted">No actions available for this device.</p>
         {:else}
           <div class="actions">
-            {#each detail.actions as action (action.id)}
+            {#each deviceActions as action (action.id)}
               <Button
                 variant={action.group === 'maintenance' ? 'secondary' : 'ghost'}
                 class="action-button"

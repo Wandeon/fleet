@@ -237,6 +237,10 @@ jobs:
         working-directory: apps/ui
         run: npm ci
 
+      - name: Install Playwright browsers
+        working-directory: apps/ui
+        run: npx playwright install --with-deps chromium firefox
+
       - name: Run API tests
         working-directory: apps/api
         run: |
@@ -246,7 +250,7 @@ jobs:
             echo "No API tests configured, skipping..."
           fi
 
-      - name: Run UI tests
+      - name: Run UI unit tests
         working-directory: apps/ui
         run: |
           if node -e "const pkg=require('./package.json'); process.exit(pkg.scripts?.test ? 0 : 1)"; then
@@ -254,3 +258,38 @@ jobs:
           else
             echo "No UI tests configured, skipping..."
           fi
+
+      - name: Run Playwright E2E tests
+        working-directory: apps/ui
+        run: |
+          if node -e "const pkg=require('./package.json'); process.exit(pkg.scripts?.['test:ui'] ? 0 : 1)"; then
+            npm run test:ui
+          else
+            echo "No Playwright tests configured, skipping..."
+          fi
+
+      - name: Upload Playwright artifacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-results-${{ matrix.node }}
+          path: |
+            apps/ui/playwright-report/
+            apps/ui/test-results/
+          retention-days: 30
+
+      - name: Upload test screenshots on failure
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: test-screenshots-${{ matrix.node }}
+          path: apps/ui/test-results/**/*.png
+          retention-days: 7
+
+      - name: Upload trace files on failure
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-traces-${{ matrix.node }}
+          path: apps/ui/test-results/**/*.zip
+          retention-days: 7

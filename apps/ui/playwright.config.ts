@@ -8,7 +8,9 @@ export default defineConfig({
   timeout: testConfig.timeouts.DEFAULT,
   use: {
     baseURL: testConfig.uiBaseUrl,
-    trace: 'on-first-retry',
+    trace: process.env.CI ? 'on' : 'on-first-retry',
+    screenshot: process.env.CI ? 'on' : 'only-on-failure',
+    video: process.env.CI ? 'retain-on-failure' : 'off',
     headless: true,
   },
   webServer: {
@@ -28,5 +30,10 @@ export default defineConfig({
       name: 'firefox',
       use: { ...devices['Desktop Firefox'] },
     },
+  ],
+  reporter: [
+    ['html', { outputFolder: 'playwright-report' }],
+    ['list'],
+    process.env.CI ? ['github'] : ['list'],
   ],
 });
