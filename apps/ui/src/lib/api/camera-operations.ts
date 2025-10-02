@@ -32,7 +32,22 @@ export const selectCamera = async (
     return mockApi.cameraSelect(cameraId);
   }
 
-  console.info('Camera selection request ignored while hardware is offline', { cameraId });
+  const fetchImpl = ensureFetch(options.fetch);
+  try {
+    await rawRequest('/camera/active', {
+      method: 'POST',
+      body: { cameraId },
+      fetch: fetchImpl as RequestOptions['fetch'],
+    });
+  } catch (error) {
+    const status =
+      typeof (error as { status?: number }).status === 'number'
+        ? (error as { status?: number }).status!
+        : 422;
+    const detail = error instanceof Error ? error.message : error;
+    throw new UiApiError('Unable to select camera', status, detail);
+  }
+
   return getCameraOverview(options);
 };
 
@@ -97,10 +112,25 @@ export const refreshCameraPreview = async (
     return getCameraOverview(options);
   }
 
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const fetchImpl = ensureFetch(options.fetch);
-  console.info('Camera preview refresh ignored while hardware is offline', {
-    cameraId: cameraId ?? null,
-  });
+
+  if (!cameraId) {
+    return getCameraOverview(options);
+  }
+
+  try {
+    await rawRequest(`/camera/${cameraId}/refresh`, {
+      method: 'POST',
+      fetch: fetchImpl as RequestOptions['fetch'],
+    });
+  } catch (error) {
+    const status =
+      typeof (error as { status?: number }).status === 'number'
+        ? (error as { status?: number }).status!
+        : 422;
+    const detail = error instanceof Error ? error.message : error;
+    throw new UiApiError('Unable to refresh camera preview', status, detail);
+  }
+
   return getCameraOverview(options);
 };
