@@ -203,6 +203,45 @@ router.post('/actions', (req, res, next) => {
   }
 });
 
+router.post('/devices/:id/command', (req, res, next) => {
+  res.locals.routePath = '/zigbee/devices/:id/command';
+  try {
+    const { id } = req.params;
+    const { command, payload } = req.body;
+
+    if (!command) {
+      throw createHttpError(400, 'bad_request', 'command is required');
+    }
+
+    const device = deviceRegistry.getDevice(id);
+    if (!device || (device.module !== 'zigbee' && !device.role.includes('zigbee'))) {
+      throw createHttpError(404, 'not_found', `Zigbee device ${id} not found`);
+    }
+
+    const commandId = randomUUID();
+    log.info(
+      {
+        deviceId: id,
+        command,
+        commandId,
+      },
+      'Zigbee device command sent'
+    );
+
+    res.status(202).json({
+      accepted: true,
+      commandId,
+      deviceId: id,
+      command,
+      payload,
+      receivedAt: new Date().toISOString(),
+    });
+  } catch (error) {
+    log.error({ deviceId: req.params.id, error }, 'Failed to send zigbee device command');
+    next(error);
+  }
+});
+
 router.post('/pairing', (req, res, next) => {
   res.locals.routePath = '/zigbee/pairing';
   try {
