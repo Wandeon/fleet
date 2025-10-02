@@ -526,6 +526,7 @@ export type RoutePath =
   | '/camera'
   | '/health'
   | '/logs'
+  | '/settings'
   | '/fleet'
   | '/fleet/layout'
   | `/fleet/${string}`;

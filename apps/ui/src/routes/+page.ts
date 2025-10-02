@@ -41,12 +41,14 @@ export const load: PageLoad = async ({ fetch, depends }) => {
         data: null,
         error: null,
       });
+  const fleetStatePromise = toResult(apiClient.fetchState({ fetch }));
 
-  const [audio, video, zigbee, camera] = await Promise.all([
+  const [audio, video, zigbee, camera, fleetState] = await Promise.all([
     audioPromise,
     videoPromise,
     zigbeePromise,
     cameraPromise,
+    fleetStatePromise,
   ]);
 
   return {
@@ -54,5 +56,6 @@ export const load: PageLoad = async ({ fetch, depends }) => {
     video,
     zigbee,
     camera,
+    fleetState,
   };
 };
