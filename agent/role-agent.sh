@@ -427,6 +427,7 @@ for plan_path in "${PLAN_FILES[@]}"; do
 done
 
 COMPOSE_GLOBAL_ARGS=()
+COMPOSE_GLOBAL_ARGS+=(--project-directory "$ROLE_DIR")
 if [[ -f "$REPO_DIR/.env" ]]; then
   COMPOSE_GLOBAL_ARGS+=(--env-file "$REPO_DIR/.env")
 fi
