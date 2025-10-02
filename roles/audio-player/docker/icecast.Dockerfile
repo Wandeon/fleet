@@ -2,11 +2,17 @@ FROM arm32v7/alpine:3.19
 
 RUN apk add --no-cache icecast
 
-# Create config directory
-RUN mkdir -p /etc/icecast2
+# Create icecast user and directories
+RUN adduser -D -u 1000 icecast && \
+    mkdir -p /etc/icecast2 /var/log/icecast && \
+    chown -R icecast:icecast /etc/icecast2 /var/log/icecast /usr/share/icecast
 
-# Copy default config and allow environment variable substitution
+# Copy default config
 COPY icecast-template.xml /etc/icecast2/icecast.xml
+RUN chown icecast:icecast /etc/icecast2/icecast.xml
+
+# Switch to icecast user
+USER icecast
 
 # Expose the icecast port
 EXPOSE 8000
