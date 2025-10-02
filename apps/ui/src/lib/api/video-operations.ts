@@ -80,9 +80,21 @@ export const setVideoPower = async (
     return { state: mockApi.videoSetPower(power), jobId: 'mock-job-123' };
   }
 
-  const response = await VideoService.setVideoPower(PRIMARY_VIDEO_DEVICE_ID, { power: toVideoPowerState(power) });
+  const response = await fetch('/api/video/tv/power', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ on: power === 'on' }),
+  });
+
+  if (!response.ok) {
+    const error = await response.json().catch(() => ({ error: 'Power control failed' }));
+    const apiError = new UiApiError(error.error || 'Power control failed', response.status);
+    throw apiError;
+  }
+
+  const data = await response.json();
   const state = await getVideoOverview(options);
-  return { state, jobId: response.jobId };
+  return { state, jobId: data.correlationId };
 };
 
 export const setVideoInput = async (
@@ -94,9 +106,21 @@ export const setVideoInput = async (
     return { state: mockApi.videoSetInput(inputId), jobId: 'mock-job-124' };
   }
 
-  const response = await VideoService.setVideoInput(PRIMARY_VIDEO_DEVICE_ID, { input: inputId });
+  const response = await fetch('/api/video/tv/input', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ input: inputId }),
+  });
+
+  if (!response.ok) {
+    const error = await response.json().catch(() => ({ error: 'Input control failed' }));
+    const apiError = new UiApiError(error.error || 'Input control failed', response.status);
+    throw apiError;
+  }
+
+  const data = await response.json();
   const state = await getVideoOverview(options);
-  return { state, jobId: response.jobId };
+  return { state, jobId: data.correlationId };
 };
 
 export const setVideoVolume = async (
@@ -109,9 +133,21 @@ export const setVideoVolume = async (
     return { state: mockApi.videoSetVolume(safeVolume), jobId: 'mock-job-125' };
   }
 
-  const response = await VideoService.setVideoVolume(PRIMARY_VIDEO_DEVICE_ID, { volumePercent: safeVolume });
+  const response = await fetch('/api/video/tv/volume', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ volume: safeVolume }),
+  });
+
+  if (!response.ok) {
+    const error = await response.json().catch(() => ({ error: 'Volume control failed' }));
+    const apiError = new UiApiError(error.error || 'Volume control failed', response.status);
+    throw apiError;
+  }
+
+  const data = await response.json();
   const state = await getVideoOverview(options);
-  return { state, jobId: response.jobId };
+  return { state, jobId: data.correlationId };
 };
 
 export const setVideoMute = async (
@@ -123,9 +159,21 @@ export const setVideoMute = async (
     return { state: mockApi.videoSetMute(muted), jobId: 'mock-job-126' };
   }
 
-  const response = await VideoService.setVideoMute(PRIMARY_VIDEO_DEVICE_ID, { mute: muted });
+  const response = await fetch('/api/video/tv/mute', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ mute: muted }),
+  });
+
+  if (!response.ok) {
+    const error = await response.json().catch(() => ({ error: 'Mute control failed' }));
+    const apiError = new UiApiError(error.error || 'Mute control failed', response.status);
+    throw apiError;
+  }
+
+  const data = await response.json();
   const state = await getVideoOverview(options);
-  return { state, jobId: response.jobId };
+  return { state, jobId: data.correlationId };
 };
 
 const mapRecordingSegment = (segment: ApiVideoRecordingSegment): import('$lib/types').VideoRecordingSegment => ({
