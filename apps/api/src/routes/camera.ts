@@ -144,6 +144,31 @@ router.get('/active', (_req, res) => {
   res.json(response);
 });
 
+router.post('/active', (req, res, next) => {
+  res.locals.routePath = '/camera/active';
+  try {
+    const { cameraId } = req.body;
+
+    if (!cameraId) {
+      throw createHttpError(400, 'bad_request', 'cameraId is required');
+    }
+
+    const device = deviceRegistry.getDevice(cameraId);
+    if (!device || !isCameraDevice(device)) {
+      throw createHttpError(404, 'not_found', `Camera ${cameraId} not found`);
+    }
+
+    log.info({ cameraId }, 'Active camera updated');
+    res.json({
+      activeCameraId: cameraId,
+      updatedAt: new Date().toISOString(),
+    });
+  } catch (error) {
+    log.error({ error }, 'Failed to set active camera');
+    next(error);
+  }
+});
+
 router.get('/summary', async (_req, res) => {
   res.locals.routePath = '/api/camera/summary';
   const devices = listCameraDevices();
@@ -361,6 +386,34 @@ router.get('/streams', (_req, res) => {
     total: streams.length,
     updatedAt: now,
   });
+});
+
+router.post('/:id/refresh', async (req, res, next) => {
+  res.locals.routePath = '/api/camera/:id/refresh';
+  try {
+    const { id } = req.params;
+    const device = deviceRegistry.getDevice(id);
+
+    if (!device || !isCameraDevice(device)) {
+      log.warn({ cameraId: id }, 'Camera refresh requested for unregistered camera');
+      throw createHttpError(404, 'not_found', `Camera ${id} not found`);
+    }
+
+    log.info({ cameraId: id }, 'Camera refresh requested');
+
+    // Attempt to fetch fresh status
+    const status = await fetchCameraStatus(id);
+
+    res.json({
+      cameraId: id,
+      refreshedAt: new Date().toISOString(),
+      status: status ? 'online' : 'offline',
+      ...(status && { data: status }),
+    });
+  } catch (error) {
+    log.error({ cameraId: req.params.id, error }, 'Failed to refresh camera');
+    next(error);
+  }
 });
 
 export const cameraRouter = router;

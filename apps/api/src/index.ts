@@ -61,9 +61,9 @@ export function createApp() {
   app.use('/video', videoRouter);
   app.use('/zigbee', zigbeeRouter);
   app.use(['/camera', '/api/camera'], cameraRouter);
-  app.use('/health', healthSummaryRouter);
-  app.use('/logs', logsRouter);
-  app.use('/settings', settingsRouter);
+  app.use(['/health', '/api/health'], healthSummaryRouter);
+  app.use(['/logs', '/api/logs'], logsRouter);
+  app.use(['/settings', '/api/settings'], settingsRouter);
 
   app.use(errorHandler);
 
