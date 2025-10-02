@@ -315,6 +315,18 @@ def get_metrics():
     return Response("\n".join(lines) + "\n", mimetype="text/plain")
 
 
+@app.get("/openapi.yaml")
+def openapi_spec():
+    """Serve OpenAPI specification for API documentation and testing."""
+    spec_path = os.path.join(os.path.dirname(__file__), "..", "..", "openapi.yaml")
+    try:
+        with open(spec_path, "r", encoding="utf-8") as f:
+            spec_content = f.read()
+        return Response(spec_content, mimetype="text/yaml")
+    except FileNotFoundError:
+        return jsonify({"error": "OpenAPI spec not found"}), 404
+
+
 def main() -> None:
     if not os.path.exists(CFG_PATH):
         save_config(load_config())

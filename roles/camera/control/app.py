@@ -185,6 +185,18 @@ async def manual_probe(Authorization: Optional[str] = Header(None)):
     return result
 
 
+@app.get("/openapi.yaml")
+def openapi_spec():
+    """Serve OpenAPI specification for API documentation and testing."""
+    from pathlib import Path
+
+    spec_path = Path(__file__).parent.parent / "openapi.yaml"
+    try:
+        return PlainTextResponse(spec_path.read_text(), media_type="text/yaml")
+    except FileNotFoundError:
+        return {"error": "OpenAPI spec not found"}, 404
+
+
 if __name__ == "__main__":
     import uvicorn
 

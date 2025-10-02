@@ -39,3 +39,8 @@ log.headspamartina.hr {
   encode zstd gzip
   reverse_proxy grafana:3000
 }
+
+dev.headspamartina.hr {
+  encode zstd gzip
+  reverse_proxy swagger-ui:8080
+}

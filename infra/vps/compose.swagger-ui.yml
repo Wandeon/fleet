@@ -1,0 +1,31 @@
+version: '3.9'
+services:
+  swagger-ui:
+    image: swaggerapi/swagger-ui:latest
+    restart: unless-stopped
+    ports:
+      - '8084:8080'
+    environment:
+      # Configure Swagger UI to support multiple API specs
+      - URLS=[
+          {"url":"http://pi-audio-01:8081/openapi.yaml","name":"Audio Player 01"},
+          {"url":"http://pi-audio-02:8081/openapi.yaml","name":"Audio Player 02"},
+          {"url":"http://pi-video-01:8082/openapi.yaml","name":"Video Control"},
+          {"url":"http://pi-camera-01:8083/openapi.yaml","name":"Camera Control"},
+          {"url":"http://fleet-api:3015/openapi.yaml","name":"Fleet API"}
+        ]
+      - BASE_URL=/
+      - DEEP_LINKING=true
+      - DISPLAY_REQUEST_DURATION=true
+      - DEFAULT_MODELS_EXPAND_DEPTH=3
+      - DEFAULT_MODEL_EXPAND_DEPTH=3
+      - SHOW_EXTENSIONS=true
+      - SHOW_COMMON_EXTENSIONS=true
+      - TRY_IT_OUT_ENABLED=true
+    networks:
+      - default
+      - fleet-network
+networks:
+  fleet-network:
+    external: true
+    name: vps_fleet-network

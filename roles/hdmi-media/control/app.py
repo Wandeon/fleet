@@ -196,6 +196,19 @@ def tv_input(payload: dict = None, Authorization: Optional[str] = Header(None)):
     return {"ok": rc == 0}
 
 
+@app.get("/openapi.yaml")
+def openapi_spec():
+    """Serve OpenAPI specification for API documentation and testing."""
+    from pathlib import Path
+    from fastapi.responses import PlainTextResponse
+
+    spec_path = Path(__file__).parent.parent / "openapi.yaml"
+    try:
+        return PlainTextResponse(spec_path.read_text(), media_type="text/yaml")
+    except FileNotFoundError:
+        return {"error": "OpenAPI spec not found"}, 404
+
+
 if __name__ == "__main__":
     import uvicorn
 

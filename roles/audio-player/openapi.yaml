@@ -1,0 +1,327 @@
+openapi: 3.0.3
+info:
+  title: Audio Player Control API
+  version: 1.0.0
+  description: |
+    Direct control API for audio player devices. Manages stream playback,
+    volume control, and fallback file playback.
+
+    **Diagnostic Use:** Test this API directly to isolate device-level issues
+    from UI or Fleet API problems.
+servers:
+  - url: http://pi-audio-01:8081
+    description: Audio Player 01
+  - url: http://pi-audio-02:8081
+    description: Audio Player 02
+tags:
+  - name: Status
+    description: Device status and health monitoring
+  - name: Playback
+    description: Playback control operations
+  - name: Configuration
+    description: Device configuration management
+paths:
+  /healthz:
+    get:
+      tags: [Status]
+      summary: Health check
+      description: Returns 200 OK if service is healthy
+      responses:
+        '200':
+          description: Service is healthy
+          content:
+            text/plain:
+              schema:
+                type: string
+                example: ok
+  /status:
+    get:
+      tags: [Status]
+      summary: Get player status
+      description: Returns current playback status, configuration, and state
+      responses:
+        '200':
+          description: Current player status
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  stream_url:
+                    type: string
+                    description: Icecast stream URL
+                  volume:
+                    type: number
+                    format: float
+                    description: Software volume (0.0-2.0)
+                  mode:
+                    type: string
+                    enum: [auto, manual]
+                    description: Playback mode
+                  source:
+                    type: string
+                    enum: [stream, file, stop]
+                    description: Requested playback source
+                  requested_source:
+                    type: string
+                    enum: [stream, file, stop]
+                  now_playing:
+                    type: string
+                    enum: [stream, file, stop]
+                    description: Currently playing source
+                  fallback_exists:
+                    type: boolean
+                    description: Whether fallback MP3 file exists
+                  fallback_active:
+                    type: boolean
+                    description: Whether currently playing fallback
+                  stream_up:
+                    type: integer
+                    enum: [0, 1]
+                    description: Stream connectivity status
+                  last_switch_timestamp:
+                    type: number
+                    format: float
+                    description: Unix timestamp of last source switch
+                  last_error:
+                    type: string
+                    description: Last error message (if any)
+  /metrics:
+    get:
+      tags: [Status]
+      summary: Prometheus metrics
+      description: Exports Prometheus-compatible metrics
+      responses:
+        '200':
+          description: Prometheus metrics
+          content:
+            text/plain:
+              schema:
+                type: string
+  /config:
+    get:
+      tags: [Configuration]
+      summary: Get configuration
+      description: Returns current device configuration
+      responses:
+        '200':
+          description: Current configuration
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AudioConfig'
+    put:
+      tags: [Configuration]
+      summary: Update configuration
+      description: Update device configuration (partial updates supported)
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AudioConfig'
+      responses:
+        '200':
+          description: Configuration updated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AudioConfig'
+        '400':
+          description: Invalid request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+  /volume:
+    post:
+      tags: [Playback]
+      summary: Set volume
+      description: Set software volume level
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [volume]
+              properties:
+                volume:
+                  type: number
+                  format: float
+                  minimum: 0.0
+                  maximum: 2.0
+                  description: Volume level (0.0-2.0, 1.0 = 100%)
+      responses:
+        '200':
+          description: Volume updated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AudioConfig'
+        '400':
+          description: Invalid volume value
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '401':
+          description: Unauthorized
+  /hwvolume:
+    post:
+      tags: [Playback]
+      summary: Set hardware volume
+      description: Set hardware mixer volume (ALSA)
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [volume]
+              properties:
+                volume:
+                  type: integer
+                  minimum: 0
+                  maximum: 100
+                  description: Hardware volume percentage
+      responses:
+        '200':
+          description: Hardware volume updated
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  volume:
+                    type: integer
+        '400':
+          description: Invalid request
+        '401':
+          description: Unauthorized
+  /play:
+    post:
+      tags: [Playback]
+      summary: Start playback
+      description: Start playing stream or fallback file
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [source]
+              properties:
+                source:
+                  type: string
+                  enum: [stream, file]
+                  description: Playback source
+      responses:
+        '200':
+          description: Playback started
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AudioConfig'
+        '400':
+          description: Invalid source
+        '401':
+          description: Unauthorized
+  /stop:
+    post:
+      tags: [Playback]
+      summary: Stop playback
+      description: Stop all playback
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: Playback stopped
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AudioConfig'
+        '401':
+          description: Unauthorized
+  /upload:
+    post:
+      tags: [Configuration]
+      summary: Upload fallback file
+      description: Upload MP3 file to use as fallback when stream is unavailable
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              properties:
+                file:
+                  type: string
+                  format: binary
+                  description: MP3 audio file
+      responses:
+        '200':
+          description: File uploaded successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                  size:
+                    type: integer
+        '400':
+          description: Invalid file or format
+        '401':
+          description: Unauthorized
+
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      description: Audio control API token (AUDIO_CONTROL_TOKEN)
+  schemas:
+    AudioConfig:
+      type: object
+      properties:
+        stream_url:
+          type: string
+          description: Icecast stream URL
+        volume:
+          type: number
+          format: float
+          minimum: 0.0
+          maximum: 2.0
+          description: Software volume level
+        mode:
+          type: string
+          enum: [auto, manual]
+          description: auto = automatic fallback, manual = stay on source
+        source:
+          type: string
+          enum: [stream, file, stop]
+          description: Requested playback source
+    Error:
+      type: object
+      properties:
+        error:
+          type: string
+          description: Error message

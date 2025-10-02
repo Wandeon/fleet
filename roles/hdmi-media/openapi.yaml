@@ -1,0 +1,323 @@
+openapi: 3.0.3
+info:
+  title: HDMI Media Control API
+  version: 1.0.0
+  description: |
+    Direct control API for HDMI media player and TV (CEC) control.
+    Manages video playback and TV power/input switching.
+
+    **Diagnostic Use:** Test this API directly to isolate device-level issues
+    from UI or Fleet API problems.
+servers:
+  - url: http://pi-video-01:8082
+    description: HDMI Media Player 01
+tags:
+  - name: Status
+    description: Device status and health monitoring
+  - name: Playback
+    description: Video playback control
+  - name: TV Control
+    description: CEC TV control operations
+paths:
+  /healthz:
+    get:
+      tags: [Status]
+      summary: Health check
+      description: Returns 200 OK if service is healthy
+      responses:
+        '200':
+          description: Service is healthy
+          content:
+            text/plain:
+              schema:
+                type: string
+                example: ok
+  /status:
+    get:
+      tags: [Status]
+      summary: Get player status
+      description: Returns current playback status and TV state
+      responses:
+        '200':
+          description: Current player status
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  playing:
+                    type: boolean
+                    description: Whether media is currently playing
+                  paused:
+                    type: boolean
+                    description: Whether playback is paused
+                  current_file:
+                    type: string
+                    description: Currently playing file path
+                  position:
+                    type: number
+                    format: float
+                    description: Playback position in seconds
+                  duration:
+                    type: number
+                    format: float
+                    description: Media duration in seconds
+                  volume:
+                    type: integer
+                    description: Volume level (0-100)
+  /metrics:
+    get:
+      tags: [Status]
+      summary: Prometheus metrics
+      description: Exports Prometheus-compatible metrics
+      responses:
+        '200':
+          description: Prometheus metrics
+          content:
+            text/plain:
+              schema:
+                type: string
+  /play:
+    post:
+      tags: [Playback]
+      summary: Start playback
+      description: Start playing a video file
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [file]
+              properties:
+                file:
+                  type: string
+                  description: Path to video file
+      responses:
+        '200':
+          description: Playback started
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+        '400':
+          description: Invalid file path
+        '401':
+          description: Unauthorized
+  /pause:
+    post:
+      tags: [Playback]
+      summary: Pause playback
+      description: Pause current playback
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: Playback paused
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+        '401':
+          description: Unauthorized
+  /resume:
+    post:
+      tags: [Playback]
+      summary: Resume playback
+      description: Resume paused playback
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: Playback resumed
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+        '401':
+          description: Unauthorized
+  /stop:
+    post:
+      tags: [Playback]
+      summary: Stop playback
+      description: Stop current playback
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: Playback stopped
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+        '401':
+          description: Unauthorized
+  /seek:
+    post:
+      tags: [Playback]
+      summary: Seek to position
+      description: Seek to specific position in currently playing media
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [position]
+              properties:
+                position:
+                  type: number
+                  format: float
+                  description: Position in seconds
+      responses:
+        '200':
+          description: Seek completed
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                  position:
+                    type: number
+        '400':
+          description: Invalid position
+        '401':
+          description: Unauthorized
+  /volume:
+    post:
+      tags: [Playback]
+      summary: Set volume
+      description: Set playback volume level
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [volume]
+              properties:
+                volume:
+                  type: integer
+                  minimum: 0
+                  maximum: 100
+                  description: Volume level percentage
+      responses:
+        '200':
+          description: Volume updated
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  volume:
+                    type: integer
+        '400':
+          description: Invalid volume value
+        '401':
+          description: Unauthorized
+  /tv/power_on:
+    post:
+      tags: [TV Control]
+      summary: Power on TV
+      description: Turn on connected TV via HDMI-CEC
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: TV power on command sent
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+        '401':
+          description: Unauthorized
+  /tv/power_off:
+    post:
+      tags: [TV Control]
+      summary: Power off TV
+      description: Turn off connected TV via HDMI-CEC
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: TV power off command sent
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+        '401':
+          description: Unauthorized
+  /tv/input:
+    post:
+      tags: [TV Control]
+      summary: Switch TV input
+      description: Switch TV to specific HDMI input via CEC
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [input]
+              properties:
+                input:
+                  type: string
+                  description: HDMI input identifier
+      responses:
+        '200':
+          description: Input switched
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                  input:
+                    type: string
+        '400':
+          description: Invalid input
+        '401':
+          description: Unauthorized
+
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      description: Media control API token
+  schemas:
+    Error:
+      type: object
+      properties:
+        error:
+          type: string
+          description: Error message

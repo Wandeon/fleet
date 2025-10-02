@@ -1,0 +1,124 @@
+openapi: 3.0.3
+info:
+  title: Camera Control API
+  version: 1.0.0
+  description: |
+    Direct control API for camera streaming and health monitoring.
+    Manages camera stream health checks and probe operations.
+
+    **Diagnostic Use:** Test this API directly to isolate device-level issues
+    from UI or Fleet API problems.
+servers:
+  - url: http://pi-camera-01:8083
+    description: Camera Control 01
+tags:
+  - name: Status
+    description: Device status and health monitoring
+  - name: Control
+    description: Camera control operations
+paths:
+  /healthz:
+    get:
+      tags: [Status]
+      summary: Health check
+      description: Returns 200 OK if service is healthy
+      responses:
+        '200':
+          description: Service is healthy
+          content:
+            text/plain:
+              schema:
+                type: string
+                example: ok
+  /status:
+    get:
+      tags: [Status]
+      summary: Get camera status
+      description: Returns current camera stream status and health
+      responses:
+        '200':
+          description: Current camera status
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  stream_online:
+                    type: boolean
+                    description: Whether camera stream is accessible
+                  rtsp_url:
+                    type: string
+                    description: RTSP stream URL
+                  hls_url:
+                    type: string
+                    description: HLS stream URL
+                  last_probe:
+                    type: string
+                    format: date-time
+                    description: Last probe timestamp
+                  uptime:
+                    type: number
+                    format: float
+                    description: Stream uptime in seconds
+  /metrics:
+    get:
+      tags: [Status]
+      summary: Prometheus metrics
+      description: Exports Prometheus-compatible metrics
+      responses:
+        '200':
+          description: Prometheus metrics
+          content:
+            text/plain:
+              schema:
+                type: string
+  /probe:
+    post:
+      tags: [Control]
+      summary: Probe camera stream
+      description: Manually trigger camera stream health check
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: Probe completed
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                    enum: [online, offline]
+                  rtsp_reachable:
+                    type: boolean
+                  hls_reachable:
+                    type: boolean
+                  timestamp:
+                    type: string
+                    format: date-time
+        '401':
+          description: Unauthorized
+        '503':
+          description: Camera stream unreachable
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error:
+                    type: string
+
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      description: Camera control API token
+  schemas:
+    Error:
+      type: object
+      properties:
+        error:
+          type: string
+          description: Error message
