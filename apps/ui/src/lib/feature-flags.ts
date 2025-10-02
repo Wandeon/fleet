@@ -56,14 +56,14 @@ const DEFAULT_FLAGS: FeatureFlags = {
   VIDEO_DEVICE_SCOPED_CONTROLS: false,
   VIDEO_EXPORT_ENABLED: false,
 
-  // Zigbee - mostly placeholders
-  ZIGBEE_PAIRING_ENABLED: false,
+  // Zigbee - implemented
+  ZIGBEE_PAIRING_ENABLED: true,
   ZIGBEE_AUTOMATION_RULES_ENABLED: false,
-  ZIGBEE_QUICK_ACTIONS_ENABLED: false,
+  ZIGBEE_QUICK_ACTIONS_ENABLED: true,
 
-  // Camera - placeholders
-  CAMERA_DEVICE_SWITCHING_ENABLED: false,
-  CAMERA_EVENT_ACKNOWLEDGMENT_ENABLED: false,
+  // Camera - implemented
+  CAMERA_DEVICE_SWITCHING_ENABLED: true,
+  CAMERA_EVENT_ACKNOWLEDGMENT_ENABLED: true,
   CAMERA_NIGHT_MODE_ENABLED: false,
 
   // Logs - fully implemented
