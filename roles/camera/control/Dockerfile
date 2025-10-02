@@ -16,6 +16,7 @@ RUN pip install --upgrade pip setuptools wheel && \
     -r requirements.txt
 
 COPY app.py ./
+COPY ../openapi.yaml ./openapi.yaml
 
 EXPOSE 8083
 
