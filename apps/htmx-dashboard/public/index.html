@@ -1,0 +1,585 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Fleet Control Dashboard</title>
+    <script src="https://unpkg.com/htmx.org@1.9.10"></script>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif;
+            background: #0a0a0a;
+            color: #e0e0e0;
+            padding: 20px;
+            line-height: 1.6;
+        }
+
+        .header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 20px;
+            background: #1a1a1a;
+            border-radius: 8px;
+            margin-bottom: 30px;
+        }
+
+        .header h1 {
+            font-size: 28px;
+            font-weight: 600;
+        }
+
+        .header-status {
+            display: flex;
+            gap: 30px;
+            align-items: center;
+        }
+
+        .status-indicator {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .status-dot {
+            width: 12px;
+            height: 12px;
+            border-radius: 50%;
+            background: #ff4444;
+            animation: pulse 2s infinite;
+        }
+
+        .status-dot.online {
+            background: #44ff44;
+        }
+
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.5; }
+        }
+
+        .dashboard-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(400px, 1fr));
+            gap: 20px;
+            margin-bottom: 20px;
+        }
+
+        .card {
+            background: #1a1a1a;
+            border-radius: 8px;
+            padding: 20px;
+        }
+
+        .card h2 {
+            font-size: 20px;
+            margin-bottom: 15px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .device {
+            background: #2a2a2a;
+            padding: 15px;
+            border-radius: 6px;
+            margin-bottom: 10px;
+        }
+
+        .device-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 10px;
+        }
+
+        .device-name {
+            font-weight: 600;
+            font-size: 16px;
+        }
+
+        .device-status {
+            display: flex;
+            align-items: center;
+            gap: 5px;
+            font-size: 14px;
+        }
+
+        .device-status .dot {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            background: #ff4444;
+        }
+
+        .device-status.online .dot {
+            background: #44ff44;
+        }
+
+        .controls {
+            display: flex;
+            gap: 10px;
+            margin-top: 10px;
+            flex-wrap: wrap;
+        }
+
+        button {
+            background: #4a9eff;
+            color: white;
+            border: none;
+            padding: 8px 16px;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 14px;
+            transition: background 0.2s;
+        }
+
+        button:hover:not(:disabled) {
+            background: #3a8eef;
+        }
+
+        button:disabled {
+            background: #444;
+            cursor: not-allowed;
+            color: #888;
+        }
+
+        button.danger {
+            background: #ff4444;
+        }
+
+        button.danger:hover:not(:disabled) {
+            background: #ee3333;
+        }
+
+        button.success {
+            background: #44ff44;
+            color: #000;
+        }
+
+        button.success:hover:not(:disabled) {
+            background: #33ee33;
+        }
+
+        select {
+            background: #2a2a2a;
+            color: #e0e0e0;
+            border: 1px solid #444;
+            padding: 8px 12px;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 14px;
+        }
+
+        input[type="range"] {
+            width: 100%;
+            margin: 10px 0;
+        }
+
+        .volume-control {
+            margin-top: 10px;
+        }
+
+        .volume-label {
+            display: flex;
+            justify-content: space-between;
+            font-size: 14px;
+            margin-bottom: 5px;
+        }
+
+        .track-list {
+            margin-top: 10px;
+        }
+
+        .track-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 8px;
+            background: #333;
+            border-radius: 4px;
+            margin-bottom: 5px;
+        }
+
+        .track-name {
+            font-size: 14px;
+        }
+
+        .current-track {
+            background: #2a4a2a;
+            padding: 10px;
+            border-radius: 4px;
+            margin-bottom: 10px;
+            font-size: 14px;
+        }
+
+        .logs-section {
+            background: #1a1a1a;
+            border-radius: 8px;
+            padding: 20px;
+            margin-top: 20px;
+        }
+
+        .logs-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 15px;
+        }
+
+        .logs-controls {
+            display: flex;
+            gap: 10px;
+        }
+
+        .log-viewer {
+            background: #000;
+            padding: 15px;
+            border-radius: 4px;
+            height: 300px;
+            overflow-y: auto;
+            font-family: 'Monaco', 'Courier New', monospace;
+            font-size: 12px;
+        }
+
+        .log-entry {
+            margin-bottom: 5px;
+            display: flex;
+            gap: 10px;
+        }
+
+        .log-entry.error {
+            color: #ff4444;
+        }
+
+        .log-entry.warn {
+            color: #ffaa44;
+        }
+
+        .log-entry.info {
+            color: #e0e0e0;
+        }
+
+        .log-timestamp {
+            color: #888;
+        }
+
+        .log-service {
+            color: #4a9eff;
+        }
+
+        .camera-stream {
+            width: 100%;
+            border-radius: 4px;
+            background: #000;
+            margin: 10px 0;
+        }
+
+        .event-list {
+            max-height: 300px;
+            overflow-y: auto;
+        }
+
+        .event-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 8px;
+            background: #2a2a2a;
+            border-radius: 4px;
+            margin-bottom: 5px;
+        }
+
+        .event-info {
+            font-size: 14px;
+        }
+
+        .event-time {
+            color: #888;
+            font-size: 12px;
+        }
+
+        .zigbee-device {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 10px;
+            background: #2a2a2a;
+            border-radius: 4px;
+            margin-bottom: 5px;
+        }
+
+        .zigbee-info {
+            flex: 1;
+        }
+
+        .zigbee-name {
+            font-weight: 600;
+        }
+
+        .zigbee-type {
+            color: #888;
+            font-size: 12px;
+        }
+
+        .pairing-status {
+            background: #4a4a00;
+            padding: 10px;
+            border-radius: 4px;
+            margin-bottom: 10px;
+            text-align: center;
+        }
+
+        .pairing-status.active {
+            background: #004a4a;
+        }
+
+        .error-message {
+            background: #4a0000;
+            padding: 10px;
+            border-radius: 4px;
+            color: #ff8888;
+            margin: 10px 0;
+        }
+
+        .loading {
+            color: #888;
+            font-style: italic;
+        }
+
+        @media (max-width: 768px) {
+            .dashboard-grid {
+                grid-template-columns: 1fr;
+            }
+
+            .header {
+                flex-direction: column;
+                gap: 15px;
+            }
+
+            .header-status {
+                flex-direction: column;
+                gap: 10px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <!-- Header -->
+    <div class="header">
+        <div>
+            <h1>🚀 Fleet Control Dashboard</h1>
+            <div id="current-time"></div>
+        </div>
+        <div class="header-status">
+            <div class="status-indicator">
+                <div class="status-dot" id="api-status-dot"></div>
+                <span id="api-status-text">Connecting...</span>
+            </div>
+            <div id="fleet-overview">
+                <strong>Loading...</strong>
+            </div>
+        </div>
+    </div>
+
+    <!-- Main Dashboard Grid -->
+    <div class="dashboard-grid">
+        <!-- Audio Control -->
+        <div class="card">
+            <h2>🔊 Audio Control</h2>
+            <div id="audio-section"
+                 hx-get="api/audio/overview"
+                 hx-trigger="load, every 5s"
+                 hx-swap="innerHTML">
+                <div class="loading">Loading audio devices...</div>
+            </div>
+        </div>
+
+        <!-- Video Control -->
+        <div class="card">
+            <h2>📺 Video Control</h2>
+            <div id="video-section"
+                 hx-get="api/video/devices"
+                 hx-trigger="load, every 10s"
+                 hx-swap="innerHTML">
+                <div class="loading">Loading video devices...</div>
+            </div>
+        </div>
+
+        <!-- Zigbee Control -->
+        <div class="card">
+            <h2>💡 Zigbee Control</h2>
+            <div id="zigbee-section"
+                 hx-get="api/zigbee/overview"
+                 hx-trigger="load, every 3s"
+                 hx-swap="innerHTML">
+                <div class="loading">Loading Zigbee hub...</div>
+            </div>
+        </div>
+
+        <!-- Camera -->
+        <div class="card">
+            <h2>📷 Camera</h2>
+            <div id="camera-section"
+                 hx-get="api/camera/summary"
+                 hx-trigger="load, every 5s"
+                 hx-swap="innerHTML">
+                <div class="loading">Loading camera...</div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Logs Section -->
+    <div class="logs-section">
+        <div class="logs-header">
+            <h2>📋 Live Logs</h2>
+            <div class="logs-controls">
+                <button id="pause-logs">⏸️ Pause</button>
+                <button id="clear-logs">🗑️ Clear</button>
+            </div>
+        </div>
+        <div class="log-viewer" id="log-viewer">
+            <div class="loading">Connecting to log stream...</div>
+        </div>
+    </div>
+
+    <script>
+        // Update current time
+        function updateTime() {
+            const now = new Date();
+            document.getElementById('current-time').textContent = now.toLocaleString();
+        }
+        setInterval(updateTime, 1000);
+        updateTime();
+
+        // Check API status
+        async function checkAPIStatus() {
+            try {
+                const response = await fetch('api/fleet/state');
+                const dot = document.getElementById('api-status-dot');
+                const text = document.getElementById('api-status-text');
+
+                if (response.ok) {
+                    dot.classList.add('online');
+                    text.textContent = 'API Connected';
+
+                    const data = await response.json();
+                    const overview = document.getElementById('fleet-overview');
+                    if (data.devices) {
+                        const online = Object.values(data.devices).filter(d => d.status === 'online').length;
+                        const total = Object.keys(data.devices).length;
+                        overview.innerHTML = `<strong>${online}/${total}</strong> devices online`;
+                    }
+                } else {
+                    dot.classList.remove('online');
+                    text.textContent = 'API Error';
+                }
+            } catch (error) {
+                const dot = document.getElementById('api-status-dot');
+                const text = document.getElementById('api-status-text');
+                dot.classList.remove('online');
+                text.textContent = 'API Offline';
+            }
+        }
+        setInterval(checkAPIStatus, 10000);
+        checkAPIStatus();
+
+        // Log streaming with Server-Sent Events
+        let logsPaused = false;
+        let logViewer = document.getElementById('log-viewer');
+        let eventSource = null;
+
+        function connectLogStream() {
+            if (eventSource) {
+                eventSource.close();
+            }
+
+            eventSource = new EventSource('api/logs/stream');
+
+            eventSource.onmessage = function(event) {
+                if (logsPaused) return;
+
+                try {
+                    const log = JSON.parse(event.data);
+                    const entry = document.createElement('div');
+                    entry.className = `log-entry ${log.level || 'info'}`;
+
+                    entry.innerHTML = `
+                        <span class="log-timestamp">${new Date(log.ts || log.timestamp).toLocaleTimeString()}</span>
+                        <span class="log-service">[${log.service || 'system'}]</span>
+                        <span>${log.msg || log.message}</span>
+                    `;
+
+                    logViewer.appendChild(entry);
+
+                    // Keep only last 50 logs
+                    while (logViewer.children.length > 50) {
+                        logViewer.removeChild(logViewer.firstChild);
+                    }
+
+                    // Auto-scroll to bottom
+                    logViewer.scrollTop = logViewer.scrollHeight;
+                } catch (e) {
+                    console.error('Failed to parse log:', e);
+                }
+            };
+
+            eventSource.onerror = function() {
+                console.error('Log stream error, reconnecting...');
+                setTimeout(connectLogStream, 5000);
+            };
+        }
+
+        // Log controls
+        document.getElementById('pause-logs').addEventListener('click', function() {
+            logsPaused = !logsPaused;
+            this.textContent = logsPaused ? '▶️ Resume' : '⏸️ Pause';
+        });
+
+        document.getElementById('clear-logs').addEventListener('click', function() {
+            logViewer.innerHTML = '';
+        });
+
+        // Start log streaming
+        connectLogStream();
+
+        // Helper function for volume sliders
+        window.updateVolume = function(deviceId, type, value) {
+            const endpoint = type === 'audio' ? `api/audio/devices/${deviceId}/volume` : `api/video/devices/${deviceId}/volume`;
+
+            fetch(endpoint, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({ volume: parseInt(value) })
+            }).catch(err => console.error('Volume update failed:', err));
+        };
+
+        // Request notification permission for camera events
+        if ('Notification' in window && Notification.permission === 'default') {
+            Notification.requestPermission();
+        }
+
+        // Handle HTMX errors
+        document.body.addEventListener('htmx:responseError', function(event) {
+            console.error('HTMX request failed:', event.detail);
+            const target = event.detail.target;
+            if (target) {
+                target.innerHTML = '<div class="error-message">Failed to load. Retrying...</div>';
+            }
+        });
+
+        // Log HTMX requests for debugging
+        document.body.addEventListener('htmx:beforeRequest', function(event) {
+            console.log('HTMX request:', event.detail.path);
+        });
+    </script>
+</body>
+</html>

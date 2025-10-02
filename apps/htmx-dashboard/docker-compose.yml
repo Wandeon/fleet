@@ -1,0 +1,21 @@
+version: '3.8'
+
+services:
+  htmx-dashboard:
+    build: .
+    container_name: fleet-htmx-dashboard
+    restart: unless-stopped
+    ports:
+      - "8080:8080"
+    env_file:
+      - ../../vps/fleet.env
+    environment:
+      - PORT=8080
+      - API_BASE=http://fleet-api:3015
+      - FLEET_API_TOKEN=${API_BEARER}
+    networks:
+      - vps_fleet-network
+
+networks:
+  vps_fleet-network:
+    external: true

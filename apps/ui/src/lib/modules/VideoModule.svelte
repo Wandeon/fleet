@@ -327,7 +327,7 @@
         <span class="label">Input</span>
         <strong>{data.input}</strong>
         <span class="label">Last signal</span>
-        <strong>{new Date(data.lastSignal).toLocaleTimeString()}</strong>
+        <strong>{data.lastSignal ? new Date(data.lastSignal).toLocaleTimeString() : '—'}</strong>
         <Button variant="ghost" on:click={openVideoControls}>Open controls</Button>
       </div>
     </div>
@@ -374,8 +374,32 @@
             </div>
             <div>
               <span class="label">Signal</span>
-              <strong>{new Date(data.lastSignal).toLocaleTimeString()}</strong>
+              <strong>{data.lastSignal ? new Date(data.lastSignal).toLocaleTimeString() : '—'}</strong>
             </div>
+          </div>
+        </div>
+      </section>
+
+      <section class="telemetry">
+        <header>
+          <h2>Telemetry</h2>
+        </header>
+        <div class="telemetry-grid">
+          <div class="telemetry-item">
+            <span class="label">Last Signal</span>
+            <strong>{data.lastSignal ? new Date(data.lastSignal).toLocaleString() : 'No signal data'}</strong>
+          </div>
+          <div class="telemetry-item">
+            <span class="label">Power State</span>
+            <strong class={`power-${data.power}`}>{data.power}</strong>
+          </div>
+          <div class="telemetry-item">
+            <span class="label">Current Input</span>
+            <strong>{data.input}</strong>
+          </div>
+          <div class="telemetry-item">
+            <span class="label">Command Feedback</span>
+            <strong>{statusMessage ?? 'No recent commands'}</strong>
           </div>
         </div>
       </section>
@@ -446,9 +470,9 @@
                   <button type="button" on:click={() => playSegment(segment)}>
                     <strong>{segment.label ?? segment.id}</strong>
                     <span
-                      >{new Date(segment.start).toLocaleTimeString()} → {new Date(
+                      >{segment.start ? new Date(segment.start).toLocaleTimeString() : '—'} → {segment.end ? new Date(
                         segment.end
-                      ).toLocaleTimeString()}</span
+                      ).toLocaleTimeString() : '—'}</span
                     >
                   </button>
                 </li>
@@ -642,6 +666,47 @@
     display: flex;
     flex-wrap: wrap;
     gap: var(--spacing-2);
+  }
+
+  .telemetry header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+  }
+
+  .telemetry-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(12rem, 1fr));
+    gap: var(--spacing-3);
+  }
+
+  .telemetry-item {
+    border: 1px solid rgba(148, 163, 184, 0.15);
+    border-radius: var(--radius-md);
+    padding: var(--spacing-3);
+    background: rgba(12, 21, 41, 0.55);
+  }
+
+  .telemetry-item .label {
+    display: block;
+    font-size: var(--font-size-xs);
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    color: var(--color-text-muted);
+    margin-bottom: 0.5rem;
+  }
+
+  .telemetry-item strong {
+    display: block;
+    font-size: var(--font-size-base);
+  }
+
+  .power-on {
+    color: rgb(34, 197, 94);
+  }
+
+  .power-off {
+    color: rgba(148, 163, 184, 0.9);
   }
 
   .timeline-body {

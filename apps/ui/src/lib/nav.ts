@@ -43,6 +43,7 @@ export const mainNavigation: NavItem[] = [
     : []),
   { path: '/health', label: 'Health', description: 'Subsystem health metrics', icon: '🩺' },
   { path: '/logs', label: 'Logs', description: 'Event audit trail', icon: '📜' },
+  { path: '/settings', label: 'Settings', description: 'System configuration', icon: '⚙️' },
 ];
 
 export const moduleOrder: string[] = [
