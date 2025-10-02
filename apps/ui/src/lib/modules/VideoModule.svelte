@@ -227,16 +227,16 @@
   };
 
   const handleVideoUpload = () => {
-    if (!browser || uploadBusy) {
-      return;
-    }
+    if (uploadBusy) return;
 
     const input = document.createElement('input');
     input.type = 'file';
     input.accept = 'video/*';
+    input.style.display = 'none';
+
     input.addEventListener('change', async () => {
       const selected = input.files?.[0] ?? null;
-      input.remove();
+      document.body.removeChild(input);
       if (!selected) return;
 
       if (selected.size > 500 * 1024 * 1024) {
@@ -256,6 +256,8 @@
         uploadBusy = false;
       }
     });
+
+    document.body.appendChild(input);
     input.click();
   };
 
@@ -504,8 +506,8 @@
         <header>
           <h2>Video library</h2>
           <div class="actions">
-            <Button variant="ghost" on:click={refreshLibrary}>Refresh library</Button>
-            <Button variant="primary" disabled={uploadBusy} on:click={handleVideoUpload}>
+            <Button variant="ghost" onclick={refreshLibrary}>Refresh library</Button>
+            <Button variant="primary" disabled={uploadBusy} onclick={handleVideoUpload}>
               {uploadBusy ? 'Uploading…' : 'Upload video'}
             </Button>
           </div>
@@ -523,7 +525,7 @@
                 <Button
                   variant="ghost"
                   disabled={uploadBusy}
-                  on:click={() => handleVideoDelete(video.filename)}
+                  onclick={() => handleVideoDelete(video.filename)}
                 >
                   Delete
                 </Button>
