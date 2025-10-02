@@ -1,7 +1,8 @@
 services:
   camera-control:
     build:
-      context: /opt/fleet/roles/camera/control
+      context: .
+      dockerfile: control/Dockerfile
     restart: unless-stopped
     network_mode: host
     depends_on:

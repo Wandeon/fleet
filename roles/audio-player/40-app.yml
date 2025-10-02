@@ -56,8 +56,8 @@ services:
 
   audio-control:
     build:
-      context: ./docker
-      dockerfile: audio-control.Dockerfile
+      context: .
+      dockerfile: docker/audio-control.Dockerfile
     restart: unless-stopped
     ports:
       - '8081:8081'

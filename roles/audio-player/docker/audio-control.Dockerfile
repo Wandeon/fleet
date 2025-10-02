@@ -8,6 +8,6 @@ RUN python3 -m pip install --no-cache-dir \
 
 WORKDIR /app
 
-COPY app/common.py /app/common.py
-COPY app/control.py /app/control.py
+COPY docker/app/common.py /app/common.py
+COPY docker/app/control.py /app/control.py
 COPY openapi.yaml /app/openapi.yaml

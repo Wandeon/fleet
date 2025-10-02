@@ -2,8 +2,8 @@ services:
   media-control:
     image: media-control:local
     build:
-      context: ./control
-      dockerfile: Dockerfile
+      context: .
+      dockerfile: control/Dockerfile
     restart: unless-stopped
     network_mode: host
     ports:

@@ -8,15 +8,15 @@ RUN apt-get update \
 
 WORKDIR /app
 
-COPY requirements.txt ./
+COPY control/requirements.txt ./
 RUN pip install --upgrade pip setuptools wheel && \
     pip install --no-cache-dir --timeout 300 --retries 5 \
     --index-url https://www.piwheels.org/simple \
     --extra-index-url https://pypi.org/simple \
     -r requirements.txt
 
-COPY app.py ./
-COPY ../openapi.yaml ./openapi.yaml
+COPY control/app.py ./
+COPY openapi.yaml ./openapi.yaml
 
 EXPOSE 8083
 
