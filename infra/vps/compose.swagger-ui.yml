@@ -7,12 +7,12 @@ services:
       - '8085:8080'
     environment:
       # Configure Swagger UI to support multiple API specs
+      # Using HTTPS proxy URLs to avoid mixed content errors
       - URLS=[
-          {"url":"http://pi-audio-01:8081/openapi.yaml","name":"Audio Player 01"},
-          {"url":"http://pi-audio-02:8081/openapi.yaml","name":"Audio Player 02"},
-          {"url":"http://pi-video-01:8082/openapi.yaml","name":"Video Control"},
-          {"url":"http://pi-camera-01:8083/openapi.yaml","name":"Camera Control"},
-          {"url":"http://fleet-api:3015/openapi.yaml","name":"Fleet API"}
+          {"url":"/specs/audio-01/openapi.yaml","name":"Audio Player 01"},
+          {"url":"/specs/audio-02/openapi.yaml","name":"Audio Player 02"},
+          {"url":"/specs/video-01/openapi.yaml","name":"Video Control"},
+          {"url":"/specs/camera-01/openapi.yaml","name":"Camera Control"}
         ]
       - BASE_URL=/
       - DEEP_LINKING=true

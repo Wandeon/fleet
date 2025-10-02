@@ -71,6 +71,7 @@ services:
       - STREAM_URL=${STREAM_URL:-${ICECAST_SCHEME:-http}://${ICECAST_HOST}:${ICECAST_PORT:-8000}/${ICECAST_MOUNT}}
       - AUDIO_VOLUME=${AUDIO_VOLUME:-1.0}
       - AUDIO_OUTPUT_DEVICE=${AUDIO_OUTPUT_DEVICE:-plughw:0,0}
+      - DEVICE_ID=${DEVICE_ID:-}
       - LOG_SERVICE=audio-control
       - LOG_ROLE=audio-player
       - LOG_COMMIT=${FLEET_LOG_COMMIT:-unknown}

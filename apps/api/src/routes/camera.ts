@@ -5,6 +5,7 @@ import { cameraEventIdParamSchema, cameraEventsQuerySchema } from '../util/schem
 import { getCameraEvent, listCameraEvents } from '../services/cameraEvents.js';
 import { deviceRegistry } from '../upstream/devices.js';
 import { log } from '../observability/logging.js';
+import { config } from '../config.js';
 
 const CAMERA_OFFLINE_REASON = 'Camera hardware not attached';
 
@@ -15,6 +16,59 @@ interface CameraDeviceSummary {
   name: string;
   location: string | null;
   capabilities: string[];
+}
+
+interface CameraStatusResponse {
+  ok: boolean;
+  timestamp: string;
+  duration: number;
+  hls_url: string;
+  rtsp_url: string;
+  rtsp_reachable: boolean;
+  preview: string[];
+  error: string | null;
+  last_success: string | null;
+  cached: boolean;
+}
+
+async function fetchCameraStatus(deviceId: string): Promise<CameraStatusResponse | null> {
+  try {
+    const device = deviceRegistry.getDevice(deviceId);
+    if (!device) {
+      return null;
+    }
+
+    const response = await fetch(`${device.baseUrl}/status`, {
+      method: 'GET',
+      headers: device.authToken ? { Authorization: `Bearer ${device.authToken}` } : {},
+      signal: AbortSignal.timeout(5000),
+    });
+
+    if (!response.ok) {
+      log.warn({ deviceId, status: response.status }, 'Camera status endpoint returned error');
+      return null;
+    }
+
+    const data = await response.json();
+    return data as CameraStatusResponse;
+  } catch (error) {
+    log.debug({ deviceId, error }, 'Failed to fetch camera status');
+    return null;
+  }
+}
+
+function transformToProxyUrl(hlsUrl: string | null, baseUrl: string): string | null {
+  if (!hlsUrl) return null;
+
+  // Extract the path from the HLS URL (e.g., "/camera/index.m3u8")
+  try {
+    const url = new URL(hlsUrl);
+    const path = url.pathname;
+    // Transform to HTTPS proxy URL
+    return `${baseUrl}/camera/stream${path}`;
+  } catch {
+    return null;
+  }
 }
 
 function isCameraDevice(device: { role: string; module: string }): boolean {
@@ -90,21 +144,61 @@ router.get('/active', (_req, res) => {
   res.json(response);
 });
 
-router.get('/summary', (_req, res) => {
+router.get('/summary', async (_req, res) => {
   res.locals.routePath = '/api/camera/summary';
   const devices = listCameraDevices();
   const now = new Date().toISOString();
 
   recordOfflineMetrics(devices);
 
+  // Get the public base URL from CORS allowed origins (first one)
+  const publicBaseUrl = config.corsAllowedOrigins[0] ?? 'https://app.headspamartina.hr';
+
+  // Try to fetch status from the first camera device
+  let activeCameraId: string | null = null;
+  let streamUrl: string | null = null;
+  let previewImage: string | null = null;
+  let overallStatus: 'online' | 'offline' = 'offline';
+  let reason: string = CAMERA_OFFLINE_REASON;
+
+  if (devices.length > 0) {
+    const primaryCamera = devices[0];
+
+    // Check if camera is online via healthz endpoint (no auth required)
+    const device = deviceRegistry.getDevice(primaryCamera.id);
+    if (device) {
+      try {
+        const healthResponse = await fetch(`${device.baseUrl}/healthz`, {
+          method: 'GET',
+          signal: AbortSignal.timeout(3000),
+        });
+
+        if (healthResponse.ok) {
+          activeCameraId = primaryCamera.id;
+          // Use known HLS stream URL pattern and transform to HTTPS proxy
+          streamUrl = `${publicBaseUrl}/camera/stream/camera/index.m3u8`;
+          overallStatus = 'online';
+          reason = '';
+          metrics.camera_stream_online.labels(primaryCamera.id).set(1);
+          log.debug({ deviceId: primaryCamera.id, streamUrl }, 'Camera online, providing stream URL');
+        } else {
+          metrics.camera_stream_online.labels(primaryCamera.id).set(0);
+        }
+      } catch (error) {
+        log.debug({ deviceId: primaryCamera.id, error }, 'Camera healthz check failed');
+        metrics.camera_stream_online.labels(primaryCamera.id).set(0);
+      }
+    }
+  }
+
   const response = {
-    activeCameraId: null,
+    activeCameraId,
     devices: devices.map((device) => ({
       id: device.id,
       name: device.name,
-      status: 'offline',
+      status: device.id === activeCameraId ? 'online' : 'offline',
       location: device.location,
-      streamUrl: null,
+      streamUrl: device.id === activeCameraId ? streamUrl : null,
       stillUrl: null,
       lastHeartbeat: now,
       capabilities: device.capabilities,
@@ -112,36 +206,36 @@ router.get('/summary', (_req, res) => {
     events: [],
     clips: [],
     overview: {
-      previewImage: null,
-      streamUrl: null,
+      previewImage,
+      streamUrl,
       lastMotion: null,
-      health: 'offline',
+      health: overallStatus,
       updatedAt: now,
     },
     summary: {
-      status: 'offline',
+      status: overallStatus,
       updatedAt: now,
-      reason: CAMERA_OFFLINE_REASON,
+      reason,
       cameras: devices.map((device) => ({
         id: device.id,
         name: device.name,
-        status: 'offline',
-        lastSeen: null,
-        reason: CAMERA_OFFLINE_REASON,
+        status: device.id === activeCameraId ? 'online' : 'offline',
+        lastSeen: device.id === activeCameraId ? now : null,
+        reason: device.id === activeCameraId ? '' : CAMERA_OFFLINE_REASON,
       })),
     },
     preview: {
-      cameraId: null,
-      status: 'unavailable',
+      cameraId: activeCameraId,
+      status: streamUrl ? 'available' : 'unavailable',
       posterUrl: null,
-      streamUrl: null,
-      reason: CAMERA_OFFLINE_REASON,
+      streamUrl,
+      reason: streamUrl ? '' : CAMERA_OFFLINE_REASON,
       updatedAt: now,
     },
     eventFeed: [],
-    status: 'offline',
-    reason: CAMERA_OFFLINE_REASON,
-  } as const;
+    status: overallStatus,
+    reason,
+  };
 
   res.json(response);
 });

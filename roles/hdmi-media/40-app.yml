@@ -6,18 +6,24 @@ services:
       dockerfile: control/Dockerfile
     restart: unless-stopped
     network_mode: host
-    ports:
-      - '8082:8082'
     environment:
       MEDIA_CONTROL_TOKEN:
       HDMI_CONNECTOR:
       HDMI_AUDIO_DEVICE:
-      CEC_DEVICE_INDEX:
+      CEC_DEVICE_INDEX: 1
+      VIDEO_DATA_DIR: /data
     volumes:
       - /run:/run
+      - video_data:/data
+    devices:
+      - /dev/cec0:/dev/cec0
+      - /dev/cec1:/dev/cec1
     healthcheck:
       test: ['CMD', 'curl', '-fsS', 'http://localhost:8082/healthz']
       interval: 10s
       timeout: 3s
       retries: 5
       start_period: 10s
+
+volumes:
+  video_data:

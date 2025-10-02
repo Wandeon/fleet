@@ -1,5 +1,6 @@
 import { Router } from 'express';
 import { z } from 'zod';
+import multer from 'multer';
 import {
   listVideoDevices,
   setDevicePower,
@@ -12,8 +13,13 @@ import {
   createClipExport,
 } from '../services/video.js';
 import { log } from '../observability/logging.js';
+import { deviceRegistry } from '../upstream/devices.js';
+import { httpRequestJson, httpRequest } from '../upstream/http.js';
+import createHttpError from 'http-errors';
 
 const router = Router();
+
+const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 500 * 1024 * 1024 } }); // 500MB limit
 
 const powerSchema = z.object({ power: z.enum(['on', 'standby']) });
 const muteSchema = z.object({ mute: z.boolean() });
@@ -263,6 +269,80 @@ router.post('/preview', (req, res, next) => {
     res.json(session);
   } catch (error) {
     log.error({ error }, 'Failed to create video preview session');
+    next(error);
+  }
+});
+
+router.get('/devices/:deviceId/library', async (req, res, next) => {
+  res.locals.routePath = '/video/devices/:deviceId/library';
+  try {
+    const { deviceId } = req.params;
+    const device = deviceRegistry.requireDevice(deviceId);
+
+    log.info({ deviceId }, 'Video library list requested');
+
+    const data = await httpRequestJson<{ videos: unknown[] }>(device, '/library');
+
+    log.info({ deviceId, count: data.videos?.length || 0 }, 'Video library fetched');
+    res.json(data);
+  } catch (error) {
+    log.error({ deviceId: req.params.deviceId, error }, 'Failed to fetch video library');
+    next(error);
+  }
+});
+
+router.post('/devices/:deviceId/library/upload', upload.single('file'), async (req, res, next) => {
+  res.locals.routePath = '/video/devices/:deviceId/library/upload';
+  try {
+    const { deviceId } = req.params;
+    const file = req.file;
+
+    if (!file) {
+      throw createHttpError(400, 'bad_request', 'Missing upload file');
+    }
+
+    const device = deviceRegistry.requireDevice(deviceId);
+
+    log.info(
+      { deviceId, filename: file.originalname, size: file.size },
+      'Video upload to device requested'
+    );
+
+    const formData = new FormData();
+    const blob = new Blob([new Uint8Array(file.buffer)], { type: file.mimetype });
+    formData.append('file', blob, file.originalname || 'video');
+
+    const response = await httpRequest(device, '/library/upload', {
+      method: 'POST',
+      body: formData,
+      timeoutMs: 300000, // 5 minute timeout for large videos
+    });
+
+    const result = await response.json();
+    log.info({ deviceId, filename: result.filename }, 'Video uploaded to device');
+    res.json(result);
+  } catch (error) {
+    log.error({ deviceId: req.params.deviceId, error }, 'Failed to upload video to device');
+    next(error);
+  }
+});
+
+router.delete('/devices/:deviceId/library/:filename', async (req, res, next) => {
+  res.locals.routePath = '/video/devices/:deviceId/library/:filename';
+  try {
+    const { deviceId, filename } = req.params;
+    const device = deviceRegistry.requireDevice(deviceId);
+
+    log.info({ deviceId, filename }, 'Video deletion from device requested');
+
+    const result = await httpRequestJson(device, `/library/${encodeURIComponent(filename)}`, {
+      method: 'DELETE',
+    });
+
+    log.info({ deviceId, filename }, 'Video deleted from device');
+    res.json(result);
+  } catch (error) {
+    log.error({ deviceId: req.params.deviceId, filename: req.params.filename, error }, 'Failed to delete video from device');
     next(error);
   }
 });

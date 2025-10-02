@@ -11,3 +11,5 @@ WORKDIR /app
 COPY docker/app/common.py /app/common.py
 COPY docker/app/control.py /app/control.py
 COPY openapi.yaml /app/openapi.yaml
+COPY openapi-audio-01.yaml /app/openapi-audio-01.yaml
+COPY openapi-audio-02.yaml /app/openapi-audio-02.yaml

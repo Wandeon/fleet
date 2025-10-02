@@ -510,6 +510,24 @@ const buildRoutes = (): RouteDefinition[] => [
     },
   },
   {
+    pattern: /^\/video\/devices\/([^/]+)\/library$/,
+    handlers: {
+      GET: () => ({ videos: [] }),
+    },
+  },
+  {
+    pattern: /^\/video\/devices\/([^/]+)\/library\/upload$/,
+    handlers: {
+      POST: () => json({ message: 'Video uploads are mocked only in UI' }, { status: 501 }),
+    },
+  },
+  {
+    pattern: /^\/video\/devices\/([^/]+)\/library\/([^/]+)$/,
+    handlers: {
+      DELETE: () => new Response(null, { status: 204 }),
+    },
+  },
+  {
     pattern: /^\/zigbee$/,
     handlers: {
       GET: () => mockApi.zigbee(),

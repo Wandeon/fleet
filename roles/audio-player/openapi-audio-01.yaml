@@ -11,12 +11,8 @@ info:
 servers:
   - url: https://dev.headspamartina.hr/devices/audio-01
     description: Audio Player 01 (via HTTPS proxy)
-  - url: https://dev.headspamartina.hr/devices/audio-02
-    description: Audio Player 02 (via HTTPS proxy)
   - url: http://pi-audio-01:8081
     description: Audio Player 01 (direct HTTP)
-  - url: http://pi-audio-02:8081
-    description: Audio Player 02 (direct HTTP)
 tags:
   - name: Status
     description: Device status and health monitoring

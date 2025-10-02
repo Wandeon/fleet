@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { onMount } from 'svelte';
+  import { onMount, onDestroy } from 'svelte';
   import { browser } from '$app/environment';
   import Button from '$lib/components/Button.svelte';
   import Card from '$lib/components/Card.svelte';
@@ -16,6 +16,7 @@
     requestCameraClip,
     selectCamera,
   } from '$lib/api/camera-operations';
+  import Hls from 'hls.js';
 
   export let data: CameraState | null = null;
   export let state: PanelState = 'success';
@@ -29,6 +30,8 @@
   let previewUrl: string | null = data?.overview?.streamUrl ?? null;
   let snapshotUrl: string | null = data?.overview?.previewImage ?? null;
   let clipError: string | null = null;
+  let videoElement: HTMLVideoElement;
+  let hls: Hls | null = null;
 
   $: devices = data?.devices ?? [];
   $: events = data?.events ?? [];
@@ -123,6 +126,67 @@
     previewUrl = data?.overview?.streamUrl ?? null;
     snapshotUrl = data?.overview?.previewImage ?? null;
   });
+
+  // Initialize HLS player when previewUrl changes
+  $: if (browser && videoElement && previewUrl) {
+    // Clean up existing HLS instance
+    if (hls) {
+      hls.destroy();
+      hls = null;
+    }
+
+    // Check if HLS is supported
+    if (Hls.isSupported()) {
+      hls = new Hls({
+        enableWorker: true,
+        lowLatencyMode: true,
+        backBufferLength: 90,
+      });
+
+      hls.loadSource(previewUrl);
+      hls.attachMedia(videoElement);
+
+      hls.on(Hls.Events.MANIFEST_PARSED, () => {
+        videoElement.play().catch((err) => {
+          console.warn('HLS autoplay failed:', err);
+        });
+      });
+
+      hls.on(Hls.Events.ERROR, (_event, data) => {
+        if (data.fatal) {
+          console.error('HLS fatal error:', data);
+          switch (data.type) {
+            case Hls.ErrorTypes.NETWORK_ERROR:
+              console.error('Network error, trying to recover...');
+              hls?.startLoad();
+              break;
+            case Hls.ErrorTypes.MEDIA_ERROR:
+              console.error('Media error, trying to recover...');
+              hls?.recoverMediaError();
+              break;
+            default:
+              console.error('Unrecoverable error, destroying HLS instance');
+              hls?.destroy();
+              hls = null;
+              break;
+          }
+        }
+      });
+    } else if (videoElement.canPlayType('application/vnd.apple.mpegurl')) {
+      // Safari native HLS support
+      videoElement.src = previewUrl;
+      videoElement.play().catch((err) => {
+        console.warn('Native HLS autoplay failed:', err);
+      });
+    }
+  }
+
+  onDestroy(() => {
+    if (hls) {
+      hls.destroy();
+      hls = null;
+    }
+  });
 </script>
 
 <Card {title} subtitle="Live feeds, motion events, and recordings">
@@ -192,7 +256,7 @@
         </div>
         <div class="preview-frame">
           {#if previewUrl}
-            <video src={previewUrl} autoplay muted loop playsinline controls></video>
+            <video bind:this={videoElement} muted playsinline controls></video>
           {:else if snapshotUrl}
             <img src={snapshotUrl} alt="Camera snapshot" />
           {:else}

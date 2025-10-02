@@ -318,7 +318,20 @@ def get_metrics():
 @app.get("/openapi.yaml")
 def openapi_spec():
     """Serve OpenAPI specification for API documentation and testing."""
-    spec_path = os.path.join(os.path.dirname(__file__), "openapi.yaml")
+    device_id = os.environ.get("DEVICE_ID", "")
+
+    # Try device-specific spec first, fall back to generic
+    if device_id:
+        spec_filename = f"openapi-{device_id}.yaml"
+    else:
+        spec_filename = "openapi.yaml"
+
+    spec_path = os.path.join(os.path.dirname(__file__), spec_filename)
+
+    # Fall back to generic spec if device-specific not found
+    if not os.path.exists(spec_path):
+        spec_path = os.path.join(os.path.dirname(__file__), "openapi.yaml")
+
     try:
         with open(spec_path, "r", encoding="utf-8") as f:
             spec_content = f.read()

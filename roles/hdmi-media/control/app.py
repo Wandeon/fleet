@@ -6,13 +6,15 @@ import logging
 from pathlib import Path
 from typing import Optional, Tuple
 
-from fastapi import FastAPI, Header, HTTPException
-from fastapi.responses import PlainTextResponse
+from fastapi import FastAPI, Header, HTTPException, UploadFile, File
+from fastapi.responses import PlainTextResponse, JSONResponse
 from prometheus_client import Gauge, CollectorRegistry, generate_latest, CONTENT_TYPE_LATEST
 
 
 MEDIA_CONTROL_TOKEN = os.environ.get("MEDIA_CONTROL_TOKEN", "")
 MPV_SOCKET = os.environ.get("MPV_SOCKET", "/run/mpv.sock")
+VIDEO_DATA_DIR = os.environ.get("VIDEO_DATA_DIR", "/data")
+VIDEO_LIBRARY_DIR = Path(VIDEO_DATA_DIR) / "library"
 
 logger = logging.getLogger("hdmi-media.control")
 
@@ -192,8 +194,78 @@ def tv_power_off(Authorization: Optional[str] = Header(None)):
 @app.post("/tv/input")
 def tv_input(payload: dict = None, Authorization: Optional[str] = Header(None)):
     check_auth(Authorization)
-    rc = cec("--to", "0", "--active-source")
+    rc = cec("--to", "0", "--active-source", "phys-addr=0.0.0.0")
     return {"ok": rc == 0}
+
+
+@app.get("/library")
+def list_library(Authorization: Optional[str] = Header(None)):
+    check_auth(Authorization)
+    VIDEO_LIBRARY_DIR.mkdir(parents=True, exist_ok=True)
+
+    videos = []
+    for video_file in VIDEO_LIBRARY_DIR.glob("*"):
+        if video_file.is_file() and video_file.suffix.lower() in ['.mp4', '.mkv', '.avi', '.mov', '.webm']:
+            videos.append({
+                "filename": video_file.name,
+                "path": str(video_file),
+                "size": video_file.stat().st_size,
+            })
+
+    return {"videos": videos}
+
+
+@app.post("/library/upload")
+async def upload_video(file: UploadFile = File(...), Authorization: Optional[str] = Header(None)):
+    check_auth(Authorization)
+
+    if not file.filename:
+        raise HTTPException(400, "missing filename")
+
+    # Validate file extension
+    allowed_extensions = ['.mp4', '.mkv', '.avi', '.mov', '.webm']
+    file_ext = Path(file.filename).suffix.lower()
+    if file_ext not in allowed_extensions:
+        raise HTTPException(400, f"invalid file type, allowed: {', '.join(allowed_extensions)}")
+
+    VIDEO_LIBRARY_DIR.mkdir(parents=True, exist_ok=True)
+
+    # Save file
+    file_path = VIDEO_LIBRARY_DIR / file.filename
+    try:
+        with open(file_path, "wb") as f:
+            while chunk := await file.read(8192):
+                f.write(chunk)
+
+        return {
+            "ok": True,
+            "filename": file.filename,
+            "path": str(file_path),
+            "size": file_path.stat().st_size,
+        }
+    except Exception as e:
+        logger.error(f"Failed to upload video: {e}")
+        raise HTTPException(500, f"upload failed: {str(e)}")
+
+
+@app.delete("/library/{filename}")
+def delete_video(filename: str, Authorization: Optional[str] = Header(None)):
+    check_auth(Authorization)
+
+    file_path = VIDEO_LIBRARY_DIR / filename
+
+    if not file_path.exists():
+        raise HTTPException(404, "video not found")
+
+    if not file_path.is_relative_to(VIDEO_LIBRARY_DIR):
+        raise HTTPException(400, "invalid filename")
+
+    try:
+        file_path.unlink()
+        return {"ok": True, "deleted": filename}
+    except Exception as e:
+        logger.error(f"Failed to delete video: {e}")
+        raise HTTPException(500, f"delete failed: {str(e)}")
 
 
 @app.get("/openapi.yaml")

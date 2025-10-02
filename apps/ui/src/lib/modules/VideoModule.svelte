@@ -17,11 +17,16 @@
     setVideoMute,
     setVideoPower,
     setVideoVolume,
+    fetchVideoLibrary,
+    uploadVideo,
+    deleteVideo,
+    type VideoLibraryItem,
   } from '$lib/api/video-operations';
   import { mockApi } from '$lib/api/mock';
   import { USE_MOCKS } from '$lib/api/client';
   import type { PanelState } from '$lib/stores/app';
   import type { VideoRecordingSegment, VideoState } from '$lib/types';
+  import { browser } from '$app/environment';
 
   export let data: VideoState | null = null;
   export let state: PanelState = 'success';
@@ -45,6 +50,8 @@
   let timeline: VideoRecordingSegment[] = data?.recordings ?? [];
   let selectedSegmentId: string | null = timeline[0]?.id ?? null;
   let segmentPosition = 0;
+  let library: VideoLibraryItem[] = [];
+  let uploadBusy = false;
 
   $: timeline = data?.recordings ?? timeline;
   $: selectedSegmentId =
@@ -208,6 +215,74 @@
     } finally {
       broadcastRefresh();
     }
+  };
+
+  const refreshLibrary = async () => {
+    try {
+      library = await fetchVideoLibrary();
+    } catch (error) {
+      console.error('fetch library', error);
+      showMessage('Unable to load video library');
+    }
+  };
+
+  const handleVideoUpload = () => {
+    if (!browser || uploadBusy) {
+      return;
+    }
+
+    const input = document.createElement('input');
+    input.type = 'file';
+    input.accept = 'video/*';
+    input.addEventListener('change', async () => {
+      const selected = input.files?.[0] ?? null;
+      input.remove();
+      if (!selected) return;
+
+      if (selected.size > 500 * 1024 * 1024) {
+        showMessage('File too large. Maximum size is 500 MB.');
+        return;
+      }
+
+      uploadBusy = true;
+      try {
+        await uploadVideo(selected);
+        await refreshLibrary();
+        showMessage(`Uploaded ${selected.name} successfully`);
+      } catch (error) {
+        console.error('video upload error', error);
+        showMessage(error instanceof Error ? error.message : 'Upload failed');
+      } finally {
+        uploadBusy = false;
+      }
+    });
+    input.click();
+  };
+
+  const handleVideoDelete = async (filename: string) => {
+    if (uploadBusy) return;
+
+    if (!confirm(`Delete ${filename}?`)) {
+      return;
+    }
+
+    uploadBusy = true;
+    try {
+      await deleteVideo(filename);
+      await refreshLibrary();
+      showMessage(`Deleted ${filename}`);
+    } catch (error) {
+      console.error('video delete error', error);
+      showMessage(error instanceof Error ? error.message : 'Delete failed');
+    } finally {
+      uploadBusy = false;
+    }
+  };
+
+  const formatFileSize = (bytes: number): string => {
+    if (bytes < 1024) return `${bytes} B`;
+    if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
+    return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
   };
 
   $: if (data?.livePreview && !liveUrl) {
@@ -424,6 +499,39 @@
           </ul>
         {/if}
       </section>
+
+      <section class="library">
+        <header>
+          <h2>Video library</h2>
+          <div class="actions">
+            <Button variant="ghost" on:click={refreshLibrary}>Refresh library</Button>
+            <Button variant="primary" disabled={uploadBusy} on:click={handleVideoUpload}>
+              {uploadBusy ? 'Uploading…' : 'Upload video'}
+            </Button>
+          </div>
+        </header>
+        {#if !library.length}
+          <p class="muted">No videos in library. Upload a video to get started.</p>
+        {:else}
+          <ul class="library-list">
+            {#each library as video (video.filename)}
+              <li>
+                <div class="video-info">
+                  <strong>{video.filename}</strong>
+                  <span class="muted">{formatFileSize(video.size)}</span>
+                </div>
+                <Button
+                  variant="ghost"
+                  disabled={uploadBusy}
+                  on:click={() => handleVideoDelete(video.filename)}
+                >
+                  Delete
+                </Button>
+              </li>
+            {/each}
+          </ul>
+        {/if}
+      </section>
     </div>
   {/if}
 </Card>
@@ -613,6 +721,37 @@
     display: flex;
     align-items: center;
     gap: var(--spacing-2);
+  }
+
+  .library-list {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    display: grid;
+    gap: var(--spacing-2);
+  }
+
+  .library-list li {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: var(--spacing-3);
+    border: 1px solid rgba(148, 163, 184, 0.15);
+    border-radius: var(--radius-md);
+    padding: var(--spacing-3);
+    background: rgba(12, 21, 41, 0.55);
+  }
+
+  .video-info {
+    display: grid;
+    gap: 0.25rem;
+    min-width: 0;
+  }
+
+  .video-info strong {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
   }
 
   .muted {

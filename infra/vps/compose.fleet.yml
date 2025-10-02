@@ -11,7 +11,7 @@ services:
     extra_hosts:
       - "pi-audio-01:172.18.0.1"
       - "pi-audio-02:172.18.0.1"
-      - "pi-video-01:172.18.0.1"
+      - "pi-video-01:100.123.206.6"
       - "pi-camera-01:172.18.0.1"
     environment:
       - NODE_ENV=production
@@ -41,7 +41,7 @@ services:
     extra_hosts:
       - "pi-audio-01:172.18.0.1"
       - "pi-audio-02:172.18.0.1"
-      - "pi-video-01:172.18.0.1"
+      - "pi-video-01:100.123.206.6"
       - "pi-camera-01:172.18.0.1"
     environment:
       - NODE_ENV=production

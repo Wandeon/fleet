@@ -172,8 +172,7 @@ async def metrics():
 
 
 @app.get("/status")
-async def status(Authorization: Optional[str] = Header(None)):
-    check_auth(Authorization)
+async def status():
     result = await probe(force=False)
     return result
 

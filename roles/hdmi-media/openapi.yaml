@@ -9,8 +9,10 @@ info:
     **Diagnostic Use:** Test this API directly to isolate device-level issues
     from UI or Fleet API problems.
 servers:
+  - url: https://dev.headspamartina.hr/devices/video-01
+    description: HDMI Media Player 01 (via HTTPS proxy)
   - url: http://pi-video-01:8082
-    description: HDMI Media Player 01
+    description: Direct access (HTTP only)
 tags:
   - name: Status
     description: Device status and health monitoring

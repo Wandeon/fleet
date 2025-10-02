@@ -23,6 +23,13 @@ app.headspamartina.hr {
     }
   }
 
+  # Camera HLS stream proxy (no compression for video)
+  handle_path /camera/stream/* {
+    reverse_proxy 100.78.196.11:8888 {
+      flush_interval -1
+    }
+  }
+
   # Favicon - serve directly from Caddy
   handle /favicon.ico {
     root * /data
@@ -42,5 +49,45 @@ log.headspamartina.hr {
 
 dev.headspamartina.hr {
   encode zstd gzip
-  reverse_proxy swagger-ui:8080
+
+  # Proxy device API OpenAPI specs
+  handle /specs/audio-01/* {
+    uri strip_prefix /specs/audio-01
+    reverse_proxy pi-audio-01:8081
+  }
+  handle /specs/audio-02/* {
+    uri strip_prefix /specs/audio-02
+    reverse_proxy pi-audio-02:8081
+  }
+  handle /specs/video-01/* {
+    uri strip_prefix /specs/video-01
+    reverse_proxy pi-video-01:8082
+  }
+  handle /specs/camera-01/* {
+    uri strip_prefix /specs/camera-01
+    reverse_proxy pi-camera-01:8083
+  }
+
+  # Proxy device API endpoints (for Swagger UI "Try it out")
+  handle /devices/audio-01/* {
+    uri strip_prefix /devices/audio-01
+    reverse_proxy pi-audio-01:8081
+  }
+  handle /devices/audio-02/* {
+    uri strip_prefix /devices/audio-02
+    reverse_proxy pi-audio-02:8081
+  }
+  handle /devices/video-01/* {
+    uri strip_prefix /devices/video-01
+    reverse_proxy pi-video-01:8082
+  }
+  handle /devices/camera-01/* {
+    uri strip_prefix /devices/camera-01
+    reverse_proxy pi-camera-01:8083
+  }
+
+  # Swagger UI
+  handle {
+    reverse_proxy swagger-ui:8080
+  }
 }

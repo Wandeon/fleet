@@ -9,8 +9,10 @@ info:
     **Diagnostic Use:** Test this API directly to isolate device-level issues
     from UI or Fleet API problems.
 servers:
+  - url: https://dev.headspamartina.hr/devices/camera-01
+    description: Camera Control 01 (via HTTPS proxy)
   - url: http://pi-camera-01:8083
-    description: Camera Control 01
+    description: Camera Control 01 (direct HTTP)
 tags:
   - name: Status
     description: Device status and health monitoring

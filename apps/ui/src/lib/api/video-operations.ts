@@ -161,3 +161,58 @@ export const generateLivePreviewUrl = async (): Promise<string> => {
 
   return response.streamUrl;
 };
+
+export interface VideoLibraryItem {
+  filename: string;
+  path: string;
+  size: number;
+}
+
+export const fetchVideoLibrary = async (): Promise<VideoLibraryItem[]> => {
+  if (USE_MOCKS) {
+    return [];
+  }
+
+  const response = await fetch(`/ui/video/devices/${PRIMARY_VIDEO_DEVICE_ID}/library`);
+  if (!response.ok) {
+    throw new UiApiError(`Failed to fetch video library: ${response.statusText}`, response.status);
+  }
+
+  const data = await response.json();
+  return data.videos ?? [];
+};
+
+export const uploadVideo = async (file: File): Promise<void> => {
+  if (USE_MOCKS) {
+    await new Promise((resolve) => setTimeout(resolve, 1000));
+    return;
+  }
+
+  const formData = new FormData();
+  formData.append('file', file);
+
+  const response = await fetch(`/ui/video/devices/${PRIMARY_VIDEO_DEVICE_ID}/library/upload`, {
+    method: 'POST',
+    body: formData,
+  });
+
+  if (!response.ok) {
+    const error = await response.json().catch(() => ({ message: response.statusText }));
+    throw new UiApiError(error.message ?? 'Upload failed', response.status);
+  }
+};
+
+export const deleteVideo = async (filename: string): Promise<void> => {
+  if (USE_MOCKS) {
+    await new Promise((resolve) => setTimeout(resolve, 500));
+    return;
+  }
+
+  const response = await fetch(`/ui/video/devices/${PRIMARY_VIDEO_DEVICE_ID}/library/${encodeURIComponent(filename)}`, {
+    method: 'DELETE',
+  });
+
+  if (!response.ok) {
+    throw new UiApiError(`Failed to delete video: ${response.statusText}`, response.status);
+  }
+};
