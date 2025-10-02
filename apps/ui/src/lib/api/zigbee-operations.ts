@@ -63,7 +63,7 @@ export const getZigbeeOverview = async (
       fetch: fetchImpl as RequestOptions['fetch'],
     });
   } catch (error) {
-    console.warn('TODO(backlog): implement /zigbee/overview endpoint', error);
+    console.warn('Falling back to legacy Zigbee overview endpoint', error);
     return legacyZigbeeOverview(fetchImpl);
   }
 };
@@ -77,10 +77,16 @@ export const runZigbeeAction = async (
     return mockApi.zigbeeRunAction(deviceId, actionId);
   }
 
+  const fetchImpl = ensureFetch(options.fetch);
+
   try {
-    await ZigbeeService.runZigbeeAction(deviceId, {
-      deviceId,
-      command: actionId,
+    await rawRequest(`/zigbee/devices/${deviceId}/command`, {
+      method: 'POST',
+      body: {
+        deviceId,
+        command: actionId,
+      },
+      fetch: fetchImpl as RequestOptions['fetch'],
     });
   } catch (error) {
     console.error('Zigbee action failed:', error);
