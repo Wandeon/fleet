@@ -318,7 +318,7 @@ def get_metrics():
 @app.get("/openapi.yaml")
 def openapi_spec():
     """Serve OpenAPI specification for API documentation and testing."""
-    spec_path = os.path.join(os.path.dirname(__file__), "..", "..", "openapi.yaml")
+    spec_path = os.path.join(os.path.dirname(__file__), "openapi.yaml")
     try:
         with open(spec_path, "r", encoding="utf-8") as f:
             spec_content = f.read()
