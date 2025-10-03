@@ -28,6 +28,7 @@ services:
     volumes:
       - fleet-data:/data
       - ./config:/config:ro
+      - liquidsoap-music:/liquidsoap-music
     command: ['sh', '-c', 'npm run start']
     restart: unless-stopped
 
@@ -55,6 +56,7 @@ services:
     volumes:
       - fleet-data:/data
       - ./config:/config:ro
+      - liquidsoap-music:/liquidsoap-music
     command: ['sh', '-c', 'npm run db:generate && npm run worker']
     healthcheck:
       disable: true
@@ -114,3 +116,6 @@ volumes:
   fleet-data:
   caddy-data:
   caddy-config:
+  liquidsoap-music:
+    external: true
+    name: vps_liquidsoap-music

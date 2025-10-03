@@ -494,4 +494,64 @@ router.post('/master-volume', async (req, res, next) => {
   }
 });
 
+// ==================== Streaming System Management ====================
+
+import {
+  getStreamingSystemStatus,
+  listMusicLibrary,
+  uploadToMusicLibrary,
+  deleteFromMusicLibrary,
+} from '../services/streaming.js';
+
+router.get('/stream/status', async (_req, res, next) => {
+  res.locals.routePath = '/audio/stream/status';
+  try {
+    const status = await getStreamingSystemStatus();
+    res.json(status);
+  } catch (error) {
+    next(error);
+  }
+});
+
+router.get('/stream/library', async (_req, res, next) => {
+  res.locals.routePath = '/audio/stream/library';
+  try {
+    const files = await listMusicLibrary();
+    res.json({ files, total: files.length });
+  } catch (error) {
+    next(error);
+  }
+});
+
+router.post('/stream/library', upload.single('file'), async (req, res, next) => {
+  res.locals.routePath = '/audio/stream/library';
+  try {
+    const file = req.file;
+    if (!file) {
+      throw createHttpError(400, 'bad_request', 'Missing upload file');
+    }
+
+    log.info(
+      { filename: file.originalname, sizeBytes: file.size },
+      'Music file upload to Liquidsoap requested'
+    );
+
+    const uploaded = await uploadToMusicLibrary(file.buffer, file.originalname);
+    res.status(201).json(uploaded);
+  } catch (error) {
+    next(error);
+  }
+});
+
+router.delete('/stream/library/:filename', async (req, res, next) => {
+  res.locals.routePath = '/audio/stream/library/:filename';
+  try {
+    const { filename } = req.params;
+    await deleteFromMusicLibrary(filename);
+    res.status(204).send();
+  } catch (error) {
+    next(error);
+  }
+});
+
 export const audioRouter = router;
