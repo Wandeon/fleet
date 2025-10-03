@@ -147,14 +147,14 @@ export interface CameraProbeResult {
     last_success: string | null;
     cached: boolean;
   } | null;
-  cameras?: {
+  cameras?: Array<{
     cameraId: string;
     name: string;
     status: 'reachable' | 'unreachable';
     reason: string;
     rtsp_reachable: boolean;
     hls_available: boolean;
-  }[];
+  }>;
   summary?: {
     total: number;
     reachable: number;

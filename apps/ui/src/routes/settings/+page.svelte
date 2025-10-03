@@ -250,6 +250,42 @@
     </div>
 
     <div class="grid">
+      <Card
+        title="Environment configuration"
+        subtitle="Read-only settings from vps/fleet.env"
+      >
+        <div class="env-notice">
+          <p>
+            These settings are configured via environment variables in <code>vps/fleet.env</code> and
+            cannot be modified through the UI.
+          </p>
+        </div>
+        <div class="section">
+          <dl>
+            <div>
+              <dt>API Base URL</dt>
+              <dd>{data.envConfig.apiBaseUrl}</dd>
+            </div>
+            <div>
+              <dt>API Bearer Token</dt>
+              <dd>{data.envConfig.apiBearer}</dd>
+            </div>
+            <div>
+              <dt>Host</dt>
+              <dd>{data.envConfig.host}</dd>
+            </div>
+            <div>
+              <dt>Port</dt>
+              <dd>{data.envConfig.port}</dd>
+            </div>
+            <div>
+              <dt>Origin</dt>
+              <dd>{data.envConfig.origin}</dd>
+            </div>
+          </dl>
+        </div>
+      </Card>
+
       <Card title="API access" subtitle="Token rotation and allowed origins">
         <div class="section">
           <dl>
@@ -661,6 +697,29 @@
     margin: 0;
     color: var(--color-red-300);
     font-size: var(--font-size-sm);
+  }
+
+  .env-notice {
+    background: rgba(56, 189, 248, 0.08);
+    border: 1px solid rgba(56, 189, 248, 0.2);
+    border-radius: var(--radius-md);
+    padding: var(--spacing-3);
+    margin-bottom: var(--spacing-3);
+  }
+
+  .env-notice p {
+    margin: 0;
+    font-size: var(--font-size-sm);
+    color: var(--color-text);
+  }
+
+  .env-notice code {
+    background: rgba(15, 23, 42, 0.6);
+    padding: 0.15rem 0.4rem;
+    border-radius: var(--radius-sm);
+    font-family: monospace;
+    font-size: var(--font-size-sm);
+    color: var(--color-brand);
   }
 
   @media (max-width: 768px) {

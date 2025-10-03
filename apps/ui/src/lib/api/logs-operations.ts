@@ -29,7 +29,7 @@ export interface LogStreamSubscription {
   stop: () => void;
 }
 
-// Retry utility with exponential backoff
+// Retry utility with exponential backoff for 5xx errors
 interface RetryOptions {
   maxAttempts?: number;
   initialDelayMs?: number;
@@ -214,7 +214,7 @@ export const fetchLogSnapshot = async (options: LogQueryOptions = {}): Promise<L
   const fetchImpl = ensureFetch(options.fetch);
   const params = buildQueryParams(options);
 
-  // Use retry logic for 5xx errors
+  // Use retry logic with exponential backoff for 5xx errors
   return withRetry(async () => {
     const result = await rawRequest<{
       items: LogEntry[];
