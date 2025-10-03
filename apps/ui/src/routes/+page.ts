@@ -42,13 +42,20 @@ export const load: PageLoad = async ({ fetch, depends }) => {
         error: null,
       });
   const fleetStatePromise = toResult(apiClient.fetchState({ fetch }));
+  const healthEventsPromise = toResult(
+    fetch('/ui/health/events/recent?limit=5').then((r) => {
+      if (!r.ok) throw new Error('Failed to fetch health events');
+      return r.json() as Promise<{ events: any[]; count: number }>;
+    })
+  );
 
-  const [audio, video, zigbee, camera, fleetState] = await Promise.all([
+  const [audio, video, zigbee, camera, fleetState, healthEvents] = await Promise.all([
     audioPromise,
     videoPromise,
     zigbeePromise,
     cameraPromise,
     fleetStatePromise,
+    healthEventsPromise,
   ]);
 
   return {
@@ -57,5 +64,6 @@ export const load: PageLoad = async ({ fetch, depends }) => {
     zigbee,
     camera,
     fleetState,
+    healthEvents,
   };
 };
