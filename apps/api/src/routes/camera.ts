@@ -424,14 +424,12 @@ router.post('/probe', async (req, res, next) => {
 
     log.info({ cameraId }, 'Camera probe requested');
 
-    // If specific camera requested, check if it exists
     if (cameraId) {
       const device = deviceRegistry.getDevice(cameraId);
       if (!device || !isCameraDevice(device)) {
         throw createHttpError(404, 'not_found', `Camera ${cameraId} not found`);
       }
 
-      // Attempt to probe the specific camera
       const status = await fetchCameraStatus(cameraId);
 
       res.json({
@@ -448,7 +446,6 @@ router.post('/probe', async (req, res, next) => {
         } : null,
       });
     } else {
-      // Probe all cameras
       const devices = listCameraDevices();
       const probeResults = await Promise.all(
         devices.map(async (device) => {

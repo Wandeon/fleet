@@ -250,15 +250,9 @@
     </div>
 
     <div class="grid">
-      <Card
-        title="Environment configuration"
-        subtitle="Read-only settings from vps/fleet.env"
-      >
+      <Card title="Environment configuration" subtitle="Runtime environment variables">
         <div class="env-notice">
-          <p>
-            These settings are configured via environment variables in <code>vps/fleet.env</code> and
-            cannot be modified through the UI.
-          </p>
+          <p>These values are configured in <code>vps/fleet.env</code> and require a restart to update.</p>
         </div>
         <div class="section">
           <dl>
@@ -551,6 +545,28 @@
   .section {
     display: grid;
     gap: var(--spacing-3);
+  }
+
+  .env-notice {
+    padding: var(--spacing-3);
+    background: rgba(56, 189, 248, 0.1);
+    border-radius: var(--radius-md);
+    border: 1px solid rgba(56, 189, 248, 0.2);
+    margin-bottom: var(--spacing-3);
+  }
+
+  .env-notice p {
+    margin: 0;
+    font-size: var(--font-size-sm);
+    color: var(--color-text);
+  }
+
+  .env-notice code {
+    padding: 0.125rem 0.375rem;
+    background: rgba(15, 23, 42, 0.5);
+    border-radius: var(--radius-sm);
+    font-family: var(--font-mono, monospace);
+    font-size: var(--font-size-xs);
   }
 
   dl {

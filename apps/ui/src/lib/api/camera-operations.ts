@@ -167,7 +167,6 @@ export const probeCameraStream = async (
   options: CameraQueryOptions = {}
 ): Promise<CameraProbeResult> => {
   if (USE_MOCKS) {
-    // Return mock probe result
     return {
       probedAt: new Date().toISOString(),
       cameras: [
