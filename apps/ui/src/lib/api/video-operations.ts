@@ -216,3 +216,23 @@ export const deleteVideo = async (filename: string): Promise<void> => {
     throw new UiApiError(`Failed to delete video: ${response.statusText}`, response.status);
   }
 };
+
+export const playVideoLibrary = async (filename: string, loop: boolean = true): Promise<void> => {
+  if (USE_MOCKS) {
+    await new Promise((resolve) => setTimeout(resolve, 500));
+    return;
+  }
+
+  const videoPath = `/data/library/${filename}`;
+  const url = loop ? `file://${videoPath}` : `file://${videoPath}`;
+
+  const response = await fetch(`/ui/video/devices/${PRIMARY_VIDEO_DEVICE_ID}/playback`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ action: 'play', url }),
+  });
+
+  if (!response.ok) {
+    throw new UiApiError(`Failed to play video: ${response.statusText}`, response.status);
+  }
+};

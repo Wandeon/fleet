@@ -41,8 +41,8 @@ export async function fetchAudioDevices(
     );
   }
 
-  const data: AudioDeviceListResponse = await response.json();
-  return data.devices;
+  const data: any = await response.json();
+  return data.items || data.devices || [];
 }
 
 /**

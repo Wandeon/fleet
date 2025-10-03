@@ -20,6 +20,7 @@
     fetchVideoLibrary,
     uploadVideo,
     deleteVideo,
+    playVideoLibrary,
     type VideoLibraryItem,
   } from '$lib/api/video-operations';
   import { mockApi } from '$lib/api/mock';
@@ -27,6 +28,7 @@
   import type { PanelState } from '$lib/stores/app';
   import type { VideoRecordingSegment, VideoState } from '$lib/types';
   import { browser } from '$app/environment';
+  import { onMount } from 'svelte';
 
   export let data: VideoState | null = null;
   export let state: PanelState = 'success';
@@ -226,6 +228,10 @@
     }
   };
 
+  onMount(() => {
+    refreshLibrary();
+  });
+
   const handleVideoUpload = () => {
     if (uploadBusy) return;
 
@@ -259,6 +265,21 @@
 
     document.body.appendChild(input);
     input.click();
+  };
+
+  const handleVideoPlay = async (filename: string) => {
+    if (uploadBusy) return;
+
+    uploadBusy = true;
+    try {
+      await playVideoLibrary(filename, true);
+      showMessage(`Playing ${filename} on loop`);
+    } catch (error) {
+      console.error('video play error', error);
+      showMessage(error instanceof Error ? error.message : 'Play failed');
+    } finally {
+      uploadBusy = false;
+    }
   };
 
   const handleVideoDelete = async (filename: string) => {
@@ -546,13 +567,22 @@
                   <strong>{video.filename}</strong>
                   <span class="muted">{formatFileSize(video.size)}</span>
                 </div>
-                <Button
-                  variant="ghost"
-                  disabled={uploadBusy}
-                  onclick={() => handleVideoDelete(video.filename)}
-                >
-                  Delete
-                </Button>
+                <div class="video-actions">
+                  <Button
+                    variant="primary"
+                    disabled={uploadBusy}
+                    onclick={() => handleVideoPlay(video.filename)}
+                  >
+                    Play (Loop)
+                  </Button>
+                  <Button
+                    variant="ghost"
+                    disabled={uploadBusy}
+                    onclick={() => handleVideoDelete(video.filename)}
+                  >
+                    Delete
+                  </Button>
+                </div>
               </li>
             {/each}
           </ul>
@@ -819,6 +849,12 @@
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
+  }
+
+  .video-actions {
+    display: flex;
+    gap: var(--spacing-2);
+    align-items: center;
   }
 
   .muted {
