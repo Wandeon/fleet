@@ -34,6 +34,7 @@
   let pairingTimer: ReturnType<typeof setInterval> | null = null;
   let discoveryTimer: ReturnType<typeof setInterval> | null = null;
   let actionInProgress: string | null = null;
+  let deviceActionInProgress: string | null = null;
   let errorMessage: string | null = null;
   let correlationId: string | null = null;
 
@@ -220,7 +221,21 @@
 
     try {
       for (const device of data.devices) {
-        data = await runZigbeeAction(device.id, actionId);
+        const result = await runZigbeeAction(device.id, actionId);
+
+        if (!result.accepted) {
+          addToast({
+            message: `Coming soon: ${result.reason || 'Action not available'}`,
+            variant: 'info',
+            timeout: 5000,
+          });
+          actionInProgress = null;
+          return;
+        }
+
+        if (result.state) {
+          data = result.state;
+        }
       }
       addToast({
         message: `Action "${actionId}" executed successfully`,
@@ -239,6 +254,57 @@
       });
     } finally {
       actionInProgress = null;
+    }
+  };
+
+  const triggerDeviceAction = async (deviceId: string, actionId: string) => {
+    if (!data) return;
+
+    if (data.hubStatus === 'offline') {
+      addToast({
+        message: 'Cannot execute action: Zigbee hub is offline',
+        variant: 'error',
+        timeout: 5000,
+      });
+      return;
+    }
+
+    deviceActionInProgress = deviceId;
+    errorMessage = null;
+
+    try {
+      const result = await runZigbeeAction(deviceId, actionId);
+
+      if (!result.accepted) {
+        addToast({
+          message: `Coming soon: ${result.reason || 'Action not available'}`,
+          variant: 'info',
+          timeout: 5000,
+        });
+        return;
+      }
+
+      if (result.state) {
+        data = result.state;
+      }
+
+      addToast({
+        message: `Action "${actionId}" executed on device`,
+        variant: 'success',
+        timeout: 3000,
+      });
+      broadcastRefresh();
+    } catch (error: any) {
+      const errMsg = error?.message ?? `Failed to execute action "${actionId}"`;
+      errorMessage = errMsg;
+      correlationId = error?.correlationId ?? null;
+      addToast({
+        message: errMsg,
+        variant: 'error',
+        timeout: 5000,
+      });
+    } finally {
+      deviceActionInProgress = null;
     }
   };
 
@@ -319,6 +385,7 @@
               <th scope="col">Type</th>
               <th scope="col">State</th>
               <th scope="col">Last seen</th>
+              <th scope="col">Actions</th>
             </tr>
           </thead>
           <tbody>
@@ -338,6 +405,15 @@
                   {:else}
                     {device.lastSeen}
                   {/if}
+                </td>
+                <td>
+                  <Button
+                    variant="secondary"
+                    on:click={() => triggerDeviceAction(device.id, 'toggle')}
+                    disabled={deviceActionInProgress === device.id || data.hubStatus === 'offline'}
+                  >
+                    {deviceActionInProgress === device.id ? 'Toggling...' : 'Toggle'}
+                  </Button>
                 </td>
               </tr>
             {/each}
@@ -407,6 +483,34 @@
               <li>Wait for the device to be discovered</li>
               <li>Select the device to complete pairing</li>
             </ol>
+          </div>
+          <div class="api-info">
+            <h4>📖 API Documentation</h4>
+            <p class="api-description">
+              The pairing API allows you to programmatically discover and pair Zigbee devices.
+            </p>
+            <div class="api-endpoints">
+              <div class="api-endpoint">
+                <code>POST /api/zigbee/pairing</code>
+                <span>Start pairing mode</span>
+              </div>
+              <div class="api-endpoint">
+                <code>GET /api/zigbee/pairing/discovered</code>
+                <span>Poll discovered devices</span>
+              </div>
+              <div class="api-endpoint">
+                <code>POST /api/zigbee/pairing/{'{'}deviceId{'}'}</code>
+                <span>Confirm device pairing</span>
+              </div>
+            </div>
+            <a
+              href="/docs/devices/zigbee.md"
+              target="_blank"
+              rel="noopener noreferrer"
+              class="docs-link"
+            >
+              View full documentation →
+            </a>
           </div>
         {/if}
       </div>
@@ -720,5 +824,70 @@
   .dismiss-error:hover,
   .dismiss-error:focus-visible {
     color: var(--color-text);
+  }
+
+  .api-info {
+    background: rgba(11, 23, 45, 0.4);
+    border: 1px solid rgba(59, 130, 246, 0.3);
+    border-radius: var(--radius-md);
+    padding: var(--spacing-4);
+    margin-top: var(--spacing-3);
+  }
+
+  .api-info h4 {
+    margin: 0 0 var(--spacing-2);
+    color: var(--color-text);
+    font-size: var(--font-size-md);
+  }
+
+  .api-description {
+    margin: 0 0 var(--spacing-3);
+    color: var(--color-text-muted);
+    font-size: var(--font-size-sm);
+    line-height: 1.5;
+  }
+
+  .api-endpoints {
+    display: flex;
+    flex-direction: column;
+    gap: var(--spacing-2);
+    margin-bottom: var(--spacing-3);
+  }
+
+  .api-endpoint {
+    display: flex;
+    flex-direction: column;
+    gap: var(--spacing-1);
+    padding: var(--spacing-2);
+    background: rgba(0, 0, 0, 0.3);
+    border-radius: var(--radius-sm);
+  }
+
+  .api-endpoint code {
+    font-family: 'Courier New', Courier, monospace;
+    color: rgb(59, 130, 246);
+    font-size: var(--font-size-sm);
+    font-weight: 500;
+  }
+
+  .api-endpoint span {
+    font-size: var(--font-size-xs);
+    color: var(--color-text-muted);
+  }
+
+  .docs-link {
+    display: inline-flex;
+    align-items: center;
+    gap: var(--spacing-1);
+    color: rgb(59, 130, 246);
+    text-decoration: none;
+    font-size: var(--font-size-sm);
+    font-weight: 500;
+    transition: color 0.2s ease;
+  }
+
+  .docs-link:hover {
+    color: rgb(37, 99, 235);
+    text-decoration: underline;
   }
 </style>

@@ -416,4 +416,68 @@ router.post('/:id/refresh', async (req, res, next) => {
   }
 });
 
+router.post('/probe', async (req, res, next) => {
+  res.locals.routePath = '/api/camera/probe';
+  try {
+    const { cameraId } = req.body;
+    const now = new Date().toISOString();
+
+    log.info({ cameraId }, 'Camera probe requested');
+
+    // If specific camera requested, check if it exists
+    if (cameraId) {
+      const device = deviceRegistry.getDevice(cameraId);
+      if (!device || !isCameraDevice(device)) {
+        throw createHttpError(404, 'not_found', `Camera ${cameraId} not found`);
+      }
+
+      // Attempt to probe the specific camera
+      const status = await fetchCameraStatus(cameraId);
+
+      res.json({
+        cameraId,
+        probedAt: now,
+        status: status ? 'reachable' : 'unreachable',
+        reason: status ? '' : CAMERA_OFFLINE_REASON,
+        result: status ? {
+          rtsp_reachable: status.rtsp_reachable,
+          hls_available: !!status.hls_url,
+          preview_available: status.preview && status.preview.length > 0,
+          last_success: status.last_success,
+          cached: status.cached,
+        } : null,
+      });
+    } else {
+      // Probe all cameras
+      const devices = listCameraDevices();
+      const probeResults = await Promise.all(
+        devices.map(async (device) => {
+          const status = await fetchCameraStatus(device.id);
+          return {
+            cameraId: device.id,
+            name: device.name,
+            status: status ? 'reachable' : 'unreachable',
+            reason: status ? '' : CAMERA_OFFLINE_REASON,
+            rtsp_reachable: status?.rtsp_reachable ?? false,
+            hls_available: !!status?.hls_url,
+          };
+        })
+      );
+
+      res.json({
+        probedAt: now,
+        cameras: probeResults,
+        summary: {
+          total: devices.length,
+          reachable: probeResults.filter(r => r.status === 'reachable').length,
+          unreachable: probeResults.filter(r => r.status === 'unreachable').length,
+        },
+      });
+    }
+  } catch (error) {
+    log.error({ error }, 'Failed to probe camera');
+    next(error);
+  }
+});
+
 export const cameraRouter = router;

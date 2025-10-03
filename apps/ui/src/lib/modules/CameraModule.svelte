@@ -15,6 +15,8 @@
     refreshCameraPreview,
     requestCameraClip,
     selectCamera,
+    probeCameraStream,
+    type CameraProbeResult,
   } from '$lib/api/camera-operations';
   import Hls from 'hls.js';
 
@@ -32,6 +34,10 @@
   let clipError: string | null = null;
   let videoElement: HTMLVideoElement;
   let hls: Hls | null = null;
+  let probeDrawerOpen = false;
+  let probeResult: CameraProbeResult | null = null;
+  let probeError: string | null = null;
+  let probing = false;
 
   $: devices = data?.devices ?? [];
   $: events = data?.events ?? [];
@@ -119,6 +125,27 @@
     } finally {
       working = false;
     }
+  };
+
+  const handleProbeStream = async () => {
+    if (!browser || probing) return;
+    probing = true;
+    probeError = null;
+    try {
+      const result = await probeCameraStream(selectedCamera, { fetch });
+      probeResult = result;
+      probeDrawerOpen = true;
+    } catch (error) {
+      probeError = error instanceof Error ? error.message : 'Unable to probe stream';
+      probeResult = null;
+      probeDrawerOpen = true;
+    } finally {
+      probing = false;
+    }
+  };
+
+  const closeProbeDrawer = () => {
+    probeDrawerOpen = false;
   };
 
   onMount(() => {
@@ -243,13 +270,17 @@
             <p>{activeDevice?.name ?? 'Select a camera'}</p>
           </div>
           <div class="preview-actions">
-            <Button variant="ghost" on:click={handleRefreshPreview} disabled={working}
+            <Button variant="ghost" on:click={handleRefreshPreview} disabled={working} title="Update camera preview image"
               >Refresh preview</Button
+            >
+            <Button variant="ghost" on:click={handleProbeStream} disabled={probing || working}
+              >Probe stream</Button
             >
             {#if previewUrl}
               <Button
                 variant="secondary"
-                on:click={() => window.open(previewUrl!, '_blank', 'noopener')}>Open stream</Button
+                on:click={() => window.open(previewUrl!, '_blank', 'noopener')}
+                title="Open stream in new tab">Open stream</Button
               >
             {/if}
           </div>
@@ -260,7 +291,13 @@
           {:else if snapshotUrl}
             <img src={snapshotUrl} alt="Camera snapshot" />
           {:else}
-            <div class="preview-placeholder">No preview available</div>
+            <div class="preview-placeholder">
+              <div class="placeholder-content">
+                <span class="placeholder-icon">📷</span>
+                <p class="placeholder-title">Preview Unavailable</p>
+                <p class="placeholder-hint">Camera stream is offline. Preview images will appear here when cameras are connected.</p>
+              </div>
+            </div>
           {/if}
         </div>
         {#if clipError}
@@ -352,6 +389,98 @@
     </div>
   {/if}
 </Card>
+
+{#if probeDrawerOpen}
+  <div class="drawer-overlay" on:click={closeProbeDrawer} on:keydown={(e) => e.key === 'Escape' && closeProbeDrawer()} role="button" tabindex="0" aria-label="Close probe drawer">
+    <div class="drawer" on:click={(e) => e.stopPropagation()} on:keydown={(e) => e.stopPropagation()} role="dialog" aria-modal="true">
+      <div class="drawer-header">
+        <h3>Stream Probe Results</h3>
+        <button class="drawer-close" on:click={closeProbeDrawer} aria-label="Close">×</button>
+      </div>
+      <div class="drawer-content">
+        {#if probeError}
+          <div class="probe-error" role="alert">
+            <p><strong>Error:</strong> {probeError}</p>
+            <p class="muted">The camera stream could not be probed. Please check the camera connection and try again.</p>
+          </div>
+        {:else if probeResult}
+          <div class="probe-info">
+            <p class="probe-timestamp"><strong>Last probed:</strong> {new Date(probeResult.probedAt).toLocaleString()}</p>
+          </div>
+
+          {#if probeResult.cameras}
+            <div class="probe-section">
+              <h4>Camera Status</h4>
+              {#if probeResult.summary}
+                <div class="probe-summary">
+                  <span>Total: {probeResult.summary.total}</span>
+                  <span class="status-reachable">Reachable: {probeResult.summary.reachable}</span>
+                  <span class="status-unreachable">Unreachable: {probeResult.summary.unreachable}</span>
+                </div>
+              {/if}
+              <ul class="probe-results">
+                {#each probeResult.cameras as camera}
+                  <li class="probe-result-item">
+                    <div class="probe-camera-name">
+                      <strong>{camera.name}</strong>
+                      <StatusPill
+                        status={camera.status === 'reachable' ? 'ok' : 'error'}
+                        label={camera.status}
+                      />
+                    </div>
+                    {#if camera.reason}
+                      <p class="probe-reason">{camera.reason}</p>
+                    {/if}
+                    <div class="probe-details">
+                      <span>RTSP: {camera.rtsp_reachable ? '✓' : '✗'}</span>
+                      <span>HLS: {camera.hls_available ? '✓' : '✗'}</span>
+                    </div>
+                  </li>
+                {/each}
+              </ul>
+            </div>
+          {:else if probeResult.result}
+            <div class="probe-section">
+              <h4>Stream Details</h4>
+              <dl class="probe-details-list">
+                <dt>Status:</dt>
+                <dd>
+                  <StatusPill
+                    status={probeResult.status === 'reachable' ? 'ok' : 'error'}
+                    label={probeResult.status ?? 'unknown'}
+                  />
+                </dd>
+                {#if probeResult.reason}
+                  <dt>Reason:</dt>
+                  <dd>{probeResult.reason}</dd>
+                {/if}
+                <dt>RTSP Reachable:</dt>
+                <dd>{probeResult.result.rtsp_reachable ? 'Yes' : 'No'}</dd>
+                <dt>HLS Available:</dt>
+                <dd>{probeResult.result.hls_available ? 'Yes' : 'No'}</dd>
+                <dt>Preview Available:</dt>
+                <dd>{probeResult.result.preview_available ? 'Yes' : 'No'}</dd>
+                {#if probeResult.result.last_success}
+                  <dt>Last Success:</dt>
+                  <dd>{new Date(probeResult.result.last_success).toLocaleString()}</dd>
+                {/if}
+                <dt>Cached:</dt>
+                <dd>{probeResult.result.cached ? 'Yes' : 'No'}</dd>
+              </dl>
+            </div>
+          {/if}
+
+          <div class="probe-note">
+            <p class="muted">
+              ℹ️ Stream probing checks the connectivity and availability of camera streams.
+              When cameras are offline, probe results will indicate unavailability.
+            </p>
+          </div>
+        {/if}
+      </div>
+    </div>
+  </div>
+{/if}
 
 <style>
   .loading {
@@ -455,8 +584,37 @@
   }
 
   .preview-placeholder {
-    color: var(--color-text-muted);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    height: 100%;
+    width: 100%;
+  }
+
+  .placeholder-content {
+    text-align: center;
+    display: grid;
+    gap: var(--spacing-2);
+    padding: var(--spacing-4);
+  }
+
+  .placeholder-icon {
+    font-size: 3rem;
+    opacity: 0.5;
+  }
+
+  .placeholder-title {
+    margin: 0;
+    font-weight: 600;
+    font-size: var(--font-size-md);
+    color: var(--color-text);
+  }
+
+  .placeholder-hint {
+    margin: 0;
     font-size: var(--font-size-sm);
+    color: var(--color-text-muted);
+    max-width: 24rem;
   }
 
   .clip-error {
@@ -590,5 +748,192 @@
       flex-wrap: wrap;
       justify-content: flex-end;
     }
+  }
+
+  .drawer-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: rgba(0, 0, 0, 0.6);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 1000;
+    padding: var(--spacing-4);
+  }
+
+  .drawer {
+    background: var(--color-bg-card);
+    border: 1px solid rgba(148, 163, 184, 0.2);
+    border-radius: var(--radius-lg);
+    width: 100%;
+    max-width: 600px;
+    max-height: 80vh;
+    display: flex;
+    flex-direction: column;
+    box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.5), 0 10px 10px -5px rgba(0, 0, 0, 0.4);
+  }
+
+  .drawer-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: var(--spacing-4);
+    border-bottom: 1px solid rgba(148, 163, 184, 0.2);
+  }
+
+  .drawer-header h3 {
+    margin: 0;
+    font-size: var(--font-size-lg);
+  }
+
+  .drawer-close {
+    background: none;
+    border: none;
+    font-size: 2rem;
+    line-height: 1;
+    cursor: pointer;
+    color: var(--color-text-muted);
+    padding: 0;
+    width: 2rem;
+    height: 2rem;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+
+  .drawer-close:hover {
+    color: var(--color-text);
+  }
+
+  .drawer-content {
+    padding: var(--spacing-4);
+    overflow-y: auto;
+    display: grid;
+    gap: var(--spacing-4);
+  }
+
+  .probe-error {
+    background: rgba(239, 68, 68, 0.12);
+    border: 1px solid rgba(239, 68, 68, 0.3);
+    padding: var(--spacing-3);
+    border-radius: var(--radius-md);
+  }
+
+  .probe-error p {
+    margin: 0;
+  }
+
+  .probe-error p + p {
+    margin-top: var(--spacing-2);
+  }
+
+  .probe-info {
+    padding: var(--spacing-3);
+    background: rgba(59, 130, 246, 0.1);
+    border-radius: var(--radius-md);
+  }
+
+  .probe-timestamp {
+    margin: 0;
+    font-size: var(--font-size-sm);
+  }
+
+  .probe-section {
+    display: grid;
+    gap: var(--spacing-3);
+  }
+
+  .probe-section h4 {
+    margin: 0;
+    font-size: var(--font-size-md);
+    color: var(--color-text);
+  }
+
+  .probe-summary {
+    display: flex;
+    gap: var(--spacing-4);
+    padding: var(--spacing-3);
+    background: rgba(15, 23, 42, 0.45);
+    border-radius: var(--radius-md);
+    font-size: var(--font-size-sm);
+  }
+
+  .status-reachable {
+    color: var(--color-green-400);
+  }
+
+  .status-unreachable {
+    color: var(--color-red-400);
+  }
+
+  .probe-results {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    display: grid;
+    gap: var(--spacing-3);
+  }
+
+  .probe-result-item {
+    padding: var(--spacing-3);
+    background: rgba(15, 23, 42, 0.35);
+    border: 1px solid rgba(148, 163, 184, 0.2);
+    border-radius: var(--radius-md);
+    display: grid;
+    gap: var(--spacing-2);
+  }
+
+  .probe-camera-name {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+  }
+
+  .probe-reason {
+    margin: 0;
+    font-size: var(--font-size-sm);
+    color: var(--color-text-muted);
+  }
+
+  .probe-details {
+    display: flex;
+    gap: var(--spacing-3);
+    font-size: var(--font-size-sm);
+    color: var(--color-text-muted);
+  }
+
+  .probe-details-list {
+    display: grid;
+    grid-template-columns: auto 1fr;
+    gap: var(--spacing-2) var(--spacing-3);
+    padding: var(--spacing-3);
+    background: rgba(15, 23, 42, 0.35);
+    border-radius: var(--radius-md);
+    font-size: var(--font-size-sm);
+  }
+
+  .probe-details-list dt {
+    font-weight: 600;
+    color: var(--color-text);
+  }
+
+  .probe-details-list dd {
+    margin: 0;
+    color: var(--color-text-muted);
+  }
+
+  .probe-note {
+    padding: var(--spacing-3);
+    background: rgba(59, 130, 246, 0.08);
+    border-radius: var(--radius-md);
+    border: 1px solid rgba(59, 130, 246, 0.2);
+  }
+
+  .probe-note p {
+    margin: 0;
+    font-size: var(--font-size-sm);
   }
 </style>

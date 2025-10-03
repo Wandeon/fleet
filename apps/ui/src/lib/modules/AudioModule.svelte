@@ -722,8 +722,9 @@
                   size="sm"
                   disabled={!!deviceUploadBusy[device.id]}
                   on:click={() => handleDeviceUpload(device)}
+                  title="Upload emergency audio for offline fallback"
                 >
-                  {deviceUploadBusy[device.id] ? 'Uploading…' : 'Upload fallback'}
+                  {deviceUploadBusy[device.id] ? 'Uploading…' : 'Replace fallback'}
                 </Button>
                 <span
                   class={`pill ${device.fallbackExists ? 'success' : 'warn'}`}
@@ -891,8 +892,9 @@
                       playbackMode = 'single';
                       handlePlayback();
                     }}
+                    title="Play this track on all selected devices"
                   >
-                    Play on selected
+                    Play on both
                   </Button>
                 </td>
               </tr>
@@ -928,8 +930,8 @@
                   </div>
                 </div>
                 <div class="playlist-actions">
-                  <Button variant="ghost" size="sm" on:click={() => handlePlayPlaylist(playlist)}>
-                    Play on selected
+                  <Button variant="ghost" size="sm" on:click={() => handlePlayPlaylist(playlist)} title="Deploy playlist to all selected devices">
+                    Play on both
                   </Button>
                   <Button variant="ghost" size="sm" on:click={() => openPlaylistModal(playlist)}>
                     Edit

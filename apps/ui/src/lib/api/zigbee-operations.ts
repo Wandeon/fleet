@@ -72,15 +72,20 @@ export const runZigbeeAction = async (
   deviceId: string,
   actionId: string,
   options: { fetch?: typeof fetch } = {}
-): Promise<ZigbeeState> => {
+): Promise<{ accepted: boolean; reason?: string; state?: ZigbeeState }> => {
   if (USE_MOCKS) {
-    return mockApi.zigbeeRunAction(deviceId, actionId);
+    return { accepted: true, state: await mockApi.zigbeeRunAction(deviceId, actionId) };
   }
 
   const fetchImpl = ensureFetch(options.fetch);
 
   try {
-    await rawRequest(`/zigbee/devices/${deviceId}/command`, {
+    const response = await rawRequest<{
+      accepted: boolean;
+      reason?: string;
+      deviceId: string;
+      command: string;
+    }>(`/zigbee/devices/${deviceId}/action`, {
       method: 'POST',
       body: {
         deviceId,
@@ -88,11 +93,20 @@ export const runZigbeeAction = async (
       },
       fetch: fetchImpl as RequestOptions['fetch'],
     });
+
+    if (!response.accepted) {
+      return {
+        accepted: false,
+        reason: response.reason || 'Action not available',
+      };
+    }
+
+    const state = await getZigbeeOverview(options);
+    return { accepted: true, state };
   } catch (error) {
     console.error('Zigbee action failed:', error);
     throw error;
   }
-  return getZigbeeOverview(options);
 };
 
 export const startPairing = async (
