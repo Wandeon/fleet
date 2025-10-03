@@ -9,10 +9,10 @@ services:
     networks:
       - fleet-network
     extra_hosts:
-      - "pi-audio-01:172.18.0.1"
-      - "pi-audio-02:172.18.0.1"
+      - "pi-audio-01:100.127.65.25"
+      - "pi-audio-02:100.122.210.53"
       - "pi-video-01:100.123.206.6"
-      - "pi-camera-01:172.18.0.1"
+      - "pi-camera-01:100.78.196.11"
     environment:
       - NODE_ENV=production
       - API_PORT=3015
@@ -39,10 +39,10 @@ services:
     networks:
       - fleet-network
     extra_hosts:
-      - "pi-audio-01:172.18.0.1"
-      - "pi-audio-02:172.18.0.1"
+      - "pi-audio-01:100.127.65.25"
+      - "pi-audio-02:100.122.210.53"
       - "pi-video-01:100.123.206.6"
-      - "pi-camera-01:172.18.0.1"
+      - "pi-camera-01:100.78.196.11"
     environment:
       - NODE_ENV=production
       - DATABASE_URL=file:/data/fleet.db
