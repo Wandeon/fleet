@@ -243,13 +243,14 @@
             <p>{activeDevice?.name ?? 'Select a camera'}</p>
           </div>
           <div class="preview-actions">
-            <Button variant="ghost" on:click={handleRefreshPreview} disabled={working}
+            <Button variant="ghost" on:click={handleRefreshPreview} disabled={working} title="Update camera preview image"
               >Refresh preview</Button
             >
             {#if previewUrl}
               <Button
                 variant="secondary"
-                on:click={() => window.open(previewUrl!, '_blank', 'noopener')}>Open stream</Button
+                on:click={() => window.open(previewUrl!, '_blank', 'noopener')}
+                title="Open stream in new tab">Open stream</Button
               >
             {/if}
           </div>
