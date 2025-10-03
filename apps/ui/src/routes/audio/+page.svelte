@@ -1,8 +1,12 @@
 <script lang="ts">
   import AudioModule from '$lib/modules/AudioModule.svelte';
+  import AudioDeviceCard from '$lib/components/AudioDeviceCard.svelte';
   import { createModuleStateStore, type PanelState } from '$lib/stores/app';
   import { invalidate } from '$app/navigation';
   import type { PageData } from './$types';
+  import { onMount, onDestroy } from 'svelte';
+  import { fetchAudioDevices } from '$lib/api/audio-device-control';
+  import type { AudioDeviceSnapshot } from '$lib/types';
 
   export let data: PageData;
 
@@ -15,179 +19,188 @@
   }
 
   const refresh = () => invalidate('app:audio');
+
+  // Device control state
+  let devices: AudioDeviceSnapshot[] = [];
+  let devicesLoading = true;
+  let devicesError: string | null = null;
+  let pollingInterval: ReturnType<typeof setInterval> | null = null;
+  let toastMessage: string | null = null;
+  let toastType: 'success' | 'error' = 'success';
+
+  const loadDevices = async () => {
+    try {
+      devices = await fetchAudioDevices();
+      devicesError = null;
+    } catch (error) {
+      devicesError = error instanceof Error ? error.message : 'Failed to load devices';
+    } finally {
+      devicesLoading = false;
+    }
+  };
+
+  const handleDeviceRefresh = () => {
+    loadDevices();
+  };
+
+  const showToast = (message: string, type: 'success' | 'error') => {
+    toastMessage = message;
+    toastType = type;
+    setTimeout(() => {
+      toastMessage = null;
+    }, 4000);
+  };
+
+  onMount(() => {
+    loadDevices();
+    // Poll for device updates every 5 seconds
+    pollingInterval = setInterval(loadDevices, 5000);
+  });
+
+  onDestroy(() => {
+    if (pollingInterval) {
+      clearInterval(pollingInterval);
+    }
+  });
 </script>
 
-<AudioModule data={data.audio} state={panelState} onRetry={refresh} />
+<div class="audio-page">
+  <!-- Device Controls Section -->
+  <section class="device-controls-section">
+    <header>
+      <h1>Audio Device Controls</h1>
+      <p>Direct control of audio players for stream and fallback playback</p>
+    </header>
 
-{#if data.error && panelState !== 'error'}
-  <p class="error-note" role="alert">{data.error}</p>
-{/if}
+    {#if toastMessage}
+      <div class={`toast ${toastType}`} role="alert">
+        {toastMessage}
+        <button type="button" on:click={() => (toastMessage = null)} aria-label="Dismiss">×</button>
+      </div>
+    {/if}
 
-{#if data.audio && panelState === 'success'}
-  <div class="audio-overview">
-    <section class="library-section">
-      <h2>Library Overview</h2>
-      {#if data.audio.library && data.audio.library.length > 0}
-        <table class="library-table">
-          <thead>
-            <tr>
-              <th>Title</th>
-              <th>Artist</th>
-              <th>Duration</th>
-              <th>Tags</th>
-            </tr>
-          </thead>
-          <tbody>
-            {#each data.audio.library as track (track.id)}
-              <tr>
-                <td>{track.title}</td>
-                <td>{track.artist ?? '—'}</td>
-                <td>
-                  {Math.floor(track.durationSeconds / 60)}:{String(
-                    Math.floor(track.durationSeconds % 60)
-                  ).padStart(2, '0')}
-                </td>
-                <td>{track.tags?.join(', ') ?? '—'}</td>
-              </tr>
-            {/each}
-          </tbody>
-        </table>
-      {:else}
-        <p class="empty-state">No tracks in library</p>
-      {/if}
-    </section>
+    {#if devicesLoading}
+      <p>Loading devices...</p>
+    {:else if devicesError}
+      <div class="error-message" role="alert">
+        <p>{devicesError}</p>
+        <button type="button" on:click={loadDevices}>Retry</button>
+      </div>
+    {:else if devices.length === 0}
+      <p class="empty-state">No audio devices found</p>
+    {:else}
+      <div class="device-grid">
+        {#each devices as device (device.id)}
+          <AudioDeviceCard
+            {device}
+            on:refresh={handleDeviceRefresh}
+            on:success={(e) => showToast(e.detail, 'success')}
+            on:error={(e) => showToast(e.detail, 'error')}
+          />
+        {/each}
+      </div>
+    {/if}
+  </section>
 
-    <section class="devices-section">
-      <h2>Device Playback Status</h2>
-      {#if data.audio.devices && data.audio.devices.length > 0}
-        <ul class="device-list">
-          {#each data.audio.devices as device (device.id)}
-            <li class="device-item">
-              <div class="device-header">
-                <strong>{device.name}</strong>
-                <span class={`status-badge status-${device.status}`}>{device.status}</span>
-              </div>
-              <div class="device-details">
-                <span>State: <strong>{device.playback.state}</strong></span>
-                <span>Volume: <strong>{device.volumePercent}%</strong></span>
-                {#if device.playback.trackTitle}
-                  <span>Playing: <strong>{device.playback.trackTitle}</strong></span>
-                {/if}
-              </div>
-            </li>
-          {/each}
-        </ul>
-      {:else}
-        <p class="empty-state">No devices available</p>
-      {/if}
-    </section>
-  </div>
-{/if}
+  <!-- Library Management Section -->
+  <section class="library-section">
+    <AudioModule data={data.audio} state={panelState} onRetry={refresh} />
+
+    {#if data.error && panelState !== 'error'}
+      <p class="error-note" role="alert">{data.error}</p>
+    {/if}
+  </section>
+</div>
 
 <style>
-  .error-note {
-    margin-top: var(--spacing-3);
-    color: var(--color-warning);
-  }
-
-  .audio-overview {
-    margin-top: var(--spacing-4);
+  .audio-page {
     display: grid;
-    gap: var(--spacing-4);
+    gap: var(--spacing-6);
   }
 
-  .library-section,
-  .devices-section {
+  .device-controls-section,
+  .library-section {
     border: 1px solid rgba(148, 163, 184, 0.15);
-    border-radius: var(--radius-md);
-    padding: var(--spacing-4);
+    border-radius: var(--radius-lg);
+    padding: var(--spacing-5);
     background: rgba(12, 21, 41, 0.55);
   }
 
-  .library-section h2,
-  .devices-section h2 {
-    margin: 0 0 var(--spacing-3) 0;
-    font-size: var(--font-size-lg);
+  .device-controls-section header {
+    margin-bottom: var(--spacing-4);
   }
 
-  .library-table {
-    width: 100%;
-    border-collapse: collapse;
-    font-size: var(--font-size-sm);
+  .device-controls-section h1 {
+    margin: 0 0 var(--spacing-2) 0;
+    font-size: var(--font-size-2xl);
   }
 
-  .library-table th {
-    text-align: left;
-    padding: var(--spacing-2);
-    border-bottom: 1px solid rgba(148, 163, 184, 0.2);
-    color: var(--color-text-muted);
-    font-weight: 600;
-  }
-
-  .library-table td {
-    padding: var(--spacing-2);
-    border-bottom: 1px solid rgba(148, 163, 184, 0.1);
-  }
-
-  .library-table tbody tr:hover {
-    background: rgba(148, 163, 184, 0.05);
-  }
-
-  .device-list {
-    list-style: none;
+  .device-controls-section p {
     margin: 0;
-    padding: 0;
-    display: grid;
-    gap: var(--spacing-2);
+    color: var(--color-text-muted);
   }
 
-  .device-item {
-    border: 1px solid rgba(148, 163, 184, 0.15);
-    border-radius: var(--radius-sm);
+  .toast {
+    margin: var(--spacing-3) 0;
     padding: var(--spacing-3);
-    background: rgba(15, 23, 42, 0.6);
-  }
-
-  .device-header {
+    border-radius: var(--radius-md);
     display: flex;
     justify-content: space-between;
     align-items: center;
-    margin-bottom: var(--spacing-2);
-  }
-
-  .device-details {
-    display: flex;
     gap: var(--spacing-3);
-    flex-wrap: wrap;
-    font-size: var(--font-size-sm);
-    color: var(--color-text-muted);
   }
 
-  .status-badge {
-    padding: 0.25rem 0.6rem;
-    border-radius: 999px;
-    font-size: var(--font-size-xs);
-    font-weight: 600;
-    text-transform: uppercase;
+  .toast.success {
+    background: rgba(34, 197, 94, 0.12);
+    border: 1px solid rgba(34, 197, 94, 0.4);
+    color: rgb(187, 247, 208);
   }
 
-  .status-online {
-    background: rgba(34, 197, 94, 0.15);
-    color: rgb(34, 197, 94);
-  }
-
-  .status-offline {
-    background: rgba(148, 163, 184, 0.15);
-    color: rgba(148, 163, 184, 0.9);
-  }
-
-  .status-error {
-    background: rgba(248, 113, 113, 0.15);
+  .toast.error {
+    background: rgba(248, 113, 113, 0.12);
+    border: 1px solid rgba(248, 113, 113, 0.4);
     color: rgb(248, 113, 113);
+  }
+
+  .toast button {
+    background: none;
+    border: none;
+    color: inherit;
+    font-size: 1.1rem;
+    cursor: pointer;
+  }
+
+  .device-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(20rem, 1fr));
+    gap: var(--spacing-4);
+  }
+
+  .error-message {
+    padding: var(--spacing-4);
+    background: rgba(248, 113, 113, 0.12);
+    border: 1px solid rgba(248, 113, 113, 0.4);
+    border-radius: var(--radius-md);
+    color: rgb(248, 113, 113);
+  }
+
+  .error-message button {
+    margin-top: var(--spacing-2);
+    padding: 0.4rem 0.8rem;
+    background: rgba(248, 113, 113, 0.2);
+    border: 1px solid rgba(248, 113, 113, 0.6);
+    border-radius: var(--radius-sm);
+    color: inherit;
+    cursor: pointer;
   }
 
   .empty-state {
     color: var(--color-text-muted);
     font-style: italic;
+  }
+
+  .error-note {
+    margin-top: var(--spacing-3);
+    color: var(--color-warning);
   }
 </style>
