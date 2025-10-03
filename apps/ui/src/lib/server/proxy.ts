@@ -55,6 +55,13 @@ function logError(message: string, details: Record<string, unknown>) {
   console.error(LOG_LABEL, message, details);
 }
 
+interface ErrorResponse {
+  message: string;
+  status: number;
+  detail?: unknown;
+  path?: string;
+}
+
 async function readErrorDetail(response: Response): Promise<unknown> {
   const contentType = response.headers.get('content-type') ?? '';
   try {
@@ -69,6 +76,15 @@ async function readErrorDetail(response: Response): Promise<unknown> {
     // Swallow parsing errors and fall through to returning null below.
   }
   return null;
+}
+
+function buildErrorResponse(status: number, message: string, detail?: unknown, path?: string): ErrorResponse {
+  return {
+    message,
+    status,
+    ...(detail && { detail }),
+    ...(path && { path }),
+  };
 }
 
 function copyAllowedHeaders(source: Headers, target: Headers, extra: string[] = []) {
@@ -157,12 +173,19 @@ export async function proxyFleetRequest(
     headers.set('accept', 'application/json');
   }
 
+  // Forward Content-Type from original request
   const originalContentType = event.request.headers.get('content-type');
   if (originalContentType) {
     headers.set('content-type', originalContentType);
   }
+
+  // Forward Authorization header (from env or original request)
   const auth = resolveAuthorization();
-  if (auth) headers.set('Authorization', auth);
+  if (auth) {
+    headers.set('Authorization', auth);
+  }
+
+  // Forward correlation ID for distributed tracing
   if (event.locals.requestId) {
     headers.set('x-correlation-id', event.locals.requestId);
   }
@@ -180,10 +203,20 @@ export async function proxyFleetRequest(
       requestId,
       detail,
     });
-    return respondWithMock();
+    if (usingMocks) {
+      return respondWithMock();
+    }
+    const errorResponse = buildErrorResponse(
+      502,
+      'Failed to connect to upstream API',
+      detail,
+      targetPath
+    );
+    throw error(502, errorResponse);
   }
 
   if (!upstream.ok) {
+    // Clone response before reading body to preserve it for potential retry
     const detail = await readErrorDetail(upstream.clone());
     const detailMessage =
       typeof detail === 'string' ? detail : detail != null ? JSON.stringify(detail) : undefined;
@@ -191,11 +224,23 @@ export async function proxyFleetRequest(
       requestId,
       detail: detailMessage,
     });
-    try {
-      return await respondWithMock();
-    } catch {
-      throw error(upstream.status, detailMessage ?? 'Upstream request failed');
+    if (usingMocks) {
+      try {
+        return await respondWithMock();
+      } catch (mockErr) {
+        logError(`${method} ${targetPath} -> mock fallback failed`, {
+          requestId,
+          error: mockErr instanceof Error ? mockErr.message : String(mockErr),
+        });
+      }
     }
+    const errorResponse = buildErrorResponse(
+      upstream.status,
+      `Upstream API returned ${upstream.status}`,
+      detail,
+      targetPath
+    );
+    throw error(upstream.status, errorResponse);
   }
 
   let response: Response;
