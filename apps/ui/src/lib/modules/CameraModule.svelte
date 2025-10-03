@@ -15,6 +15,8 @@
     refreshCameraPreview,
     requestCameraClip,
     selectCamera,
+    probeCameraStream,
+    type CameraProbeResult,
   } from '$lib/api/camera-operations';
   import Hls from 'hls.js';
 
@@ -32,6 +34,10 @@
   let clipError: string | null = null;
   let videoElement: HTMLVideoElement;
   let hls: Hls | null = null;
+  let probeDrawerOpen = false;
+  let probeResult: CameraProbeResult | null = null;
+  let probeError: string | null = null;
+  let probing = false;
 
   $: devices = data?.devices ?? [];
   $: events = data?.events ?? [];
@@ -119,6 +125,27 @@
     } finally {
       working = false;
     }
+  };
+
+  const handleProbeStream = async () => {
+    if (!browser || probing) return;
+    probing = true;
+    probeError = null;
+    try {
+      const result = await probeCameraStream(selectedCamera, { fetch });
+      probeResult = result;
+      probeDrawerOpen = true;
+    } catch (error) {
+      probeError = error instanceof Error ? error.message : 'Unable to probe stream';
+      probeResult = null;
+      probeDrawerOpen = true;
+    } finally {
+      probing = false;
+    }
+  };
+
+  const closeProbeDrawer = () => {
+    probeDrawerOpen = false;
   };
 
   onMount(() => {
@@ -246,6 +273,9 @@
             <Button variant="ghost" on:click={handleRefreshPreview} disabled={working}
               >Refresh preview</Button
             >
+            <Button variant="ghost" on:click={handleProbeStream} disabled={probing || working}
+              >Probe stream</Button
+            >
             {#if previewUrl}
               <Button
                 variant="secondary"
@@ -260,7 +290,13 @@
           {:else if snapshotUrl}
             <img src={snapshotUrl} alt="Camera snapshot" />
           {:else}
-            <div class="preview-placeholder">No preview available</div>
+            <div class="preview-placeholder">
+              <div class="placeholder-content">
+                <span class="placeholder-icon">📷</span>
+                <p class="placeholder-title">Preview Unavailable</p>
+                <p class="placeholder-hint">Camera stream is offline. Preview images will appear here when cameras are connected.</p>
+              </div>
+            </div>
           {/if}
         </div>
         {#if clipError}
@@ -352,6 +388,98 @@
     </div>
   {/if}
 </Card>
+
+{#if probeDrawerOpen}
+  <div class="drawer-overlay" on:click={closeProbeDrawer} on:keydown={(e) => e.key === 'Escape' && closeProbeDrawer()} role="button" tabindex="0" aria-label="Close probe drawer">
+    <div class="drawer" on:click={(e) => e.stopPropagation()} on:keydown={(e) => e.stopPropagation()} role="dialog" aria-modal="true">
+      <div class="drawer-header">
+        <h3>Stream Probe Results</h3>
+        <button class="drawer-close" on:click={closeProbeDrawer} aria-label="Close">×</button>
+      </div>
+      <div class="drawer-content">
+        {#if probeError}
+          <div class="probe-error" role="alert">
+            <p><strong>Error:</strong> {probeError}</p>
+            <p class="muted">The camera stream could not be probed. Please check the camera connection and try again.</p>
+          </div>
+        {:else if probeResult}
+          <div class="probe-info">
+            <p class="probe-timestamp"><strong>Last probed:</strong> {new Date(probeResult.probedAt).toLocaleString()}</p>
+          </div>
+
+          {#if probeResult.cameras}
+            <div class="probe-section">
+              <h4>Camera Status</h4>
+              {#if probeResult.summary}
+                <div class="probe-summary">
+                  <span>Total: {probeResult.summary.total}</span>
+                  <span class="status-reachable">Reachable: {probeResult.summary.reachable}</span>
+                  <span class="status-unreachable">Unreachable: {probeResult.summary.unreachable}</span>
+                </div>
+              {/if}
+              <ul class="probe-results">
+                {#each probeResult.cameras as camera}
+                  <li class="probe-result-item">
+                    <div class="probe-camera-name">
+                      <strong>{camera.name}</strong>
+                      <StatusPill
+                        status={camera.status === 'reachable' ? 'ok' : 'error'}
+                        label={camera.status}
+                      />
+                    </div>
+                    {#if camera.reason}
+                      <p class="probe-reason">{camera.reason}</p>
+                    {/if}
+                    <div class="probe-details">
+                      <span>RTSP: {camera.rtsp_reachable ? '✓' : '✗'}</span>
+                      <span>HLS: {camera.hls_available ? '✓' : '✗'}</span>
+                    </div>
+                  </li>
+                {/each}
+              </ul>
+            </div>
+          {:else if probeResult.result}
+            <div class="probe-section">
+              <h4>Stream Details</h4>
+              <dl class="probe-details-list">
+                <dt>Status:</dt>
+                <dd>
+                  <StatusPill
+                    status={probeResult.status === 'reachable' ? 'ok' : 'error'}
+                    label={probeResult.status ?? 'unknown'}
+                  />
+                </dd>
+                {#if probeResult.reason}
+                  <dt>Reason:</dt>
+                  <dd>{probeResult.reason}</dd>
+                {/if}
+                <dt>RTSP Reachable:</dt>
+                <dd>{probeResult.result.rtsp_reachable ? 'Yes' : 'No'}</dd>
+                <dt>HLS Available:</dt>
+                <dd>{probeResult.result.hls_available ? 'Yes' : 'No'}</dd>
+                <dt>Preview Available:</dt>
+                <dd>{probeResult.result.preview_available ? 'Yes' : 'No'}</dd>
+                {#if probeResult.result.last_success}
+                  <dt>Last Success:</dt>
+                  <dd>{new Date(probeResult.result.last_success).toLocaleString()}</dd>
+                {/if}
+                <dt>Cached:</dt>
+                <dd>{probeResult.result.cached ? 'Yes' : 'No'}</dd>
+              </dl>
+            </div>
+          {/if}
+
+          <div class="probe-note">
+            <p class="muted">
+              ℹ️ Stream probing checks the connectivity and availability of camera streams.
+              When cameras are offline, probe results will indicate unavailability.
+            </p>
+          </div>
+        {/if}
+      </div>
+    </div>
+  </div>
+{/if}
 
 <style>
   .loading {
