@@ -763,3 +763,56 @@ export async function recordDeviceError(deviceId: string, message: string) {
     },
   });
 }
+
+/**
+ * Play specific source (stream or file) on a device.
+ * This is direct device control, not library-based playback.
+ */
+export async function playDeviceSource(
+  deviceId: string,
+  source: 'stream' | 'file',
+  correlationId?: string
+) {
+  const device = deviceRegistry.getDevice(deviceId);
+  if (!device) {
+    throw createHttpError(404, 'not_found', `Device ${deviceId} not found`);
+  }
+
+  const { play } = await import('../upstream/audio.js');
+  return play(device, { source }, correlationId);
+}
+
+/**
+ * Get device configuration (mode, source, stream_url, volume).
+ */
+export async function getDeviceConfig(deviceId: string, correlationId?: string) {
+  const device = deviceRegistry.getDevice(deviceId);
+  if (!device) {
+    throw createHttpError(404, 'not_found', `Device ${deviceId} not found`);
+  }
+
+  const { fetchConfig } = await import('../upstream/audio.js');
+  return fetchConfig(device, correlationId);
+}
+
+/**
+ * Update device configuration.
+ */
+export async function setDeviceConfig(
+  deviceId: string,
+  payload: {
+    stream_url?: string;
+    volume?: number;
+    mode?: 'auto' | 'manual';
+    source?: 'stream' | 'file' | 'stop';
+  },
+  correlationId?: string
+) {
+  const device = deviceRegistry.getDevice(deviceId);
+  if (!device) {
+    throw createHttpError(404, 'not_found', `Device ${deviceId} not found`);
+  }
+
+  const { updateConfig } = await import('../upstream/audio.js');
+  return updateConfig(device, payload, correlationId);
+}

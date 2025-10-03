@@ -22,6 +22,10 @@ import {
   recordSessionSync,
   registerLibraryUpload,
   uploadDeviceFallback,
+  listDeviceSnapshots,
+  playDeviceSource,
+  getDeviceConfig,
+  setDeviceConfig,
 } from '../services/audio.js';
 import {
   audioPlaybackRequestSchema,
@@ -281,6 +285,16 @@ router.post('/playback/sessions/:sessionId/sync', async (req, res, next) => {
   }
 });
 
+router.get('/devices', async (_req, res, next) => {
+  res.locals.routePath = '/audio/devices';
+  try {
+    const devices = await listDeviceSnapshots();
+    res.json({ devices, total: devices.length });
+  } catch (error) {
+    next(error);
+  }
+});
+
 router.get('/devices/:deviceId', async (req, res, next) => {
   res.locals.routePath = '/audio/devices/:deviceId';
   try {
@@ -289,6 +303,58 @@ router.get('/devices/:deviceId', async (req, res, next) => {
     const snapshot = await getDeviceSnapshot(deviceId);
     res.json(snapshot);
   } catch (error) {
+    next(error);
+  }
+});
+
+router.post('/devices/:deviceId/play', async (req, res, next) => {
+  res.locals.routePath = '/audio/devices/:deviceId/play';
+  try {
+    const { deviceId } = deviceIdParamSchema.parse(req.params);
+    res.locals.deviceId = deviceId;
+    const schema = z.object({ source: z.enum(['stream', 'file']) });
+    const payload = schema.parse(req.body ?? {});
+    log.info({ deviceId, source: payload.source }, 'Device play source requested');
+    const result = await playDeviceSource(deviceId, payload.source, req.correlationId);
+    log.info({ deviceId, source: payload.source }, 'Device play source updated');
+    res.status(202).json(result);
+  } catch (error) {
+    log.error({ deviceId: req.params.deviceId, error }, 'Failed to play device source');
+    next(error);
+  }
+});
+
+router.get('/devices/:deviceId/config', async (req, res, next) => {
+  res.locals.routePath = '/audio/devices/:deviceId/config';
+  try {
+    const { deviceId } = deviceIdParamSchema.parse(req.params);
+    res.locals.deviceId = deviceId;
+    const config = await getDeviceConfig(deviceId, req.correlationId);
+    res.json(config);
+  } catch (error) {
+    log.error({ deviceId: req.params.deviceId, error }, 'Failed to get device config');
+    next(error);
+  }
+});
+
+router.put('/devices/:deviceId/config', async (req, res, next) => {
+  res.locals.routePath = '/audio/devices/:deviceId/config';
+  try {
+    const { deviceId } = deviceIdParamSchema.parse(req.params);
+    res.locals.deviceId = deviceId;
+    const schema = z.object({
+      stream_url: z.string().url().optional(),
+      volume: z.number().min(0).max(2).optional(),
+      mode: z.enum(['auto', 'manual']).optional(),
+      source: z.enum(['stream', 'file', 'stop']).optional(),
+    });
+    const payload = schema.parse(req.body ?? {});
+    log.info({ deviceId, payload }, 'Device config update requested');
+    const result = await setDeviceConfig(deviceId, payload, req.correlationId);
+    log.info({ deviceId }, 'Device config updated');
+    res.json(result);
+  } catch (error) {
+    log.error({ deviceId: req.params.deviceId, error }, 'Failed to update device config');
     next(error);
   }
 });

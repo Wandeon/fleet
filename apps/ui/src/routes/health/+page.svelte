@@ -1,77 +1,67 @@
 <script lang="ts">
   import Card from '$lib/components/Card.svelte';
-  import { resolve } from '$app/paths';
+  import EmptyState from '$lib/components/EmptyState.svelte';
   import StatusPill from '$lib/components/StatusPill.svelte';
-  import type { HealthTile, RoutePath } from '$lib/types';
   import type { PageData } from './$types';
 
   export let data: PageData;
-  const health = data.layout.health;
-  const errors = data.layout.errors;
-  const events = data.layout.events;
-  const isRouteLink = (href: NonNullable<HealthTile['link']>['href']): href is RoutePath =>
-    href.startsWith('/');
+
+  const formatModuleName = (module: string) =>
+    module
+      .split(/[-_]/)
+      .map((word) => word.charAt(0).toUpperCase() + word.slice(1))
+      .join(' ');
+
+  const getModuleStatus = (module: typeof data.healthSummary.modules[number]) => {
+    const unknown = module.total - module.online;
+    if (unknown === module.total) return 'offline';
+    if (unknown > 0) return 'warn';
+    return 'ok';
+  };
 </script>
 
 <div class="health-page">
-  <Card
-    title="Subsystem uptime"
-    subtitle={`Last updated ${new Date(health.updatedAt).toLocaleString()}`}
-  >
-    <div class="grid">
-      {#each health.metrics as metric (metric.id)}
-        <div class="tile">
-          <div class="header">
-            <h3>{metric.label}</h3>
-            <StatusPill status={metric.status} />
-          </div>
-          <p class="value">{metric.value}</p>
-          {#if metric.hint}
-            <p class="hint">{metric.hint}</p>
-          {/if}
-          {#if metric.link}
-            {#if isRouteLink(metric.link.href)}
-              <a href={resolve(metric.link.href)} class="link" target="_blank" rel="noreferrer">
-                {metric.link.label}
-              </a>
-            {:else}
-              <!-- eslint-disable-next-line svelte/no-navigation-without-resolve -->
-              <a href={metric.link.href} class="link" target="_blank" rel="noreferrer">
-                {metric.link.label}
-              </a>
+  {#if data.error}
+    <EmptyState title="Unable to load health data" description={data.error} />
+  {:else if data.healthSummary}
+    <Card
+      title="Module health summary"
+      subtitle={`Last updated ${new Date(data.healthSummary.updatedAt).toLocaleString()}`}
+    >
+      <div class="grid">
+        {#each data.healthSummary.modules as module (module.module)}
+          {@const unknown = module.total - module.online}
+          {@const status = getModuleStatus(module)}
+          <div class="tile">
+            <div class="header">
+              <h3>{formatModuleName(module.module)}</h3>
+              <StatusPill {status} />
+            </div>
+            <p class="value">{module.online}/{module.total} online</p>
+            {#if unknown > 0}
+              <p class="hint">{unknown} unknown/offline</p>
             {/if}
-          {/if}
-        </div>
-      {/each}
-    </div>
-  </Card>
-  <Card title="Recent errors">
-    <ul class="timeline">
-      {#each errors as item (item.id)}
-        <li>
-          <div>
-            <strong>{item.message}</strong>
-            <time>{new Date(item.timestamp).toLocaleString()}</time>
+            <div class="devices">
+              <h4>Devices:</h4>
+              <ul>
+                {#each module.devices as device (device.id)}
+                  <li class={`device-${device.status}`}>
+                    <span class="device-id">{device.id}</span>
+                    <span class="device-status">{device.status}</span>
+                    {#if device.reason}
+                      <span class="device-reason">({device.reason})</span>
+                    {/if}
+                  </li>
+                {/each}
+              </ul>
+            </div>
           </div>
-          {#if item.actionLabel}
-            <span class="chip">{item.actionLabel}</span>
-          {/if}
-        </li>
-      {/each}
-    </ul>
-  </Card>
-  <Card title="Event feed">
-    <ul class="timeline">
-      {#each events as event (event.id)}
-        <li>
-          <div>
-            <strong>{event.message}</strong>
-            <time>{new Date(event.timestamp).toLocaleString()}</time>
-          </div>
-        </li>
-      {/each}
-    </ul>
-  </Card>
+        {/each}
+      </div>
+    </Card>
+  {:else}
+    <EmptyState title="No health data available" description="Loading health summary..." />
+  {/if}
 </div>
 
 <style>
@@ -157,6 +147,58 @@
     padding: 0.25rem 0.6rem;
     border-radius: 999px;
     background: rgba(56, 189, 248, 0.12);
+    font-size: var(--font-size-xs);
+  }
+
+  .devices {
+    margin-top: var(--spacing-2);
+    padding-top: var(--spacing-2);
+    border-top: 1px solid rgba(148, 163, 184, 0.1);
+  }
+
+  .devices h4 {
+    margin: 0 0 var(--spacing-2) 0;
+    font-size: var(--font-size-sm);
+    color: var(--color-text-muted);
+  }
+
+  .devices ul {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    display: grid;
+    gap: var(--spacing-1);
+  }
+
+  .devices li {
+    display: flex;
+    gap: var(--spacing-2);
+    align-items: center;
+    font-size: var(--font-size-sm);
+  }
+
+  .device-id {
+    font-family: monospace;
+    color: var(--color-text);
+  }
+
+  .device-status {
+    text-transform: uppercase;
+    font-size: var(--font-size-xs);
+    letter-spacing: 0.05em;
+  }
+
+  .device-online .device-status {
+    color: var(--color-success);
+  }
+
+  .device-offline .device-status,
+  .device-unknown .device-status {
+    color: var(--color-error);
+  }
+
+  .device-reason {
+    color: var(--color-text-muted);
     font-size: var(--font-size-xs);
   }
 </style>
