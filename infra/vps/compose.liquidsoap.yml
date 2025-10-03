@@ -1,0 +1,48 @@
+version: '3.9'
+
+services:
+  liquidsoap:
+    image: savonet/liquidsoap:v2.2.5
+    container_name: liquidsoap
+    restart: unless-stopped
+    volumes:
+      - ./liquidsoap/playlist.liq:/etc/liquidsoap/playlist.liq:ro
+      - liquidsoap-music:/music
+      - liquidsoap-log:/var/log/liquidsoap
+    env_file:
+      - ./icecast.env
+    environment:
+      - ICECAST_HOST=icecast
+      - ICECAST_PORT=8000
+      - ICECAST_MOUNT=fleet.mp3
+      - ICECAST_SOURCE_PASSWORD=${ICECAST_SOURCE_PASSWORD}
+    command: ["/etc/liquidsoap/playlist.liq"]
+    depends_on:
+      - icecast
+    networks:
+      - default
+
+  icecast:
+    image: libretime/icecast:2.4.4
+    container_name: icecast
+    restart: unless-stopped
+    ports:
+      - '8000:8000'
+    env_file:
+      - ./icecast.env
+    volumes:
+      - icecast-data:/var/lib/icecast
+      - icecast-log:/var/log/icecast2
+    networks:
+      - default
+
+networks:
+  default:
+    name: liquidsoap-network
+    driver: bridge
+
+volumes:
+  liquidsoap-music:
+  liquidsoap-log:
+  icecast-data:
+  icecast-log:
