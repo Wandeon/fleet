@@ -1,0 +1,132 @@
+import { API_BASE_URL, UiApiError } from './client';
+
+export interface IcecastMount {
+  mount: string;
+  listeners: number;
+  streamStart: string;
+  bitrate: number;
+  serverName: string;
+}
+
+export interface IcecastStatus {
+  online: boolean;
+  serverStart: string | null;
+  location: string | null;
+  mounts: IcecastMount[];
+  totalListeners: number;
+}
+
+export interface LiquidsoapStatus {
+  online: boolean;
+  libraryFiles: number;
+  librarySize: number;
+}
+
+export interface StreamingSystemStatus {
+  icecast: IcecastStatus;
+  liquidsoap: LiquidsoapStatus;
+  streamUrl: string;
+}
+
+export interface MusicLibraryFile {
+  filename: string;
+  path: string;
+  size: number;
+  modifiedAt: string;
+}
+
+export interface MusicLibraryResponse {
+  files: MusicLibraryFile[];
+  total: number;
+}
+
+/**
+ * Get streaming system status (Ice cast + Liquidsoap)
+ */
+export async function getStreamingStatus(
+  options: { fetch?: typeof fetch } = {}
+): Promise<StreamingSystemStatus> {
+  const fetcher = options.fetch ?? fetch;
+  const response = await fetcher(`${API_BASE_URL}/audio/stream/status`, {
+    method: 'GET',
+    headers: { 'Content-Type': 'application/json' },
+  });
+
+  if (!response.ok) {
+    throw new UiApiError(
+      `Failed to fetch streaming status: ${response.statusText}`,
+      response.status,
+      await response.text()
+    );
+  }
+
+  return response.json();
+}
+
+/**
+ * List files in Liquidsoap music library
+ */
+export async function getMusicLibrary(
+  options: { fetch?: typeof fetch } = {}
+): Promise<MusicLibraryFile[]> {
+  const fetcher = options.fetch ?? fetch;
+  const response = await fetcher(`${API_BASE_URL}/audio/stream/library`, {
+    method: 'GET',
+    headers: { 'Content-Type': 'application/json' },
+  });
+
+  if (!response.ok) {
+    throw new UiApiError(
+      `Failed to fetch music library: ${response.statusText}`,
+      response.status,
+      await response.text()
+    );
+  }
+
+  const data: MusicLibraryResponse = await response.json();
+  return data.files;
+}
+
+/**
+ * Upload a music file to Liquidsoap library
+ */
+export async function uploadMusicFile(
+  file: File,
+  options: { fetch?: typeof fetch } = {}
+): Promise<MusicLibraryFile> {
+  const fetcher = options.fetch ?? fetch;
+  const formData = new FormData();
+  formData.append('file', file);
+
+  const response = await fetcher(`${API_BASE_URL}/audio/stream/library`, {
+    method: 'POST',
+    body: formData,
+  });
+
+  if (!response.ok) {
+    const error = await response.json().catch(() => ({ message: response.statusText }));
+    throw new UiApiError(error.message ?? 'Upload failed', response.status);
+  }
+
+  return response.json();
+}
+
+/**
+ * Delete a music file from Liquidsoap library
+ */
+export async function deleteMusicFile(
+  filename: string,
+  options: { fetch?: typeof fetch } = {}
+): Promise<void> {
+  const fetcher = options.fetch ?? fetch;
+  const response = await fetcher(`${API_BASE_URL}/audio/stream/library/${encodeURIComponent(filename)}`, {
+    method: 'DELETE',
+  });
+
+  if (!response.ok) {
+    throw new UiApiError(
+      `Failed to delete music file: ${response.statusText}`,
+      response.status
+    );
+  }
+}
