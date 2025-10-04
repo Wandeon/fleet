@@ -43,7 +43,7 @@ def load_config() -> Dict[str, Any]:
     defaults: Dict[str, Any] = {
         "stream_url": DEFAULT_STREAM_URL,
         "volume": DEFAULT_VOLUME,
-        "mode": "auto",
+        "mode": "manual",
         "source": "stream",
     }
     return load_json(CFG_PATH, defaults)
@@ -273,7 +273,7 @@ def get_metrics():
     stream_up = 1 if state.get("stream_up") else 0
     last_switch = float(state.get("last_switch_timestamp", 0.0))
     last_error = state.get("last_error", "")
-    mode = str(cfg.get("mode", "auto")).lower()
+    mode = str(cfg.get("mode", "manual")).lower()
     requested = str(cfg.get("source", "stream")).lower()
     try:
         volume = float(cfg.get("volume", DEFAULT_VOLUME))

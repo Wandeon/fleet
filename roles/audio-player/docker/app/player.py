@@ -37,7 +37,7 @@ def load_config() -> dict:
     defaults = {
         "stream_url": DEFAULT_STREAM_URL,
         "volume": DEFAULT_VOLUME,
-        "mode": "auto",
+        "mode": "manual",
         "source": "stream",
     }
     return load_json(CFG_PATH, defaults)
@@ -191,7 +191,7 @@ def player_loop() -> None:
         vol = clamp(vol, 0.0, 2.0)
         url = cfg.get("stream_url", DEFAULT_STREAM_URL)
         fallback_exists = os.path.exists(FALLBACK_PATH)
-        mode = str(cfg.get("mode", "auto")).lower()
+        mode = str(cfg.get("mode", "manual")).lower()
         auto_mode = mode == "auto"
 
         try:
