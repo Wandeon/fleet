@@ -4,11 +4,15 @@
 # Streams audio files to Icecast server for Pi device playback
 
 # Set log level
-settings.log.level.set(4)
-settings.log.stdout.set(true)
+settings.log.level := 4
+settings.log.stdout := true
+
+# Enable telnet server for remote control
+settings.server.telnet := true
+settings.server.telnet.bind_addr := "0.0.0.0"
+settings.server.telnet.port := 1234
 
 # Create a playlist source from /music directory
-# Plays files in random order and loops infinitely
 music = playlist(
   mode="randomize",
   reload_mode="watch",
@@ -19,10 +23,20 @@ music = playlist(
 emergency = sine(1000.)
 
 # Use music if available, otherwise use emergency beep
-source = fallback(track_sensitive=false, [music, emergency])
+audio_source = fallback(track_sensitive=false, [music, emergency])
 
 # Normalize audio to prevent volume spikes
-source = normalize(source)
+normalized = normalize(audio_source)
+
+# Create interactive variable for playback control
+# Control via telnet: var.set playing = true/false
+playing = interactive.bool("playing", true)
+
+# Control source based on playing state
+source = switch(track_sensitive=false, [
+  ({playing()}, normalized),
+  ({true}, blank())
+])
 
 # Stream to Icecast server
 output.icecast(
@@ -38,5 +52,46 @@ output.icecast(
   source
 )
 
+# Register telnet control commands
+def start_playback(_) =
+  playing.set(true)
+  "Playback started"
+end
+
+def stop_playback(_) =
+  playing.set(false)
+  "Playback stopped"
+end
+
+def skip_track(_) =
+  music.skip()
+  "Skipped to next track"
+end
+
+server.register(
+  namespace="player",
+  description="Start playback",
+  usage="player.start",
+  "start",
+  start_playback
+)
+
+server.register(
+  namespace="player",
+  description="Stop playback",
+  usage="player.stop",
+  "stop",
+  stop_playback
+)
+
+server.register(
+  namespace="player",
+  description="Skip to next track",
+  usage="player.skip",
+  "skip",
+  skip_track
+)
+
 # Log that we're running
 log("Liquidsoap streaming to icecast://icecast:8000/fleet.mp3")
+log("Telnet control server listening on port 1234")

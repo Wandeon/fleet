@@ -501,6 +501,9 @@ import {
   listMusicLibrary,
   uploadToMusicLibrary,
   deleteFromMusicLibrary,
+  startLiquidsoapPlayback,
+  stopLiquidsoapPlayback,
+  skipLiquidsoapTrack,
 } from '../services/streaming.js';
 
 router.get('/stream/status', async (_req, res, next) => {
@@ -549,6 +552,36 @@ router.delete('/stream/library/:filename', async (req, res, next) => {
     const { filename } = req.params;
     await deleteFromMusicLibrary(filename);
     res.status(204).send();
+  } catch (error) {
+    next(error);
+  }
+});
+
+router.post('/stream/play', async (_req, res, next) => {
+  res.locals.routePath = '/audio/stream/play';
+  try {
+    await startLiquidsoapPlayback();
+    res.status(202).json({ success: true });
+  } catch (error) {
+    next(error);
+  }
+});
+
+router.post('/stream/stop', async (_req, res, next) => {
+  res.locals.routePath = '/audio/stream/stop';
+  try {
+    await stopLiquidsoapPlayback();
+    res.status(202).json({ success: true });
+  } catch (error) {
+    next(error);
+  }
+});
+
+router.post('/stream/skip', async (_req, res, next) => {
+  res.locals.routePath = '/audio/stream/skip';
+  try {
+    await skipLiquidsoapTrack();
+    res.status(202).json({ success: true });
   } catch (error) {
     next(error);
   }

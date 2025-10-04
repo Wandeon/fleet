@@ -1,10 +1,13 @@
 import { promises as fs } from 'fs';
 import { join } from 'path';
+import { Socket } from 'net';
 import { log } from '../observability/logging.js';
 import { createHttpError } from '../util/errors.js';
 
 const LIQUIDSOAP_MUSIC_PATH = process.env.LIQUIDSOAP_MUSIC_PATH || '/liquidsoap-music';
 const ICECAST_STATUS_URL = process.env.ICECAST_STATUS_URL || 'http://icecast:8000/status-json.xsl';
+const LIQUIDSOAP_TELNET_HOST = process.env.LIQUIDSOAP_TELNET_HOST || 'liquidsoap';
+const LIQUIDSOAP_TELNET_PORT = parseInt(process.env.LIQUIDSOAP_TELNET_PORT || '1234', 10);
 
 export interface IcecastMount {
   mount: string;
@@ -257,5 +260,94 @@ export async function deleteFromMusicLibrary(filename: string): Promise<void> {
     if ((error as any).statusCode) throw error;
     log.error({ error, filename }, 'Failed to delete from music library');
     throw createHttpError(500, 'internal_error', 'Failed to delete file');
+  }
+}
+
+/**
+ * Send a command to Liquidsoap via telnet
+ */
+async function sendLiquidsoapCommand(command: string): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const socket = new Socket();
+    let response = '';
+
+    socket.setTimeout(5000);
+
+    socket.on('data', (data) => {
+      response += data.toString();
+    });
+
+    socket.on('end', () => {
+      // Extract just the command response, removing END marker
+      const lines = response.split('\n').filter(line => line && line !== 'END');
+      resolve(lines.join('\n').trim());
+    });
+
+    socket.on('error', (err) => {
+      log.error({ error: err, command }, 'Liquidsoap telnet error');
+      reject(createHttpError(503, 'upstream_unreachable', 'Liquidsoap control unavailable'));
+    });
+
+    socket.on('timeout', () => {
+      socket.destroy();
+      reject(createHttpError(504, 'upstream_timeout', 'Liquidsoap command timeout'));
+    });
+
+    socket.connect(LIQUIDSOAP_TELNET_PORT, LIQUIDSOAP_TELNET_HOST, () => {
+      socket.write(`${command}\nquit\n`);
+    });
+  });
+}
+
+/**
+ * Start Liquidsoap playback
+ */
+export async function startLiquidsoapPlayback(): Promise<void> {
+  try {
+    const response = await sendLiquidsoapCommand('player.start');
+    log.info({ response }, 'Started Liquidsoap playback');
+  } catch (error) {
+    log.error({ error }, 'Failed to start Liquidsoap playback');
+    throw error;
+  }
+}
+
+/**
+ * Stop Liquidsoap playback
+ */
+export async function stopLiquidsoapPlayback(): Promise<void> {
+  try {
+    const response = await sendLiquidsoapCommand('player.stop');
+    log.info({ response }, 'Stopped Liquidsoap playback');
+  } catch (error) {
+    log.error({ error }, 'Failed to stop Liquidsoap playback');
+    throw error;
+  }
+}
+
+/**
+ * Skip to next track in Liquidsoap
+ */
+export async function skipLiquidsoapTrack(): Promise<void> {
+  try {
+    const response = await sendLiquidsoapCommand('player.skip');
+    log.info({ response }, 'Skipped Liquidsoap track');
+  } catch (error) {
+    log.error({ error }, 'Failed to skip Liquidsoap track');
+    throw error;
+  }
+}
+
+/**
+ * Get Liquidsoap playback status
+ */
+export async function getLiquidsoapPlaybackStatus(): Promise<{ playing: boolean }> {
+  try {
+    const response = await sendLiquidsoapCommand('player.playing');
+    const playing = response.trim() === 'true';
+    return { playing };
+  } catch (error) {
+    log.error({ error }, 'Failed to get Liquidsoap status');
+    return { playing: false };
   }
 }

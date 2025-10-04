@@ -5,6 +5,8 @@ services:
     image: savonet/liquidsoap:v2.2.5
     container_name: liquidsoap
     restart: unless-stopped
+    ports:
+      - '1234:1234'
     volumes:
       - ./liquidsoap/playlist.liq:/etc/liquidsoap/playlist.liq:ro
       - liquidsoap-music:/music

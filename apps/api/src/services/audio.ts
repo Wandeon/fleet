@@ -506,8 +506,23 @@ export async function seekDevice(deviceId: string, positionSeconds: number) {
   await updateDevicePlayback(deviceId, { positionSeconds }, { event: 'seek', positionSeconds });
 }
 
-export async function setDeviceVolume(deviceId: string, volumePercent: number) {
+export async function setDeviceVolume(deviceId: string, volumePercent: number, correlationId?: string) {
   await ensureDeviceStatus(deviceId);
+
+  // Get device to call its API
+  const device = deviceRegistry.getDevice(deviceId);
+  if (!device) {
+    throw createHttpError(404, 'not_found', `Device ${deviceId} not found`);
+  }
+
+  // Convert from 0-100 percent to 0-2.0 volume range
+  const volume = (volumePercent / 100) * 2.0;
+
+  // Call the device's audio-control API
+  const { setVolume } = await import('../upstream/audio.js');
+  await setVolume(device, volume, correlationId);
+
+  // Update database
   const current = await prisma.audioDeviceStatus.findUniqueOrThrow({ where: { deviceId } });
   await prisma.audioDeviceStatus.update({
     where: { deviceId },

@@ -8,6 +8,7 @@ services:
       - '3005:3015'
     networks:
       - fleet-network
+      - liquidsoap-network
     extra_hosts:
       - "pi-audio-01:100.127.65.25"
       - "pi-audio-02:100.122.210.53"
@@ -39,6 +40,7 @@ services:
       - ../../vps/fleet.env
     networks:
       - fleet-network
+      - liquidsoap-network
     extra_hosts:
       - "pi-audio-01:100.127.65.25"
       - "pi-audio-02:100.122.210.53"
@@ -73,6 +75,11 @@ services:
       - '3006:3000'
     networks:
       - fleet-network
+    extra_hosts:
+      - "pi-audio-01:100.127.65.25"
+      - "pi-audio-02:100.122.210.53"
+      - "pi-video-01:100.123.206.6"
+      - "pi-camera-01:100.78.196.11"
     command: ['node', 'build']
     environment:
       - NODE_ENV=production
@@ -111,6 +118,8 @@ networks:
     driver_opts:
       com.docker.network.bridge.name: br-fleet
     external: false
+  liquidsoap-network:
+    external: true
 
 volumes:
   fleet-data:

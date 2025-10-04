@@ -11,10 +11,13 @@
     getMusicLibrary,
     uploadMusicFile,
     deleteMusicFile,
+    playLiquidsoap,
+    stopLiquidsoap,
+    skipLiquidsoapTrack,
     type StreamingSystemStatus,
     type MusicLibraryFile,
   } from '$lib/api/streaming-operations';
-  import { fetchAudioDevices, type AudioDeviceSnapshot } from '$lib/api/audio-device-control';
+  import { fetchAudioDevices, playDeviceSource, stopDevice, setDeviceVolume, type AudioDeviceSnapshot } from '$lib/api/audio-device-control';
   import type { PanelState } from '$lib/stores/app';
 
   export let state: PanelState = 'success';
@@ -29,6 +32,9 @@
   let uploadBusy = false;
   let deleteBusy: Record<string, boolean> = {};
   let banner: { type: 'success' | 'error'; message: string } | null = null;
+  let playBusy: Record<string, boolean> = {};
+  let volumeChanging: Record<string, boolean> = {};
+  let liquidsoapBusy = false;
 
   const formatBytes = (bytes: number) => {
     if (bytes === 0) return '0 B';
@@ -125,6 +131,102 @@
     } finally {
       delete deleteBusy[filename];
       deleteBusy = { ...deleteBusy };
+    }
+  };
+
+  const handlePlayStream = async (deviceId: string) => {
+    if (!browser || playBusy[deviceId]) return;
+
+    playBusy = { ...playBusy, [deviceId]: true };
+    try {
+      await playDeviceSource(deviceId, 'stream');
+      showSuccess(`Playing on ${deviceId}`);
+      await loadData();
+    } catch (error) {
+      console.error('Play error', error);
+      showError(error instanceof Error ? error.message : 'Play failed');
+    } finally {
+      delete playBusy[deviceId];
+      playBusy = { ...playBusy };
+    }
+  };
+
+  const handleStopDevice = async (deviceId: string) => {
+    if (!browser || playBusy[deviceId]) return;
+
+    playBusy = { ...playBusy, [deviceId]: true };
+    try {
+      await stopDevice(deviceId);
+      showSuccess(`Stopped ${deviceId}`);
+      await loadData();
+    } catch (error) {
+      console.error('Stop error', error);
+      showError(error instanceof Error ? error.message : 'Stop failed');
+    } finally {
+      delete playBusy[deviceId];
+      playBusy = { ...playBusy };
+    }
+  };
+
+  const handleVolumeChange = async (deviceId: string, volume: number) => {
+    if (!browser || volumeChanging[deviceId]) return;
+
+    volumeChanging = { ...volumeChanging, [deviceId]: true };
+    try {
+      // Convert from 0-100 to 0-2.0 range
+      await setDeviceVolume(deviceId, volume / 50);
+      await loadData();
+    } catch (error) {
+      console.error('Volume change error', error);
+      showError(error instanceof Error ? error.message : 'Volume change failed');
+    } finally {
+      delete volumeChanging[deviceId];
+      volumeChanging = { ...volumeChanging };
+    }
+  };
+
+  const handleLiquidsoapPlay = async () => {
+    if (!browser || liquidsoapBusy) return;
+    liquidsoapBusy = true;
+    try {
+      await playLiquidsoap();
+      showSuccess('Liquidsoap playback started');
+      await loadData();
+    } catch (error) {
+      console.error('Liquidsoap play error', error);
+      showError(error instanceof Error ? error.message : 'Failed to start playback');
+    } finally {
+      liquidsoapBusy = false;
+    }
+  };
+
+  const handleLiquidsoapStop = async () => {
+    if (!browser || liquidsoapBusy) return;
+    liquidsoapBusy = true;
+    try {
+      await stopLiquidsoap();
+      showSuccess('Liquidsoap playback stopped');
+      await loadData();
+    } catch (error) {
+      console.error('Liquidsoap stop error', error);
+      showError(error instanceof Error ? error.message : 'Failed to stop playback');
+    } finally {
+      liquidsoapBusy = false;
+    }
+  };
+
+  const handleLiquidsoapSkip = async () => {
+    if (!browser || liquidsoapBusy) return;
+    liquidsoapBusy = true;
+    try {
+      await skipLiquidsoapTrack();
+      showSuccess('Skipped to next track');
+      await loadData();
+    } catch (error) {
+      console.error('Liquidsoap skip error', error);
+      showError(error instanceof Error ? error.message : 'Failed to skip track');
+    } finally {
+      liquidsoapBusy = false;
     }
   };
 
@@ -227,9 +329,28 @@
                 <span>Library size</span>
                 <strong>{formatBytes(streamingStatus.liquidsoap.librarySize)}</strong>
               </div>
-              <div class="stat">
-                <span>Status</span>
-                <strong>Streaming</strong>
+              <div class="liquidsoap-controls">
+                <button
+                  class="control-btn play"
+                  on:click={handleLiquidsoapPlay}
+                  disabled={liquidsoapBusy}
+                >
+                  ▶ Play
+                </button>
+                <button
+                  class="control-btn stop"
+                  on:click={handleLiquidsoapStop}
+                  disabled={liquidsoapBusy}
+                >
+                  ⏹ Stop
+                </button>
+                <button
+                  class="control-btn skip"
+                  on:click={handleLiquidsoapSkip}
+                  disabled={liquidsoapBusy}
+                >
+                  ⏭ Skip
+                </button>
               </div>
             {:else}
               <p class="offline-message">Service offline or unreachable</p>
@@ -252,9 +373,20 @@
                 <span>Playback</span>
                 <strong>{piAudio01.playback.state}</strong>
               </div>
-              <div class="stat">
-                <span>Volume</span>
-                <strong>{piAudio01.volumePercent}%</strong>
+              <div class="volume-control">
+                <label for="volume-pi-audio-01">
+                  <span>Volume</span>
+                  <strong>{piAudio01.volumePercent}%</strong>
+                </label>
+                <input
+                  id="volume-pi-audio-01"
+                  type="range"
+                  min="0"
+                  max="100"
+                  value={piAudio01.volumePercent}
+                  disabled={volumeChanging['pi-audio-01'] || piAudio01.status !== 'online'}
+                  on:change={(e) => handleVolumeChange('pi-audio-01', Number(e.currentTarget.value))}
+                />
               </div>
             {:else}
               <p class="offline-message">Device not registered</p>
@@ -277,9 +409,20 @@
                 <span>Playback</span>
                 <strong>{piAudio02.playback.state}</strong>
               </div>
-              <div class="stat">
-                <span>Volume</span>
-                <strong>{piAudio02.volumePercent}%</strong>
+              <div class="volume-control">
+                <label for="volume-pi-audio-02">
+                  <span>Volume</span>
+                  <strong>{piAudio02.volumePercent}%</strong>
+                </label>
+                <input
+                  id="volume-pi-audio-02"
+                  type="range"
+                  min="0"
+                  max="100"
+                  value={piAudio02.volumePercent}
+                  disabled={volumeChanging['pi-audio-02'] || piAudio02.status !== 'online'}
+                  on:change={(e) => handleVolumeChange('pi-audio-02', Number(e.currentTarget.value))}
+                />
               </div>
             {:else}
               <p class="offline-message">Device not registered</p>
@@ -316,6 +459,7 @@
                 <th scope="col">Filename</th>
                 <th scope="col">Size</th>
                 <th scope="col">Modified</th>
+                <th scope="col">Play on Devices</th>
                 <th scope="col">Actions</th>
               </tr>
             </thead>
@@ -325,6 +469,52 @@
                   <th scope="row">🎵 {file.filename}</th>
                   <td>{formatBytes(file.size)}</td>
                   <td>{new Date(file.modifiedAt).toLocaleString()}</td>
+                  <td>
+                    <div class="play-buttons">
+                      {#if piAudio01}
+                        {#if piAudio01.playback.state === 'playing'}
+                          <button
+                            class="play-btn stop-btn"
+                            disabled={!!playBusy['pi-audio-01']}
+                            on:click={() => handleStopDevice('pi-audio-01')}
+                            title="Stop Pi Audio 01"
+                          >
+                            ⏹
+                          </button>
+                        {:else}
+                          <button
+                            class="play-btn"
+                            disabled={!!playBusy['pi-audio-01']}
+                            on:click={() => handlePlayStream('pi-audio-01')}
+                            title="Play on Pi Audio 01"
+                          >
+                            ▶
+                          </button>
+                        {/if}
+                      {/if}
+                      {#if piAudio02}
+                        {#if piAudio02.playback.state === 'playing'}
+                          <button
+                            class="play-btn stop-btn"
+                            disabled={!!playBusy['pi-audio-02']}
+                            on:click={() => handleStopDevice('pi-audio-02')}
+                            title="Stop Pi Audio 02"
+                          >
+                            ⏹
+                          </button>
+                        {:else}
+                          <button
+                            class="play-btn"
+                            disabled={!!playBusy['pi-audio-02']}
+                            on:click={() => handlePlayStream('pi-audio-02')}
+                            title="Play on Pi Audio 02"
+                          >
+                            ▶
+                          </button>
+                        {/if}
+                      {/if}
+                    </div>
+                  </td>
                   <td>
                     <Button
                       variant="ghost"
@@ -594,5 +784,158 @@
     margin-top: var(--spacing-2);
     padding-top: var(--spacing-3);
     border-top: 1px solid rgba(148, 163, 184, 0.12);
+  }
+
+  .play-buttons {
+    display: flex;
+    gap: var(--spacing-2);
+  }
+
+  .play-btn {
+    background: rgba(59, 130, 246, 0.15);
+    border: 1px solid rgba(59, 130, 246, 0.3);
+    color: rgb(59, 130, 246);
+    padding: 0.4rem 0.6rem;
+    border-radius: var(--radius-sm);
+    cursor: pointer;
+    font-size: 1rem;
+    transition: all 0.2s;
+  }
+
+  .play-btn:hover:not(:disabled) {
+    background: rgba(59, 130, 246, 0.25);
+    border-color: rgba(59, 130, 246, 0.5);
+  }
+
+  .play-btn.stop-btn {
+    background: rgba(239, 68, 68, 0.15);
+    border-color: rgba(239, 68, 68, 0.3);
+    color: rgb(239, 68, 68);
+  }
+
+  .play-btn.stop-btn:hover:not(:disabled) {
+    background: rgba(239, 68, 68, 0.25);
+    border-color: rgba(239, 68, 68, 0.5);
+  }
+
+  .play-btn:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+  }
+
+  .volume-control {
+    display: grid;
+    gap: var(--spacing-2);
+  }
+
+  .volume-control label {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+  }
+
+  .volume-control label span {
+    font-size: var(--font-size-sm);
+    color: var(--color-text-muted);
+  }
+
+  .volume-control label strong {
+    font-size: var(--font-size-sm);
+  }
+
+  .volume-control input[type="range"] {
+    width: 100%;
+    height: 6px;
+    border-radius: 3px;
+    background: rgba(148, 163, 184, 0.2);
+    outline: none;
+    -webkit-appearance: none;
+  }
+
+  .volume-control input[type="range"]::-webkit-slider-thumb {
+    -webkit-appearance: none;
+    appearance: none;
+    width: 16px;
+    height: 16px;
+    border-radius: 50%;
+    background: rgb(59, 130, 246);
+    cursor: pointer;
+  }
+
+  .volume-control input[type="range"]::-moz-range-thumb {
+    width: 16px;
+    height: 16px;
+    border-radius: 50%;
+    background: rgb(59, 130, 246);
+    cursor: pointer;
+    border: none;
+  }
+
+  .volume-control input[type="range"]:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+  }
+
+  .volume-control input[type="range"]:disabled::-webkit-slider-thumb {
+    cursor: not-allowed;
+  }
+
+  .volume-control input[type="range"]:disabled::-moz-range-thumb {
+    cursor: not-allowed;
+  }
+
+  .liquidsoap-controls {
+    display: flex;
+    gap: var(--spacing-2);
+    margin-top: var(--spacing-2);
+  }
+
+  .control-btn {
+    flex: 1;
+    padding: var(--spacing-2);
+    border-radius: var(--radius-md);
+    border: 1px solid;
+    cursor: pointer;
+    font-size: var(--font-size-sm);
+    font-weight: 500;
+    transition: all 0.2s;
+  }
+
+  .control-btn.play {
+    background: rgba(34, 197, 94, 0.15);
+    border-color: rgba(34, 197, 94, 0.3);
+    color: rgb(34, 197, 94);
+  }
+
+  .control-btn.play:hover:not(:disabled) {
+    background: rgba(34, 197, 94, 0.25);
+    border-color: rgba(34, 197, 94, 0.5);
+  }
+
+  .control-btn.stop {
+    background: rgba(239, 68, 68, 0.15);
+    border-color: rgba(239, 68, 68, 0.3);
+    color: rgb(239, 68, 68);
+  }
+
+  .control-btn.stop:hover:not(:disabled) {
+    background: rgba(239, 68, 68, 0.25);
+    border-color: rgba(239, 68, 68, 0.5);
+  }
+
+  .control-btn.skip {
+    background: rgba(59, 130, 246, 0.15);
+    border-color: rgba(59, 130, 246, 0.3);
+    color: rgb(59, 130, 246);
+  }
+
+  .control-btn.skip:hover:not(:disabled) {
+    background: rgba(59, 130, 246, 0.25);
+    border-color: rgba(59, 130, 246, 0.5);
+  }
+
+  .control-btn:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
   }
 </style>

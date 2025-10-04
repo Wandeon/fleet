@@ -130,3 +130,63 @@ export async function deleteMusicFile(
     );
   }
 }
+
+/**
+ * Start Liquidsoap playback
+ */
+export async function playLiquidsoap(
+  options: { fetch?: typeof fetch } = {}
+): Promise<void> {
+  const fetcher = options.fetch ?? fetch;
+  const response = await fetcher(`${API_BASE_URL}/audio/stream/play`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+  });
+
+  if (!response.ok) {
+    throw new UiApiError(
+      `Failed to start playback: ${response.statusText}`,
+      response.status
+    );
+  }
+}
+
+/**
+ * Stop Liquidsoap playback
+ */
+export async function stopLiquidsoap(
+  options: { fetch?: typeof fetch } = {}
+): Promise<void> {
+  const fetcher = options.fetch ?? fetch;
+  const response = await fetcher(`${API_BASE_URL}/audio/stream/stop`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+  });
+
+  if (!response.ok) {
+    throw new UiApiError(
+      `Failed to stop playback: ${response.statusText}`,
+      response.status
+    );
+  }
+}
+
+/**
+ * Skip to next track in Liquidsoap
+ */
+export async function skipLiquidsoapTrack(
+  options: { fetch?: typeof fetch } = {}
+): Promise<void> {
+  const fetcher = options.fetch ?? fetch;
+  const response = await fetcher(`${API_BASE_URL}/audio/stream/skip`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+  });
+
+  if (!response.ok) {
+    throw new UiApiError(
+      `Failed to skip track: ${response.statusText}`,
+      response.status
+    );
+  }
+}
