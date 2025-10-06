@@ -18,6 +18,7 @@
     setVideoVolume,
     fetchVideoLibrary,
     syncVideo,
+    deleteVideo,
     type VideoLibraryItem,
   } from '$lib/api/video-operations';
   import { mockApi } from '$lib/api/mock';
@@ -222,6 +223,26 @@
     } finally {
       busy = false;
       broadcastRefresh();
+    }
+  };
+
+  const handleDeleteVideo = async (filename: string) => {
+    if (syncBusy[filename]) return;
+
+    if (!confirm(`Delete ${filename} from device? This cannot be undone.`)) {
+      return;
+    }
+
+    syncBusy[filename] = true;
+    try {
+      await deleteVideo(filename);
+      showMessage(`Deleted ${filename} from device`);
+      await refreshLibrary();
+    } catch (error) {
+      console.error('delete video', error);
+      showMessage(error instanceof Error ? error.message : 'Unable to delete video');
+    } finally {
+      syncBusy[filename] = false;
     }
   };
 
@@ -438,6 +459,43 @@
                   {/if}
                   <Button variant="primary" size="sm" disabled={syncBusy[video.filename]} onclick={() => handlePlayVideo(video.filename, video.synced)}>
                     ▶ Play
+                  </Button>
+                </div>
+              </li>
+            {/each}
+          </ul>
+        {/if}
+      </section>
+
+      <section class="device-storage">
+        <header>
+          <h2>Device Storage</h2>
+        </header>
+        {#if library.filter(v => v.synced).length === 0}
+          <p class="muted">No videos on device. Sync videos from the library above to make them available for playback.</p>
+        {:else}
+          <div class="storage-stats">
+            <div class="stat">
+              <span class="label">Total Files</span>
+              <strong>{library.filter(v => v.synced).length}</strong>
+            </div>
+            <div class="stat">
+              <span class="label">Total Size</span>
+              <strong>{formatFileSize(library.filter(v => v.synced).reduce((sum, v) => sum + (v.deviceSize || v.size), 0))}</strong>
+            </div>
+          </div>
+          <ul class="library-list">
+            {#each library.filter(v => v.synced) as video (video.filename)}
+              <li>
+                <div class="video-info">
+                  <div>
+                    <strong>📹 {video.filename}</strong>
+                    <span class="muted">{formatFileSize(video.deviceSize || video.size)}</span>
+                  </div>
+                </div>
+                <div class="video-actions">
+                  <Button variant="ghost" size="sm" disabled={syncBusy[video.filename]} onclick={() => handleDeleteVideo(video.filename)}>
+                    🗑️ Delete
                   </Button>
                 </div>
               </li>
@@ -737,6 +795,34 @@
   .muted {
     color: var(--color-text-muted);
     font-size: var(--font-size-sm);
+  }
+
+  .storage-stats {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(10rem, 1fr));
+    gap: var(--spacing-3);
+    margin-bottom: var(--spacing-3);
+  }
+
+  .storage-stats .stat {
+    padding: var(--spacing-3);
+    border: 1px solid rgba(148, 163, 184, 0.15);
+    border-radius: var(--radius-md);
+    background: rgba(12, 21, 41, 0.4);
+  }
+
+  .storage-stats .stat .label {
+    display: block;
+    font-size: var(--font-size-xs);
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    color: var(--color-text-muted);
+    margin-bottom: 0.4rem;
+  }
+
+  .storage-stats .stat strong {
+    display: block;
+    font-size: var(--font-size-lg);
   }
 
   @media (max-width: 960px) {
