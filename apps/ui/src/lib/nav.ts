@@ -6,6 +6,7 @@ export interface NavItem {
   label: string;
   description: string;
   icon: string;
+  external?: boolean;
 }
 
 export const mainNavigation: NavItem[] = [
@@ -41,7 +42,7 @@ export const mainNavigation: NavItem[] = [
         } satisfies NavItem,
       ]
     : []),
-  { path: '/files', label: 'Files', description: 'Asset management', icon: '📁' },
+  { path: '/files', label: 'Files', description: 'Asset management', icon: '📁', external: true },
   { path: '/health', label: 'Health', description: 'Subsystem health metrics', icon: '🩺' },
   { path: '/logs', label: 'Logs', description: 'Event audit trail', icon: '📜' },
   { path: '/settings', label: 'Settings', description: 'System configuration', icon: '⚙️' },

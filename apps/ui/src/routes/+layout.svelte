@@ -111,6 +111,7 @@
         href={resolve(item.path)}
         class:item-active={activePath === item.path}
         aria-current={activePath === item.path ? 'page' : undefined}
+        data-sveltekit-reload={item.external ? '' : undefined}
       >
         <span class="icon" aria-hidden="true">{item.icon}</span>
         <span class="label">{item.label}</span>

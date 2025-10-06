@@ -28,7 +28,14 @@ app.headspamartina.hr {
   # @tailnet_only {
   #   remote_ip 100.64.0.0/10
   # }
-  handle_path /files/* {
+  handle /files/* {
+    # TODO: Add access control when tailnet IPs are confirmed
+    reverse_proxy filebrowser:80 {
+      header_up Authorization {>Authorization}
+    }
+  }
+
+  handle /files {
     # TODO: Add access control when tailnet IPs are confirmed
     reverse_proxy filebrowser:80 {
       header_up Authorization {>Authorization}
