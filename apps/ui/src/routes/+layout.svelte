@@ -111,9 +111,7 @@
   </nav>
 
   <main class="layout">
-    <section class="content">
-      <slot />
-    </section>
+    <slot />
   </main>
 </div>
 
@@ -284,12 +282,6 @@
     flex-direction: column;
     gap: var(--spacing-4);
     flex: 1;
-  }
-
-  .content {
-    display: flex;
-    flex-direction: column;
-    gap: var(--spacing-4);
   }
 
   .mock-controls {
