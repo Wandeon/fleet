@@ -40,6 +40,151 @@ export class VideoService {
   }
 
   /**
+   * Control primary TV power (convenience route).
+   * Set power state of the primary TV without specifying device ID.
+   * @param requestBody
+   * @returns any Power command accepted.
+   * @throws ApiError
+   */
+  public static setTvPower(
+    requestBody: {
+      /**
+       * True to power on, false for standby
+       */
+      on: boolean;
+    },
+  ): CancelablePromise<{
+    deviceId: string;
+    power: VideoPowerState;
+    lastUpdated?: string;
+    accepted: boolean;
+    jobId: string;
+    correlationId: string;
+  }> {
+    return __request(OpenAPI, {
+      method: 'POST',
+      url: '/video/tv/power',
+      body: requestBody,
+      mediaType: 'application/json',
+      errors: {
+        400: `One or more request parameters failed validation.`,
+        401: `Authentication failed or credentials missing.`,
+        409: `Device busy, retry shortly.`,
+        500: `Unexpected server error occurred.`,
+      },
+    });
+  }
+
+  /**
+   * Switch primary TV input (convenience route).
+   * Change active input source without specifying device ID.
+   * @param requestBody
+   * @returns any Input switch accepted.
+   * @throws ApiError
+   */
+  public static setTvInput(
+    requestBody: {
+      /**
+       * Input source identifier (e.g., hdmi1, hdmi2, chromecast)
+       */
+      input: string;
+    },
+  ): CancelablePromise<{
+    deviceId: string;
+    input: string;
+    lastUpdated?: string;
+    accepted: boolean;
+    jobId: string;
+    correlationId: string;
+  }> {
+    return __request(OpenAPI, {
+      method: 'POST',
+      url: '/video/tv/input',
+      body: requestBody,
+      mediaType: 'application/json',
+      errors: {
+        400: `One or more request parameters failed validation.`,
+        401: `Authentication failed or credentials missing.`,
+        409: `Device busy, retry shortly.`,
+        422: `Invalid input source.`,
+        500: `Unexpected server error occurred.`,
+      },
+    });
+  }
+
+  /**
+   * Set primary TV volume (convenience route).
+   * Adjust output volume without specifying device ID.
+   * @param requestBody
+   * @returns any Volume adjustment accepted.
+   * @throws ApiError
+   */
+  public static setTvVolume(
+    requestBody: {
+      /**
+       * Volume level (0-100)
+       */
+      volume: number;
+    },
+  ): CancelablePromise<{
+    deviceId: string;
+    volumePercent: number;
+    lastUpdated?: string;
+    accepted: boolean;
+    jobId: string;
+    correlationId: string;
+  }> {
+    return __request(OpenAPI, {
+      method: 'POST',
+      url: '/video/tv/volume',
+      body: requestBody,
+      mediaType: 'application/json',
+      errors: {
+        400: `One or more request parameters failed validation.`,
+        401: `Authentication failed or credentials missing.`,
+        409: `Device busy, retry shortly.`,
+        500: `Unexpected server error occurred.`,
+      },
+    });
+  }
+
+  /**
+   * Toggle primary TV mute (convenience route).
+   * Mute or unmute audio without specifying device ID.
+   * @param requestBody
+   * @returns any Mute toggle accepted.
+   * @throws ApiError
+   */
+  public static setTvMute(
+    requestBody: {
+      /**
+       * True to mute, false to unmute
+       */
+      mute: boolean;
+    },
+  ): CancelablePromise<{
+    deviceId: string;
+    mute: boolean;
+    lastUpdated?: string;
+    accepted: boolean;
+    jobId: string;
+    correlationId: string;
+  }> {
+    return __request(OpenAPI, {
+      method: 'POST',
+      url: '/video/tv/mute',
+      body: requestBody,
+      mediaType: 'application/json',
+      errors: {
+        400: `One or more request parameters failed validation.`,
+        401: `Authentication failed or credentials missing.`,
+        409: `Device busy, retry shortly.`,
+        500: `Unexpected server error occurred.`,
+      },
+    });
+  }
+
+  /**
    * List managed video devices and their current state.
    * Enumerate video endpoints, including power, mute, and input state for the operator dashboard.
    * @returns any Video device inventory.

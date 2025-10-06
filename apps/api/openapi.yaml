@@ -3712,6 +3712,246 @@ paths:
           $ref: '#/components/responses/GatewayTimeoutError'
         '500':
           $ref: '#/components/responses/InternalError'
+  /video/tv/power:
+    post:
+      tags:
+        - Video
+      summary: Control primary TV power (convenience route).
+      description: Set power state of the primary TV without specifying device ID.
+      operationId: setTVPower
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - on
+              properties:
+                on:
+                  type: boolean
+                  description: True to power on, false for standby
+      responses:
+        '202':
+          description: Power command accepted.
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                  - deviceId
+                  - power
+                  - accepted
+                  - jobId
+                  - correlationId
+                properties:
+                  deviceId:
+                    type: string
+                  power:
+                    $ref: '#/components/schemas/VideoPowerState'
+                  lastUpdated:
+                    type: string
+                    format: date-time
+                  accepted:
+                    type: boolean
+                  jobId:
+                    type: string
+                  correlationId:
+                    type: string
+        '400':
+          $ref: '#/components/responses/ValidationError'
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '409':
+          description: Device busy, retry shortly.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '500':
+          $ref: '#/components/responses/InternalError'
+  /video/tv/input:
+    post:
+      tags:
+        - Video
+      summary: Switch primary TV input (convenience route).
+      description: Change active input source without specifying device ID.
+      operationId: setTVInput
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - input
+              properties:
+                input:
+                  type: string
+                  description: Input source identifier (e.g., hdmi1, hdmi2, chromecast)
+      responses:
+        '202':
+          description: Input switch accepted.
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                  - deviceId
+                  - input
+                  - accepted
+                  - jobId
+                  - correlationId
+                properties:
+                  deviceId:
+                    type: string
+                  input:
+                    type: string
+                  lastUpdated:
+                    type: string
+                    format: date-time
+                  accepted:
+                    type: boolean
+                  jobId:
+                    type: string
+                  correlationId:
+                    type: string
+        '400':
+          $ref: '#/components/responses/ValidationError'
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '409':
+          description: Device busy, retry shortly.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '422':
+          description: Invalid input source.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '500':
+          $ref: '#/components/responses/InternalError'
+  /video/tv/volume:
+    post:
+      tags:
+        - Video
+      summary: Set primary TV volume (convenience route).
+      description: Adjust output volume without specifying device ID.
+      operationId: setTVVolume
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - volume
+              properties:
+                volume:
+                  type: integer
+                  minimum: 0
+                  maximum: 100
+                  description: Volume level (0-100)
+      responses:
+        '202':
+          description: Volume adjustment accepted.
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                  - deviceId
+                  - volumePercent
+                  - accepted
+                  - jobId
+                  - correlationId
+                properties:
+                  deviceId:
+                    type: string
+                  volumePercent:
+                    type: integer
+                  lastUpdated:
+                    type: string
+                    format: date-time
+                  accepted:
+                    type: boolean
+                  jobId:
+                    type: string
+                  correlationId:
+                    type: string
+        '400':
+          $ref: '#/components/responses/ValidationError'
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '409':
+          description: Device busy, retry shortly.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '500':
+          $ref: '#/components/responses/InternalError'
+  /video/tv/mute:
+    post:
+      tags:
+        - Video
+      summary: Toggle primary TV mute (convenience route).
+      description: Mute or unmute audio without specifying device ID.
+      operationId: setTVMute
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - mute
+              properties:
+                mute:
+                  type: boolean
+                  description: True to mute, false to unmute
+      responses:
+        '202':
+          description: Mute toggle accepted.
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                  - deviceId
+                  - mute
+                  - accepted
+                  - jobId
+                  - correlationId
+                properties:
+                  deviceId:
+                    type: string
+                  mute:
+                    type: boolean
+                  lastUpdated:
+                    type: string
+                    format: date-time
+                  accepted:
+                    type: boolean
+                  jobId:
+                    type: string
+                  correlationId:
+                    type: string
+        '400':
+          $ref: '#/components/responses/ValidationError'
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '409':
+          description: Device busy, retry shortly.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '500':
+          $ref: '#/components/responses/InternalError'
   /video/devices:
     get:
       tags:

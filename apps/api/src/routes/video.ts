@@ -347,4 +347,93 @@ router.delete('/devices/:deviceId/library/:filename', async (req, res, next) => 
   }
 });
 
+// Convenience routes for primary TV (pi-video-01)
+// These routes provide a simpler API for the UI that doesn't require device ID in the path
+const PRIMARY_VIDEO_DEVICE = 'pi-video-01';
+
+router.post('/tv/power', async (req, res, next) => {
+  res.locals.routePath = '/video/tv/power';
+  try {
+    const { on } = z.object({ on: z.boolean() }).parse(req.body);
+    const power: 'on' | 'standby' = on ? 'on' : 'standby';
+    log.info({ power }, 'TV power control requested via convenience route');
+    const { jobId, state } = await setDevicePower(PRIMARY_VIDEO_DEVICE, power);
+    log.info({ power, jobId }, 'TV power control accepted');
+    res.status(202).json({
+      deviceId: state.deviceId,
+      power: state.power,
+      lastUpdated: state.lastUpdated,
+      accepted: true,
+      jobId,
+      correlationId: res.locals.correlationId,
+    });
+  } catch (error) {
+    log.error({ error }, 'Failed to control TV power via convenience route');
+    next(error);
+  }
+});
+
+router.post('/tv/input', async (req, res, next) => {
+  res.locals.routePath = '/video/tv/input';
+  try {
+    const { input } = z.object({ input: z.string().min(1) }).parse(req.body);
+    log.info({ input }, 'TV input control requested via convenience route');
+    const { jobId, state } = await setDeviceInput(PRIMARY_VIDEO_DEVICE, input);
+    log.info({ input, jobId }, 'TV input control accepted');
+    res.status(202).json({
+      deviceId: state.deviceId,
+      input: state.input,
+      lastUpdated: state.lastUpdated,
+      accepted: true,
+      jobId,
+      correlationId: res.locals.correlationId,
+    });
+  } catch (error) {
+    log.error({ error }, 'Failed to control TV input via convenience route');
+    next(error);
+  }
+});
+
+router.post('/tv/volume', async (req, res, next) => {
+  res.locals.routePath = '/video/tv/volume';
+  try {
+    const { volume } = z.object({ volume: z.coerce.number().int().min(0).max(100) }).parse(req.body);
+    log.info({ volume }, 'TV volume control requested via convenience route');
+    const { jobId, state } = await setDeviceVolume(PRIMARY_VIDEO_DEVICE, volume);
+    log.info({ volume, jobId }, 'TV volume control accepted');
+    res.status(202).json({
+      deviceId: state.deviceId,
+      volumePercent: state.volume,
+      lastUpdated: state.lastUpdated,
+      accepted: true,
+      jobId,
+      correlationId: res.locals.correlationId,
+    });
+  } catch (error) {
+    log.error({ error }, 'Failed to control TV volume via convenience route');
+    next(error);
+  }
+});
+
+router.post('/tv/mute', async (req, res, next) => {
+  res.locals.routePath = '/video/tv/mute';
+  try {
+    const { mute } = z.object({ mute: z.boolean() }).parse(req.body);
+    log.info({ mute }, 'TV mute control requested via convenience route');
+    const { jobId, state } = await setDeviceMute(PRIMARY_VIDEO_DEVICE, mute);
+    log.info({ mute, jobId }, 'TV mute control accepted');
+    res.status(202).json({
+      deviceId: state.deviceId,
+      mute: state.mute,
+      lastUpdated: state.lastUpdated,
+      accepted: true,
+      jobId,
+      correlationId: res.locals.correlationId,
+    });
+  } catch (error) {
+    log.error({ error }, 'Failed to control TV mute via convenience route');
+    next(error);
+  }
+});
+
 export const videoRouter = router;
