@@ -1,67 +1,97 @@
 <script lang="ts">
   import Card from '$lib/components/Card.svelte';
-  import EmptyState from '$lib/components/EmptyState.svelte';
   import StatusPill from '$lib/components/StatusPill.svelte';
   import type { PageData } from './$types';
 
   export let data: PageData;
+  const errors = data.layout.errors;
+  const events = data.layout.events;
 
-  const formatModuleName = (module: string) =>
-    module
-      .split(/[-_]/)
-      .map((word) => word.charAt(0).toUpperCase() + word.slice(1))
-      .join(' ');
+  const getModuleStatus = (module: typeof data.healthSummary.modules[0]) => {
+    if (module.online === module.total) return 'ok';
+    if (module.online === 0) return 'error';
+    return 'warn';
+  };
 
-  const getModuleStatus = (module: typeof data.healthSummary.modules[number]) => {
-    const unknown = module.total - module.online;
-    if (unknown === module.total) return 'offline';
-    if (unknown > 0) return 'warn';
-    return 'ok';
+  const getDeviceStatus = (status: string) => {
+    if (status === 'online') return 'ok';
+    if (status === 'offline') return 'error';
+    return 'warn';
   };
 </script>
 
 <div class="health-page">
   {#if data.error}
-    <EmptyState title="Unable to load health data" description={data.error} />
+    <Card title="Health Status" subtitle="Unable to load health summary">
+      <p class="error" role="alert">{data.error}</p>
+    </Card>
   {:else if data.healthSummary}
     <Card
-      title="Module health summary"
+      title="Fleet Health Summary"
       subtitle={`Last updated ${new Date(data.healthSummary.updatedAt).toLocaleString()}`}
     >
       <div class="grid">
         {#each data.healthSummary.modules as module (module.module)}
-          {@const unknown = module.total - module.online}
-          {@const status = getModuleStatus(module)}
           <div class="tile">
             <div class="header">
-              <h3>{formatModuleName(module.module)}</h3>
-              <StatusPill {status} />
+              <h3>{module.module}</h3>
+              <StatusPill status={getModuleStatus(module)} />
             </div>
-            <p class="value">{module.online}/{module.total} online</p>
-            {#if unknown > 0}
-              <p class="hint">{unknown} unknown/offline</p>
+            <p class="value">{module.online} / {module.total}</p>
+            <p class="hint">
+              {module.total - module.online} offline or unknown
+            </p>
+
+            {#if module.devices.length > 0}
+              <div class="devices">
+                <h4>Devices</h4>
+                <ul>
+                  {#each module.devices as device (device.id)}
+                    <li class="device-item">
+                      <div class="device-header">
+                        <span class="device-id">{device.id}</span>
+                        <StatusPill status={getDeviceStatus(device.status)} label={device.status} />
+                      </div>
+                      {#if device.reason}
+                        <p class="device-reason">{device.reason}</p>
+                      {/if}
+                    </li>
+                  {/each}
+                </ul>
+              </div>
             {/if}
-            <div class="devices">
-              <h4>Devices:</h4>
-              <ul>
-                {#each module.devices as device (device.id)}
-                  <li class={`device-${device.status}`}>
-                    <span class="device-id">{device.id}</span>
-                    <span class="device-status">{device.status}</span>
-                    {#if device.reason}
-                      <span class="device-reason">({device.reason})</span>
-                    {/if}
-                  </li>
-                {/each}
-              </ul>
-            </div>
           </div>
         {/each}
       </div>
     </Card>
-  {:else}
-    <EmptyState title="No health data available" description="Loading health summary..." />
   {/if}
+  <Card title="Recent errors">
+    <ul class="timeline">
+      {#each errors as item (item.id)}
+        <li>
+          <div>
+            <strong>{item.message}</strong>
+            <time>{new Date(item.timestamp).toLocaleString()}</time>
+          </div>
+          {#if item.actionLabel}
+            <span class="chip">{item.actionLabel}</span>
+          {/if}
+        </li>
+      {/each}
+    </ul>
+  </Card>
+  <Card title="Event feed">
+    <ul class="timeline">
+      {#each events as event (event.id)}
+        <li>
+          <div>
+            <strong>{event.message}</strong>
+            <time>{new Date(event.timestamp).toLocaleString()}</time>
+          </div>
+        </li>
+      {/each}
+    </ul>
+  </Card>
 </div>
 
 <style>
@@ -151,8 +181,8 @@
   }
 
   .devices {
-    margin-top: var(--spacing-2);
-    padding-top: var(--spacing-2);
+    margin-top: var(--spacing-3);
+    padding-top: var(--spacing-3);
     border-top: 1px solid rgba(148, 163, 184, 0.1);
   }
 
@@ -167,38 +197,36 @@
     margin: 0;
     padding: 0;
     display: grid;
-    gap: var(--spacing-1);
+    gap: var(--spacing-2);
   }
 
-  .devices li {
+  .device-item {
+    padding: var(--spacing-2);
+    background: rgba(15, 23, 42, 0.5);
+    border-radius: var(--radius-sm);
+    border: 1px solid rgba(148, 163, 184, 0.1);
+  }
+
+  .device-header {
     display: flex;
-    gap: var(--spacing-2);
+    justify-content: space-between;
     align-items: center;
-    font-size: var(--font-size-sm);
+    gap: var(--spacing-2);
   }
 
   .device-id {
-    font-family: monospace;
-    color: var(--color-text);
-  }
-
-  .device-status {
-    text-transform: uppercase;
+    font-family: var(--font-mono, monospace);
     font-size: var(--font-size-xs);
-    letter-spacing: 0.05em;
-  }
-
-  .device-online .device-status {
-    color: var(--color-success);
-  }
-
-  .device-offline .device-status,
-  .device-unknown .device-status {
-    color: var(--color-error);
   }
 
   .device-reason {
-    color: var(--color-text-muted);
+    margin: var(--spacing-1) 0 0 0;
     font-size: var(--font-size-xs);
+    color: var(--color-text-muted);
+  }
+
+  .error {
+    color: var(--color-red-300);
+    margin: 0;
   }
 </style>
