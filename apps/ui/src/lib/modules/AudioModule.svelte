@@ -1,6 +1,8 @@
 <script lang="ts">
   import { onMount } from 'svelte';
   import { browser } from '$app/environment';
+  import { goto } from '$app/navigation';
+  import { resolve } from '$app/paths';
   import Card from '$lib/components/Card.svelte';
   import Button from '$lib/components/Button.svelte';
   import StatusPill from '$lib/components/StatusPill.svelte';
@@ -35,6 +37,11 @@
   let playBusy: Record<string, boolean> = {};
   let volumeChanging: Record<string, boolean> = {};
   let liquidsoapBusy = false;
+
+  const openAudioFiles = () => {
+    const filesRoute = resolve('/files?folder=audio');
+    void goto(filesRoute);
+  };
 
   const formatBytes = (bytes: number) => {
     if (bytes === 0) return '0 B';
@@ -435,6 +442,7 @@
         <header>
           <h2>Music Library</h2>
           <div class="actions">
+            <Button variant="ghost" on:click={openAudioFiles}>Open audio folder</Button>
             <Button variant="ghost" on:click={loadData}>Refresh</Button>
             <Button variant="primary" disabled={uploadBusy} on:click={handleUpload}>
               {uploadBusy ? 'Uploading…' : 'Upload Music'}

@@ -173,6 +173,11 @@
     }
   };
 
+  const openVideoFiles = () => {
+    const filesRoute = resolve('/files?folder=video');
+    void goto(filesRoute);
+  };
+
   const openLivePreview = async () => {
     if (!data || liveLoading) return;
     liveLoading = true;
@@ -530,6 +535,7 @@
         <header>
           <h2>Video library</h2>
           <div class="actions">
+            <Button variant="ghost" onclick={openVideoFiles}>Open video folder</Button>
             <Button variant="ghost" onclick={refreshLibrary}>Refresh library</Button>
             <Button variant="primary" disabled={uploadBusy} onclick={handleVideoUpload}>
               {uploadBusy ? 'Uploading…' : 'Upload video'}
