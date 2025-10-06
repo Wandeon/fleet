@@ -12,7 +12,8 @@ Fleet relies on bearer tokens, private networking, and structured logging for ac
 
 - Device control APIs require per-device bearer tokens. `inventory/device-interfaces.yaml` declares `token_env` (e.g., `AUDIO_PI_AUDIO_01_TOKEN`, `HDMI_PI_VIDEO_01_TOKEN`, `CAMERA_PI_CAMERA_01_TOKEN`). Populate them in `vps/fleet.env` so the API can authenticate upstream requests.【F:inventory/device-interfaces.yaml†L1-L162】【F:vps/fleet.env.example†L15-L33】
 - Expose device control ports (8081–8084) only on private networks (Tailscale). README emphasises keeping control APIs behind Tailscale and using strong tokens; `/healthz` is intentionally unauthenticated for probes.【F:README.md†L96-L124】
-- When proxies are used (e.g., Nginx on VPS), forward `Authorization` headers and restrict access via firewall/ACLs. Caddy already passes Authorization through for `/stream` and `/metrics`.【F:infra/vps/caddy.fleet.Caddyfile†L1-L20】
+- When proxies are used (e.g., Nginx on VPS), forward `Authorization` headers and restrict access via firewall/ACLs. Caddy already passes Authorization through for `/stream`, `/metrics`, and `/files`.【F:infra/vps/caddy.fleet.Caddyfile†L1-L36】
+- The `/files` route proxies to the File Browser service for central asset management. Access control should be configured using Tailscale IP allowlisting (100.64.0.0/10) until UI session authentication is fully implemented. File Browser runs with `--noauth` since perimeter security is handled at the Caddy layer.【F:infra/vps/caddy.fleet.Caddyfile†L26-L36】【F:infra/vps/compose.fleet.yml†L102-L114】
 
 ## Logging & auditing
 
