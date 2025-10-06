@@ -1,0 +1,5 @@
+test_number,button,selector,status,probe_api_called,probe_calls,camera_api_calls,total_network_requests,drawer_opened,error_visible,console_errors,notes
+1,Refresh preview,button >> nth=1,PASS,False,0,0,0,False,False,0,Button is a STUB - no API calls triggered
+2,Probe stream,button >> nth=2,PASS,False,0,0,0,False,False,0,Button is a STUB - no API calls triggered
+3,Open stream,button >> nth=3,PASS,False,0,0,0,False,False,0,Button is a STUB - no API calls triggered
+4,Refresh,button >> nth=4,PASS,False,0,0,0,False,False,0,Button is a STUB - no API calls triggered

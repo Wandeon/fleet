@@ -104,7 +104,7 @@ services:
     networks:
       - fleet-network
     environment:
-      - FB_BASEURL=/files
+      - FB_BASEURL=/files/api
       - FB_DATABASE=/database/filebrowser.db
       - FB_ROOT=/srv
     volumes:

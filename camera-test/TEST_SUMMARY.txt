@@ -1,0 +1,112 @@
+============================================================
+CAMERA PAGE BLACK-BOX TEST - WORKER W7
+============================================================
+Date: 2025-10-03
+URL: https://app.headspamartina.hr/camera
+Environment: Production (PROD)
+Test Type: Black-box UI verification
+
+============================================================
+EXIT SUMMARY
+============================================================
+
+Camera: 4 buttons tested — 4 PASS / 0 FAIL / 4 STUB
+
+Probe functionality: BROKEN
+
+Notable issues:
+  - All camera control buttons are non-functional stubs
+  - ZERO API calls triggered by button clicks
+  - No probe, refresh, or stream functionality working
+  - Buttons render correctly but have no backend implementation
+
+============================================================
+BUTTON TEST RESULTS
+============================================================
+
+[1] Refresh preview
+    Status: PASS (renders, clickable)
+    API Calls: 0
+    Probe Calls: 0
+    Finding: STUB - No functionality
+
+[2] Probe stream
+    Status: PASS (renders, clickable)
+    API Calls: 0
+    Probe Calls: 0
+    Finding: STUB - No functionality
+
+[3] Open stream
+    Status: PASS (renders, clickable)
+    API Calls: 0
+    Probe Calls: 0
+    Finding: STUB - No functionality
+
+[4] Refresh (Events)
+    Status: PASS (renders, clickable)
+    API Calls: 0
+    Probe Calls: 0
+    Finding: STUB - No functionality
+
+============================================================
+CRITICAL FINDING
+============================================================
+
+The camera page probe functionality is COMPLETELY NON-FUNCTIONAL.
+
+Expected Behavior:
+  - Click "Probe stream" → POST /api/camera/{id}/probe
+  - Results displayed in drawer/modal
+  - Loading states and error handling
+
+Actual Behavior:
+  - Click "Probe stream" → NOTHING HAPPENS
+  - Zero network requests
+  - Zero API calls
+  - No visual feedback
+  - No drawer/modal
+
+Conclusion: Buttons are UI stubs with no implementation.
+
+============================================================
+DELIVERABLES
+============================================================
+
+All files in: /home/admin/fleet/camera-test/
+
+Main Reports:
+  ✓ FINAL_REPORT.md - Comprehensive test report
+  ✓ report.md - Standard report copy
+  ✓ buttons.csv - Structured test results
+  ✓ TEST_SUMMARY.txt - This summary
+
+Artifacts:
+  ✓ artifacts/camera.har - Network activity log
+  ✓ artifacts/console.log - Browser console log
+  ✓ test_v2_output.log - Test execution log
+
+Test Scripts:
+  ✓ test_camera.py - Initial test version
+  ✓ test_camera_v2.py - Enhanced test version
+
+============================================================
+RECOMMENDATIONS
+============================================================
+
+IMMEDIATE:
+  1. Implement button click handlers
+  2. Wire up API endpoints (/api/camera/{id}/probe)
+  3. Add loading states and error handling
+  4. Display results in drawer/modal
+  5. Test manually with DevTools
+
+VERIFICATION:
+  1. Check if /api/camera/{id}/probe endpoint exists
+  2. Verify button onclick handlers in code
+  3. Check JavaScript event listeners
+  4. Test with browser DevTools Network tab
+
+============================================================
+TEST COMPLETE - CRITICAL ISSUES FOUND
+============================================================
+

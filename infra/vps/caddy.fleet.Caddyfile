@@ -23,23 +23,20 @@ app.headspamartina.hr {
     }
   }
 
-  # File Browser for asset management
+  # File Browser for asset management - proxied under /files/api/
   # Access control via Tailscale recommended: uncomment and adjust IP ranges
   # @tailnet_only {
   #   remote_ip 100.64.0.0/10
   # }
-  handle /files/* {
+  handle_path /files/api/* {
     # TODO: Add access control when tailnet IPs are confirmed
     reverse_proxy filebrowser:80 {
       header_up Authorization {>Authorization}
     }
   }
 
-  handle /files {
-    # TODO: Add access control when tailnet IPs are confirmed
-    reverse_proxy filebrowser:80 {
-      header_up Authorization {>Authorization}
-    }
+  handle /files/api {
+    redir /files/api/ permanent
   }
 
   # Camera HLS stream proxy (no compression for video)

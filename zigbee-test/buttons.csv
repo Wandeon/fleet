@@ -1,0 +1,10 @@
+Index,Label,Status,Feedback,API_Calls,Notes
+1,"📊 Dashboard",PASS,"none",0,"Navigation (URL change detected)"
+2,"🎚️ Audio",PASS,"none",0,"Navigation (URL change detected)"
+3,"📺 Video",PASS,"none",0,"Navigation (URL change detected)"
+4,"🕸️ Zigbee",FAIL,"none",0,"SILENT NO-OP - no feedback"
+5,"🎥 Camera",PASS,"none",0,"Navigation (URL change detected)"
+6,"🩺 Health",PASS,"none",0,"Navigation (URL change detected)"
+7,"📜 Logs",PASS,"none",0,"Navigation (URL change detected)"
+8,"⚙️ Settings",PASS,"none",0,"Navigation (URL change detected)"
+9,"Pair Device",FAIL,"none",0,"SILENT NO-OP - no feedback"

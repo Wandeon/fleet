@@ -1,0 +1,87 @@
+{
+  "buttons": [
+    {
+      "index": 1,
+      "label": "📊 Dashboard",
+      "status": "PASS",
+      "feedback": "none",
+      "apiCalls": 0,
+      "notes": "Navigation (URL change detected)"
+    },
+    {
+      "index": 2,
+      "label": "🎚️ Audio",
+      "status": "PASS",
+      "feedback": "none",
+      "apiCalls": 0,
+      "notes": "Navigation (URL change detected)"
+    },
+    {
+      "index": 3,
+      "label": "📺 Video",
+      "status": "PASS",
+      "feedback": "none",
+      "apiCalls": 0,
+      "notes": "Navigation (URL change detected)"
+    },
+    {
+      "index": 4,
+      "label": "🕸️ Zigbee",
+      "status": "FAIL",
+      "feedback": "none",
+      "apiCalls": 0,
+      "notes": "SILENT NO-OP - no feedback"
+    },
+    {
+      "index": 5,
+      "label": "🎥 Camera",
+      "status": "PASS",
+      "feedback": "none",
+      "apiCalls": 0,
+      "notes": "Navigation (URL change detected)"
+    },
+    {
+      "index": 6,
+      "label": "🩺 Health",
+      "status": "PASS",
+      "feedback": "none",
+      "apiCalls": 0,
+      "notes": "Navigation (URL change detected)"
+    },
+    {
+      "index": 7,
+      "label": "📜 Logs",
+      "status": "PASS",
+      "feedback": "none",
+      "apiCalls": 0,
+      "notes": "Navigation (URL change detected)"
+    },
+    {
+      "index": 8,
+      "label": "⚙️ Settings",
+      "status": "PASS",
+      "feedback": "none",
+      "apiCalls": 0,
+      "notes": "Navigation (URL change detected)"
+    },
+    {
+      "index": 9,
+      "label": "Pair Device",
+      "status": "FAIL",
+      "feedback": "none",
+      "apiCalls": 0,
+      "notes": "SILENT NO-OP - no feedback"
+    }
+  ],
+  "summary": {
+    "pass": 7,
+    "fail": 2,
+    "stub": 0,
+    "total": 9
+  },
+  "issues": [
+    "Button 4 (🕸️ Zigbee): SILENT NO-OP - no feedback",
+    "Button 9 (Pair Device): SILENT NO-OP - no feedback"
+  ],
+  "timestamp": "2025-10-03T06:39:35.314Z"
+}

@@ -1,0 +1,5 @@
+{
+  "message": "Cannot read properties of undefined (reading 'length')",
+  "stack": "TypeError: Cannot read properties of undefined (reading 'length')\n    at https://app.headspamartina.hr/_app/immutable/nodes/4.CJSEe3tw.js:1:13431\n    at Kt (https://app.headspamartina.hr/_app/immutable/chunks/BjcpdnRU.js:1:19934)\n    at https://app.headspamartina.hr/_app/immutable/nodes/4.CJSEe3tw.js:1:13421\n    at https://app.headspamartina.hr/_app/immutable/chunks/Bvd9cv0i.js:1:725\n    at qe (https://app.headspamartina.hr/_app/immutable/chunks/BjcpdnRU.js:1:18012)\n    at W (https://app.headspamartina.hr/_app/immutable/chunks/BjcpdnRU.js:1:18966)\n    at I (https://app.headspamartina.hr/_app/immutable/chunks/BjcpdnRU.js:1:13944)\n    at zr (https://app.headspamartina.hr/_app/immutable/chunks/BjcpdnRU.js:1:15091)\n    at K (https://app.headspamartina.hr/_app/immutable/chunks/Bvd9cv0i.js:1:713)\n    at ce (https://app.headspamartina.hr/_app/immutable/nodes/4.CJSEe3tw.js:1:13408)",
+  "name": "TypeError"
+}

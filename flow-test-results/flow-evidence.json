@@ -1,0 +1,156 @@
+{
+  "testDate": "2025-10-03T09:40:09.544Z",
+  "baseUrl": "https://app.headspamartina.hr",
+  "totalSteps": 8,
+  "evidence": [
+    {
+      "step": 1,
+      "name": "navigate-audio",
+      "description": "Navigate to Audio page",
+      "screenshot": "/home/admin/fleet/flow-test-results/step-01-navigate_audio.png",
+      "apiCalls": [
+        {
+          "method": "GET",
+          "url": "/ui/fleet/layout",
+          "status": 200
+        },
+        {
+          "method": "GET",
+          "url": "/ui/fleet/state",
+          "status": 200
+        },
+        {
+          "method": "GET",
+          "url": "/ui/fleet/overview",
+          "status": 200
+        },
+        {
+          "method": "GET",
+          "url": "/ui/audio/overview",
+          "status": 200
+        },
+        {
+          "method": "GET",
+          "url": "/ui/audio/devices",
+          "status": 200
+        }
+      ],
+      "timestamp": "2025-10-03T09:39:39.321Z"
+    },
+    {
+      "step": 2,
+      "name": "upload-modal-failed",
+      "description": "Upload modal failed to open",
+      "screenshot": "/home/admin/fleet/flow-test-results/step-02-upload_modal_failed.png",
+      "apiCalls": [],
+      "timestamp": "2025-10-03T09:39:44.980Z"
+    },
+    {
+      "step": 3,
+      "name": "devices-selected",
+      "description": "Both devices selected",
+      "screenshot": "/home/admin/fleet/flow-test-results/step-03-devices_selected.png",
+      "apiCalls": [],
+      "timestamp": "2025-10-03T09:39:46.495Z"
+    },
+    {
+      "step": 4,
+      "name": "play-on-selected",
+      "description": "Play on selected - 200",
+      "screenshot": "/home/admin/fleet/flow-test-results/step-04-play_on_selected.png",
+      "apiCalls": [
+        {
+          "method": "GET",
+          "url": "/ui/audio/devices",
+          "status": 200
+        }
+      ],
+      "timestamp": "2025-10-03T09:39:53.647Z"
+    },
+    {
+      "step": 5,
+      "name": "device-play",
+      "description": "Device Play clicked - 202",
+      "screenshot": "/home/admin/fleet/flow-test-results/step-05-device_play.png",
+      "apiCalls": [
+        {
+          "method": "POST",
+          "url": "/ui/audio/devices/pi-audio-01/resume",
+          "status": 202
+        },
+        {
+          "method": "GET",
+          "url": "/ui/audio/devices/pi-audio-01",
+          "status": 200
+        }
+      ],
+      "timestamp": "2025-10-03T09:39:56.247Z"
+    },
+    {
+      "step": 6,
+      "name": "device-stop",
+      "description": "Device Stop clicked - 202",
+      "screenshot": "/home/admin/fleet/flow-test-results/step-06-device_stop.png",
+      "apiCalls": [
+        {
+          "method": "POST",
+          "url": "/ui/audio/devices/pi-audio-01/stop",
+          "status": 202
+        },
+        {
+          "method": "GET",
+          "url": "/ui/audio/devices/pi-audio-01",
+          "status": 200
+        }
+      ],
+      "timestamp": "2025-10-03T09:39:58.799Z"
+    },
+    {
+      "step": 7,
+      "name": "navigate-video",
+      "description": "Navigate to Video page",
+      "screenshot": "/home/admin/fleet/flow-test-results/step-07-navigate_video.png",
+      "apiCalls": [
+        {
+          "method": "POST",
+          "url": "/ui/audio/devices/pi-audio-01/stop",
+          "status": 202
+        },
+        {
+          "method": "GET",
+          "url": "/ui/audio/devices/pi-audio-01",
+          "status": 200
+        },
+        {
+          "method": "GET",
+          "url": "/ui/fleet/layout",
+          "status": 200
+        },
+        {
+          "method": "GET",
+          "url": "/ui/fleet/state",
+          "status": 200
+        },
+        {
+          "method": "GET",
+          "url": "/ui/fleet/overview",
+          "status": 200
+        },
+        {
+          "method": "GET",
+          "url": "/ui/video/devices",
+          "status": 200
+        }
+      ],
+      "timestamp": "2025-10-03T09:40:02.000Z"
+    },
+    {
+      "step": 8,
+      "name": "video-input",
+      "description": "Video input selected",
+      "screenshot": "/home/admin/fleet/flow-test-results/step-08-video_input.png",
+      "apiCalls": [],
+      "timestamp": "2025-10-03T09:40:09.543Z"
+    }
+  ]
+}

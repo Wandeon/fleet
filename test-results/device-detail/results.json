@@ -1,0 +1,26 @@
+{
+  "devices": [
+    {
+      "device": "Audio Pi 01",
+      "deviceId": "pi-audio-01",
+      "type": "audio",
+      "buttons": [],
+      "tabs": [],
+      "error": "Page shows error message"
+    },
+    {
+      "device": "HDMI Pi 01",
+      "deviceId": "pi-video-01",
+      "type": "video",
+      "buttons": [],
+      "tabs": [],
+      "error": "Page shows error message"
+    }
+  ],
+  "summary": {
+    "total": 0,
+    "pass": 0,
+    "fail": 0,
+    "stub": 0
+  }
+}
