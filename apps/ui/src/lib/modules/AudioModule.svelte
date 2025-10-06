@@ -588,6 +588,23 @@
     border: 1px solid rgba(148, 163, 184, 0.12);
     border-radius: var(--radius-md);
     overflow: hidden;
+    display: block;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  .music-library table thead,
+  .music-library table tbody,
+  .music-library table tr {
+    display: table;
+    width: 100%;
+    table-layout: fixed;
+  }
+
+  @media (max-width: 768px) {
+    .music-library table {
+      min-width: 600px;
+    }
   }
 
   .music-library th,
