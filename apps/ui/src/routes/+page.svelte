@@ -1,7 +1,6 @@
 <script lang="ts">
   import AudioModule from '$lib/modules/AudioModule.svelte';
   import VideoModule from '$lib/modules/VideoModule.svelte';
-  import ZigbeeModule from '$lib/modules/ZigbeeModule.svelte';
   import CameraModule from '$lib/modules/CameraModule.svelte';
   import StatusPill from '$lib/components/StatusPill.svelte';
   import { createModuleStateStore, type PanelState } from '$lib/stores/app';
@@ -13,12 +12,10 @@
 
   const audioStateStore = createModuleStateStore('audio');
   const videoStateStore = createModuleStateStore('video');
-  const zigbeeStateStore = createModuleStateStore('zigbee');
   const cameraStateStore = createModuleStateStore('camera');
 
   $: audioPanelState = deriveState($audioStateStore, data.audio.error);
   $: videoPanelState = deriveState($videoStateStore, data.video.error);
-  $: zigbeePanelState = deriveState($zigbeeStateStore, data.zigbee.error);
   $: cameraPanelState = deriveState($cameraStateStore, data.camera.error);
 
   $: fleetState = data.fleetState?.data;
@@ -93,9 +90,6 @@
   />
   {#if featureFlags.video}
     <VideoModule data={data.video.data} state={videoPanelState} onRetry={refreshDashboard} />
-  {/if}
-  {#if featureFlags.zigbee}
-    <ZigbeeModule data={data.zigbee.data} state={zigbeePanelState} onRetry={refreshDashboard} />
   {/if}
   {#if featureFlags.camera}
     <CameraModule data={data.camera.data} state={cameraPanelState} onRetry={refreshDashboard} />

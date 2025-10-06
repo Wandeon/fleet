@@ -29,12 +29,6 @@ export const load: PageLoad = async ({ fetch, depends }) => {
         data: null,
         error: null,
       });
-  const zigbeePromise = featureFlags.zigbee
-    ? toResult(apiClient.fetchZigbee({ fetch }))
-    : Promise.resolve<ModuleResult<Awaited<ReturnType<typeof apiClient.fetchZigbee>>>>({
-        data: null,
-        error: null,
-      });
   const cameraPromise = featureFlags.camera
     ? toResult(loadCameraState({ fetch }))
     : Promise.resolve<ModuleResult<Awaited<ReturnType<typeof loadCameraState>>>>({
@@ -49,10 +43,9 @@ export const load: PageLoad = async ({ fetch, depends }) => {
     })
   );
 
-  const [audio, video, zigbee, camera, fleetState, healthEvents] = await Promise.all([
+  const [audio, video, camera, fleetState, healthEvents] = await Promise.all([
     audioPromise,
     videoPromise,
-    zigbeePromise,
     cameraPromise,
     fleetStatePromise,
     healthEventsPromise,
@@ -61,7 +54,6 @@ export const load: PageLoad = async ({ fetch, depends }) => {
   return {
     audio,
     video,
-    zigbee,
     camera,
     fleetState,
     healthEvents,
