@@ -26,6 +26,22 @@ Prometheus scrapes these endpoints based on targets defined in `infra/vps/target
 - Recent errors/event feed should ingest `/api/health/events/recent` to surface command failures, circuit breaker opens, or job retries.
 - `/health` route must render per-module tiles summarizing `total` vs. `online` counts along with failure reasons from the API response. Current implementation returns 500; fix by wiring to `/ui/health/summary` proxy and handling unknown modules gracefully.【F:ux-audit/20250924-192021/fleet-ux-audit.md†L5-L55】
 
+### Audio quick triage
+
+When troubleshooting audio playback issues, follow this sequence:
+
+1. **Control plane health**: Check `/api/health/summary` → `modules[].module == "audio"` → verify `online` count matches `total`
+2. **Device health probe**: Each audio device exposes `/healthz` (no auth) → should return `ok` within 1s
+3. **Stream status**: Query Prometheus `audio_stream_up{instance="pi-audio-XX"}` → `1` means streaming, `0` means fallback/stopped
+4. **Fallback readiness**: Check Prometheus `audio_fallback_exists{instance="pi-audio-XX"}` → `1` means safety file uploaded
+5. **Icecast connectivity**: From VPS-01, `curl -s http://icecast:8000/status-json.xsl | jq '.icestats.source.listeners'` → confirms stream mount active
+6. **Device config verification**: Use device `/config` endpoint to confirm `stream_url` is set to `http://icecast:8000/fleet.mp3`
+
+**Common failure modes**:
+- Device reports `stream_up: 0` + `fallback_active: 1` → Icecast unreachable or mount down; check VPS-01 Icecast container logs
+- Device `/healthz` timeout → Tailscale network issue or device offline; verify Tailscale status on Pi
+- Device `stream_url` misconfigured → Update via `/config` PUT endpoint with full URL including mount point
+
 ## Monitoring integration
 
 - Prometheus metrics `upstream_device_failures_total`, `circuit_breaker_state`, and `jobs_fail` highlight systemic issues; combine with Blackbox checks (e.g., `http://pi-audio-01:8081/healthz`).【F:apps/api/ARCHITECTURE.md†L27-L49】【F:infra/vps/compose.prom-grafana-blackbox.yml†L1-L55】

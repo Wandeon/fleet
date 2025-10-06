@@ -13,6 +13,8 @@ This guide explains how the GitOps agent, VPS compose stacks, and network paths 
 
 ## VPS stack and compose topology
 
+**All services run on VPS-01 (app.headspamartina.hr)**. This includes the Fleet control plane, Icecast/Liquidsoap streaming services, and monitoring stack.
+
 - `infra/vps/compose.fleet.yml` deploys `fleet-api`, `fleet-worker`, `fleet-ui`, `filebrowser`, and `caddy` on an internal bridge network (`br-fleet`). Each service reads from `vps/fleet.env`, mounts configuration (`./config`), and persists SQLite data to the `fleet-data` volume.【F:infra/vps/compose.fleet.yml†L1-L147】
 - Published ports:
   - `fleet-api`: host `3005` → container `3015`
@@ -21,6 +23,7 @@ This guide explains how the GitOps agent, VPS compose stacks, and network paths 
   - `filebrowser`: no host ports (internal only, accessed via Caddy proxy)
 - The `filebrowser` service provides a web-based file manager for operator assets. Files are stored in the `fleet-assets` Docker volume and accessed through `/files` proxied by Caddy. File Browser runs with `--noauth` as authentication is handled at the perimeter (Caddy layer).【F:infra/vps/compose.fleet.yml†L102-L114】
 - Caddy routes `/api/*`, `/stream`, `/metrics`, and `/files/*` to their respective services while proxying all other requests to the UI. It preserves incoming Authorization headers when proxying.【F:infra/vps/caddy.fleet.Caddyfile†L1-L36】
+- Audio streaming stack (`infra/vps/compose.liquidsoap.yml`) deploys **Icecast** (`:8000`) and **Liquidsoap** (control port `:1234`) on the same VPS-01 host. Liquidsoap streams from the `liquidsoap-music` volume to Icecast mount `/fleet.mp3`. The Fleet API container connects to the `liquidsoap-network` bridge to enable music library upload features.
 - Monitoring stack (`infra/vps/compose.prom-grafana-blackbox.yml`) exposes Prometheus (`9090`), Grafana (`3001`), Loki (`3100`), Blackbox (`9115`), and Alertmanager (`9093`). Use `infra/vps/compose.promtail.yml` to ship VPS host logs into the same Loki instance.【F:infra/vps/compose.prom-grafana-blackbox.yml†L1-L55】【F:infra/vps/compose.promtail.yml†L1-L12】
 
 ## External networks & access
