@@ -1,8 +1,6 @@
 <script lang="ts">
   import { onMount } from 'svelte';
   import { browser } from '$app/environment';
-  import { goto } from '$app/navigation';
-  import { resolve } from '$app/paths';
   import Card from '$lib/components/Card.svelte';
   import Button from '$lib/components/Button.svelte';
   import StatusPill from '$lib/components/StatusPill.svelte';
@@ -35,11 +33,6 @@
   let playBusy: Record<string, boolean> = {};
   let volumeChanging: Record<string, boolean> = {};
   let liquidsoapBusy = false;
-
-  const openAudioFiles = () => {
-    const filesRoute = resolve('/files?folder=audio');
-    void goto(filesRoute);
-  };
 
   const formatBytes = (bytes: number) => {
     if (bytes === 0) return '0 B';
@@ -284,29 +277,6 @@
                 <span>Library size</span>
                 <strong>{formatBytes(streamingStatus.liquidsoap.librarySize)}</strong>
               </div>
-              <div class="liquidsoap-controls">
-                <button
-                  class="control-btn play"
-                  on:click={handleLiquidsoapPlay}
-                  disabled={liquidsoapBusy}
-                >
-                  ▶ Play
-                </button>
-                <button
-                  class="control-btn stop"
-                  on:click={handleLiquidsoapStop}
-                  disabled={liquidsoapBusy}
-                >
-                  ⏹ Stop
-                </button>
-                <button
-                  class="control-btn skip"
-                  on:click={handleLiquidsoapSkip}
-                  disabled={liquidsoapBusy}
-                >
-                  ⏭ Skip
-                </button>
-              </div>
             {:else}
               <p class="offline-message">Service offline or unreachable</p>
             {/if}
@@ -389,10 +359,6 @@
       <section class="music-library">
         <header>
           <h2>Music Library</h2>
-          <div class="actions">
-            <Button variant="ghost" on:click={openAudioFiles}>Open audio folder</Button>
-            <Button variant="ghost" on:click={loadData}>Refresh</Button>
-          </div>
         </header>
 
         {#if musicLibrary.length === 0}
@@ -409,7 +375,8 @@
                 <th scope="col">Filename</th>
                 <th scope="col">Size</th>
                 <th scope="col">Modified</th>
-                <th scope="col">Play on Devices</th>
+                <th scope="col">Playback</th>
+                <th scope="col">Connect Devices</th>
               </tr>
             </thead>
             <tbody>
@@ -419,48 +386,50 @@
                   <td>{formatBytes(file.size)}</td>
                   <td>{new Date(file.modifiedAt).toLocaleString()}</td>
                   <td>
-                    <div class="play-buttons">
+                    <button
+                      class="file-control-btn"
+                      disabled={liquidsoapBusy}
+                      on:click={() => handleLiquidsoapPlay()}
+                      title="Play this file"
+                    >
+                      ▶ Play
+                    </button>
+                  </td>
+                  <td>
+                    <div class="device-checkboxes">
                       {#if piAudio01}
-                        {#if piAudio01.playback.state === 'playing'}
-                          <button
-                            class="play-btn stop-btn"
-                            disabled={!!playBusy['pi-audio-01']}
-                            on:click={() => handleStopDevice('pi-audio-01')}
-                            title="Stop Pi Audio 01"
-                          >
-                            ⏹
-                          </button>
-                        {:else}
-                          <button
-                            class="play-btn"
-                            disabled={!!playBusy['pi-audio-01']}
-                            on:click={() => handlePlayStream('pi-audio-01')}
-                            title="Play on Pi Audio 01"
-                          >
-                            ▶
-                          </button>
-                        {/if}
+                        <label class="device-checkbox">
+                          <input
+                            type="checkbox"
+                            checked={piAudio01.playback.state === 'playing'}
+                            disabled={!!playBusy['pi-audio-01'] || piAudio01.status !== 'online'}
+                            on:change={(e) => {
+                              if (e.currentTarget.checked) {
+                                handlePlayStream('pi-audio-01');
+                              } else {
+                                handleStopDevice('pi-audio-01');
+                              }
+                            }}
+                          />
+                          <span>{piAudio01.name}</span>
+                        </label>
                       {/if}
                       {#if piAudio02}
-                        {#if piAudio02.playback.state === 'playing'}
-                          <button
-                            class="play-btn stop-btn"
-                            disabled={!!playBusy['pi-audio-02']}
-                            on:click={() => handleStopDevice('pi-audio-02')}
-                            title="Stop Pi Audio 02"
-                          >
-                            ⏹
-                          </button>
-                        {:else}
-                          <button
-                            class="play-btn"
-                            disabled={!!playBusy['pi-audio-02']}
-                            on:click={() => handlePlayStream('pi-audio-02')}
-                            title="Play on Pi Audio 02"
-                          >
-                            ▶
-                          </button>
-                        {/if}
+                        <label class="device-checkbox">
+                          <input
+                            type="checkbox"
+                            checked={piAudio02.playback.state === 'playing'}
+                            disabled={!!playBusy['pi-audio-02'] || piAudio02.status !== 'online'}
+                            on:change={(e) => {
+                              if (e.currentTarget.checked) {
+                                handlePlayStream('pi-audio-02');
+                              } else {
+                                handleStopDevice('pi-audio-02');
+                              }
+                            }}
+                          />
+                          <span>{piAudio02.name}</span>
+                        </label>
                       {/if}
                     </div>
                   </td>
@@ -473,31 +442,6 @@
             <span>Total: {musicLibrary.length} files ({formatBytes(totalSize)})</span>
           </div>
         {/if}
-      </section>
-
-      <section class="stream-info">
-        <header>
-          <h2>Stream Information</h2>
-        </header>
-        <div class="stream-details">
-          <div class="info-row">
-            <span>Stream URL:</span>
-            <code>{streamingStatus?.streamUrl ?? 'http://icecast:8000/fleet.mp3'}</code>
-          </div>
-          {#if fleetMount}
-            <div class="info-row">
-              <span>Bitrate:</span>
-              <strong>{fleetMount.bitrate} kbps</strong>
-            </div>
-            <div class="info-row">
-              <span>Format:</span>
-              <strong>MP3 Stereo</strong>
-            </div>
-          {/if}
-          <p class="info-note">
-            Pi devices can be configured to stream from this URL using the "stream" source mode.
-          </p>
-        </div>
       </section>
     </div>
   {/if}
@@ -635,16 +579,7 @@
   }
 
   .music-library header {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    flex-wrap: wrap;
-    gap: var(--spacing-3);
-  }
-
-  .music-library .actions {
-    display: flex;
-    gap: var(--spacing-2);
+    margin-bottom: var(--spacing-3);
   }
 
   .music-library table {
@@ -683,83 +618,56 @@
     color: var(--color-text-muted);
   }
 
-  .stream-info header {
-    margin-bottom: var(--spacing-3);
-  }
-
-  .stream-details {
-    border: 1px solid rgba(148, 163, 184, 0.15);
-    border-radius: var(--radius-md);
-    padding: var(--spacing-4);
-    background: rgba(12, 21, 41, 0.5);
-    display: grid;
-    gap: var(--spacing-3);
-  }
-
-  .info-row {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    gap: var(--spacing-3);
-  }
-
-  .info-row span {
-    font-size: var(--font-size-sm);
-    color: var(--color-text-muted);
-  }
-
-  .info-row code {
-    background: rgba(15, 23, 42, 0.9);
-    padding: 0.3rem 0.6rem;
-    border-radius: var(--radius-sm);
-    font-family: 'Courier New', monospace;
-    font-size: var(--font-size-sm);
-    border: 1px solid rgba(148, 163, 184, 0.2);
-  }
-
-  .info-note {
-    font-size: var(--font-size-sm);
-    color: var(--color-text-muted);
-    margin-top: var(--spacing-2);
-    padding-top: var(--spacing-3);
-    border-top: 1px solid rgba(148, 163, 184, 0.12);
-  }
-
-  .play-buttons {
-    display: flex;
-    gap: var(--spacing-2);
-  }
-
-  .play-btn {
-    background: rgba(59, 130, 246, 0.15);
-    border: 1px solid rgba(59, 130, 246, 0.3);
-    color: rgb(59, 130, 246);
-    padding: 0.4rem 0.6rem;
+  .file-control-btn {
+    background: rgba(34, 197, 94, 0.15);
+    border: 1px solid rgba(34, 197, 94, 0.3);
+    color: rgb(34, 197, 94);
+    padding: 0.4rem 0.8rem;
     border-radius: var(--radius-sm);
     cursor: pointer;
-    font-size: 1rem;
+    font-size: var(--font-size-sm);
+    font-weight: 500;
     transition: all 0.2s;
   }
 
-  .play-btn:hover:not(:disabled) {
-    background: rgba(59, 130, 246, 0.25);
-    border-color: rgba(59, 130, 246, 0.5);
+  .file-control-btn:hover:not(:disabled) {
+    background: rgba(34, 197, 94, 0.25);
+    border-color: rgba(34, 197, 94, 0.5);
   }
 
-  .play-btn.stop-btn {
-    background: rgba(239, 68, 68, 0.15);
-    border-color: rgba(239, 68, 68, 0.3);
-    color: rgb(239, 68, 68);
-  }
-
-  .play-btn.stop-btn:hover:not(:disabled) {
-    background: rgba(239, 68, 68, 0.25);
-    border-color: rgba(239, 68, 68, 0.5);
-  }
-
-  .play-btn:disabled {
+  .file-control-btn:disabled {
     opacity: 0.5;
     cursor: not-allowed;
+  }
+
+  .device-checkboxes {
+    display: flex;
+    flex-direction: column;
+    gap: var(--spacing-2);
+  }
+
+  .device-checkbox {
+    display: flex;
+    align-items: center;
+    gap: var(--spacing-2);
+    cursor: pointer;
+    font-size: var(--font-size-sm);
+  }
+
+  .device-checkbox input[type="checkbox"] {
+    width: 18px;
+    height: 18px;
+    cursor: pointer;
+    accent-color: rgb(59, 130, 246);
+  }
+
+  .device-checkbox input[type="checkbox"]:disabled {
+    cursor: not-allowed;
+    opacity: 0.5;
+  }
+
+  .device-checkbox span {
+    user-select: none;
   }
 
   .volume-control {
@@ -820,61 +728,6 @@
   }
 
   .volume-control input[type="range"]:disabled::-moz-range-thumb {
-    cursor: not-allowed;
-  }
-
-  .liquidsoap-controls {
-    display: flex;
-    gap: var(--spacing-2);
-    margin-top: var(--spacing-2);
-  }
-
-  .control-btn {
-    flex: 1;
-    padding: var(--spacing-2);
-    border-radius: var(--radius-md);
-    border: 1px solid;
-    cursor: pointer;
-    font-size: var(--font-size-sm);
-    font-weight: 500;
-    transition: all 0.2s;
-  }
-
-  .control-btn.play {
-    background: rgba(34, 197, 94, 0.15);
-    border-color: rgba(34, 197, 94, 0.3);
-    color: rgb(34, 197, 94);
-  }
-
-  .control-btn.play:hover:not(:disabled) {
-    background: rgba(34, 197, 94, 0.25);
-    border-color: rgba(34, 197, 94, 0.5);
-  }
-
-  .control-btn.stop {
-    background: rgba(239, 68, 68, 0.15);
-    border-color: rgba(239, 68, 68, 0.3);
-    color: rgb(239, 68, 68);
-  }
-
-  .control-btn.stop:hover:not(:disabled) {
-    background: rgba(239, 68, 68, 0.25);
-    border-color: rgba(239, 68, 68, 0.5);
-  }
-
-  .control-btn.skip {
-    background: rgba(59, 130, 246, 0.15);
-    border-color: rgba(59, 130, 246, 0.3);
-    color: rgb(59, 130, 246);
-  }
-
-  .control-btn.skip:hover:not(:disabled) {
-    background: rgba(59, 130, 246, 0.25);
-    border-color: rgba(59, 130, 246, 0.5);
-  }
-
-  .control-btn:disabled {
-    opacity: 0.5;
     cursor: not-allowed;
   }
 </style>

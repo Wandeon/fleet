@@ -12,11 +12,11 @@ settings.server.telnet := true
 settings.server.telnet.bind_addr := "0.0.0.0"
 settings.server.telnet.port := 1234
 
-# Create a playlist source from /music directory
+# Create a playlist source from /srv/Audio directory
 music = playlist(
   mode="randomize",
   reload_mode="watch",
-  "/music"
+  "/srv/Audio"
 )
 
 # Create a fallback sine wave (1kHz beep) in case no music files exist

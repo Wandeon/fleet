@@ -11,6 +11,7 @@ services:
       - ./liquidsoap/playlist.liq:/etc/liquidsoap/playlist.liq:ro
       - liquidsoap-music:/music
       - liquidsoap-log:/var/log/liquidsoap
+      - fleet-assets:/srv:ro
     env_file:
       - ./icecast.env
     environment:
@@ -48,3 +49,6 @@ volumes:
   liquidsoap-log:
   icecast-data:
   icecast-log:
+  fleet-assets:
+    external: true
+    name: vps_fleet-assets

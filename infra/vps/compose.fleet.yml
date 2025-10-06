@@ -30,6 +30,7 @@ services:
       - fleet-data:/data
       - ./config:/config:ro
       - liquidsoap-music:/liquidsoap-music
+      - fleet-assets:/srv
     command: ['sh', '-c', 'npm run start']
     restart: unless-stopped
 
@@ -59,6 +60,7 @@ services:
       - fleet-data:/data
       - ./config:/config:ro
       - liquidsoap-music:/liquidsoap-music
+      - fleet-assets:/srv
     command: ['sh', '-c', 'npm run db:generate && npm run worker']
     healthcheck:
       disable: true

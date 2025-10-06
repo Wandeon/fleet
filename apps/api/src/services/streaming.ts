@@ -4,7 +4,7 @@ import { Socket } from 'net';
 import { log } from '../observability/logging.js';
 import { createHttpError } from '../util/errors.js';
 
-const LIQUIDSOAP_MUSIC_PATH = process.env.LIQUIDSOAP_MUSIC_PATH || '/liquidsoap-music';
+const LIQUIDSOAP_MUSIC_PATH = process.env.LIQUIDSOAP_MUSIC_PATH || '/srv/Audio';
 const ICECAST_STATUS_URL = process.env.ICECAST_STATUS_URL || 'http://icecast:8000/status-json.xsl';
 const LIQUIDSOAP_TELNET_HOST = process.env.LIQUIDSOAP_TELNET_HOST || 'liquidsoap';
 const LIQUIDSOAP_TELNET_PORT = parseInt(process.env.LIQUIDSOAP_TELNET_PORT || '1234', 10);
