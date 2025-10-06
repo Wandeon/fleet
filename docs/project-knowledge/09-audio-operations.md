@@ -42,8 +42,60 @@ Audio playback is delivered by the `audio-player` role and coordinated through t
 ## Operational checklist
 
 - Confirm HiFiBerry overlay on Pis via `/boot/firmware/config.txt` (`dtoverlay=hifiberry-dac`).【F:docs/runbooks/audio.md†L31-L75】
-- Keep Icecast credentials secure in `infra/vps/icecast.env`; restart stack after changes (`docker compose -f infra/vps/compose.icecast.yml up -d`).【F:docs/runbooks/audio.md†L9-L45】
+- Keep Icecast credentials secure in `infra/vps/icecast.env`; restart stack after changes (`docker compose -f infra/vps/compose.liquidsoap.yml up -d`). **Note**: Icecast and Liquidsoap run on VPS-01 (same host as Fleet control plane), not on a separate VPS-02.【F:docs/runbooks/audio.md†L9-L45】
 - After env updates, re-run the agent manually (`sudo /opt/fleet/agent/role-agent.sh`) or wait for timer tick.
 - Update `vps/targets-audio.json` whenever new players are added so Prometheus scrapes the new endpoints.【F:docs/runbooks/audio.md†L45-L63】
+
+## Verification checklist
+
+Use this sequence to verify the audio pipeline after deployment or configuration changes:
+
+1. **Icecast stream health**
+   ```bash
+   curl -s http://localhost:8000/status-json.xsl | jq '.icestats.source'
+   ```
+   Expected: Mount `/fleet.mp3` should show `listeners` count and recent `stream_start` timestamp.
+
+2. **Device reachability** (from VPS-01 via Tailscale):
+   ```bash
+   curl -s http://pi-audio-01:8081/healthz  # Should return "ok"
+   curl -s http://pi-audio-02:8081/healthz
+   ```
+
+3. **Device configuration** (requires device bearer tokens):
+   ```bash
+   curl -s -H 'Authorization: Bearer $AUDIO_PI_AUDIO_01_TOKEN' \
+     http://pi-audio-01:8081/config | jq '.stream_url'
+   ```
+   Expected: `"http://icecast:8000/fleet.mp3"` (full URL including mount point).
+
+4. **Playback status**:
+   ```bash
+   curl -s -H 'Authorization: Bearer $AUDIO_PI_AUDIO_01_TOKEN' \
+     http://pi-audio-01:8081/status | jq '{stream_up, now_playing, fallback_exists}'
+   ```
+   Expected: `stream_up: 1` when Icecast is operational.
+
+5. **Control plane API**:
+   ```bash
+   curl -s -H 'Authorization: Bearer $API_BEARER' \
+     http://localhost:3005/audio/devices | jq '.devices[].status'
+   ```
+   Expected: Both devices show `"online"` status.
+
+6. **Prometheus metrics**:
+   ```bash
+   curl -s 'http://localhost:9090/api/v1/query?query=audio_stream_up' | \
+     jq -r '.data.result[] | "\(.metric.instance): \(.value[1])"'
+   ```
+   Expected: Both devices report `1`.
+
+7. **Upload limit test** (optional, use small test file):
+   ```bash
+   curl -X POST -H 'Authorization: Bearer $API_BEARER' \
+     -F 'file=@test.mp3' \
+     http://localhost:3005/audio/pi-audio-01/upload
+   ```
+   Expected: File ≤50 MB succeeds with 2xx; larger files return 400.
 
 Cross-reference [21-file-and-asset-management](./21-file-and-asset-management.md) for library retention policies and [15-error-recovery](./15-error-recovery.md) for retry strategies.

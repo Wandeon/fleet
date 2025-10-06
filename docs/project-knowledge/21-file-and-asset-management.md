@@ -24,8 +24,9 @@ Audio assets and related metadata are managed through the audio control API, fal
 
 ## Deletion & restore
 
-- Current fallback upload overwrites previous file; maintain backups externally before replacement. Plan API extension for delete/restore (soft delete with version history) and coordinate with storage quotas.
-- For future library, implement soft delete (trash bin) aligning with UX story: operator can restore or permanently purge assets with audit logging.【F:docs/ux/operator-jobs-and-stories.md†L98-L118】
+- **Current behavior**: Fallback upload via `POST /audio/{id}/upload` overwrites `/data/fallback.mp3` on the target device. No version history or backup is maintained on-device. **Operators should maintain external backups** of fallback assets before uploading replacements.
+- **Backup recommendation**: Store fallback MP3 files in the central `fleet-assets` volume (via `/files` File Browser) or in version-controlled external storage (S3, NAS) before pushing to devices. This allows recovery if a device fallback needs to be reverted.
+- **Future library**: Plan API extension for delete/restore (soft delete with version history) and coordinate with storage quotas. Implement soft delete (trash bin) aligning with UX story: operator can restore or permanently purge assets with audit logging.【F:docs/ux/operator-jobs-and-stories.md†L98-L118】
 
 ## Metadata & indexing
 
