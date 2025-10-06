@@ -5,7 +5,7 @@
   import EmptyState from '$lib/components/EmptyState.svelte';
   import Skeleton from '$lib/components/Skeleton.svelte';
   import StatusPill from '$lib/components/StatusPill.svelte';
-  import { createEventDispatcher } from 'svelte';
+  import { createEventDispatcher, onMount } from 'svelte';
   import { invalidate } from '$app/navigation';
   import { isFeatureEnabled } from '$lib/config/features';
   import {
@@ -287,6 +287,12 @@
   $: if (data?.livePreview && !liveUrl) {
     liveUrl = data.livePreview.streamUrl;
   }
+
+  onMount(() => {
+    if (browser) {
+      refreshLibrary();
+    }
+  });
 </script>
 
 <Card {title} subtitle={variant === 'compact' ? 'Live display health' : 'Display orchestration'}>
