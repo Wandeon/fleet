@@ -1,6 +1,8 @@
 <script lang="ts">
   import { onMount } from 'svelte';
   import { browser } from '$app/environment';
+  import { goto } from '$app/navigation';
+  import { resolve } from '$app/paths';
   import Card from '$lib/components/Card.svelte';
   import Button from '$lib/components/Button.svelte';
   import StatusPill from '$lib/components/StatusPill.svelte';
@@ -29,12 +31,15 @@
   let musicLibrary: MusicLibraryFile[] = [];
   let audioDevices: AudioDeviceSnapshot[] = [];
   let loading = true;
-  let uploadBusy = false;
-  let deleteBusy: Record<string, boolean> = {};
   let banner: { type: 'success' | 'error'; message: string } | null = null;
   let playBusy: Record<string, boolean> = {};
   let volumeChanging: Record<string, boolean> = {};
   let liquidsoapBusy = false;
+
+  const openAudioFiles = () => {
+    const filesRoute = resolve('/files?folder=audio');
+    void goto(filesRoute);
+  };
 
   const formatBytes = (bytes: number) => {
     if (bytes === 0) return '0 B';
@@ -81,56 +86,6 @@
       console.error('Failed to load streaming data', error);
     } finally {
       loading = false;
-    }
-  };
-
-  const handleUpload = () => {
-    if (!browser || uploadBusy) return;
-
-    const input = document.createElement('input');
-    input.type = 'file';
-    input.accept = 'audio/*,.mp3,.ogg,.wav,.flac,.m4a,.aac';
-    input.addEventListener('change', async () => {
-      const file = input.files?.[0];
-      input.remove();
-      if (!file) return;
-
-      if (file.size > 50 * 1024 * 1024) {
-        showError('File too large. Maximum size is 50 MB.');
-        return;
-      }
-
-      uploadBusy = true;
-      try {
-        await uploadMusicFile(file);
-        showSuccess(`Uploaded ${file.name}`);
-        await loadData();
-      } catch (error) {
-        console.error('Upload error', error);
-        showError(error instanceof Error ? error.message : 'Upload failed');
-      } finally {
-        uploadBusy = false;
-      }
-    });
-
-    input.click();
-  };
-
-  const handleDelete = async (filename: string) => {
-    if (!browser || deleteBusy[filename]) return;
-    if (!confirm(`Delete ${filename}?`)) return;
-
-    deleteBusy = { ...deleteBusy, [filename]: true };
-    try {
-      await deleteMusicFile(filename);
-      showSuccess(`Deleted ${filename}`);
-      await loadData();
-    } catch (error) {
-      console.error('Delete error', error);
-      showError(error instanceof Error ? error.message : 'Delete failed');
-    } finally {
-      delete deleteBusy[filename];
-      deleteBusy = { ...deleteBusy };
     }
   };
 
@@ -435,22 +390,17 @@
         <header>
           <h2>Music Library</h2>
           <div class="actions">
+            <Button variant="ghost" on:click={openAudioFiles}>Open audio folder</Button>
             <Button variant="ghost" on:click={loadData}>Refresh</Button>
-            <Button variant="primary" disabled={uploadBusy} on:click={handleUpload}>
-              {uploadBusy ? 'Uploading…' : 'Upload Music'}
-            </Button>
           </div>
         </header>
 
         {#if musicLibrary.length === 0}
           <EmptyState
             title="No music files"
-            description="Upload audio files to start streaming to Pi devices."
+            description="Add audio files using the file manager to start streaming to Pi devices."
           >
             <svelte:fragment slot="icon">🎵</svelte:fragment>
-            <svelte:fragment slot="actions">
-              <Button variant="primary" on:click={handleUpload}>Upload Music</Button>
-            </svelte:fragment>
           </EmptyState>
         {:else}
           <table>
@@ -460,7 +410,6 @@
                 <th scope="col">Size</th>
                 <th scope="col">Modified</th>
                 <th scope="col">Play on Devices</th>
-                <th scope="col">Actions</th>
               </tr>
             </thead>
             <tbody>
@@ -514,16 +463,6 @@
                         {/if}
                       {/if}
                     </div>
-                  </td>
-                  <td>
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      disabled={!!deleteBusy[file.filename]}
-                      on:click={() => handleDelete(file.filename)}
-                    >
-                      {deleteBusy[file.filename] ? 'Deleting…' : 'Delete'}
-                    </Button>
                   </td>
                 </tr>
               {/each}

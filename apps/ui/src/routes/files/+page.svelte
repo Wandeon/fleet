@@ -1,10 +1,17 @@
 <script lang="ts">
-  // File Browser embedded in iframe to preserve app navigation
+  import type { PageData } from './$types';
+  import { resolve } from '$app/paths';
+
+  export let data: PageData;
+
+  const baseUrl = resolve('/files/api/');
+  $: folderSegment = data.folder ? `#/files/${encodeURIComponent(data.folder)}` : '';
+  $: iframeSrc = `${baseUrl}${folderSegment}`;
 </script>
 
 <div class="files-container">
   <iframe
-    src="/files/api/"
+    src={iframeSrc}
     title="File Browser"
     sandbox="allow-same-origin allow-scripts allow-forms allow-downloads"
   ></iframe>
