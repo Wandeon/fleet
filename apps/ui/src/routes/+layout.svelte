@@ -1,10 +1,7 @@
 <script lang="ts">
   import '$lib/design/global.css';
-  import Card from '$lib/components/Card.svelte';
-  import StatusPill from '$lib/components/StatusPill.svelte';
   import Toast from '$lib/components/Toast.svelte';
   import Button from '$lib/components/Button.svelte';
-  import Skeleton from '$lib/components/Skeleton.svelte';
   import { attachEventHandlers, reattachOnNavigation } from '$lib/svelte5-compat';
   import { onMount } from 'svelte';
   import { mainNavigation } from '$lib/nav';
@@ -20,7 +17,7 @@
     type PanelState,
     useMocks,
   } from '$lib/stores/app';
-  import type { HealthTile, LayoutData, RoutePath } from '$lib/types';
+  import type { LayoutData } from '$lib/types';
 
   export let data: {
     version: string;
@@ -50,12 +47,6 @@
   let mockPanelOpen = false;
 
   $: allowMockPanel = import.meta.env.DEV || usingMocks;
-
-  const health = data.layout?.health;
-  const errors = data.layout?.errors ?? [];
-  const events = data.layout?.events ?? [];
-  const isRouteLink = (href: NonNullable<HealthTile['link']>['href']): href is RoutePath =>
-    href.startsWith('/');
 
   $: formattedUpdated = new Date(data.lastUpdated).toLocaleTimeString([], {
     hour: '2-digit',
@@ -120,93 +111,9 @@
   </nav>
 
   <main class="layout">
-    <section class="left">
+    <section class="content">
       <slot />
     </section>
-    <aside class="right">
-      <slot name="sidebar">
-        {#if health}
-          <Card title="Health overview" subtitle={`Uptime: ${health.uptime}`}>
-            <div class="health-grid">
-              {#each health.metrics as metric (metric.id)}
-                <div class="tile">
-                  <div class="tile-heading">
-                    <span class="tile-label">{metric.label}</span>
-                    <StatusPill status={metric.status} />
-                  </div>
-                  <span class="tile-value">{metric.value}</span>
-                  {#if metric.hint}
-                    <span class="tile-hint">{metric.hint}</span>
-                  {/if}
-                  {#if metric.link}
-                    {#if isRouteLink(metric.link.href)}
-                      <a
-                        class="tile-link"
-                        href={resolve(metric.link.href)}
-                        target="_blank"
-                        rel="noreferrer"
-                      >
-                        {metric.link.label}
-                      </a>
-                    {:else}
-                      <!-- eslint-disable-next-line svelte/no-navigation-without-resolve -->
-                      <a class="tile-link" href={metric.link.href} target="_blank" rel="noreferrer">
-                        {metric.link.label}
-                      </a>
-                    {/if}
-                  {/if}
-                </div>
-              {/each}
-            </div>
-          </Card>
-        {:else}
-          <Skeleton variant="block" height="18rem" />
-        {/if}
-        <Card title="Recent errors" subtitle="Investigate anomalies fast">
-          {#if errors.length === 0}
-            <p class="empty-feed">All clear.</p>
-          {:else}
-            <ul class="feed">
-              {#each errors as item (item.id)}
-                <li>
-                  <span class={`severity ${item.severity}`}>{item.severity}</span>
-                  <div>
-                    <p>{item.message}</p>
-                    <time
-                      >{new Date(item.timestamp).toLocaleTimeString([], {
-                        hour: '2-digit',
-                        minute: '2-digit',
-                      })}</time
-                    >
-                  </div>
-                  {#if item.actionLabel}
-                    <span class="chip">{item.actionLabel}</span>
-                  {/if}
-                </li>
-              {/each}
-            </ul>
-          {/if}
-        </Card>
-        <Card title="Event feed" subtitle="Latest operator activity">
-          <ul class="feed">
-            {#each events as event (event.id)}
-              <li>
-                <span class={`severity ${event.severity}`}>{event.severity}</span>
-                <div>
-                  <p>{event.message}</p>
-                  <time
-                    >{new Date(event.timestamp).toLocaleTimeString([], {
-                      hour: '2-digit',
-                      minute: '2-digit',
-                    })}</time
-                  >
-                </div>
-              </li>
-            {/each}
-          </ul>
-        </Card>
-      </slot>
-    </aside>
   </main>
 </div>
 
@@ -373,110 +280,16 @@
   }
 
   .layout {
-    display: grid;
-    grid-template-columns: minmax(0, 2.5fr) minmax(18rem, 1fr);
+    display: flex;
+    flex-direction: column;
     gap: var(--spacing-4);
     flex: 1;
   }
 
-  .left,
-  .right {
+  .content {
     display: flex;
     flex-direction: column;
     gap: var(--spacing-4);
-  }
-
-  .health-grid {
-    display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(12rem, 1fr));
-    gap: var(--spacing-3);
-  }
-
-  .tile {
-    display: flex;
-    flex-direction: column;
-    gap: 0.35rem;
-    padding: var(--spacing-3);
-    border-radius: var(--radius-md);
-    background: rgba(11, 23, 45, 0.8);
-    border: 1px solid rgba(148, 163, 184, 0.12);
-  }
-
-  .tile-heading {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    gap: var(--spacing-2);
-  }
-
-  .tile-value {
-    font-size: var(--font-size-xl);
-    font-weight: 600;
-  }
-
-  .tile-hint {
-    color: var(--color-text-muted);
-    font-size: var(--font-size-sm);
-  }
-
-  .tile-link {
-    font-size: var(--font-size-xs);
-    text-transform: uppercase;
-    color: var(--color-brand);
-    letter-spacing: 0.05em;
-  }
-
-  .feed {
-    list-style: none;
-    display: grid;
-    gap: var(--spacing-3);
-    padding: 0;
-    margin: 0;
-  }
-
-  .feed li {
-    display: grid;
-    grid-template-columns: auto 1fr auto;
-    gap: var(--spacing-3);
-    align-items: start;
-  }
-
-  .feed p {
-    margin: 0;
-  }
-
-  .feed time {
-    display: block;
-    margin-top: 0.2rem;
-    font-size: var(--font-size-xs);
-    color: var(--color-text-muted);
-  }
-
-  .severity {
-    text-transform: uppercase;
-    font-size: var(--font-size-xs);
-    letter-spacing: 0.05em;
-    color: var(--color-text-muted);
-  }
-
-  .severity.error {
-    color: var(--color-error);
-  }
-
-  .severity.warning {
-    color: var(--color-warning);
-  }
-
-  .chip {
-    padding: 0.2rem 0.6rem;
-    border-radius: 999px;
-    background: rgba(56, 189, 248, 0.12);
-    font-size: var(--font-size-xs);
-  }
-
-  .empty-feed {
-    margin: 0;
-    color: var(--color-text-muted);
   }
 
   .mock-controls {
@@ -532,16 +345,6 @@
     justify-content: space-between;
     align-items: center;
     gap: var(--spacing-2);
-  }
-
-  @media (max-width: 1024px) {
-    .layout {
-      grid-template-columns: 1fr;
-    }
-
-    .right {
-      order: -1;
-    }
   }
 
   @media (max-width: 720px) {
