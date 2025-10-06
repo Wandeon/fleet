@@ -347,6 +347,35 @@ router.delete('/devices/:deviceId/library/:filename', async (req, res, next) => 
   }
 });
 
+router.post('/devices/:deviceId/library/play', async (req, res, next) => {
+  res.locals.routePath = '/video/devices/:deviceId/library/play';
+  try {
+    const { deviceId } = req.params;
+    const { filename } = z.object({ filename: z.string().min(1) }).parse(req.body);
+    const device = deviceRegistry.requireDevice(deviceId);
+
+    log.info({ deviceId, filename }, 'Video library play requested');
+
+    const result = await httpRequestJson<{ jobId?: string }>(device, '/library/play', {
+      method: 'POST',
+      body: JSON.stringify({ filename }),
+      headers: { 'Content-Type': 'application/json' },
+    });
+
+    log.info({ deviceId, filename }, 'Video playback started');
+    res.status(202).json({
+      deviceId,
+      filename,
+      accepted: true,
+      jobId: result.jobId || res.locals.correlationId,
+      correlationId: res.locals.correlationId,
+    });
+  } catch (error) {
+    log.error({ deviceId: req.params.deviceId, error }, 'Failed to play video from library');
+    next(error);
+  }
+});
+
 // Convenience routes for primary TV (pi-video-01)
 // These routes provide a simpler API for the UI that doesn't require device ID in the path
 const PRIMARY_VIDEO_DEVICE = 'pi-video-01';

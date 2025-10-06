@@ -6,8 +6,7 @@
   import Skeleton from '$lib/components/Skeleton.svelte';
   import StatusPill from '$lib/components/StatusPill.svelte';
   import { createEventDispatcher } from 'svelte';
-  import { goto, invalidate } from '$app/navigation';
-  import { resolve } from '$app/paths';
+  import { invalidate } from '$app/navigation';
   import { isFeatureEnabled } from '$lib/config/features';
   import {
     fetchRecordingTimeline,
@@ -18,8 +17,6 @@
     setVideoPower,
     setVideoVolume,
     fetchVideoLibrary,
-    uploadVideo,
-    deleteVideo,
     type VideoLibraryItem,
   } from '$lib/api/video-operations';
   import { mockApi } from '$lib/api/mock';
@@ -172,9 +169,31 @@
     }
   };
 
-  const openVideoFiles = () => {
-    const filesRoute = resolve('/files?folder=video');
-    void goto(filesRoute);
+  const handlePlayVideo = async (filename: string) => {
+    if (!data || busy) return;
+    busy = true;
+    try {
+      const response = await fetch('/ui/video/devices/pi-video-01/library/play', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ filename }),
+      });
+
+      if (!response.ok) {
+        const error = await response.json().catch(() => ({ message: 'Failed to play video' }));
+        showMessage(error.message || 'Failed to play video');
+        return;
+      }
+
+      const result = await response.json();
+      showMessage(`Playing ${filename} (Job: ${result.jobId})`);
+    } catch (error) {
+      console.error('play video', error);
+      showMessage('Unable to play video');
+    } finally {
+      busy = false;
+      broadcastRefresh();
+    }
   };
 
   const openLivePreview = async () => {
@@ -478,10 +497,6 @@
       <section class="library">
         <header>
           <h2>Video library</h2>
-          <div class="actions">
-            <Button variant="ghost" onclick={openVideoFiles}>Open video folder</Button>
-            <Button variant="ghost" onclick={refreshLibrary}>Refresh library</Button>
-          </div>
         </header>
         {#if !library.length}
           <p class="muted">No videos in library. Add videos using the file manager to get started.</p>
@@ -490,9 +505,12 @@
             {#each library as video (video.filename)}
               <li>
                 <div class="video-info">
-                  <strong>{video.filename}</strong>
+                  <strong>🎬 {video.filename}</strong>
                   <span class="muted">{formatFileSize(video.size)}</span>
                 </div>
+                <Button variant="primary" size="sm" onclick={() => handlePlayVideo(video.filename)}>
+                  ▶ Play
+                </Button>
               </li>
             {/each}
           </ul>
