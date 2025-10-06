@@ -27,8 +27,9 @@ export const mainNavigation: NavItem[] = [
         {
           path: '/zigbee',
           label: 'Zigbee',
-          description: 'Lighting and device mesh',
+          description: 'Lighting and device mesh (Zigbee2MQTT UI)',
           icon: '🕸️',
+          external: true,
         } satisfies NavItem,
       ]
     : []),

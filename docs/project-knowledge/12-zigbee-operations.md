@@ -8,6 +8,14 @@ Zigbee coordination lives on `pi-video-01` alongside the video role. This docume
 - Credentials and hardware paths come from `/etc/fleet/agent.env` (`ZIGBEE_SERIAL` or `ZIGBEE_SERIAL_PORT`, `ZIGBEE_MQTT_USER`, `ZIGBEE_MQTT_PASSWORD`, `ZIGBEE_NETWORK_KEY`, `ZIGBEE_CHANNEL`). The agent mirrors `ZIGBEE_SERIAL` to `ZIGBEE_SERIAL_PORT` when only one is set.【F:roles/hdmi-media/README.md†L35-L78】
 - The API currently exposes placeholder endpoints for Zigbee control (`/zigbee/devices`, `/zigbee/devices/{id}/action`). Responses mark devices `unimplemented` until automation backend lands; plan UI accordingly.【F:apps/api/src/routes/zigbee.ts†L1-L82】
 
+## Operator access
+
+**Operators use the Zigbee2MQTT web UI directly at `/zigbee` (proxied by Caddy).** Fleet does not implement a custom Zigbee backend. All device pairing, configuration, and automation rules are managed through the official Zigbee2MQTT interface.
+
+- Access is restricted to tailnet IPs (100.64.0.0/10) for security
+- The UI is served as a full page (no iframe) at `https://app.headspamartina.hr/zigbee`
+- Device control port (8084) remains private; only Caddy can reach it via the internal network
+
 ## Pairing workflow
 
 1. Set `ZIGBEE_PERMIT_JOIN=true` (or use UI toggle once implemented). Keep permit window short (60s) to reduce risk.【F:vps/fleet.env.example†L39-L45】

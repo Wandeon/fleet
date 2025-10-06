@@ -46,6 +46,24 @@ app.headspamartina.hr {
     }
   }
 
+  # Zigbee2MQTT UI - full-page proxy (tailnet-restricted)
+  @tailnet {
+    remote_ip 100.64.0.0/10
+  }
+  handle /zigbee {
+    redir /zigbee/ permanent
+  }
+  handle_path /zigbee/* {
+    @not_tailnet {
+      not remote_ip 100.64.0.0/10
+    }
+    respond @not_tailnet "Access restricted to tailnet" 403
+    reverse_proxy @tailnet pi-video-01:8084 {
+      header_up Host {upstream_hostport}
+      header_up X-Forwarded-Path /zigbee
+    }
+  }
+
   # Favicon - serve directly from Caddy
   handle /favicon.ico {
     root * /data
