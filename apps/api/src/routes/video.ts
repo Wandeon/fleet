@@ -1,6 +1,8 @@
 import { Router } from 'express';
 import { z } from 'zod';
 import multer from 'multer';
+import { promises as fs } from 'fs';
+import { join } from 'path';
 import {
   listVideoDevices,
   setDevicePower,
@@ -19,7 +21,52 @@ import createHttpError from 'http-errors';
 
 const router = Router();
 
+const VIDEO_ASSETS_PATH = process.env.VIDEO_ASSETS_PATH || '/srv/Video';
+
 const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 500 * 1024 * 1024 } }); // 500MB limit
+
+interface VpsVideoFile {
+  filename: string;
+  path: string;
+  size: number;
+  modifiedAt: string;
+}
+
+/**
+ * List video files in VPS Video folder
+ */
+async function listVpsVideoFiles(): Promise<VpsVideoFile[]> {
+  try {
+    await fs.access(VIDEO_ASSETS_PATH);
+    const files = await fs.readdir(VIDEO_ASSETS_PATH);
+
+    const videoFiles = files.filter(file =>
+      /\.(mp4|mkv|avi|mov|wmv|flv|webm|m4v)$/i.test(file)
+    );
+
+    const fileDetails: VpsVideoFile[] = [];
+
+    for (const filename of videoFiles) {
+      try {
+        const filePath = join(VIDEO_ASSETS_PATH, filename);
+        const stat = await fs.stat(filePath);
+        fileDetails.push({
+          filename,
+          path: filePath,
+          size: stat.size,
+          modifiedAt: stat.mtime.toISOString(),
+        });
+      } catch (err) {
+        log.warn({ filename, error: err }, 'Failed to stat video file');
+      }
+    }
+
+    return fileDetails.sort((a, b) => a.filename.localeCompare(b.filename));
+  } catch (error) {
+    log.error({ error }, 'Failed to list VPS video files');
+    return [];
+  }
+}
 
 const powerSchema = z.object({ power: z.enum(['on', 'standby']) });
 const muteSchema = z.object({ mute: z.boolean() });
@@ -281,10 +328,43 @@ router.get('/devices/:deviceId/library', async (req, res, next) => {
 
     log.info({ deviceId }, 'Video library list requested');
 
-    const data = await httpRequestJson<{ videos: unknown[] }>(device, '/library');
+    // Get VPS video files
+    const vpsFiles = await listVpsVideoFiles();
 
-    log.info({ deviceId, count: data.videos?.length || 0 }, 'Video library fetched');
-    res.json(data);
+    // Get device video files
+    let deviceData: { videos?: Array<{ filename: string; size: number; path?: string }> } = { videos: [] };
+    try {
+      deviceData = await httpRequestJson<{ videos: Array<{ filename: string; size: number; path?: string }> }>(device, '/library');
+    } catch (err) {
+      log.warn({ deviceId, error: err }, 'Failed to fetch device library, using VPS files only');
+    }
+
+    const deviceFiles = deviceData.videos || [];
+    const deviceFilenameSet = new Set(deviceFiles.map(f => f.filename));
+
+    // Merge VPS and device files with sync status
+    const enrichedVideos = vpsFiles.map(vpsFile => {
+      const onDevice = deviceFilenameSet.has(vpsFile.filename);
+      const deviceFile = deviceFiles.find(d => d.filename === vpsFile.filename);
+
+      return {
+        filename: vpsFile.filename,
+        size: vpsFile.size,
+        path: vpsFile.path,
+        modifiedAt: vpsFile.modifiedAt,
+        synced: onDevice,
+        deviceSize: deviceFile?.size,
+      };
+    });
+
+    log.info({ deviceId, vpsCount: vpsFiles.length, deviceCount: deviceFiles.length, syncedCount: enrichedVideos.filter(v => v.synced).length }, 'Video library fetched with sync status');
+
+    res.json({
+      videos: enrichedVideos,
+      total: enrichedVideos.length,
+      synced: enrichedVideos.filter(v => v.synced).length,
+      unsynced: enrichedVideos.filter(v => !v.synced).length,
+    });
   } catch (error) {
     log.error({ deviceId: req.params.deviceId, error }, 'Failed to fetch video library');
     next(error);
@@ -372,6 +452,56 @@ router.post('/devices/:deviceId/library/play', async (req, res, next) => {
     });
   } catch (error) {
     log.error({ deviceId: req.params.deviceId, error }, 'Failed to play video from library');
+    next(error);
+  }
+});
+
+router.post('/devices/:deviceId/library/sync', async (req, res, next) => {
+  res.locals.routePath = '/devices/:deviceId/library/sync';
+  try {
+    const { deviceId } = req.params;
+    const { filename } = z.object({ filename: z.string().min(1) }).parse(req.body);
+    const device = deviceRegistry.requireDevice(deviceId);
+
+    log.info({ deviceId, filename }, 'Video sync from VPS to device requested');
+
+    // Read file from VPS
+    const vpsFilePath = join(VIDEO_ASSETS_PATH, filename);
+    let fileBuffer: Buffer;
+    let fileStats: { size: number };
+
+    try {
+      fileBuffer = await fs.readFile(vpsFilePath);
+      fileStats = await fs.stat(vpsFilePath);
+    } catch (err) {
+      throw createHttpError(404, `File ${filename} not found in VPS Video folder`);
+    }
+
+    // Upload to device
+    const formData = new FormData();
+    const blob = new Blob([new Uint8Array(fileBuffer)], { type: 'video/mp4' });
+    formData.append('file', blob, filename);
+
+    log.info({ deviceId, filename, size: fileStats.size }, 'Syncing video file to device');
+
+    const response = await httpRequest(device, '/library/upload', {
+      method: 'POST',
+      body: formData,
+      timeoutMs: 300000, // 5 minute timeout for large videos
+    });
+
+    const result = await response.json();
+    log.info({ deviceId, filename }, 'Video synced to device successfully');
+
+    res.status(202).json({
+      deviceId,
+      filename,
+      synced: true,
+      size: fileStats.size,
+      jobId: res.locals.correlationId,
+    });
+  } catch (error) {
+    log.error({ deviceId: req.params.deviceId, error }, 'Failed to sync video to device');
     next(error);
   }
 });

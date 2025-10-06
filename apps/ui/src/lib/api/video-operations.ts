@@ -214,6 +214,9 @@ export interface VideoLibraryItem {
   filename: string;
   path: string;
   size: number;
+  synced: boolean;
+  modifiedAt?: string;
+  deviceSize?: number;
 }
 
 export const fetchVideoLibrary = async (): Promise<VideoLibraryItem[]> => {
@@ -262,5 +265,23 @@ export const deleteVideo = async (filename: string): Promise<void> => {
 
   if (!response.ok) {
     throw new UiApiError(`Failed to delete video: ${response.statusText}`, response.status);
+  }
+};
+
+export const syncVideo = async (filename: string): Promise<void> => {
+  if (USE_MOCKS) {
+    await new Promise((resolve) => setTimeout(resolve, 2000));
+    return;
+  }
+
+  const response = await fetch(`/ui/video/devices/${PRIMARY_VIDEO_DEVICE_ID}/library/sync`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ filename }),
+  });
+
+  if (!response.ok) {
+    const error = await response.json().catch(() => ({ message: 'Sync failed' }));
+    throw new UiApiError(error.message || 'Failed to sync video', response.status);
   }
 };

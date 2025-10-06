@@ -17,6 +17,7 @@
     setVideoPower,
     setVideoVolume,
     fetchVideoLibrary,
+    syncVideo,
     type VideoLibraryItem,
   } from '$lib/api/video-operations';
   import { mockApi } from '$lib/api/mock';
@@ -48,6 +49,7 @@
   let selectedSegmentId: string | null = timeline[0]?.id ?? null;
   let segmentPosition = 0;
   let library: VideoLibraryItem[] = [];
+  let syncBusy: Record<string, boolean> = {};
 
   $: timeline = data?.recordings ?? timeline;
   $: selectedSegmentId =
@@ -169,8 +171,35 @@
     }
   };
 
-  const handlePlayVideo = async (filename: string) => {
+  const handleSyncVideo = async (filename: string) => {
+    if (syncBusy[filename]) return;
+    syncBusy[filename] = true;
+    try {
+      await syncVideo(filename);
+      showMessage(`Synced ${filename} to device`);
+      await refreshLibrary();
+    } catch (error) {
+      console.error('sync video', error);
+      showMessage(error instanceof Error ? error.message : 'Unable to sync video');
+    } finally {
+      syncBusy[filename] = false;
+    }
+  };
+
+  const handlePlayVideo = async (filename: string, synced: boolean) => {
     if (!data || busy) return;
+
+    // If not synced, sync first
+    if (!synced) {
+      showMessage(`Syncing ${filename} to device...`);
+      try {
+        await handleSyncVideo(filename);
+      } catch (error) {
+        showMessage('Sync failed, cannot play video');
+        return;
+      }
+    }
+
     busy = true;
     try {
       const response = await fetch('/ui/video/devices/pi-video-01/library/play', {
@@ -505,12 +534,22 @@
             {#each library as video (video.filename)}
               <li>
                 <div class="video-info">
-                  <strong>🎬 {video.filename}</strong>
-                  <span class="muted">{formatFileSize(video.size)}</span>
+                  <span class="sync-indicator" class:synced={video.synced} title={video.synced ? 'Synced to device' : 'Not synced to device'}>●</span>
+                  <div>
+                    <strong>🎬 {video.filename}</strong>
+                    <span class="muted">{formatFileSize(video.size)}</span>
+                  </div>
                 </div>
-                <Button variant="primary" size="sm" onclick={() => handlePlayVideo(video.filename)}>
-                  ▶ Play
-                </Button>
+                <div class="video-actions">
+                  {#if !video.synced}
+                    <Button variant="ghost" size="sm" disabled={syncBusy[video.filename]} onclick={() => handleSyncVideo(video.filename)}>
+                      {syncBusy[video.filename] ? 'Syncing…' : '⬇ Sync'}
+                    </Button>
+                  {/if}
+                  <Button variant="primary" size="sm" disabled={syncBusy[video.filename]} onclick={() => handlePlayVideo(video.filename, video.synced)}>
+                    ▶ Play
+                  </Button>
+                </div>
               </li>
             {/each}
           </ul>
@@ -768,15 +807,41 @@
   }
 
   .video-info {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    min-width: 0;
+    flex: 1;
+  }
+
+  .video-info > div {
     display: grid;
     gap: 0.25rem;
     min-width: 0;
+    flex: 1;
   }
 
   .video-info strong {
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
+  }
+
+  .sync-indicator {
+    font-size: 1.2rem;
+    line-height: 1;
+    color: rgb(239, 68, 68);
+    flex-shrink: 0;
+  }
+
+  .sync-indicator.synced {
+    color: rgb(34, 197, 94);
+  }
+
+  .video-actions {
+    display: flex;
+    gap: var(--spacing-2);
+    align-items: center;
   }
 
   .muted {
