@@ -51,7 +51,6 @@
   let selectedSegmentId: string | null = timeline[0]?.id ?? null;
   let segmentPosition = 0;
   let library: VideoLibraryItem[] = [];
-  let uploadBusy = false;
 
   $: timeline = data?.recordings ?? timeline;
   $: selectedSegmentId =
@@ -228,61 +227,6 @@
     } catch (error) {
       console.error('fetch library', error);
       showMessage('Unable to load video library');
-    }
-  };
-
-  const handleVideoUpload = () => {
-    if (uploadBusy) return;
-
-    const input = document.createElement('input');
-    input.type = 'file';
-    input.accept = 'video/*';
-    input.style.display = 'none';
-
-    input.addEventListener('change', async () => {
-      const selected = input.files?.[0] ?? null;
-      document.body.removeChild(input);
-      if (!selected) return;
-
-      if (selected.size > 500 * 1024 * 1024) {
-        showMessage('File too large. Maximum size is 500 MB.');
-        return;
-      }
-
-      uploadBusy = true;
-      try {
-        await uploadVideo(selected);
-        await refreshLibrary();
-        showMessage(`Uploaded ${selected.name} successfully`);
-      } catch (error) {
-        console.error('video upload error', error);
-        showMessage(error instanceof Error ? error.message : 'Upload failed');
-      } finally {
-        uploadBusy = false;
-      }
-    });
-
-    document.body.appendChild(input);
-    input.click();
-  };
-
-  const handleVideoDelete = async (filename: string) => {
-    if (uploadBusy) return;
-
-    if (!confirm(`Delete ${filename}?`)) {
-      return;
-    }
-
-    uploadBusy = true;
-    try {
-      await deleteVideo(filename);
-      await refreshLibrary();
-      showMessage(`Deleted ${filename}`);
-    } catch (error) {
-      console.error('video delete error', error);
-      showMessage(error instanceof Error ? error.message : 'Delete failed');
-    } finally {
-      uploadBusy = false;
     }
   };
 
@@ -537,13 +481,10 @@
           <div class="actions">
             <Button variant="ghost" onclick={openVideoFiles}>Open video folder</Button>
             <Button variant="ghost" onclick={refreshLibrary}>Refresh library</Button>
-            <Button variant="primary" disabled={uploadBusy} onclick={handleVideoUpload}>
-              {uploadBusy ? 'Uploading…' : 'Upload video'}
-            </Button>
           </div>
         </header>
         {#if !library.length}
-          <p class="muted">No videos in library. Upload a video to get started.</p>
+          <p class="muted">No videos in library. Add videos using the file manager to get started.</p>
         {:else}
           <ul class="library-list">
             {#each library as video (video.filename)}
@@ -552,13 +493,6 @@
                   <strong>{video.filename}</strong>
                   <span class="muted">{formatFileSize(video.size)}</span>
                 </div>
-                <Button
-                  variant="ghost"
-                  disabled={uploadBusy}
-                  onclick={() => handleVideoDelete(video.filename)}
-                >
-                  Delete
-                </Button>
               </li>
             {/each}
           </ul>
