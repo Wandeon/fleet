@@ -339,49 +339,6 @@
       {#if statusMessage}
         <div class="banner" role="status">{statusMessage}</div>
       {/if}
-      <section class="live">
-        <header>
-          <h2>Live preview</h2>
-          <div class="actions">
-            <Button variant="ghost" on:click={loadLatest}>Refresh state</Button>
-            <Button variant="ghost" disabled={liveLoading} on:click={openLivePreview}>
-              {liveLoading ? 'Preparing…' : 'Start live preview'}
-            </Button>
-          </div>
-        </header>
-        <div class="live-body">
-          {#if liveUrl}
-            <video
-              controls
-              autoplay
-              muted
-              playsinline
-              poster={data.livePreview?.thumbnailUrl}
-              src={liveUrl}
-            ></video>
-          {:else}
-            <img
-              src={data.livePreview?.thumbnailUrl ??
-                'https://dummyimage.com/640x360/0f172a/ffffff&text=Preview'}
-              alt="Video preview"
-            />
-          {/if}
-          <div class="live-meta">
-            <div>
-              <span class="label">Input</span>
-              <strong>{data.input}</strong>
-            </div>
-            <div>
-              <span class="label">Latency</span>
-              <strong>{data.livePreview ? `${data.livePreview.latencyMs} ms` : '—'}</strong>
-            </div>
-            <div>
-              <span class="label">Signal</span>
-              <strong>{data.lastSignal ? new Date(data.lastSignal).toLocaleTimeString() : '—'}</strong>
-            </div>
-          </div>
-        </div>
-      </section>
 
       <section class="telemetry">
         <header>
@@ -430,7 +387,7 @@
               </Button>
             </div>
             <div class="inputs" role="radiogroup" aria-label="Video input">
-              {#each (data.availableInputs ?? []) as input (input.id)}
+              {#each (data.availableInputs ?? []).filter(input => input.kind !== 'cast') as input (input.id)}
                 <Button
                   variant={input.id === data.input ? 'primary' : 'ghost'}
                   disabled={busy}
@@ -455,79 +412,6 @@
           </div>
         </section>
       {/if}
-
-      <section class="timeline">
-        <header>
-          <h2>Recording timeline</h2>
-          <div class="actions">
-            <Button variant="ghost" on:click={refreshRecordings}>Refresh recordings</Button>
-          </div>
-        </header>
-        {#if !timeline.length}
-          <p class="muted">No recording history for the selected display.</p>
-        {:else}
-          <div class="timeline-body">
-            <ul class="segments">
-              {#each timeline as segment (segment.id)}
-                <li class:selected={segment.id === selectedSegmentId}>
-                  <button type="button" on:click={() => playSegment(segment)}>
-                    <strong>{segment.label ?? segment.id}</strong>
-                    <span
-                      >{segment.start ? new Date(segment.start).toLocaleTimeString() : '—'} → {segment.end ? new Date(
-                        segment.end
-                      ).toLocaleTimeString() : '—'}</span
-                    >
-                  </button>
-                </li>
-              {/each}
-            </ul>
-            {#if selectedSegment}
-              <div class="scrubber">
-                <div class="scrubber-header">
-                  <strong>{selectedSegment.label ?? selectedSegment.id}</strong>
-                  <span>{segmentDuration ? `${segmentPosition}s / ${segmentDuration}s` : '—'}</span>
-                </div>
-                <Slider
-                  label="Scrub recording"
-                  min={0}
-                  max={Math.max(segmentDuration, 1)}
-                  value={segmentPosition}
-                  step={1}
-                  displayValue={false}
-                  on:change={(event) => handleSegmentScrub(event.detail)}
-                />
-                <Button variant="ghost" on:click={() => playSegment(selectedSegment)}
-                  >Play segment</Button
-                >
-              </div>
-            {/if}
-          </div>
-        {/if}
-      </section>
-
-      <section class="cec">
-        <header>
-          <h2>CEC devices</h2>
-        </header>
-        {#if !(data.cecDevices ?? []).length}
-          <p class="muted">No downstream CEC devices reported.</p>
-        {:else}
-          <ul class="cec-list">
-            {#each (data.cecDevices ?? []) as device (device.id)}
-              <li>
-                <div>
-                  <strong>{device.name}</strong>
-                  <span class="muted">{device.id}</span>
-                </div>
-                <div class="status">
-                  <StatusPill status={device.power === 'on' ? 'ok' : 'offline'} />
-                  <span>{device.input ?? '—'}</span>
-                </div>
-              </li>
-            {/each}
-          </ul>
-        {/if}
-      </section>
 
       <section class="library">
         <header>
