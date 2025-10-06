@@ -524,6 +524,7 @@ export type RoutePath =
   | '/video'
   | '/zigbee'
   | '/camera'
+  | '/files'
   | '/health'
   | '/logs'
   | '/settings'
