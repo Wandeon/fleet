@@ -3,7 +3,7 @@ import { randomUUID } from 'node:crypto';
 import { basename, resolve } from 'node:path';
 import { prisma } from '../lib/db.js';
 import { deviceRegistry } from '../upstream/devices.js';
-import { fetchStatus, uploadFallback } from '../upstream/audio.js';
+import { fetchStatus, uploadFallback, type AudioStatus } from '../upstream/audio.js';
 import { createHttpError } from '../util/errors.js';
 import { logger } from '../middleware/logging.js';
 import { recordEvent } from '../observability/events.js';
@@ -634,6 +634,21 @@ export async function getDeviceSnapshot(deviceId: string) {
     syncGroup: null,
     driftSeconds: 0,
   });
+
+  // Check Snapcast connection status from device state snapshot
+  const deviceState = await prisma.deviceState.findFirst({
+    where: { deviceId },
+    orderBy: { updatedAt: 'desc' },
+  });
+
+  if (deviceState) {
+    const stateData = parseJsonObject<{ snapshot?: AudioStatus }>(deviceState.state, {});
+    if (stateData.snapshot?.snapcast_connected) {
+      // If Snapcast is connected, set syncGroup to indicate synchronized playback
+      playback.syncGroup = 'snapcast';
+    }
+  }
+
   return {
     id: record.deviceId,
     name: record.name,

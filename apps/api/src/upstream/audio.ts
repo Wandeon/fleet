@@ -17,6 +17,8 @@ export interface AudioStatus {
   mode: AudioMode;
   source: AudioSource;
   fallback_exists: boolean;
+  snapcast_connected?: boolean;
+  snapcast_server?: string;
 }
 
 export interface UploadResult {
