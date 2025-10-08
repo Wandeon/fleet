@@ -635,18 +635,19 @@ export async function getDeviceSnapshot(deviceId: string) {
     driftSeconds: 0,
   });
 
-  // Check Snapcast connection status from device state snapshot
-  const deviceState = await prisma.deviceState.findFirst({
-    where: { deviceId },
-    orderBy: { updatedAt: 'desc' },
-  });
-
-  if (deviceState) {
-    const stateData = parseJsonObject<{ snapshot?: AudioStatus }>(deviceState.state, {});
-    if (stateData.snapshot?.snapcast_connected) {
-      // If Snapcast is connected, set syncGroup to indicate synchronized playback
-      playback.syncGroup = 'snapcast';
+  // Check Snapcast connection status by fetching live device status
+  try {
+    const device = deviceRegistry.getDevice(deviceId);
+    if (device) {
+      const status = await fetchStatus(device);
+      if (status.snapcast_connected) {
+        // If Snapcast is connected, set syncGroup to indicate synchronized playback
+        playback.syncGroup = 'snapcast';
+      }
     }
+  } catch (error) {
+    // Ignore errors fetching Snapcast status - device may be offline
+    logger.debug({ msg: 'audio.snapcast_status_check_failed', deviceId, error });
   }
 
   return {
