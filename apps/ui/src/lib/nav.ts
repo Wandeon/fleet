@@ -10,7 +10,6 @@ export interface NavItem {
 }
 
 export const mainNavigation: NavItem[] = [
-  { path: '/', label: 'Dashboard', description: 'Overview of all subsystems', icon: '📊' },
   { path: '/audio', label: 'Audio', description: 'Dual Pi playback control', icon: '🎚️' },
   ...(featureFlags.video
     ? [
@@ -45,8 +44,6 @@ export const mainNavigation: NavItem[] = [
     : []),
   { path: '/files', label: 'Files', description: 'Asset management', icon: '📁' },
   { path: '/health', label: 'Health', description: 'Subsystem health metrics', icon: '🩺' },
-  { path: '/logs', label: 'Logs', description: 'Event audit trail', icon: '📜' },
-  { path: '/settings', label: 'Settings', description: 'System configuration', icon: '⚙️' },
 ];
 
 export const moduleOrder: string[] = [

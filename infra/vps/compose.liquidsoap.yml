@@ -12,6 +12,7 @@ services:
       - liquidsoap-music:/music
       - liquidsoap-log:/var/log/liquidsoap
       - fleet-assets:/srv:ro
+      - liquidsoap-fifo:/tmp
     env_file:
       - ./icecast.env
     environment:
@@ -52,3 +53,6 @@ volumes:
   fleet-assets:
     external: true
     name: vps_fleet-assets
+  liquidsoap-fifo:
+    external: true
+    name: vps_liquidsoap-fifo

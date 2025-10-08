@@ -1,0 +1,28 @@
+{
+  "server": {
+    "datadir": "/var/lib/snapcast",
+    "pidfile": "/var/run/snapcast/server.pid"
+  },
+  "stream": {
+    "source": "pipe:///tmp/snapfifo/fleet?name=fleet&mode=read",
+    "codec": "pcm",
+    "sampleformat": "48000:16:2",
+    "buffer": 1000,
+    "send_to_muted": false
+  },
+  "http": {
+    "enabled": true,
+    "port": 1780,
+    "doc_root": "/usr/share/snapcast/www"
+  },
+  "tcp": {
+    "enabled": true,
+    "port": 1705
+  },
+  "logging": {
+    "sink": {
+      "type": "stdout"
+    },
+    "level": "info"
+  }
+}

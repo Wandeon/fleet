@@ -38,7 +38,7 @@ source = switch(track_sensitive=false, [
   ({true}, blank())
 ])
 
-# Stream to Icecast server
+# Output to Icecast server (for web playback and monitoring)
 output.icecast(
   %mp3(bitrate=128),
   host="icecast",
@@ -49,6 +49,14 @@ output.icecast(
   description="Audio stream for Fleet Pi devices",
   genre="Ambient",
   url="http://icecast:8000/fleet.mp3",
+  source
+)
+
+# Output to Snapcast FIFO (for synchronized Pi playback)
+# Snapcast expects the FIFO directly, not a file inside a directory
+output.file(
+  %wav(stereo=true, samplerate=48000),
+  "/tmp/snapfifo",
   source
 )
 
@@ -93,5 +101,7 @@ server.register(
 )
 
 # Log that we're running
-log("Liquidsoap streaming to icecast://icecast:8000/fleet.mp3")
+log("Liquidsoap streaming to:")
+log("  - Icecast: http://icecast:8000/fleet.mp3 (web playback)")
+log("  - Snapcast: /tmp/snapfifo/fleet (synchronized Pi playback)")
 log("Telnet control server listening on port 1234")

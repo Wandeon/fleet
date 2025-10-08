@@ -1,0 +1,21 @@
+FROM debian:bookworm-slim
+
+# Install Snapcast server
+RUN export DEBIAN_FRONTEND=noninteractive && \
+    apt-get update && \
+    apt-get install -y snapserver && \
+    apt-get clean && \
+    rm -rf /var/lib/apt/lists/*
+
+# Prevent snapserver from creating default config
+RUN mkdir -p /root/.config/snapserver && \
+    touch /root/.config/snapserver/server.json && \
+    chmod 000 /root/.config/snapserver/server.json
+
+# Expose ports
+EXPOSE 1704 1705 1780
+
+# Entrypoint starts server - FIFO is pre-created in the volume
+# Using default Snapcast config which expects pipe:///tmp/snapfifo
+CMD ["snapserver", "--tcp.port=1705", "--http.port=1780", "--logging.sink=stdout"]
+

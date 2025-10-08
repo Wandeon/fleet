@@ -298,6 +298,17 @@
                 <span>Playback</span>
                 <strong>{piAudio01.playback.state}</strong>
               </div>
+              {#if piAudio01.playback.syncGroup}
+                <div class="stat sync-indicator">
+                  <span>Mode</span>
+                  <strong class="sync-badge">🎵 Synchronized</strong>
+                </div>
+              {:else if piAudio01.playback.state === 'playing'}
+                <div class="stat">
+                  <span>Mode</span>
+                  <strong class="fallback-badge">⚠️ Fallback</strong>
+                </div>
+              {/if}
               <div class="volume-control">
                 <label for="volume-pi-audio-01">
                   <span>Volume</span>
@@ -334,6 +345,17 @@
                 <span>Playback</span>
                 <strong>{piAudio02.playback.state}</strong>
               </div>
+              {#if piAudio02.playback.syncGroup}
+                <div class="stat sync-indicator">
+                  <span>Mode</span>
+                  <strong class="sync-badge">🎵 Synchronized</strong>
+                </div>
+              {:else if piAudio02.playback.state === 'playing'}
+                <div class="stat">
+                  <span>Mode</span>
+                  <strong class="fallback-badge">⚠️ Fallback</strong>
+                </div>
+              {/if}
               <div class="volume-control">
                 <label for="volume-pi-audio-02">
                   <span>Volume</span>
@@ -746,5 +768,24 @@
 
   .volume-control input[type="range"]:disabled::-moz-range-thumb {
     cursor: not-allowed;
+  }
+
+  .sync-indicator {
+    background: rgba(34, 197, 94, 0.08);
+    padding: var(--spacing-2);
+    border-radius: var(--radius-sm);
+    border: 1px solid rgba(34, 197, 94, 0.2);
+  }
+
+  .sync-badge {
+    color: rgb(34, 197, 94);
+    font-weight: 600;
+    font-size: var(--font-size-sm);
+  }
+
+  .fallback-badge {
+    color: rgb(251, 191, 36);
+    font-weight: 600;
+    font-size: var(--font-size-sm);
   }
 </style>

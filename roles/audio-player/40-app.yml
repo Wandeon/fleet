@@ -1,59 +1,56 @@
 services:
-  audio-player:
-    build:
-      context: ./docker
-      dockerfile: audio-player.Dockerfile
+  # Primary synchronized playback via Snapcast
+  snapcast-client:
+    image: savonet/snapcast:latest
+    container_name: snapcast-client
     restart: unless-stopped
     devices:
       - '/dev/snd:/dev/snd'
     group_add:
       - 'audio'
     environment:
+      - DEVICE_ID=${DEVICE_ID:-pi-audio-unknown}
+      - SNAPCAST_SERVER=${SNAPCAST_SERVER:-}
       - AUDIO_OUTPUT_DEVICE=${AUDIO_OUTPUT_DEVICE:-plughw:0,0}
-      - AUDIO_VOLUME=${AUDIO_VOLUME:-1.0}
-      - STREAM_URL=${STREAM_URL:-${ICECAST_SCHEME:-http}://${ICECAST_HOST}:${ICECAST_PORT:-8000}/${ICECAST_MOUNT}}
-      - ICECAST_SCHEME=${ICECAST_SCHEME:-http}
-      - ICECAST_HOST=${ICECAST_HOST:-}
-      - ICECAST_PORT=${ICECAST_PORT:-8000}
-      - ICECAST_MOUNT=${ICECAST_MOUNT:-}
-      - FALLBACK_FILE=${FALLBACK_FILE:-/data/fallback.mp3}
-      - LOG_SERVICE=audio-player
-      - LOG_ROLE=audio-player
-      - LOG_COMMIT=${FLEET_LOG_COMMIT:-unknown}
-    volumes:
-      - audio_data:/data
+    command:
+      - snapclient
+      - --host=${SNAPCAST_SERVER}
+      - --soundcard=${AUDIO_OUTPUT_DEVICE:-plughw:0,0}
+      - --hostID=${DEVICE_ID:-pi-audio-unknown}
     healthcheck:
-      test:
-        - CMD-SHELL
-        - >-
-          python3 - <<'PY'
-          import json, os, sys, time
-          path = '/data/status.json'
-          if not os.path.exists(path):
-              sys.exit(1)
-          try:
-              with open(path, 'r', encoding='utf-8') as fh:
-                  data = json.load(fh)
-          except Exception:
-              sys.exit(1)
-          mtime = os.path.getmtime(path)
-          now = time.time()
-          if now - mtime > 45:
-              sys.exit(1)
-          ts = data.get('timestamp')
-          if isinstance(ts, (int, float)) and now - float(ts) > 60:
-              sys.exit(1)
-          sys.exit(0)
-          PY
+      test: ["CMD-SHELL", "pgrep snapclient || exit 1"]
+      interval: 10s
+      timeout: 3s
+      retries: 3
+      start_period: 10s
+    networks:
+      - default
+
+  # Fallback local playback (starts when Snapcast disconnected)
+  audio-fallback:
+    image: savonet/liquidsoap:v2.2.5
+    container_name: audio-fallback
+    restart: "no"  # Managed by audio-control
+    devices:
+      - '/dev/snd:/dev/snd'
+    group_add:
+      - 'audio'
+    environment:
+      - AUDIO_OUTPUT_DEVICE=${AUDIO_OUTPUT_DEVICE:-plughw:0,0}
+    volumes:
+      - ./docker/app/fallback.liq:/etc/liquidsoap/fallback.liq:ro
+      - audio_data:/data
+    command: ["/etc/liquidsoap/fallback.liq"]
+    healthcheck:
+      test: ["CMD-SHELL", "pgrep liquidsoap || exit 1"]
       interval: 15s
       timeout: 5s
-      retries: 5
-      start_period: 20s
-    command:
-      - python3
-      - -u
-      - /app/player.py
+      retries: 3
+      start_period: 10s
+    networks:
+      - default
 
+  # Control API with Snapcast monitoring and mode switching
   audio-control:
     build:
       context: .
@@ -66,17 +63,16 @@ services:
       - CONTROL_PORT=8081
       - AUDIO_DATA_DIR=/data
       - AUTH_TOKEN=${AUDIO_CONTROL_TOKEN:-}
-      - MIXER_CARD=${AUDIO_MIXER_CARD:-0}
-      - MIXER_CONTROL=${AUDIO_MIXER_CONTROL:-Master}
-      - STREAM_URL=${STREAM_URL:-${ICECAST_SCHEME:-http}://${ICECAST_HOST}:${ICECAST_PORT:-8000}/${ICECAST_MOUNT}}
-      - AUDIO_VOLUME=${AUDIO_VOLUME:-1.0}
+      - DEVICE_ID=${DEVICE_ID:-pi-audio-unknown}
+      - SNAPCAST_SERVER=${SNAPCAST_SERVER:-}
+      - AUDIO_VOLUME=${AUDIO_VOLUME:-0.0}
       - AUDIO_OUTPUT_DEVICE=${AUDIO_OUTPUT_DEVICE:-plughw:0,0}
-      - DEVICE_ID=${DEVICE_ID:-}
       - LOG_SERVICE=audio-control
       - LOG_ROLE=audio-player
       - LOG_COMMIT=${FLEET_LOG_COMMIT:-unknown}
     volumes:
       - audio_data:/data
+      - /var/run/docker.sock:/var/run/docker.sock  # For container management
     healthcheck:
       test:
         [
@@ -90,7 +86,14 @@ services:
     command:
       - python3
       - -u
-      - /app/control.py
+      - /app/control_snapcast.py
+    networks:
+      - default
 
 volumes:
   audio_data: {}
+
+networks:
+  default:
+    name: audio-network
+    driver: bridge

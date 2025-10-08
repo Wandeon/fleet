@@ -780,8 +780,84 @@ export async function recordDeviceError(deviceId: string, message: string) {
 }
 
 /**
+ * Auto-upload default fallback file to device if it doesn't exist.
+ * This ensures devices always have a fallback file for resilient playback.
+ */
+async function autoUploadFallback(deviceId: string, correlationId?: string): Promise<boolean> {
+  const device = deviceRegistry.getDevice(deviceId);
+  if (!device) {
+    return false;
+  }
+
+  try {
+    // Check if device already has fallback
+    const status = await fetchStatus(device, correlationId);
+    if (status.fallback_exists) {
+      logger.debug({ msg: 'audio.fallback_exists', deviceId, correlationId });
+      return true;
+    }
+
+    // Try to upload default fallback from VPS
+    const defaultFallbackPath = '/srv/Audio/fallback.mp3';
+    const fs = await import('node:fs/promises');
+
+    try {
+      const fallbackBuffer = await fs.readFile(defaultFallbackPath);
+      const fallbackStats = await fs.stat(defaultFallbackPath);
+
+      await uploadDeviceFallback(
+        deviceId,
+        {
+          buffer: fallbackBuffer,
+          filename: 'fallback.mp3',
+          mimetype: 'audio/mpeg',
+          size: fallbackStats.size,
+        },
+        correlationId
+      );
+
+      logger.info({
+        msg: 'audio.auto_upload_fallback',
+        deviceId,
+        sizeBytes: fallbackStats.size,
+        correlationId,
+      });
+
+      recordEvent({
+        type: 'audio.auto_upload',
+        severity: 'info',
+        target: deviceId,
+        message: 'Default fallback auto-uploaded',
+        metadata: { sizeBytes: fallbackStats.size, correlationId },
+      });
+
+      return true;
+    } catch (fileError) {
+      // Default fallback doesn't exist on VPS - log but don't fail
+      logger.warn({
+        msg: 'audio.fallback_missing',
+        deviceId,
+        path: defaultFallbackPath,
+        error: fileError instanceof Error ? fileError.message : String(fileError),
+        correlationId,
+      });
+      return false;
+    }
+  } catch (error) {
+    logger.error({
+      msg: 'audio.auto_upload_failed',
+      deviceId,
+      error: error instanceof Error ? error.message : String(error),
+      correlationId,
+    });
+    return false;
+  }
+}
+
+/**
  * Play specific source (stream or file) on a device.
  * This is direct device control, not library-based playback.
+ * Auto-uploads fallback file on first play if it doesn't exist.
  */
 export async function playDeviceSource(
   deviceId: string,
@@ -792,6 +868,16 @@ export async function playDeviceSource(
   if (!device) {
     throw createHttpError(404, 'not_found', `Device ${deviceId} not found`);
   }
+
+  // Auto-upload fallback before first playback (non-blocking)
+  autoUploadFallback(deviceId, correlationId).catch((error) => {
+    logger.warn({
+      msg: 'audio.auto_upload_background_error',
+      deviceId,
+      error: error instanceof Error ? error.message : String(error),
+      correlationId,
+    });
+  });
 
   const { play } = await import('../upstream/audio.js');
   return play(device, { source }, correlationId);
