@@ -1,7 +1,9 @@
 services:
   # Primary synchronized playback via Snapcast
   snapcast-client:
-    image: savonet/snapcast:latest
+    build:
+      context: .
+      dockerfile: docker/snapclient.Dockerfile
     container_name: snapcast-client
     restart: unless-stopped
     devices:
