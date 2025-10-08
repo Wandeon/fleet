@@ -236,11 +236,13 @@ def monitor_connection():
     while True:
         time.sleep(1)
 
+        # Always check connection status for metrics/UI
+        connected = check_snapcast_connection()
+
+        # Only perform mode switching if not stopped
         if current_mode == PlaybackMode.STOPPED:
             consecutive_failures = 0
             continue
-
-        connected = check_snapcast_connection()
 
         if not connected:
             consecutive_failures += 1
