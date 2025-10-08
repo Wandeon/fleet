@@ -9,6 +9,7 @@ import time
 import threading
 from typing import Any, Dict, Optional
 
+import docker
 from flask import Flask, Response, jsonify, request
 
 from common import clamp, ensure_dir, load_json, save_json
@@ -102,7 +103,9 @@ def docker_container_running(name: str) -> bool:
 def docker_container_start(name: str) -> bool:
     """Start docker container."""
     try:
-        subprocess.run(["docker", "start", name], capture_output=True, timeout=5, check=True)
+        client = docker.from_env()
+        container = client.containers.get(name)
+        container.start()
         return True
     except Exception as e:
         app.logger.error(f"Failed to start container {name}: {e}")
@@ -112,7 +115,9 @@ def docker_container_start(name: str) -> bool:
 def docker_container_stop(name: str) -> bool:
     """Stop docker container."""
     try:
-        subprocess.run(["docker", "stop", name], capture_output=True, timeout=10, check=True)
+        client = docker.from_env()
+        container = client.containers.get(name)
+        container.stop(timeout=10)
         return True
     except Exception as e:
         app.logger.error(f"Failed to stop container {name}: {e}")
@@ -123,13 +128,11 @@ def check_snapcast_connection() -> bool:
     """Check if Snapcast client is connected to server."""
     global snapcast_connected
     try:
-        # Check if snapclient process is running
-        result = subprocess.run(
-            ["docker", "exec", "snapcast-client", "pgrep", "snapclient"],
-            capture_output=True,
-            timeout=2
-        )
-        connected = result.returncode == 0
+        # Use Docker API to exec into snapcast-client container
+        client = docker.from_env()
+        container = client.containers.get("snapcast-client")
+        exit_code, _ = container.exec_run("pgrep snapclient")
+        connected = exit_code == 0
         snapcast_connected = connected
         return connected
     except Exception:
