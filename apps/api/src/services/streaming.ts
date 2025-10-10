@@ -29,11 +29,21 @@ export interface LiquidsoapStatus {
   online: boolean;
   libraryFiles: number;
   librarySize: number;
+  playing: boolean;
+  currentTrack: string | null;
+}
+
+export interface SnapcastStatus {
+  online: boolean;
+  connectedClients: number;
+  totalClients: number;
+  streamStatus: 'idle' | 'playing' | 'unknown';
 }
 
 export interface StreamingSystemStatus {
   icecast: IcecastStatus;
   liquidsoap: LiquidsoapStatus;
+  snapcast: SnapcastStatus;
   streamUrl: string;
 }
 
@@ -127,6 +137,8 @@ export async function getLiquidsoapStatus(): Promise<LiquidsoapStatus> {
       online: true,
       libraryFiles: audioFiles.length,
       librarySize: totalSize,
+      playing: false,
+      currentTrack: null,
     };
   } catch (error) {
     log.error({ error }, 'Failed to check Liquidsoap status');
@@ -134,6 +146,34 @@ export async function getLiquidsoapStatus(): Promise<LiquidsoapStatus> {
       online: false,
       libraryFiles: 0,
       librarySize: 0,
+      playing: false,
+      currentTrack: null,
+    };
+  }
+}
+
+/**
+ * Get Snapcast status
+ */
+async function getSnapcastStatus(): Promise<SnapcastStatus> {
+  try {
+    const { getSnapcastStatus: fetchStatus } = await import('./snapcast.js');
+    const status = await fetchStatus();
+    const mainStream = status.streams.find((s) => s.id === 'default');
+
+    return {
+      online: status.online,
+      connectedClients: status.connectedClients,
+      totalClients: status.totalClients,
+      streamStatus: mainStream?.status || 'unknown',
+    };
+  } catch (error) {
+    log.error({ error }, 'Failed to get Snapcast status');
+    return {
+      online: false,
+      connectedClients: 0,
+      totalClients: 0,
+      streamStatus: 'unknown',
     };
   }
 }
@@ -142,14 +182,21 @@ export async function getLiquidsoapStatus(): Promise<LiquidsoapStatus> {
  * Get combined streaming system status
  */
 export async function getStreamingSystemStatus(): Promise<StreamingSystemStatus> {
-  const [icecast, liquidsoap] = await Promise.all([
+  const [icecast, liquidsoap, playbackStatus, snapcast] = await Promise.all([
     getIcecastStatus(),
     getLiquidsoapStatus(),
+    getLiquidsoapPlaybackStatus(),
+    getSnapcastStatus(),
   ]);
 
   return {
     icecast,
-    liquidsoap,
+    liquidsoap: {
+      ...liquidsoap,
+      playing: playbackStatus.playing,
+      currentTrack: playbackStatus.currentTrack,
+    },
+    snapcast,
     streamUrl: 'http://icecast:8000/fleet.mp3',
   };
 }
@@ -302,12 +349,16 @@ async function sendLiquidsoapCommand(command: string): Promise<string> {
 /**
  * Start Liquidsoap playback
  */
-export async function startLiquidsoapPlayback(): Promise<void> {
+export async function startLiquidsoapPlayback(filename?: string): Promise<void> {
   try {
-    const response = await sendLiquidsoapCommand('player.start');
-    log.info({ response }, 'Started Liquidsoap playback');
+    let command = 'player.start';
+    if (filename) {
+      command = `player.play ${filename}`;
+    }
+    const response = await sendLiquidsoapCommand(command);
+    log.info({ response, filename }, 'Started Liquidsoap playback');
   } catch (error) {
-    log.error({ error }, 'Failed to start Liquidsoap playback');
+    log.error({ error, filename }, 'Failed to start Liquidsoap playback');
     throw error;
   }
 }
@@ -341,13 +392,55 @@ export async function skipLiquidsoapTrack(): Promise<void> {
 /**
  * Get Liquidsoap playback status
  */
-export async function getLiquidsoapPlaybackStatus(): Promise<{ playing: boolean }> {
+export async function getLiquidsoapPlaybackStatus(): Promise<{
+  playing: boolean;
+  currentTrack: string | null;
+}> {
   try {
-    const response = await sendLiquidsoapCommand('player.playing');
-    const playing = response.trim() === 'true';
-    return { playing };
+    const response = await sendLiquidsoapCommand('player.status');
+    // Response format: "playing|filename" or "stopped|"
+    // Remove telnet protocol markers (END, Bye!)
+    const cleaned = response.replace(/\r?\n?(END|Bye!)\r?\n?/g, '').trim();
+    const [status, track] = cleaned.split('|');
+    const playing = status === 'playing';
+    const currentTrack = track && track.trim() !== '' ? track.trim() : null;
+    return { playing, currentTrack };
   } catch (error) {
     log.error({ error }, 'Failed to get Liquidsoap status');
-    return { playing: false };
+    return { playing: false, currentTrack: null };
+  }
+}
+
+/**
+ * Start Snapcast server container
+ */
+export async function startSnapcastServer(): Promise<void> {
+  const { exec } = await import('child_process');
+  const { promisify } = await import('util');
+  const execAsync = promisify(exec);
+
+  try {
+    await execAsync('docker start snapcast-server');
+    log.info('Started Snapcast server');
+  } catch (error) {
+    log.error({ error }, 'Failed to start Snapcast server');
+    throw createHttpError(500, 'internal_error', 'Failed to start Snapcast server');
+  }
+}
+
+/**
+ * Stop Snapcast server container
+ */
+export async function stopSnapcastServer(): Promise<void> {
+  const { exec } = await import('child_process');
+  const { promisify } = await import('util');
+  const execAsync = promisify(exec);
+
+  try {
+    await execAsync('docker stop snapcast-server');
+    log.info('Stopped Snapcast server');
+  } catch (error) {
+    log.error({ error }, 'Failed to stop Snapcast server');
+    throw createHttpError(500, 'internal_error', 'Failed to stop Snapcast server');
   }
 }

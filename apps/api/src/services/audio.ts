@@ -494,10 +494,20 @@ export async function resumeDevice(deviceId: string) {
   );
 }
 
-export async function stopDevice(deviceId: string) {
+export async function stopDevice(deviceId: string, correlationId?: string) {
+  const device = deviceRegistry.getDevice(deviceId);
+  if (!device) {
+    throw createHttpError(404, 'not_found', `Device ${deviceId} not found`);
+  }
+
+  // Call the device's stop endpoint
+  const { stop } = await import('../upstream/audio.js');
+  await stop(device, correlationId);
+
+  // Update database - clear syncGroup when stopping
   await updateDevicePlayback(
     deviceId,
-    { state: 'idle', trackId: null, trackTitle: null, playlistId: null, positionSeconds: 0 },
+    { state: 'idle', trackId: null, trackTitle: null, playlistId: null, positionSeconds: 0, syncGroup: null },
     { event: 'stop' }
   );
 }
@@ -636,13 +646,29 @@ export async function getDeviceSnapshot(deviceId: string) {
   });
 
   // Check Snapcast connection status by fetching live device status
+  // Only sync from Snapcast if the device hasn't been manually stopped (syncGroup !== null)
   try {
     const device = deviceRegistry.getDevice(deviceId);
-    if (device) {
+    if (device && playback.syncGroup !== null) {
       const status = await fetchStatus(device);
       if (status.snapcast_connected) {
-        // If Snapcast is connected, set syncGroup to indicate synchronized playback
+        // If Snapcast is connected, set syncGroup and update playback state from Snapcast
         playback.syncGroup = 'snapcast';
+
+        // Get Snapcast stream status to determine playback state
+        try {
+          const { getSnapcastStatus } = await import('./snapcast.js');
+          const snapStatus = await getSnapcastStatus();
+          const defaultStream = snapStatus.streams.find((s) => s.id === 'default');
+
+          if (defaultStream?.status === 'playing') {
+            playback.state = 'playing';
+          } else {
+            playback.state = 'idle';
+          }
+        } catch (err) {
+          logger.debug({ msg: 'audio.snapcast_stream_status_failed', deviceId, error: err });
+        }
       }
     }
   } catch (error) {
@@ -896,7 +922,20 @@ export async function playDeviceSource(
   });
 
   const { play } = await import('../upstream/audio.js');
-  return play(device, { source }, correlationId);
+  const result = await play(device, { source }, correlationId);
+
+  // Update database when playing from stream (Snapcast)
+  if (source === 'stream') {
+    logger.info({ deviceId, source }, 'Updating device playback to playing state with Snapcast sync');
+    await updateDevicePlayback(
+      deviceId,
+      { state: 'playing', syncGroup: 'snapcast' },
+      { event: 'play' }
+    );
+    logger.info({ deviceId }, 'Device playback updated successfully');
+  }
+
+  return result;
 }
 
 /**

@@ -14,6 +14,8 @@
     playLiquidsoap,
     stopLiquidsoap,
     skipLiquidsoapTrack,
+    startSnapcastServer,
+    stopSnapcastServer,
     type StreamingSystemStatus,
     type MusicLibraryFile,
   } from '$lib/api/streaming-operations';
@@ -33,6 +35,7 @@
   let playBusy: Record<string, boolean> = {};
   let volumeChanging: Record<string, boolean> = {};
   let liquidsoapBusy = false;
+  let snapcastBusy = false;
 
   const formatBytes = (bytes: number) => {
     if (bytes === 0) return '0 B';
@@ -133,12 +136,12 @@
     }
   };
 
-  const handleLiquidsoapPlay = async () => {
+  const handleLiquidsoapPlay = async (filename?: string) => {
     if (!browser || liquidsoapBusy) return;
     liquidsoapBusy = true;
     try {
-      await playLiquidsoap();
-      showSuccess('Liquidsoap playback started');
+      await playLiquidsoap(filename);
+      showSuccess(filename ? `Playing ${filename}` : 'Liquidsoap playback started');
       await loadData();
     } catch (error) {
       console.error('Liquidsoap play error', error);
@@ -175,6 +178,36 @@
       showError(error instanceof Error ? error.message : 'Failed to skip track');
     } finally {
       liquidsoapBusy = false;
+    }
+  };
+
+  const handleSnapcastStart = async () => {
+    if (!browser || snapcastBusy) return;
+    snapcastBusy = true;
+    try {
+      await startSnapcastServer();
+      showSuccess('Snapcast server started');
+      await loadData();
+    } catch (error) {
+      console.error('Snapcast start error', error);
+      showError(error instanceof Error ? error.message : 'Failed to start Snapcast server');
+    } finally {
+      snapcastBusy = false;
+    }
+  };
+
+  const handleSnapcastStop = async () => {
+    if (!browser || snapcastBusy) return;
+    snapcastBusy = true;
+    try {
+      await stopSnapcastServer();
+      showSuccess('Snapcast server stopped');
+      await loadData();
+    } catch (error) {
+      console.error('Snapcast stop error', error);
+      showError(error instanceof Error ? error.message : 'Failed to stop Snapcast server');
+    } finally {
+      snapcastBusy = false;
     }
   };
 
@@ -233,31 +266,43 @@
       <section class="status-grid">
         <div class="status-card">
           <header>
-            <h3>Icecast Server</h3>
-            <StatusPill status={streamingStatus?.icecast?.online ? 'ok' : 'error'} />
+            <h3>Snapcast Server</h3>
+            <StatusPill status={streamingStatus?.snapcast?.online ? 'ok' : 'error'} />
           </header>
           <div class="status-body">
-            {#if streamingStatus?.icecast?.online}
+            {#if streamingStatus?.snapcast?.online}
               <div class="stat">
-                <span>Uptime</span>
-                <strong>{formatDuration(streamingStatus.icecast.serverStart)}</strong>
+                <span>Stream status</span>
+                <strong class="playback-status" class:playing={streamingStatus.snapcast.streamStatus === 'playing'}>
+                  {streamingStatus.snapcast.streamStatus === 'playing' ? '▶ Playing' : '⏸ Idle'}
+                </strong>
               </div>
               <div class="stat">
-                <span>Listeners</span>
-                <strong>{streamingStatus.icecast.totalListeners}</strong>
+                <span>Connected clients</span>
+                <strong>{streamingStatus.snapcast.connectedClients} / {streamingStatus.snapcast.totalClients}</strong>
               </div>
-              <div class="stat">
-                <span>Mounts</span>
-                <strong>{streamingStatus.icecast.mounts.length}</strong>
+              <div class="control-buttons">
+                <button
+                  class="control-btn"
+                  disabled={snapcastBusy}
+                  on:click={handleSnapcastStop}
+                  title="Stop Snapcast server"
+                >
+                  ⏹ Stop Server
+                </button>
               </div>
-              {#if fleetMount}
-                <div class="stat">
-                  <span>Stream</span>
-                  <strong>{fleetMount.mount} @ {fleetMount.bitrate}kbps</strong>
-                </div>
-              {/if}
             {:else}
               <p class="offline-message">Server offline or unreachable</p>
+              <div class="control-buttons">
+                <button
+                  class="control-btn"
+                  disabled={snapcastBusy}
+                  on:click={handleSnapcastStart}
+                  title="Start Snapcast server"
+                >
+                  ▶ Start Server
+                </button>
+              </div>
             {/if}
           </div>
         </div>
@@ -270,12 +315,53 @@
           <div class="status-body">
             {#if streamingStatus?.liquidsoap?.online}
               <div class="stat">
+                <span>Status</span>
+                <strong class="playback-status" class:playing={streamingStatus.liquidsoap.playing}>
+                  {streamingStatus.liquidsoap.playing ? '▶ Playing' : '⏸ Stopped'}
+                </strong>
+              </div>
+              {#if streamingStatus.liquidsoap.currentTrack}
+                <div class="stat">
+                  <span>Current track</span>
+                  <strong class="current-track">{streamingStatus.liquidsoap.currentTrack}</strong>
+                </div>
+              {/if}
+              <div class="stat">
                 <span>Library files</span>
                 <strong>{streamingStatus.liquidsoap.libraryFiles}</strong>
               </div>
               <div class="stat">
                 <span>Library size</span>
                 <strong>{formatBytes(streamingStatus.liquidsoap.librarySize)}</strong>
+              </div>
+              <div class="control-buttons">
+                {#if streamingStatus.liquidsoap.playing}
+                  <button
+                    class="control-btn"
+                    disabled={liquidsoapBusy}
+                    on:click={handleLiquidsoapStop}
+                    title="Stop playback"
+                  >
+                    ⏹ Stop
+                  </button>
+                  <button
+                    class="control-btn"
+                    disabled={liquidsoapBusy}
+                    on:click={handleLiquidsoapSkip}
+                    title="Skip to next track"
+                  >
+                    ⏭ Skip
+                  </button>
+                {:else}
+                  <button
+                    class="control-btn"
+                    disabled={liquidsoapBusy}
+                    on:click={() => handleLiquidsoapPlay()}
+                    title="Start playback"
+                  >
+                    ▶ Play
+                  </button>
+                {/if}
               </div>
             {:else}
               <p class="offline-message">Service offline or unreachable</p>
@@ -309,6 +395,24 @@
                   <strong class="fallback-badge">⚠️ Fallback</strong>
                 </div>
               {/if}
+              <div class="stream-control">
+                <label class="toggle-switch">
+                  <span class="toggle-label">Listening</span>
+                  <input
+                    type="checkbox"
+                    checked={piAudio01.playback.state === 'playing'}
+                    disabled={!!playBusy['pi-audio-01'] || piAudio01.status !== 'online'}
+                    on:change={(e) => {
+                      if (e.currentTarget.checked) {
+                        handlePlayStream('pi-audio-01');
+                      } else {
+                        handleStopDevice('pi-audio-01');
+                      }
+                    }}
+                  />
+                  <span class="toggle-slider"></span>
+                </label>
+              </div>
               <div class="volume-control">
                 <label for="volume-pi-audio-01">
                   <span>Volume</span>
@@ -356,6 +460,24 @@
                   <strong class="fallback-badge">⚠️ Fallback</strong>
                 </div>
               {/if}
+              <div class="stream-control">
+                <label class="toggle-switch">
+                  <span class="toggle-label">Listening</span>
+                  <input
+                    type="checkbox"
+                    checked={piAudio02.playback.state === 'playing'}
+                    disabled={!!playBusy['pi-audio-02'] || piAudio02.status !== 'online'}
+                    on:change={(e) => {
+                      if (e.currentTarget.checked) {
+                        handlePlayStream('pi-audio-02');
+                      } else {
+                        handleStopDevice('pi-audio-02');
+                      }
+                    }}
+                  />
+                  <span class="toggle-slider"></span>
+                </label>
+              </div>
               <div class="volume-control">
                 <label for="volume-pi-audio-02">
                   <span>Volume</span>
@@ -398,7 +520,6 @@
                 <th scope="col">Size</th>
                 <th scope="col">Modified</th>
                 <th scope="col">Playback</th>
-                <th scope="col">Connect Devices</th>
               </tr>
             </thead>
             <tbody>
@@ -411,49 +532,11 @@
                     <button
                       class="file-control-btn"
                       disabled={liquidsoapBusy}
-                      on:click={() => handleLiquidsoapPlay()}
+                      on:click={() => handleLiquidsoapPlay(file.filename)}
                       title="Play this file"
                     >
                       ▶ Play
                     </button>
-                  </td>
-                  <td>
-                    <div class="device-checkboxes">
-                      {#if piAudio01}
-                        <label class="device-checkbox">
-                          <input
-                            type="checkbox"
-                            checked={piAudio01.playback.state === 'playing'}
-                            disabled={!!playBusy['pi-audio-01'] || piAudio01.status !== 'online'}
-                            on:change={(e) => {
-                              if (e.currentTarget.checked) {
-                                handlePlayStream('pi-audio-01');
-                              } else {
-                                handleStopDevice('pi-audio-01');
-                              }
-                            }}
-                          />
-                          <span>{piAudio01.name}</span>
-                        </label>
-                      {/if}
-                      {#if piAudio02}
-                        <label class="device-checkbox">
-                          <input
-                            type="checkbox"
-                            checked={piAudio02.playback.state === 'playing'}
-                            disabled={!!playBusy['pi-audio-02'] || piAudio02.status !== 'online'}
-                            on:change={(e) => {
-                              if (e.currentTarget.checked) {
-                                handlePlayStream('pi-audio-02');
-                              } else {
-                                handleStopDevice('pi-audio-02');
-                              }
-                            }}
-                          />
-                          <span>{piAudio02.name}</span>
-                        </label>
-                      {/if}
-                    </div>
                   </td>
                 </tr>
               {/each}
@@ -604,28 +687,26 @@
     margin-bottom: var(--spacing-3);
   }
 
+  .music-library {
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+  }
+
   .music-library table {
     width: 100%;
     border-collapse: collapse;
     border: 1px solid rgba(148, 163, 184, 0.12);
     border-radius: var(--radius-md);
     overflow: hidden;
-    display: block;
-    overflow-x: auto;
-    -webkit-overflow-scrolling: touch;
-  }
-
-  .music-library table thead,
-  .music-library table tbody,
-  .music-library table tr {
-    display: table;
-    width: 100%;
-    table-layout: fixed;
   }
 
   @media (max-width: 768px) {
     .music-library table {
       min-width: 600px;
+    }
+
+    .status-grid {
+      grid-template-columns: 1fr;
     }
   }
 
@@ -709,6 +790,98 @@
     user-select: none;
   }
 
+  .stream-control {
+    margin: var(--spacing-2) 0;
+    padding: var(--spacing-2);
+    background: rgba(59, 130, 246, 0.05);
+    border-radius: var(--radius-sm);
+    border: 1px solid rgba(59, 130, 246, 0.15);
+  }
+
+  .toggle-switch {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    cursor: pointer;
+    user-select: none;
+    position: relative;
+  }
+
+  .toggle-label {
+    font-size: var(--font-size-sm);
+    font-weight: 500;
+    color: rgb(59, 130, 246);
+  }
+
+  .toggle-switch input[type="checkbox"] {
+    position: absolute;
+    opacity: 0;
+    width: 0;
+    height: 0;
+  }
+
+  .toggle-slider {
+    position: relative;
+    display: inline-block;
+    width: 48px;
+    height: 24px;
+    background-color: rgba(156, 163, 175, 0.3);
+    border-radius: 24px;
+    transition: background-color 0.2s ease;
+  }
+
+  .toggle-slider::before {
+    content: '';
+    position: absolute;
+    height: 18px;
+    width: 18px;
+    left: 3px;
+    top: 3px;
+    background-color: white;
+    border-radius: 50%;
+    transition: transform 0.2s ease;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+  }
+
+  .toggle-switch input[type="checkbox"]:checked + .toggle-slider {
+    background-color: rgb(59, 130, 246);
+  }
+
+  .toggle-switch input[type="checkbox"]:checked + .toggle-slider::before {
+    transform: translateX(24px);
+  }
+
+  .toggle-switch input[type="checkbox"]:disabled + .toggle-slider {
+    opacity: 0.5;
+    cursor: not-allowed;
+  }
+
+  .toggle-switch input[type="checkbox"]:disabled ~ .toggle-label {
+    opacity: 0.5;
+  }
+
+  .toggle-switch:has(input[type="checkbox"]:disabled) {
+    cursor: not-allowed;
+  }
+
+  .playback-status {
+    color: var(--color-text-secondary);
+  }
+
+  .playback-status.playing {
+    color: rgb(34, 197, 94);
+  }
+
+  .current-track {
+    color: rgb(59, 130, 246);
+    font-size: var(--font-size-sm);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    max-width: 200px;
+    display: inline-block;
+  }
+
   .volume-control {
     display: grid;
     gap: var(--spacing-2);
@@ -787,5 +960,38 @@
     color: rgb(251, 191, 36);
     font-weight: 600;
     font-size: var(--font-size-sm);
+  }
+
+  .control-buttons {
+    display: flex;
+    gap: var(--spacing-2);
+    margin-top: var(--spacing-3);
+  }
+
+  .control-btn {
+    flex: 1;
+    padding: var(--spacing-2) var(--spacing-3);
+    background: rgba(59, 130, 246, 0.12);
+    border: 1px solid rgba(59, 130, 246, 0.3);
+    border-radius: var(--radius-sm);
+    color: rgb(147, 197, 253);
+    font-size: var(--font-size-sm);
+    font-weight: 500;
+    cursor: pointer;
+    transition: all 0.15s ease;
+  }
+
+  .control-btn:hover:not(:disabled) {
+    background: rgba(59, 130, 246, 0.2);
+    border-color: rgba(59, 130, 246, 0.5);
+  }
+
+  .control-btn:active:not(:disabled) {
+    transform: scale(0.98);
+  }
+
+  .control-btn:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
   }
 </style>

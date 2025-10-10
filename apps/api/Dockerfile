@@ -18,6 +18,7 @@ FROM node:20-alpine AS runner
 ENV NODE_ENV=production
 ENV PRISMA_CLI_BINARY_TARGETS="linux-musl-arm64-openssl-3.0.x"
 WORKDIR /app
+RUN apk add --no-cache docker-cli
 COPY package.json package-lock.json ./
 COPY prisma ./prisma
 RUN npm ci --omit=dev

@@ -31,6 +31,7 @@ services:
       - ./config:/config:ro
       - liquidsoap-music:/liquidsoap-music
       - fleet-assets:/srv
+      - /var/run/docker.sock:/var/run/docker.sock:ro
     command: ['sh', '-c', 'npm run start']
     restart: unless-stopped
 

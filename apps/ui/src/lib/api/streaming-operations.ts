@@ -20,11 +20,22 @@ export interface LiquidsoapStatus {
   online: boolean;
   libraryFiles: number;
   librarySize: number;
+  playing: boolean;
+  currentTrack: string | null;
+}
+
+export interface SnapcastStatus {
+  online: boolean;
+  connectedClients: number;
+  totalClients: number;
+  listeningClients: number;
+  streamStatus: 'idle' | 'playing' | 'unknown';
 }
 
 export interface StreamingSystemStatus {
   icecast: IcecastStatus;
   liquidsoap: LiquidsoapStatus;
+  snapcast: SnapcastStatus;
   streamUrl: string;
 }
 
@@ -135,12 +146,14 @@ export async function deleteMusicFile(
  * Start Liquidsoap playback
  */
 export async function playLiquidsoap(
+  filename?: string,
   options: { fetch?: typeof fetch } = {}
 ): Promise<void> {
   const fetcher = options.fetch ?? fetch;
   const response = await fetcher(`${API_BASE_URL}/audio/stream/play`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
+    body: filename ? JSON.stringify({ filename }) : undefined,
   });
 
   if (!response.ok) {
@@ -186,6 +199,46 @@ export async function skipLiquidsoapTrack(
   if (!response.ok) {
     throw new UiApiError(
       `Failed to skip track: ${response.statusText}`,
+      response.status
+    );
+  }
+}
+
+/**
+ * Start Snapcast server
+ */
+export async function startSnapcastServer(
+  options: { fetch?: typeof fetch } = {}
+): Promise<void> {
+  const fetcher = options.fetch ?? fetch;
+  const response = await fetcher(`${API_BASE_URL}/audio/stream/snapcast/start`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+  });
+
+  if (!response.ok) {
+    throw new UiApiError(
+      `Failed to start Snapcast server: ${response.statusText}`,
+      response.status
+    );
+  }
+}
+
+/**
+ * Stop Snapcast server
+ */
+export async function stopSnapcastServer(
+  options: { fetch?: typeof fetch } = {}
+): Promise<void> {
+  const fetcher = options.fetch ?? fetch;
+  const response = await fetcher(`${API_BASE_URL}/audio/stream/snapcast/stop`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+  });
+
+  if (!response.ok) {
+    throw new UiApiError(
+      `Failed to stop Snapcast server: ${response.statusText}`,
       response.status
     );
   }

@@ -395,7 +395,7 @@ router.post('/devices/:deviceId/stop', async (req, res, next) => {
     const { deviceId } = deviceIdParamSchema.parse(req.params);
     res.locals.deviceId = deviceId;
     log.info({ deviceId }, 'Audio device stop requested');
-    await stopDevice(deviceId);
+    await stopDevice(deviceId, req.correlationId);
     log.info({ deviceId }, 'Audio device stopped');
     res.status(202).json({ accepted: true });
   } catch (error) {
@@ -504,6 +504,8 @@ import {
   startLiquidsoapPlayback,
   stopLiquidsoapPlayback,
   skipLiquidsoapTrack,
+  startSnapcastServer,
+  stopSnapcastServer,
 } from '../services/streaming.js';
 
 router.get('/stream/status', async (_req, res, next) => {
@@ -557,10 +559,12 @@ router.delete('/stream/library/:filename', async (req, res, next) => {
   }
 });
 
-router.post('/stream/play', async (_req, res, next) => {
+router.post('/stream/play', async (req, res, next) => {
   res.locals.routePath = '/audio/stream/play';
   try {
-    await startLiquidsoapPlayback();
+    const schema = z.object({ filename: z.string().optional() });
+    const payload = schema.parse(req.body ?? {});
+    await startLiquidsoapPlayback(payload.filename);
     res.status(202).json({ success: true });
   } catch (error) {
     next(error);
@@ -581,6 +585,26 @@ router.post('/stream/skip', async (_req, res, next) => {
   res.locals.routePath = '/audio/stream/skip';
   try {
     await skipLiquidsoapTrack();
+    res.status(202).json({ success: true });
+  } catch (error) {
+    next(error);
+  }
+});
+
+router.post('/stream/snapcast/start', async (_req, res, next) => {
+  res.locals.routePath = '/audio/stream/snapcast/start';
+  try {
+    await startSnapcastServer();
+    res.status(202).json({ success: true });
+  } catch (error) {
+    next(error);
+  }
+});
+
+router.post('/stream/snapcast/stop', async (_req, res, next) => {
+  res.locals.routePath = '/audio/stream/snapcast/stop';
+  try {
+    await stopSnapcastServer();
     res.status(202).json({ success: true });
   } catch (error) {
     next(error);
